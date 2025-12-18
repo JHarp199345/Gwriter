@@ -1,0 +1,11 @@
+{
+	"id": "writing-dashboard",
+	"name": "Writing Dashboard",
+	"version": "1.0.0",
+	"minAppVersion": "1.0.0",
+	"description": "Writing dashboard with chapter generation, micro-edits, and character management",
+	"author": "Your Name",
+	"main": "main.js",
+	"styles": ["styles.css"]
+}
+
