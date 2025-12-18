@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import WritingDashboardPlugin from '../main';
 import { VaultBrowser } from './VaultBrowser';
 import { EditorPanel } from './EditorPanel';
@@ -15,25 +15,30 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [generatedText, setGeneratedText] = useState('');
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [backendConnected, setBackendConnected] = useState(false);
-
-	useEffect(() => {
-		// Check backend connection on mount
-		plugin.pythonBridge.healthCheck().then(setBackendConnected);
-	}, []);
 
 	const handleGenerate = async () => {
+		if (!plugin.settings.apiKey) {
+			setError('Please configure your API key in settings');
+			return;
+		}
+
 		setIsGenerating(true);
 		setError(null);
 		try {
-			const result = await plugin.pythonBridge.generate({
-				mode,
-				selectedText: mode === 'micro-edit' ? selectedText : undefined,
-				directorNotes,
-				wordCount: mode === 'chapter' ? wordCount : undefined,
-				settings: plugin.settings
-			});
-			setGeneratedText(result.text);
+			let prompt: string;
+			let context;
+
+			if (mode === 'chapter') {
+				context = await plugin.contextAggregator.getChapterContext();
+				prompt = plugin.promptEngine.buildChapterPrompt(context, directorNotes, wordCount);
+			} else {
+				// micro-edit
+				context = await plugin.contextAggregator.getMicroEditContext(selectedText);
+				prompt = plugin.promptEngine.buildMicroEditPrompt(selectedText, directorNotes, context);
+			}
+
+			const result = await plugin.aiClient.generate(prompt, plugin.settings);
+			setGeneratedText(result);
 		} catch (err: any) {
 			setError(err.message || 'Generation failed');
 			console.error('Generation error:', err);
@@ -47,18 +52,27 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			setError('Please select text to extract character information from');
 			return;
 		}
+
+		if (!plugin.settings.apiKey) {
+			setError('Please configure your API key in settings');
+			return;
+		}
+
 		setIsGenerating(true);
 		setError(null);
 		try {
-			const result = await plugin.pythonBridge.extractCharacters({
-				selectedText,
-				settings: plugin.settings
-			});
+			const characterNotes = await plugin.contextAggregator.getCharacterNotes();
+			const storyBible = await plugin.contextAggregator.readFile(plugin.settings.storyBiblePath);
+			const prompt = plugin.promptEngine.buildCharacterExtractionPrompt(selectedText, characterNotes, storyBible);
+			
+			const extractionResult = await plugin.aiClient.generate(prompt, plugin.settings);
+			const updates = plugin.characterExtractor.parseExtraction(extractionResult);
+			
 			// Apply updates to character files
-			await plugin.vaultService.updateCharacterNotes(result.updates);
+			await plugin.vaultService.updateCharacterNotes(updates);
 			setError(null);
 			// Show success message
-			alert(`Updated ${result.updates.length} character note(s)`);
+			alert(`Updated ${updates.length} character note(s)`);
 		} catch (err: any) {
 			setError(err.message || 'Character extraction failed');
 			console.error('Character update error:', err);
@@ -76,9 +90,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 	return (
 		<div className="writing-dashboard">
-			{!backendConnected && (
+			{!plugin.settings.apiKey && (
 				<div className="backend-warning">
-					⚠️ Backend not connected. Make sure the Python server is running on {plugin.settings.pythonBackendUrl}
+					⚠️ Please configure your API key in Settings → Writing Dashboard
 				</div>
 			)}
 			<div className="dashboard-layout">
@@ -118,14 +132,14 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					<div className="controls">
 						<button 
 							onClick={handleGenerate}
-							disabled={isGenerating || !backendConnected}
+							disabled={isGenerating || !plugin.settings.apiKey}
 							className="generate-button"
 						>
 							{isGenerating ? 'Generating...' : mode === 'chapter' ? 'Generate Chapter' : 'Generate Edit'}
 						</button>
 						<button 
 							onClick={handleUpdateCharacters}
-							disabled={isGenerating || !selectedText || !backendConnected}
+							disabled={isGenerating || !selectedText || !plugin.settings.apiKey}
 							className="update-characters-button"
 						>
 							Update Characters

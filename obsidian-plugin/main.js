@@ -9,9 +9,6 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __esm = (fn, res) => function __init() {
-  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
-};
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
@@ -1108,7 +1105,7 @@ var require_react_development = __commonJS({
           var dispatcher = resolveDispatcher();
           return dispatcher.useRef(initialValue);
         }
-        function useEffect3(create, deps) {
+        function useEffect2(create, deps) {
           var dispatcher = resolveDispatcher();
           return dispatcher.useEffect(create, deps);
         }
@@ -1891,7 +1888,7 @@ var require_react_development = __commonJS({
         exports.useContext = useContext;
         exports.useDebugValue = useDebugValue;
         exports.useDeferredValue = useDeferredValue;
-        exports.useEffect = useEffect3;
+        exports.useEffect = useEffect2;
         exports.useId = useId;
         exports.useImperativeHandle = useImperativeHandle;
         exports.useInsertionEffect = useInsertionEffect;
@@ -23564,71 +23561,13 @@ var require_client = __commonJS({
   }
 });
 
-// services/PythonBridge.ts
-var PythonBridge_exports = {};
-__export(PythonBridge_exports, {
-  PythonBridge: () => PythonBridge
-});
-var PythonBridge;
-var init_PythonBridge = __esm({
-  "services/PythonBridge.ts"() {
-    PythonBridge = class {
-      constructor(baseUrl) {
-        this.baseUrl = baseUrl;
-      }
-      async generate(params) {
-        const endpoint = params.mode === "chapter" ? "/api/generate/chapter" : "/api/generate/micro-edit";
-        const response = await fetch(`${this.baseUrl}${endpoint}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            mode: params.mode,
-            selectedText: params.selectedText,
-            directorNotes: params.directorNotes,
-            wordCount: params.wordCount,
-            settings: params.settings
-          })
-        });
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Backend error: ${response.status} - ${errorText}`);
-        }
-        return await response.json();
-      }
-      async extractCharacters(params) {
-        const response = await fetch(`${this.baseUrl}/api/extract/characters`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            selectedText: params.selectedText,
-            settings: params.settings
-          })
-        });
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Backend error: ${response.status} - ${errorText}`);
-        }
-        return await response.json();
-      }
-      async healthCheck() {
-        try {
-          const response = await fetch(`${this.baseUrl}/health`);
-          return response.ok;
-        } catch (e) {
-          return false;
-        }
-      }
-    };
-  }
-});
-
 // main.ts
 var main_exports = {};
 __export(main_exports, {
   default: () => WritingDashboardPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 
 // ui/DashboardView.ts
 var import_obsidian = require("obsidian");
@@ -23746,22 +23685,25 @@ var DashboardComponent = ({ plugin }) => {
   const [generatedText, setGeneratedText] = (0, import_react5.useState)("");
   const [isGenerating, setIsGenerating] = (0, import_react5.useState)(false);
   const [error, setError] = (0, import_react5.useState)(null);
-  const [backendConnected, setBackendConnected] = (0, import_react5.useState)(false);
-  (0, import_react5.useEffect)(() => {
-    plugin.pythonBridge.healthCheck().then(setBackendConnected);
-  }, []);
   const handleGenerate = async () => {
+    if (!plugin.settings.apiKey) {
+      setError("Please configure your API key in settings");
+      return;
+    }
     setIsGenerating(true);
     setError(null);
     try {
-      const result = await plugin.pythonBridge.generate({
-        mode,
-        selectedText: mode === "micro-edit" ? selectedText : void 0,
-        directorNotes,
-        wordCount: mode === "chapter" ? wordCount : void 0,
-        settings: plugin.settings
-      });
-      setGeneratedText(result.text);
+      let prompt;
+      let context;
+      if (mode === "chapter") {
+        context = await plugin.contextAggregator.getChapterContext();
+        prompt = plugin.promptEngine.buildChapterPrompt(context, directorNotes, wordCount);
+      } else {
+        context = await plugin.contextAggregator.getMicroEditContext(selectedText);
+        prompt = plugin.promptEngine.buildMicroEditPrompt(selectedText, directorNotes, context);
+      }
+      const result = await plugin.aiClient.generate(prompt, plugin.settings);
+      setGeneratedText(result);
     } catch (err) {
       setError(err.message || "Generation failed");
       console.error("Generation error:", err);
@@ -23774,16 +23716,21 @@ var DashboardComponent = ({ plugin }) => {
       setError("Please select text to extract character information from");
       return;
     }
+    if (!plugin.settings.apiKey) {
+      setError("Please configure your API key in settings");
+      return;
+    }
     setIsGenerating(true);
     setError(null);
     try {
-      const result = await plugin.pythonBridge.extractCharacters({
-        selectedText,
-        settings: plugin.settings
-      });
-      await plugin.vaultService.updateCharacterNotes(result.updates);
+      const characterNotes = await plugin.contextAggregator.getCharacterNotes();
+      const storyBible = await plugin.contextAggregator.readFile(plugin.settings.storyBiblePath);
+      const prompt = plugin.promptEngine.buildCharacterExtractionPrompt(selectedText, characterNotes, storyBible);
+      const extractionResult = await plugin.aiClient.generate(prompt, plugin.settings);
+      const updates = plugin.characterExtractor.parseExtraction(extractionResult);
+      await plugin.vaultService.updateCharacterNotes(updates);
       setError(null);
-      alert(`Updated ${result.updates.length} character note(s)`);
+      alert(`Updated ${updates.length} character note(s)`);
     } catch (err) {
       setError(err.message || "Character extraction failed");
       console.error("Character update error:", err);
@@ -23797,7 +23744,7 @@ var DashboardComponent = ({ plugin }) => {
       alert("Copied to clipboard!");
     }
   };
-  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "writing-dashboard" }, !backendConnected && /* @__PURE__ */ import_react5.default.createElement("div", { className: "backend-warning" }, "\u26A0\uFE0F Backend not connected. Make sure the Python server is running on ", plugin.settings.pythonBackendUrl), /* @__PURE__ */ import_react5.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "sidebar" }, /* @__PURE__ */ import_react5.default.createElement(VaultBrowser, { plugin })), /* @__PURE__ */ import_react5.default.createElement("div", { className: "main-workspace" }, /* @__PURE__ */ import_react5.default.createElement(
+  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "writing-dashboard" }, !plugin.settings.apiKey && /* @__PURE__ */ import_react5.default.createElement("div", { className: "backend-warning" }, "\u26A0\uFE0F Please configure your API key in Settings \u2192 Writing Dashboard"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "sidebar" }, /* @__PURE__ */ import_react5.default.createElement(VaultBrowser, { plugin })), /* @__PURE__ */ import_react5.default.createElement("div", { className: "main-workspace" }, /* @__PURE__ */ import_react5.default.createElement(
     EditorPanel,
     {
       plugin,
@@ -23826,7 +23773,7 @@ var DashboardComponent = ({ plugin }) => {
     "button",
     {
       onClick: handleGenerate,
-      disabled: isGenerating || !backendConnected,
+      disabled: isGenerating || !plugin.settings.apiKey,
       className: "generate-button"
     },
     isGenerating ? "Generating..." : mode === "chapter" ? "Generate Chapter" : "Generate Edit"
@@ -23834,7 +23781,7 @@ var DashboardComponent = ({ plugin }) => {
     "button",
     {
       onClick: handleUpdateCharacters,
-      disabled: isGenerating || !selectedText || !backendConnected,
+      disabled: isGenerating || !selectedText || !plugin.settings.apiKey,
       className: "update-characters-button"
     },
     "Update Characters"
@@ -23922,17 +23869,8 @@ var SettingsTab = class extends import_obsidian2.PluginSettingTab {
       this.plugin.settings.slidingWindowPath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(containerEl).setName("Python Backend URL").setDesc("URL of the Python backend server").addText((text) => text.setPlaceholder("http://localhost:8000").setValue(this.plugin.settings.pythonBackendUrl).onChange(async (value) => {
-      this.plugin.settings.pythonBackendUrl = value;
-      const { PythonBridge: PythonBridge2 } = await Promise.resolve().then(() => (init_PythonBridge(), PythonBridge_exports));
-      this.plugin.pythonBridge = new PythonBridge2(value);
-      await this.plugin.saveSettings();
-    }));
   }
 };
-
-// main.ts
-init_PythonBridge();
 
 // services/VaultService.ts
 var import_obsidian3 = require("obsidian");
@@ -24006,6 +23944,439 @@ ${update}
   }
 };
 
+// services/ContextAggregator.ts
+var import_obsidian4 = require("obsidian");
+var ContextAggregator = class {
+  constructor(vault, plugin) {
+    this.vault = vault;
+    this.plugin = plugin;
+  }
+  async getChapterContext() {
+    const settings = this.plugin.settings;
+    return {
+      smart_connections: await this.getSmartConnections(),
+      book2: await this.readFile(settings.book2Path),
+      story_bible: await this.readFile(settings.storyBiblePath),
+      extractions: await this.readFile(settings.extractionsPath),
+      sliding_window: await this.readFile(settings.slidingWindowPath)
+    };
+  }
+  async getMicroEditContext(selectedText) {
+    const settings = this.plugin.settings;
+    return {
+      sliding_window: await this.readFile(settings.slidingWindowPath),
+      story_bible: await this.readFile(settings.storyBiblePath),
+      extractions: await this.readFile(settings.extractionsPath),
+      character_notes: await this.formatCharacterNotes(await this.getAllCharacterNotes()),
+      smart_connections: await this.getSmartConnections(32)
+    };
+  }
+  async getCharacterNotes() {
+    return await this.getAllCharacterNotes();
+  }
+  async readFile(path) {
+    try {
+      const file = this.vault.getAbstractFileByPath(path);
+      if (file instanceof import_obsidian4.TFile) {
+        return await this.vault.read(file);
+      }
+      return `[File not found: ${path}]`;
+    } catch (error) {
+      return `[Error reading file ${path}: ${error}]`;
+    }
+  }
+  async getSmartConnections(limit = 64) {
+    const scDataPath = ".obsidian/plugins/smart-connections/data.json";
+    try {
+      const file = this.vault.getAbstractFileByPath(scDataPath);
+      if (file instanceof import_obsidian4.TFile) {
+        const data = JSON.parse(await this.vault.read(file));
+        return "[Smart Connections data loaded - similarity search available]";
+      }
+    } catch (error) {
+      return `[Smart Connections: Error loading data - ${error}]`;
+    }
+    return "[Smart Connections: No data found - ensure plugin is installed and has indexed your vault]";
+  }
+  async getAllCharacterNotes() {
+    const notes = {};
+    const characterFolder = this.plugin.settings.characterFolder;
+    try {
+      const folder = this.vault.getAbstractFileByPath(characterFolder);
+      if (folder instanceof import_obsidian4.TFolder) {
+        for (const child of folder.children) {
+          if (child instanceof import_obsidian4.TFile && child.extension === "md") {
+            const characterName = child.basename;
+            notes[characterName] = await this.vault.read(child);
+          }
+        }
+      }
+    } catch (error) {
+    }
+    return notes;
+  }
+  async formatCharacterNotes(characterNotes) {
+    if (Object.keys(characterNotes).length === 0) {
+      return "[No character notes found]";
+    }
+    const formatted = [];
+    for (const [name, content] of Object.entries(characterNotes)) {
+      formatted.push(`## ${name}
+${content}
+`);
+    }
+    return formatted.join("\n---\n\n");
+  }
+};
+
+// services/PromptEngine.ts
+var PromptEngine = class {
+  buildChapterPrompt(context, instructions, wordCount) {
+    return `SYSTEM INSTRUCTION FOR AI (1M CONTEXT):
+
+You are working on a multi-book narrative. Interpret the following file contents as directed:
+
+-------------------------------------------------------------
+BOOK 1 \u2014 CANON (LOADED VIA SMART CONNECTIONS)
+-------------------------------------------------------------
+${context.smart_connections || ""}
+
+Use these excerpts to maintain continuity, tone, and world consistency.
+Do NOT contradict Book 1 canon.
+
+-------------------------------------------------------------
+BOOK 2 \u2014 ACTIVE MANUSCRIPT (CONTINUE THIS)
+-------------------------------------------------------------
+${context.book2 || ""}
+
+Continue this manuscript.
+
+-------------------------------------------------------------
+STORY BIBLE + EXTRACTIONS \u2014 WORLD + RULESET
+-------------------------------------------------------------
+${context.story_bible || ""}
+${context.extractions || ""}
+
+These define rules of the world, character arcs, faction details, timelines, technology, tone, themes, motifs, and relationship structure.
+These override Book 2 in cases of conflict.
+
+-------------------------------------------------------------
+SLIDING WINDOW \u2014 IMMEDIATE CONTEXT
+-------------------------------------------------------------
+${context.sliding_window || ""}
+
+Continue directly from this.
+
+-------------------------------------------------------------
+AUTHOR INSTRUCTIONS
+-------------------------------------------------------------
+${instructions}
+
+Author provides summary of events to be written or directions (like a director) or both.
+
+-------------------------------------------------------------
+TARGET WORD COUNT
+-------------------------------------------------------------
+${wordCount} words
+
+-------------------------------------------------------------
+SUMMARY OF YOUR ROLE
+-------------------------------------------------------------
+- Book 1 = immutable canon
+- Book 2 = active writing
+- Story Bible + Extractions = world + theme rules
+- Sliding Window = direct lead-in
+- Instructions = style constraints
+
+Continue writing Book 2 using all provided context.
+Maintain perfect continuity and match the author's voice.`;
+  }
+  buildMicroEditPrompt(selectedText, directorNotes, context) {
+    return `SYSTEM INSTRUCTION FOR AI (1M CONTEXT):
+
+You are a line editor working on a specific passage that needs refinement.
+
+-------------------------------------------------------------
+SELECTED PASSAGE TO EDIT
+-------------------------------------------------------------
+${selectedText}
+
+This is the passage the author wants revised.
+
+-------------------------------------------------------------
+AUTHOR GRIEVANCES + DIRECTIVES
+-------------------------------------------------------------
+${directorNotes}
+
+The author's specific concerns, plot disagreements, style issues, or desired changes for this passage.
+
+-------------------------------------------------------------
+IMMEDIATE CONTEXT \u2014 SLIDING WINDOW
+-------------------------------------------------------------
+${context.sliding_window || ""}
+
+This provides immediate narrative context around the selected passage.
+
+-------------------------------------------------------------
+STORY BIBLE + EXTRACTIONS \u2014 CANON CONSTRAINTS
+-------------------------------------------------------------
+${context.story_bible || ""}
+${context.extractions || ""}
+
+Maintain consistency with world rules, character arcs, and established canon.
+
+-------------------------------------------------------------
+CHARACTER NOTES \u2014 VOICE + CONTINUITY
+-------------------------------------------------------------
+${context.character_notes || ""}
+
+Use these to maintain character voice, relationships, and arc progression.
+
+-------------------------------------------------------------
+SMART CONNECTIONS \u2014 STYLE ECHOES
+-------------------------------------------------------------
+${context.smart_connections || ""}
+
+Similar passages for tone and style reference.
+
+-------------------------------------------------------------
+YOUR TASK
+-------------------------------------------------------------
+Generate a SINGLE refined alternative to the selected passage that:
+1. Addresses all author grievances/directives
+2. Maintains perfect continuity with surrounding context
+3. Preserves character voice and established canon
+4. Matches the author's writing style
+5. Flows seamlessly when inserted into the manuscript
+
+Output ONLY the revised passage, ready to be copy-pasted into the manuscript.`;
+  }
+  buildCharacterExtractionPrompt(selectedText, characterNotes, storyBible) {
+    const characterNotesText = Object.entries(characterNotes).map(([name, content]) => `## ${name}
+${content}`).join("\n\n");
+    return `SYSTEM INSTRUCTION FOR AI:
+
+You are extracting character information from a narrative passage.
+
+-------------------------------------------------------------
+PASSAGE TO ANALYZE
+-------------------------------------------------------------
+${selectedText}
+
+Extract character-relevant information from this passage.
+
+-------------------------------------------------------------
+EXISTING CHARACTER NOTES (IF ANY)
+-------------------------------------------------------------
+${characterNotesText || "[No existing character notes]"}
+
+Current state of character files. Update these with new information.
+
+-------------------------------------------------------------
+STORY BIBLE \u2014 CONTEXT
+-------------------------------------------------------------
+${storyBible}
+
+Use for world context and relationship structures.
+
+-------------------------------------------------------------
+EXTRACTION TASK
+-------------------------------------------------------------
+Analyze the passage and extract:
+
+1. **Character Identities**
+   - Names mentioned
+   - New aliases or titles
+   - Role/function in scene
+
+2. **Voice Evidence**
+   - Syntax patterns
+   - Speech cadence
+   - Verbal tells or quirks
+   - Dialogue style
+
+3. **New Traits/Revelations**
+   - Physical descriptions
+   - Personality traits
+   - Skills/abilities shown
+   - Emotional states
+
+4. **Relationship Dynamics**
+   - Interactions with other characters
+   - Relationship changes or revelations
+   - Power dynamics shifts
+
+5. **Arc Progression**
+   - Character development shown
+   - Motivations revealed or changed
+   - Goals/conflicts introduced
+   - Status changes
+
+6. **Spoiler-Sensitive Information**
+   - What must not be revealed yet
+   - Foreshadowing present
+
+Output in the following format for each character found:
+
+## {{CharacterName}}
+
+### {{timestamp}} - Update
+
+**Voice Evidence:**
+[quoted dialogue or narration with page/chapter reference]
+
+**New Traits:**
+- [trait]: [evidence]
+
+**Relationships:**
+- **{{OtherCharacter}}**: [relationship change/evidence]
+
+**Arc Progression:**
+[what changed in this passage]
+
+**Spoiler Notes:**
+[any sensitive information to track]
+
+---
+
+This will be appended to the character's note file with timestamp.`;
+  }
+};
+
+// services/AIClient.ts
+var AIClient = class {
+  async generate(prompt, settings) {
+    if (settings.apiProvider === "openai") {
+      return await this._generateOpenAI(prompt, settings);
+    } else if (settings.apiProvider === "anthropic") {
+      return await this._generateAnthropic(prompt, settings);
+    } else if (settings.apiProvider === "gemini") {
+      return await this._generateGemini(prompt, settings);
+    } else {
+      throw new Error(`Unsupported provider: ${settings.apiProvider}`);
+    }
+  }
+  async _generateOpenAI(prompt, settings) {
+    var _a;
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${settings.apiKey}`
+      },
+      body: JSON.stringify({
+        model: settings.model,
+        messages: [
+          { role: "system", content: "You are a professional writing assistant." },
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 4e3,
+        temperature: 0.7
+      })
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
+      throw new Error(`OpenAI API error: ${((_a = error.error) == null ? void 0 : _a.message) || response.statusText}`);
+    }
+    const data = await response.json();
+    return data.choices[0].message.content;
+  }
+  async _generateAnthropic(prompt, settings) {
+    var _a;
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": settings.apiKey,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify({
+        model: settings.model,
+        max_tokens: 4e3,
+        messages: [
+          { role: "user", content: prompt }
+        ]
+      })
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
+      throw new Error(`Anthropic API error: ${((_a = error.error) == null ? void 0 : _a.message) || response.statusText}`);
+    }
+    const data = await response.json();
+    return data.content[0].text;
+  }
+  async _generateGemini(prompt, settings) {
+    var _a;
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }],
+          generationConfig: {
+            maxOutputTokens: 4e3,
+            temperature: 0.7
+          }
+        })
+      }
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
+      throw new Error(`Gemini API error: ${((_a = error.error) == null ? void 0 : _a.message) || response.statusText}`);
+    }
+    const data = await response.json();
+    return data.candidates[0].content.parts[0].text;
+  }
+};
+
+// services/CharacterExtractor.ts
+var CharacterExtractor = class {
+  parseExtraction(extractionText) {
+    const updates = [];
+    const characterSections = extractionText.split(/^##\s+(.+)$/m);
+    for (let i = 1; i < characterSections.length; i += 2) {
+      if (i + 1 < characterSections.length) {
+        const characterName = characterSections[i].trim();
+        let content = characterSections[i + 1].trim();
+        if (characterName && content) {
+          content = content.replace(/^###\s+.*?Update\s*\n/m, "").trim();
+          if (content) {
+            updates.push({
+              character: characterName,
+              update: content
+            });
+          }
+        }
+      }
+    }
+    if (updates.length === 0) {
+      const characterPattern = /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/g;
+      const potentialCharacters = /* @__PURE__ */ new Set();
+      let match;
+      while ((match = characterPattern.exec(extractionText)) !== null) {
+        const name = match[1];
+        if (name.split(" ").length <= 3) {
+          potentialCharacters.add(name);
+        }
+      }
+      for (const charName of potentialCharacters) {
+        updates.push({
+          character: charName,
+          update: extractionText
+        });
+      }
+    }
+    return updates;
+  }
+};
+
 // main.ts
 var DEFAULT_SETTINGS = {
   apiKey: "",
@@ -24016,11 +24387,9 @@ var DEFAULT_SETTINGS = {
   book2Path: "Book - MAIN 2.md",
   storyBiblePath: "Book - Story Bible.md",
   extractionsPath: "Extractions.md",
-  slidingWindowPath: "Memory - Sliding Window.md",
-  pythonBackendUrl: "http://localhost:8000",
-  pythonBackendPort: 8e3
+  slidingWindowPath: "Memory - Sliding Window.md"
 };
-var WritingDashboardPlugin = class extends import_obsidian4.Plugin {
+var WritingDashboardPlugin = class extends import_obsidian5.Plugin {
   async onload() {
     await this.loadSettings();
     if (!this.settings.vaultPath) {
@@ -24028,7 +24397,10 @@ var WritingDashboardPlugin = class extends import_obsidian4.Plugin {
       await this.saveSettings();
     }
     this.vaultService = new VaultService(this.app.vault, this);
-    this.pythonBridge = new PythonBridge(this.settings.pythonBackendUrl);
+    this.contextAggregator = new ContextAggregator(this.app.vault, this);
+    this.promptEngine = new PromptEngine();
+    this.aiClient = new AIClient();
+    this.characterExtractor = new CharacterExtractor();
     this.registerView(
       VIEW_TYPE_DASHBOARD,
       (leaf) => new DashboardView(leaf, this)

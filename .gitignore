@@ -21,7 +21,7 @@ package-lock.json
 yarn.lock
 
 # Obsidian Plugin
-obsidian-plugin/main.js
+# Note: main.js is included for community plugin installation
 obsidian-plugin/main.js.map
 obsidian-plugin/.obsidian/
 

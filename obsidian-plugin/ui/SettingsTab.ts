@@ -116,19 +116,6 @@ export class SettingsTab extends PluginSettingTab {
 					this.plugin.settings.slidingWindowPath = value;
 					await this.plugin.saveSettings();
 				}));
-
-		new Setting(containerEl)
-			.setName('Python Backend URL')
-			.setDesc('URL of the Python backend server')
-			.addText(text => text
-				.setPlaceholder('http://localhost:8000')
-				.setValue(this.plugin.settings.pythonBackendUrl)
-				.onChange(async (value) => {
-					this.plugin.settings.pythonBackendUrl = value;
-					const { PythonBridge } = await import('../services/PythonBridge');
-					this.plugin.pythonBridge = new PythonBridge(value);
-					await this.plugin.saveSettings();
-				}));
 	}
 }
 

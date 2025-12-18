@@ -34,25 +34,9 @@ A comprehensive writing dashboard for Obsidian that integrates AI-powered chapte
 
 ## Requirements
 
-This plugin requires a **Python backend server** to be running. The backend handles AI API calls and processing.
-
-### Backend Setup
-
-1. Clone or download the backend from the [main repository](https://github.com/JHarp199345/Gwriter)
-2. Navigate to the `backend` folder
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   # or
-   python3 -m pip install -r requirements.txt
-   ```
-4. Start the server:
-   ```bash
-   python main.py
-   # or
-   python3 main.py
-   ```
-5. The server will run on `http://localhost:8000` by default
+- Obsidian installed
+- An AI API key (OpenAI, Anthropic, or Gemini)
+- **No Python backend needed!** This plugin works entirely within Obsidian.
 
 ## Installation
 
@@ -81,7 +65,6 @@ This plugin requires a **Python backend server** to be running. The backend hand
    - **Vault Path**: Auto-detected, but can be overridden
    - **Character Folder**: Default is `Characters`
    - **File Paths**: Configure paths to your Story Bible, Extractions, Sliding Window, etc.
-   - **Python Backend URL**: Default is `http://localhost:8000`
 
 ## Usage
 
@@ -115,21 +98,19 @@ This plugin requires a **Python backend server** to be running. The backend hand
 
 ## Architecture
 
-This plugin uses a **hybrid architecture**:
+This plugin is **fully self-contained**:
 
-- **Obsidian Plugin** (Frontend) - TypeScript/React UI
-- **Python Backend** (FastAPI) - AI processing, prompt engineering, character extraction
-
-The backend must be running separately for the plugin to function.
+- **Pure Obsidian Plugin** - TypeScript/React UI
+- **Direct AI API Integration** - Makes API calls directly from the plugin
+- **No Backend Required** - Everything runs within Obsidian
 
 ## Troubleshooting
 
-### Backend Not Connecting
+### API Key Issues
 
-- Ensure Python backend is running: `python main.py` (or `python3 main.py`)
-- Check the URL in settings matches your backend
-- Try accessing `http://localhost:8000/health` in your browser
-- Verify firewall/network settings
+- Ensure your API key is correctly entered in settings
+- Verify the API key is valid and has credits/quota
+- Check that the model name matches your provider
 
 ### API Errors
 

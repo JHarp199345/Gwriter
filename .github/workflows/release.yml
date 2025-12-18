@@ -1,0 +1,42 @@
+name: Release Obsidian Plugin
+
+on:
+  push:
+    tags:
+      - 'obsidian-plugin-v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: |
+          cd obsidian-plugin
+          npm install
+      
+      - name: Build plugin
+        run: |
+          cd obsidian-plugin
+          npm run build
+      
+      - name: Create release package
+        run: |
+          cd obsidian-plugin
+          zip -r ../writing-dashboard.zip . -x "*.ts" -x "*.tsx" -x "node_modules/*" -x ".git/*" -x "*.map" -x "esbuild.config.mjs" -x "tsconfig.json" -x "package*.json"
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: writing-dashboard.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

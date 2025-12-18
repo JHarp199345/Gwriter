@@ -1,8 +1,11 @@
 import { Plugin, TFile, TFolder, Setting, App } from 'obsidian';
 import { DashboardView, VIEW_TYPE_DASHBOARD } from './ui/DashboardView';
 import { SettingsTab } from './ui/SettingsTab';
-import { PythonBridge } from './services/PythonBridge';
 import { VaultService } from './services/VaultService';
+import { ContextAggregator } from './services/ContextAggregator';
+import { PromptEngine } from './services/PromptEngine';
+import { AIClient } from './services/AIClient';
+import { CharacterExtractor } from './services/CharacterExtractor';
 
 export interface DashboardSettings {
 	apiKey: string;
@@ -14,8 +17,6 @@ export interface DashboardSettings {
 	storyBiblePath: string;
 	extractionsPath: string;
 	slidingWindowPath: string;
-	pythonBackendUrl: string;
-	pythonBackendPort: number;
 }
 
 const DEFAULT_SETTINGS: DashboardSettings = {
@@ -27,15 +28,16 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 	book2Path: 'Book - MAIN 2.md',
 	storyBiblePath: 'Book - Story Bible.md',
 	extractionsPath: 'Extractions.md',
-	slidingWindowPath: 'Memory - Sliding Window.md',
-	pythonBackendUrl: 'http://localhost:8000',
-	pythonBackendPort: 8000
+	slidingWindowPath: 'Memory - Sliding Window.md'
 };
 
 export default class WritingDashboardPlugin extends Plugin {
 	settings: DashboardSettings;
-	pythonBridge: PythonBridge;
 	vaultService: VaultService;
+	contextAggregator: ContextAggregator;
+	promptEngine: PromptEngine;
+	aiClient: AIClient;
+	characterExtractor: CharacterExtractor;
 
 	async onload() {
 		await this.loadSettings();
@@ -48,7 +50,10 @@ export default class WritingDashboardPlugin extends Plugin {
 		}
 		
 		this.vaultService = new VaultService(this.app.vault, this);
-		this.pythonBridge = new PythonBridge(this.settings.pythonBackendUrl);
+		this.contextAggregator = new ContextAggregator(this.app.vault, this);
+		this.promptEngine = new PromptEngine();
+		this.aiClient = new AIClient();
+		this.characterExtractor = new CharacterExtractor();
 		
 		this.registerView(
 			VIEW_TYPE_DASHBOARD,
