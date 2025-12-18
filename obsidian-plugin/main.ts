@@ -6,7 +6,7 @@ import { VaultService } from './services/VaultService';
 
 export interface DashboardSettings {
 	apiKey: string;
-	apiProvider: 'openai' | 'anthropic' | 'local';
+	apiProvider: 'openai' | 'anthropic' | 'gemini';
 	model: string;
 	vaultPath: string;
 	characterFolder: string;
@@ -42,7 +42,8 @@ export default class WritingDashboardPlugin extends Plugin {
 		
 		// Set vault path if not set
 		if (!this.settings.vaultPath) {
-			this.settings.vaultPath = this.app.vault.adapter.basePath;
+			// @ts-ignore - basePath exists but not in types
+			this.settings.vaultPath = this.app.vault.adapter.basePath || '';
 			await this.saveSettings();
 		}
 		

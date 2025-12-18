@@ -3,8 +3,10 @@
 	"name": "Writing Dashboard",
 	"version": "1.0.0",
 	"minAppVersion": "1.0.0",
-	"description": "Writing dashboard with chapter generation, micro-edits, and character management",
-	"author": "Your Name",
+	"description": "AI-powered writing dashboard with chapter generation, micro-edits, and character management. Requires Python backend.",
+	"author": "JHarp199345",
+	"authorUrl": "https://github.com/JHarp199345",
+	"fundingUrl": "",
 	"main": "main.js",
 	"styles": ["styles.css"]
 }

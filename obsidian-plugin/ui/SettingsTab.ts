@@ -33,15 +33,16 @@ export class SettingsTab extends PluginSettingTab {
 			.addDropdown(dropdown => dropdown
 				.addOption('openai', 'OpenAI')
 				.addOption('anthropic', 'Anthropic')
+				.addOption('gemini', 'Gemini')
 				.setValue(this.plugin.settings.apiProvider)
-				.onChange(async (value: 'openai' | 'anthropic') => {
+				.onChange(async (value: 'openai' | 'anthropic' | 'gemini') => {
 					this.plugin.settings.apiProvider = value;
 					await this.plugin.saveSettings();
 				}));
 
 		new Setting(containerEl)
 			.setName('Model')
-			.setDesc('AI model to use (e.g., gpt-4, claude-3-opus)')
+			.setDesc('AI model to use (e.g., gpt-4, claude-3-opus, gemini-pro)')
 			.addText(text => text
 				.setPlaceholder('gpt-4')
 				.setValue(this.plugin.settings.model)

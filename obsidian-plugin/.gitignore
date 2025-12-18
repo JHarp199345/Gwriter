@@ -1,0 +1,11 @@
+node_modules/
+# main.js is included for community plugin installation
+main.js.map
+.DS_Store
+*.log
+*.tsbuildinfo
+# Exclude individual compiled files, we only need the bundled main.js
+services/*.js
+ui/*.js
+!main.js
+

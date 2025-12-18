@@ -11,7 +11,7 @@ if you want to view the source, please visit the github repository of this plugi
 */
 `;
 
-const context = await esbuild.context({
+const buildOptions = {
 	banner: {
 		js: banner,
 	},
@@ -33,18 +33,18 @@ const context = await esbuild.context({
 		'@lezer/lr',
 		...builtins],
 	format: 'cjs',
-	watch: !isProduction,
 	target: 'es2018',
 	logLevel: "info",
 	sourcemap: isProduction ? false : 'inline',
 	treeShaking: true,
 	outfile: 'main.js',
-});
+};
 
 if (isProduction) {
-	await context.rebuild();
+	await esbuild.build(buildOptions);
 	process.exit(0);
 } else {
+	const context = await esbuild.context(buildOptions);
 	await context.watch();
 }
 
