@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 
 type Mode = 'chapter' | 'micro-edit' | 'character-update';
 
@@ -7,6 +7,8 @@ export const DirectorNotes: React.FC<{
 	onChange: (value: string) => void;
 	mode: Mode;
 }> = ({ value, onChange, mode }) => {
+	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	
 	const placeholder = mode === 'chapter' 
 		? 'Enter your slate instructions, directions, and story elements...'
 		: mode === 'micro-edit'
@@ -19,6 +21,7 @@ export const DirectorNotes: React.FC<{
 				{mode === 'chapter' ? 'Author Instructions:' : mode === 'micro-edit' ? 'Grievances & Directives:' : 'Notes (optional):'}
 			</label>
 			<textarea
+				ref={textareaRef}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				placeholder={placeholder}

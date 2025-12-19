@@ -5,6 +5,8 @@ export interface Context {
 	extractions?: string;
 	sliding_window?: string;
 	character_notes?: string;
+	surrounding_before?: string;
+	surrounding_after?: string;
 }
 
 export class PromptEngine {
@@ -75,11 +77,25 @@ Maintain perfect continuity and match the author's voice.`;
 You are a line editor working on a specific passage that needs refinement.
 
 -------------------------------------------------------------
+CONTEXT BEFORE SELECTED PASSAGE (500 words)
+-------------------------------------------------------------
+${context.surrounding_before || '[No preceding context available]'}
+
+This is the text immediately before the passage to be edited. Use this to ensure smooth narrative flow and continuity.
+
+-------------------------------------------------------------
 SELECTED PASSAGE TO EDIT
 -------------------------------------------------------------
 ${selectedText}
 
 This is the passage the author wants revised.
+
+-------------------------------------------------------------
+CONTEXT AFTER SELECTED PASSAGE (500 words)
+-------------------------------------------------------------
+${context.surrounding_after || '[No following context available]'}
+
+This is the text immediately after the passage to be edited. Use this to ensure smooth narrative flow and continuity.
 
 -------------------------------------------------------------
 AUTHOR GRIEVANCES + DIRECTIVES
@@ -122,10 +138,10 @@ YOUR TASK
 -------------------------------------------------------------
 Generate a SINGLE refined alternative to the selected passage that:
 1. Addresses all author grievances/directives
-2. Maintains perfect continuity with surrounding context
+2. Maintains perfect continuity with surrounding context (especially the 500 words before and after)
 3. Preserves character voice and established canon
 4. Matches the author's writing style
-5. Flows seamlessly when inserted into the manuscript
+5. Flows seamlessly when inserted into the manuscript, creating smooth transitions with the text before and after
 
 Output ONLY the revised passage, ready to be copy-pasted into the manuscript.`;
 	}

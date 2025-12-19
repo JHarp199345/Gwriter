@@ -1101,7 +1101,7 @@ var require_react_development = __commonJS({
           var dispatcher = resolveDispatcher();
           return dispatcher.useReducer(reducer, initialArg, init);
         }
-        function useRef(initialValue) {
+        function useRef2(initialValue) {
           var dispatcher = resolveDispatcher();
           return dispatcher.useRef(initialValue);
         }
@@ -1895,7 +1895,7 @@ var require_react_development = __commonJS({
         exports.useLayoutEffect = useLayoutEffect;
         exports.useMemo = useMemo;
         exports.useReducer = useReducer;
-        exports.useRef = useRef;
+        exports.useRef = useRef2;
         exports.useState = useState3;
         exports.useSyncExternalStore = useSyncExternalStore;
         exports.useTransition = useTransition;
@@ -23646,10 +23646,12 @@ var EditorPanel = ({ selectedText, onSelectionChange, generatedText, onCopy }) =
 // ui/DirectorNotes.tsx
 var import_react3 = __toESM(require_react());
 var DirectorNotes = ({ value, onChange, mode }) => {
+  const textareaRef = (0, import_react3.useRef)(null);
   const placeholder = mode === "chapter" ? "Enter your slate instructions, directions, and story elements..." : mode === "micro-edit" ? "Enter your grievances, plot disagreements, or desired changes..." : "Character extraction will analyze the selected text automatically...";
   return /* @__PURE__ */ import_react3.default.createElement("div", { className: "director-notes" }, /* @__PURE__ */ import_react3.default.createElement("label", null, mode === "chapter" ? "Author Instructions:" : mode === "micro-edit" ? "Grievances & Directives:" : "Notes (optional):"), /* @__PURE__ */ import_react3.default.createElement(
     "textarea",
     {
+      ref: textareaRef,
       value,
       onChange: (e) => onChange(e.target.value),
       placeholder,
@@ -24143,12 +24145,15 @@ var ContextAggregator = class {
   }
   async getMicroEditContext(selectedText) {
     const settings = this.plugin.settings;
+    const surrounding = await this.getSurroundingContext(selectedText, 500, 500);
     return {
       sliding_window: await this.readFile(settings.slidingWindowPath),
       story_bible: await this.readFile(settings.storyBiblePath),
       extractions: await this.readFile(settings.extractionsPath),
       character_notes: await this.formatCharacterNotes(await this.getAllCharacterNotes()),
-      smart_connections: await this.getSmartConnections(32)
+      smart_connections: await this.getSmartConnections(32),
+      surrounding_before: surrounding.before,
+      surrounding_after: surrounding.after
     };
   }
   async getCharacterNotes() {
@@ -24206,6 +24211,43 @@ ${content}
 `);
     }
     return formatted.join("\n---\n\n");
+  }
+  // Helper method to extract words from text
+  extractWords(text, count) {
+    const words = text.trim().split(/\s+/);
+    if (words.length <= count)
+      return text;
+    return words.slice(0, count).join(" ");
+  }
+  // Helper method to extract words from the end of text
+  extractWordsFromEnd(text, count) {
+    const words = text.trim().split(/\s+/);
+    if (words.length <= count)
+      return text;
+    return words.slice(-count).join(" ");
+  }
+  // Get surrounding context (words before and after selected text)
+  async getSurroundingContext(selectedText, wordsBefore = 500, wordsAfter = 500) {
+    const settings = this.plugin.settings;
+    let sourceText = "";
+    try {
+      sourceText = await this.readFile(settings.slidingWindowPath);
+    } catch (e) {
+      try {
+        sourceText = await this.readFile(settings.book2Path);
+      } catch (e2) {
+        return { before: "", after: "" };
+      }
+    }
+    const selectedIndex = sourceText.indexOf(selectedText);
+    if (selectedIndex === -1) {
+      return { before: "", after: "" };
+    }
+    const textBefore = sourceText.substring(0, selectedIndex);
+    const beforeWords = this.extractWordsFromEnd(textBefore, wordsBefore);
+    const textAfter = sourceText.substring(selectedIndex + selectedText.length);
+    const afterWords = this.extractWords(textAfter, wordsAfter);
+    return { before: beforeWords, after: afterWords };
   }
 };
 
@@ -24277,11 +24319,25 @@ Maintain perfect continuity and match the author's voice.`;
 You are a line editor working on a specific passage that needs refinement.
 
 -------------------------------------------------------------
+CONTEXT BEFORE SELECTED PASSAGE (500 words)
+-------------------------------------------------------------
+${context.surrounding_before || "[No preceding context available]"}
+
+This is the text immediately before the passage to be edited. Use this to ensure smooth narrative flow and continuity.
+
+-------------------------------------------------------------
 SELECTED PASSAGE TO EDIT
 -------------------------------------------------------------
 ${selectedText}
 
 This is the passage the author wants revised.
+
+-------------------------------------------------------------
+CONTEXT AFTER SELECTED PASSAGE (500 words)
+-------------------------------------------------------------
+${context.surrounding_after || "[No following context available]"}
+
+This is the text immediately after the passage to be edited. Use this to ensure smooth narrative flow and continuity.
 
 -------------------------------------------------------------
 AUTHOR GRIEVANCES + DIRECTIVES
@@ -24324,10 +24380,10 @@ YOUR TASK
 -------------------------------------------------------------
 Generate a SINGLE refined alternative to the selected passage that:
 1. Addresses all author grievances/directives
-2. Maintains perfect continuity with surrounding context
+2. Maintains perfect continuity with surrounding context (especially the 500 words before and after)
 3. Preserves character voice and established canon
 4. Matches the author's writing style
-5. Flows seamlessly when inserted into the manuscript
+5. Flows seamlessly when inserted into the manuscript, creating smooth transitions with the text before and after
 
 Output ONLY the revised passage, ready to be copy-pasted into the manuscript.`;
   }

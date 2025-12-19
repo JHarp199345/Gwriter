@@ -25,13 +25,16 @@ export class ContextAggregator {
 
 	async getMicroEditContext(selectedText: string): Promise<Context> {
 		const settings = this.plugin.settings;
+		const surrounding = await this.getSurroundingContext(selectedText, 500, 500);
 		
 		return {
 			sliding_window: await this.readFile(settings.slidingWindowPath),
 			story_bible: await this.readFile(settings.storyBiblePath),
 			extractions: await this.readFile(settings.extractionsPath),
 			character_notes: await this.formatCharacterNotes(await this.getAllCharacterNotes()),
-			smart_connections: await this.getSmartConnections(32)
+			smart_connections: await this.getSmartConnections(32),
+			surrounding_before: surrounding.before,
+			surrounding_after: surrounding.after
 		};
 	}
 
@@ -100,6 +103,55 @@ export class ContextAggregator {
 		}
 		
 		return formatted.join('\n---\n\n');
+	}
+
+	// Helper method to extract words from text
+	private extractWords(text: string, count: number): string {
+		const words = text.trim().split(/\s+/);
+		if (words.length <= count) return text;
+		return words.slice(0, count).join(' ');
+	}
+
+	// Helper method to extract words from the end of text
+	private extractWordsFromEnd(text: string, count: number): string {
+		const words = text.trim().split(/\s+/);
+		if (words.length <= count) return text;
+		return words.slice(-count).join(' ');
+	}
+
+	// Get surrounding context (words before and after selected text)
+	async getSurroundingContext(selectedText: string, wordsBefore: number = 500, wordsAfter: number = 500): Promise<{ before: string; after: string }> {
+		const settings = this.plugin.settings;
+		
+		// Try to get context from sliding window first, then book2
+		let sourceText = '';
+		try {
+			sourceText = await this.readFile(settings.slidingWindowPath);
+		} catch {
+			try {
+				sourceText = await this.readFile(settings.book2Path);
+			} catch {
+				return { before: '', after: '' };
+			}
+		}
+		
+		// Find the selected text in the source
+		const selectedIndex = sourceText.indexOf(selectedText);
+		
+		if (selectedIndex === -1) {
+			// Selected text not found, return empty
+			return { before: '', after: '' };
+		}
+		
+		// Extract text before
+		const textBefore = sourceText.substring(0, selectedIndex);
+		const beforeWords = this.extractWordsFromEnd(textBefore, wordsBefore);
+		
+		// Extract text after
+		const textAfter = sourceText.substring(selectedIndex + selectedText.length);
+		const afterWords = this.extractWords(textAfter, wordsAfter);
+		
+		return { before: beforeWords, after: afterWords };
 	}
 }
 

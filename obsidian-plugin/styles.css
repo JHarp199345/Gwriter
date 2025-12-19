@@ -95,6 +95,9 @@
 	font-family: var(--font-monospace);
 	font-size: 13px;
 	resize: vertical;
+	pointer-events: auto !important;
+	user-select: text !important;
+	-webkit-user-select: text !important;
 }
 
 .generated-textarea {
