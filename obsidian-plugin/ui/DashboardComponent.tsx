@@ -4,6 +4,7 @@ import { VaultBrowser } from './VaultBrowser';
 import { EditorPanel } from './EditorPanel';
 import { DirectorNotes } from './DirectorNotes';
 import { ModeSelector } from './ModeSelector';
+import { MultiModelResult } from '../services/AIClient';
 
 type Mode = 'chapter' | 'micro-edit' | 'character-update';
 
@@ -14,6 +15,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [wordCount, setWordCount] = useState(2000);
 	const [generatedText, setGeneratedText] = useState('');
 	const [isGenerating, setIsGenerating] = useState(false);
+	const [generationStage, setGenerationStage] = useState<string>('');
 	const [error, setError] = useState<string | null>(null);
 
 	const handleGenerate = async () => {
@@ -24,6 +26,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 		setIsGenerating(true);
 		setError(null);
+		setGenerationStage('');
 		try {
 			let prompt: string;
 			let context;
@@ -37,11 +40,27 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				prompt = plugin.promptEngine.buildMicroEditPrompt(selectedText, directorNotes, context);
 			}
 
-			const result = await plugin.aiClient.generate(prompt, plugin.settings);
-			setGeneratedText(result);
+			if (plugin.settings.generationMode === 'multi') {
+				setGenerationStage('Initializing multi-model generation...');
+				const result = await plugin.aiClient.generate(prompt, plugin.settings) as MultiModelResult;
+				
+				// Show stages if available
+				if (result.stages) {
+					setGenerationStage(`Finalizing (${Object.keys(result.stages).length} stages completed)...`);
+				}
+				
+				setGeneratedText(result.primary);
+			} else {
+				setGenerationStage('Generating...');
+				const result = await plugin.aiClient.generate(prompt, plugin.settings) as string;
+				setGeneratedText(result);
+			}
+			
+			setGenerationStage('');
 		} catch (err: any) {
 			setError(err.message || 'Generation failed');
 			console.error('Generation error:', err);
+			setGenerationStage('');
 		} finally {
 			setIsGenerating(false);
 		}
@@ -65,7 +84,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			const storyBible = await plugin.contextAggregator.readFile(plugin.settings.storyBiblePath);
 			const prompt = plugin.promptEngine.buildCharacterExtractionPrompt(selectedText, characterNotes, storyBible);
 			
-			const extractionResult = await plugin.aiClient.generate(prompt, plugin.settings);
+			// Character extraction always uses single mode
+			const singleModeSettings = { ...plugin.settings, generationMode: 'single' as const };
+			const extractionResult = await plugin.aiClient.generate(prompt, singleModeSettings) as string;
 			const updates = plugin.characterExtractor.parseExtraction(extractionResult);
 			
 			// Apply updates to character files
@@ -127,6 +148,11 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					{error && (
 						<div className="error-message">
 							❌ {error}
+						</div>
+					)}
+					{isGenerating && generationStage && (
+						<div className="generation-status">
+							⏳ {generationStage}
 						</div>
 					)}
 					<div className="controls">

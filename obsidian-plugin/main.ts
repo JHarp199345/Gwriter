@@ -9,8 +9,16 @@ import { CharacterExtractor } from './services/CharacterExtractor';
 
 export interface DashboardSettings {
 	apiKey: string;
-	apiProvider: 'openai' | 'anthropic' | 'gemini';
+	apiProvider: 'openai' | 'anthropic' | 'gemini' | 'openrouter';
 	model: string;
+	generationMode: 'single' | 'multi';
+	multiStrategy: 'draft-revision' | 'consensus-multistage';
+	draftModel?: string;
+	revisionModel?: string;
+	consensusModel1?: string;
+	consensusModel2?: string;
+	consensusModel3?: string;
+	synthesisModel?: string;
 	vaultPath: string;
 	characterFolder: string;
 	book2Path: string;
@@ -23,6 +31,14 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 	apiKey: '',
 	apiProvider: 'openai',
 	model: 'gpt-4',
+	generationMode: 'single',
+	multiStrategy: 'draft-revision',
+	draftModel: 'gpt-3.5-turbo',
+	revisionModel: 'gpt-4',
+	consensusModel1: 'gpt-4',
+	consensusModel2: 'claude-3-opus',
+	consensusModel3: 'gemini-pro',
+	synthesisModel: 'gpt-4',
 	vaultPath: '',
 	characterFolder: 'Characters',
 	book2Path: 'Book - MAIN 2.md',

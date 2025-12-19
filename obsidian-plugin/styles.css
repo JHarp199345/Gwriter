@@ -216,3 +216,19 @@
 	font-size: 12px;
 }
 
+.generation-status {
+	background-color: rgba(0, 123, 255, 0.1);
+	border: 1px solid #007bff;
+	padding: 10px;
+	border-radius: 4px;
+	color: #004085;
+	font-size: 12px;
+	margin: 10px 0;
+}
+
+.multi-mode-settings {
+	margin-top: 15px;
+	padding-top: 15px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+

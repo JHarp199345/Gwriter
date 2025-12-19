@@ -1,6 +1,76 @@
 import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import WritingDashboardPlugin, { DashboardSettings } from '../main';
 
+// Model lists for each provider
+const OPENAI_MODELS = [
+	{ value: 'gpt-5.2-pro', label: 'GPT-5.2 Pro' },
+	{ value: 'gpt-5.2-thinking', label: 'GPT-5.2 Thinking' },
+	{ value: 'gpt-5.2-instant', label: 'GPT-5.2 Instant' },
+	{ value: 'gpt-4o', label: 'GPT-4o' },
+	{ value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+	{ value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+	{ value: 'gpt-4', label: 'GPT-4' },
+	{ value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
+];
+
+const ANTHROPIC_MODELS = [
+	{ value: 'claude-4-5-opus', label: 'Claude 4.5 Opus' },
+	{ value: 'claude-4-5-sonnet', label: 'Claude 4.5 Sonnet' },
+	{ value: 'claude-4-5-haiku', label: 'Claude 4.5 Haiku' },
+	{ value: 'claude-3-5-sonnet', label: 'Claude 3.5 Sonnet' },
+	{ value: 'claude-3-opus', label: 'Claude 3 Opus' },
+	{ value: 'claude-3-sonnet', label: 'Claude 3 Sonnet' },
+	{ value: 'claude-3-haiku', label: 'Claude 3 Haiku' }
+];
+
+const GEMINI_MODELS = [
+	{ value: 'gemini-3.0-pro', label: 'Gemini 3.0 Pro' },
+	{ value: 'gemini-3.0-flash', label: 'Gemini 3.0 Flash' },
+	{ value: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash Experimental' },
+	{ value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+	{ value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+	{ value: 'gemini-pro', label: 'Gemini Pro' }
+];
+
+const OPENROUTER_MODELS = [
+	{ value: 'openai/gpt-5.2-pro', label: 'OpenAI GPT-5.2 Pro' },
+	{ value: 'openai/gpt-5.2-thinking', label: 'OpenAI GPT-5.2 Thinking' },
+	{ value: 'openai/gpt-5.2-instant', label: 'OpenAI GPT-5.2 Instant' },
+	{ value: 'openai/gpt-4o', label: 'OpenAI GPT-4o' },
+	{ value: 'openai/gpt-4o-mini', label: 'OpenAI GPT-4o Mini' },
+	{ value: 'openai/gpt-4-turbo', label: 'OpenAI GPT-4 Turbo' },
+	{ value: 'openai/gpt-4', label: 'OpenAI GPT-4' },
+	{ value: 'openai/gpt-3.5-turbo', label: 'OpenAI GPT-3.5 Turbo' },
+	{ value: 'anthropic/claude-4-5-opus', label: 'Anthropic Claude 4.5 Opus' },
+	{ value: 'anthropic/claude-4-5-sonnet', label: 'Anthropic Claude 4.5 Sonnet' },
+	{ value: 'anthropic/claude-4-5-haiku', label: 'Anthropic Claude 4.5 Haiku' },
+	{ value: 'anthropic/claude-3-5-sonnet', label: 'Anthropic Claude 3.5 Sonnet' },
+	{ value: 'anthropic/claude-3-opus', label: 'Anthropic Claude 3 Opus' },
+	{ value: 'anthropic/claude-3-sonnet', label: 'Anthropic Claude 3 Sonnet' },
+	{ value: 'anthropic/claude-3-haiku', label: 'Anthropic Claude 3 Haiku' },
+	{ value: 'google/gemini-3.0-pro', label: 'Google Gemini 3.0 Pro' },
+	{ value: 'google/gemini-3.0-flash', label: 'Google Gemini 3.0 Flash' },
+	{ value: 'google/gemini-2.0-flash-exp', label: 'Google Gemini 2.0 Flash Experimental' },
+	{ value: 'google/gemini-1.5-pro', label: 'Google Gemini 1.5 Pro' },
+	{ value: 'google/gemini-1.5-flash', label: 'Google Gemini 1.5 Flash' },
+	{ value: 'google/gemini-pro', label: 'Google Gemini Pro' }
+];
+
+function getModelsForProvider(provider: string): Array<{ value: string; label: string }> {
+	switch (provider) {
+		case 'openai':
+			return OPENAI_MODELS;
+		case 'anthropic':
+			return ANTHROPIC_MODELS;
+		case 'gemini':
+			return GEMINI_MODELS;
+		case 'openrouter':
+			return OPENROUTER_MODELS;
+		default:
+			return [];
+	}
+}
+
 export class SettingsTab extends PluginSettingTab {
 	plugin: WritingDashboardPlugin;
 
@@ -28,28 +98,166 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('API Provider')
-			.setDesc('Choose your AI provider')
+			.setName('Generation Mode')
+			.setDesc('SingleModalMode: Fast, single model. MultiMode: Higher quality with multiple models.')
 			.addDropdown(dropdown => dropdown
+				.addOption('single', 'SingleModalMode')
+				.addOption('multi', 'MultiMode')
+				.setValue(this.plugin.settings.generationMode)
+				.onChange(async (value: 'single' | 'multi') => {
+					this.plugin.settings.generationMode = value;
+					await this.plugin.saveSettings();
+					this.display(); // Refresh to show/hide multi-mode settings
+				}));
+
+		new Setting(containerEl)
+			.setName('API Provider')
+			.setDesc('Choose your AI provider. OpenRouter recommended for MultiMode.')
+			.addDropdown(dropdown => dropdown
+				.addOption('openrouter', 'OpenRouter (Recommended)')
 				.addOption('openai', 'OpenAI')
 				.addOption('anthropic', 'Anthropic')
 				.addOption('gemini', 'Gemini')
 				.setValue(this.plugin.settings.apiProvider)
-				.onChange(async (value: 'openai' | 'anthropic' | 'gemini') => {
+				.onChange(async (value: 'openai' | 'anthropic' | 'gemini' | 'openrouter') => {
 					this.plugin.settings.apiProvider = value;
+					// Reset model to first available model for new provider if current model doesn't exist
+					const models = getModelsForProvider(value);
+					const currentModel = this.plugin.settings.model;
+					if (!models.some(m => m.value === currentModel)) {
+						this.plugin.settings.model = models[0].value;
+					}
 					await this.plugin.saveSettings();
+					this.display(); // Refresh to update model dropdown
 				}));
 
 		new Setting(containerEl)
 			.setName('Model')
-			.setDesc('AI model to use (e.g., gpt-4, claude-3-opus, gemini-pro)')
-			.addText(text => text
-				.setPlaceholder('gpt-4')
-				.setValue(this.plugin.settings.model)
-				.onChange(async (value) => {
+			.setDesc('AI model to use')
+			.addDropdown(dropdown => {
+				const models = getModelsForProvider(this.plugin.settings.apiProvider);
+				models.forEach(model => {
+					dropdown.addOption(model.value, model.label);
+				});
+				dropdown.setValue(this.plugin.settings.model || models[0].value);
+				dropdown.onChange(async (value) => {
 					this.plugin.settings.model = value;
 					await this.plugin.saveSettings();
-				}));
+				});
+			});
+
+		// Multi-mode settings (only shown when MultiMode is selected)
+		if (this.plugin.settings.generationMode === 'multi') {
+			new Setting(containerEl)
+				.setName('Multi-Mode Strategy')
+				.setDesc('Draft+Revision: Fast draft + quality revision. Consensus+Multi-Stage: Maximum quality (slower, more expensive).')
+				.addDropdown(dropdown => dropdown
+					.addOption('draft-revision', 'Draft + Revision')
+					.addOption('consensus-multistage', 'Consensus + Multi-Stage (Maximum Quality)')
+					.setValue(this.plugin.settings.multiStrategy)
+					.onChange(async (value: 'draft-revision' | 'consensus-multistage') => {
+						this.plugin.settings.multiStrategy = value;
+						await this.plugin.saveSettings();
+						this.display(); // Refresh to show relevant settings
+					}));
+
+			if (this.plugin.settings.multiStrategy === 'draft-revision') {
+				// Draft Model dropdown
+				new Setting(containerEl)
+					.setName('Draft Model')
+					.setDesc('Fast model for initial draft')
+					.addDropdown(dropdown => {
+						const models = getModelsForProvider(this.plugin.settings.apiProvider);
+						models.forEach(model => {
+							dropdown.addOption(model.value, model.label);
+						});
+						dropdown.setValue(this.plugin.settings.draftModel || models[0].value);
+						dropdown.onChange(async (value) => {
+							this.plugin.settings.draftModel = value;
+							await this.plugin.saveSettings();
+						});
+					});
+
+				// Revision Model dropdown
+				new Setting(containerEl)
+					.setName('Revision Model')
+					.setDesc('Quality model for refinement')
+					.addDropdown(dropdown => {
+						const models = getModelsForProvider(this.plugin.settings.apiProvider);
+						models.forEach(model => {
+							dropdown.addOption(model.value, model.label);
+						});
+						dropdown.setValue(this.plugin.settings.revisionModel || models[0].value);
+						dropdown.onChange(async (value) => {
+							this.plugin.settings.revisionModel = value;
+							await this.plugin.saveSettings();
+						});
+					});
+			} else {
+				// Consensus + Multi-Stage settings
+				new Setting(containerEl)
+					.setName('Consensus Model 1')
+					.setDesc('Primary model for consensus generation')
+					.addDropdown(dropdown => {
+						const models = getModelsForProvider(this.plugin.settings.apiProvider);
+						models.forEach(model => {
+							dropdown.addOption(model.value, model.label);
+						});
+						dropdown.setValue(this.plugin.settings.consensusModel1 || models[0].value);
+						dropdown.onChange(async (value) => {
+							this.plugin.settings.consensusModel1 = value;
+							await this.plugin.saveSettings();
+						});
+					});
+
+				new Setting(containerEl)
+					.setName('Consensus Model 2')
+					.setDesc('Second model for consensus generation')
+					.addDropdown(dropdown => {
+						const models = getModelsForProvider(this.plugin.settings.apiProvider);
+						models.forEach(model => {
+							dropdown.addOption(model.value, model.label);
+						});
+						dropdown.setValue(this.plugin.settings.consensusModel2 || (models.length > 1 ? models[1].value : models[0].value));
+						dropdown.onChange(async (value) => {
+							this.plugin.settings.consensusModel2 = value;
+							await this.plugin.saveSettings();
+						});
+					});
+
+				new Setting(containerEl)
+					.setName('Consensus Model 3 (Optional)')
+					.setDesc('Third model for stronger consensus (optional)')
+					.addDropdown(dropdown => {
+						dropdown.addOption('', 'None');
+						const models = getModelsForProvider(this.plugin.settings.apiProvider);
+						models.forEach(model => {
+							dropdown.addOption(model.value, model.label);
+						});
+						dropdown.setValue(this.plugin.settings.consensusModel3 || '');
+						dropdown.onChange(async (value) => {
+							this.plugin.settings.consensusModel3 = value || undefined;
+							await this.plugin.saveSettings();
+						});
+					});
+
+				new Setting(containerEl)
+					.setName('Synthesis Model')
+					.setDesc('Model to synthesize final output from consensus')
+					.addDropdown(dropdown => {
+						const models = getModelsForProvider(this.plugin.settings.apiProvider);
+						models.forEach(model => {
+							dropdown.addOption(model.value, model.label);
+						});
+						dropdown.setValue(this.plugin.settings.synthesisModel || models[0].value);
+						dropdown.onChange(async (value) => {
+							this.plugin.settings.synthesisModel = value;
+							await this.plugin.saveSettings();
+						});
+					});
+			}
+		}
+
 
 		new Setting(containerEl)
 			.setName('Vault Path')

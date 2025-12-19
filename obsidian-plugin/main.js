@@ -23684,6 +23684,7 @@ var DashboardComponent = ({ plugin }) => {
   const [wordCount, setWordCount] = (0, import_react5.useState)(2e3);
   const [generatedText, setGeneratedText] = (0, import_react5.useState)("");
   const [isGenerating, setIsGenerating] = (0, import_react5.useState)(false);
+  const [generationStage, setGenerationStage] = (0, import_react5.useState)("");
   const [error, setError] = (0, import_react5.useState)(null);
   const handleGenerate = async () => {
     if (!plugin.settings.apiKey) {
@@ -23692,6 +23693,7 @@ var DashboardComponent = ({ plugin }) => {
     }
     setIsGenerating(true);
     setError(null);
+    setGenerationStage("");
     try {
       let prompt;
       let context;
@@ -23702,11 +23704,23 @@ var DashboardComponent = ({ plugin }) => {
         context = await plugin.contextAggregator.getMicroEditContext(selectedText);
         prompt = plugin.promptEngine.buildMicroEditPrompt(selectedText, directorNotes, context);
       }
-      const result = await plugin.aiClient.generate(prompt, plugin.settings);
-      setGeneratedText(result);
+      if (plugin.settings.generationMode === "multi") {
+        setGenerationStage("Initializing multi-model generation...");
+        const result = await plugin.aiClient.generate(prompt, plugin.settings);
+        if (result.stages) {
+          setGenerationStage(`Finalizing (${Object.keys(result.stages).length} stages completed)...`);
+        }
+        setGeneratedText(result.primary);
+      } else {
+        setGenerationStage("Generating...");
+        const result = await plugin.aiClient.generate(prompt, plugin.settings);
+        setGeneratedText(result);
+      }
+      setGenerationStage("");
     } catch (err) {
       setError(err.message || "Generation failed");
       console.error("Generation error:", err);
+      setGenerationStage("");
     } finally {
       setIsGenerating(false);
     }
@@ -23726,7 +23740,8 @@ var DashboardComponent = ({ plugin }) => {
       const characterNotes = await plugin.contextAggregator.getCharacterNotes();
       const storyBible = await plugin.contextAggregator.readFile(plugin.settings.storyBiblePath);
       const prompt = plugin.promptEngine.buildCharacterExtractionPrompt(selectedText, characterNotes, storyBible);
-      const extractionResult = await plugin.aiClient.generate(prompt, plugin.settings);
+      const singleModeSettings = { ...plugin.settings, generationMode: "single" };
+      const extractionResult = await plugin.aiClient.generate(prompt, singleModeSettings);
       const updates = plugin.characterExtractor.parseExtraction(extractionResult);
       await plugin.vaultService.updateCharacterNotes(updates);
       setError(null);
@@ -23769,7 +23784,7 @@ var DashboardComponent = ({ plugin }) => {
       onChange: setDirectorNotes,
       mode
     }
-  ), error && /* @__PURE__ */ import_react5.default.createElement("div", { className: "error-message" }, "\u274C ", error), /* @__PURE__ */ import_react5.default.createElement("div", { className: "controls" }, /* @__PURE__ */ import_react5.default.createElement(
+  ), error && /* @__PURE__ */ import_react5.default.createElement("div", { className: "error-message" }, "\u274C ", error), isGenerating && generationStage && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "\u23F3 ", generationStage), /* @__PURE__ */ import_react5.default.createElement("div", { className: "controls" }, /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
       onClick: handleGenerate,
@@ -23824,6 +23839,70 @@ var DashboardView = class extends import_obsidian.ItemView {
 
 // ui/SettingsTab.ts
 var import_obsidian2 = require("obsidian");
+var OPENAI_MODELS = [
+  { value: "gpt-5.2-pro", label: "GPT-5.2 Pro" },
+  { value: "gpt-5.2-thinking", label: "GPT-5.2 Thinking" },
+  { value: "gpt-5.2-instant", label: "GPT-5.2 Instant" },
+  { value: "gpt-4o", label: "GPT-4o" },
+  { value: "gpt-4o-mini", label: "GPT-4o Mini" },
+  { value: "gpt-4-turbo", label: "GPT-4 Turbo" },
+  { value: "gpt-4", label: "GPT-4" },
+  { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" }
+];
+var ANTHROPIC_MODELS = [
+  { value: "claude-4-5-opus", label: "Claude 4.5 Opus" },
+  { value: "claude-4-5-sonnet", label: "Claude 4.5 Sonnet" },
+  { value: "claude-4-5-haiku", label: "Claude 4.5 Haiku" },
+  { value: "claude-3-5-sonnet", label: "Claude 3.5 Sonnet" },
+  { value: "claude-3-opus", label: "Claude 3 Opus" },
+  { value: "claude-3-sonnet", label: "Claude 3 Sonnet" },
+  { value: "claude-3-haiku", label: "Claude 3 Haiku" }
+];
+var GEMINI_MODELS = [
+  { value: "gemini-3.0-pro", label: "Gemini 3.0 Pro" },
+  { value: "gemini-3.0-flash", label: "Gemini 3.0 Flash" },
+  { value: "gemini-2.0-flash-exp", label: "Gemini 2.0 Flash Experimental" },
+  { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
+  { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
+  { value: "gemini-pro", label: "Gemini Pro" }
+];
+var OPENROUTER_MODELS = [
+  { value: "openai/gpt-5.2-pro", label: "OpenAI GPT-5.2 Pro" },
+  { value: "openai/gpt-5.2-thinking", label: "OpenAI GPT-5.2 Thinking" },
+  { value: "openai/gpt-5.2-instant", label: "OpenAI GPT-5.2 Instant" },
+  { value: "openai/gpt-4o", label: "OpenAI GPT-4o" },
+  { value: "openai/gpt-4o-mini", label: "OpenAI GPT-4o Mini" },
+  { value: "openai/gpt-4-turbo", label: "OpenAI GPT-4 Turbo" },
+  { value: "openai/gpt-4", label: "OpenAI GPT-4" },
+  { value: "openai/gpt-3.5-turbo", label: "OpenAI GPT-3.5 Turbo" },
+  { value: "anthropic/claude-4-5-opus", label: "Anthropic Claude 4.5 Opus" },
+  { value: "anthropic/claude-4-5-sonnet", label: "Anthropic Claude 4.5 Sonnet" },
+  { value: "anthropic/claude-4-5-haiku", label: "Anthropic Claude 4.5 Haiku" },
+  { value: "anthropic/claude-3-5-sonnet", label: "Anthropic Claude 3.5 Sonnet" },
+  { value: "anthropic/claude-3-opus", label: "Anthropic Claude 3 Opus" },
+  { value: "anthropic/claude-3-sonnet", label: "Anthropic Claude 3 Sonnet" },
+  { value: "anthropic/claude-3-haiku", label: "Anthropic Claude 3 Haiku" },
+  { value: "google/gemini-3.0-pro", label: "Google Gemini 3.0 Pro" },
+  { value: "google/gemini-3.0-flash", label: "Google Gemini 3.0 Flash" },
+  { value: "google/gemini-2.0-flash-exp", label: "Google Gemini 2.0 Flash Experimental" },
+  { value: "google/gemini-1.5-pro", label: "Google Gemini 1.5 Pro" },
+  { value: "google/gemini-1.5-flash", label: "Google Gemini 1.5 Flash" },
+  { value: "google/gemini-pro", label: "Google Gemini Pro" }
+];
+function getModelsForProvider(provider) {
+  switch (provider) {
+    case "openai":
+      return OPENAI_MODELS;
+    case "anthropic":
+      return ANTHROPIC_MODELS;
+    case "gemini":
+      return GEMINI_MODELS;
+    case "openrouter":
+      return OPENROUTER_MODELS;
+    default:
+      return [];
+  }
+}
 var SettingsTab = class extends import_obsidian2.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
@@ -23837,14 +23916,109 @@ var SettingsTab = class extends import_obsidian2.PluginSettingTab {
       this.plugin.settings.apiKey = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian2.Setting(containerEl).setName("API Provider").setDesc("Choose your AI provider").addDropdown((dropdown) => dropdown.addOption("openai", "OpenAI").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
+    new import_obsidian2.Setting(containerEl).setName("Generation Mode").setDesc("SingleModalMode: Fast, single model. MultiMode: Higher quality with multiple models.").addDropdown((dropdown) => dropdown.addOption("single", "SingleModalMode").addOption("multi", "MultiMode").setValue(this.plugin.settings.generationMode).onChange(async (value) => {
+      this.plugin.settings.generationMode = value;
+      await this.plugin.saveSettings();
+      this.display();
+    }));
+    new import_obsidian2.Setting(containerEl).setName("API Provider").setDesc("Choose your AI provider. OpenRouter recommended for MultiMode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "OpenRouter (Recommended)").addOption("openai", "OpenAI").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
       this.plugin.settings.apiProvider = value;
+      const models = getModelsForProvider(value);
+      const currentModel = this.plugin.settings.model;
+      if (!models.some((m) => m.value === currentModel)) {
+        this.plugin.settings.model = models[0].value;
+      }
       await this.plugin.saveSettings();
+      this.display();
     }));
-    new import_obsidian2.Setting(containerEl).setName("Model").setDesc("AI model to use (e.g., gpt-4, claude-3-opus, gemini-pro)").addText((text) => text.setPlaceholder("gpt-4").setValue(this.plugin.settings.model).onChange(async (value) => {
-      this.plugin.settings.model = value;
-      await this.plugin.saveSettings();
-    }));
+    new import_obsidian2.Setting(containerEl).setName("Model").setDesc("AI model to use").addDropdown((dropdown) => {
+      const models = getModelsForProvider(this.plugin.settings.apiProvider);
+      models.forEach((model) => {
+        dropdown.addOption(model.value, model.label);
+      });
+      dropdown.setValue(this.plugin.settings.model || models[0].value);
+      dropdown.onChange(async (value) => {
+        this.plugin.settings.model = value;
+        await this.plugin.saveSettings();
+      });
+    });
+    if (this.plugin.settings.generationMode === "multi") {
+      new import_obsidian2.Setting(containerEl).setName("Multi-Mode Strategy").setDesc("Draft+Revision: Fast draft + quality revision. Consensus+Multi-Stage: Maximum quality (slower, more expensive).").addDropdown((dropdown) => dropdown.addOption("draft-revision", "Draft + Revision").addOption("consensus-multistage", "Consensus + Multi-Stage (Maximum Quality)").setValue(this.plugin.settings.multiStrategy).onChange(async (value) => {
+        this.plugin.settings.multiStrategy = value;
+        await this.plugin.saveSettings();
+        this.display();
+      }));
+      if (this.plugin.settings.multiStrategy === "draft-revision") {
+        new import_obsidian2.Setting(containerEl).setName("Draft Model").setDesc("Fast model for initial draft").addDropdown((dropdown) => {
+          const models = getModelsForProvider(this.plugin.settings.apiProvider);
+          models.forEach((model) => {
+            dropdown.addOption(model.value, model.label);
+          });
+          dropdown.setValue(this.plugin.settings.draftModel || models[0].value);
+          dropdown.onChange(async (value) => {
+            this.plugin.settings.draftModel = value;
+            await this.plugin.saveSettings();
+          });
+        });
+        new import_obsidian2.Setting(containerEl).setName("Revision Model").setDesc("Quality model for refinement").addDropdown((dropdown) => {
+          const models = getModelsForProvider(this.plugin.settings.apiProvider);
+          models.forEach((model) => {
+            dropdown.addOption(model.value, model.label);
+          });
+          dropdown.setValue(this.plugin.settings.revisionModel || models[0].value);
+          dropdown.onChange(async (value) => {
+            this.plugin.settings.revisionModel = value;
+            await this.plugin.saveSettings();
+          });
+        });
+      } else {
+        new import_obsidian2.Setting(containerEl).setName("Consensus Model 1").setDesc("Primary model for consensus generation").addDropdown((dropdown) => {
+          const models = getModelsForProvider(this.plugin.settings.apiProvider);
+          models.forEach((model) => {
+            dropdown.addOption(model.value, model.label);
+          });
+          dropdown.setValue(this.plugin.settings.consensusModel1 || models[0].value);
+          dropdown.onChange(async (value) => {
+            this.plugin.settings.consensusModel1 = value;
+            await this.plugin.saveSettings();
+          });
+        });
+        new import_obsidian2.Setting(containerEl).setName("Consensus Model 2").setDesc("Second model for consensus generation").addDropdown((dropdown) => {
+          const models = getModelsForProvider(this.plugin.settings.apiProvider);
+          models.forEach((model) => {
+            dropdown.addOption(model.value, model.label);
+          });
+          dropdown.setValue(this.plugin.settings.consensusModel2 || (models.length > 1 ? models[1].value : models[0].value));
+          dropdown.onChange(async (value) => {
+            this.plugin.settings.consensusModel2 = value;
+            await this.plugin.saveSettings();
+          });
+        });
+        new import_obsidian2.Setting(containerEl).setName("Consensus Model 3 (Optional)").setDesc("Third model for stronger consensus (optional)").addDropdown((dropdown) => {
+          dropdown.addOption("", "None");
+          const models = getModelsForProvider(this.plugin.settings.apiProvider);
+          models.forEach((model) => {
+            dropdown.addOption(model.value, model.label);
+          });
+          dropdown.setValue(this.plugin.settings.consensusModel3 || "");
+          dropdown.onChange(async (value) => {
+            this.plugin.settings.consensusModel3 = value || void 0;
+            await this.plugin.saveSettings();
+          });
+        });
+        new import_obsidian2.Setting(containerEl).setName("Synthesis Model").setDesc("Model to synthesize final output from consensus").addDropdown((dropdown) => {
+          const models = getModelsForProvider(this.plugin.settings.apiProvider);
+          models.forEach((model) => {
+            dropdown.addOption(model.value, model.label);
+          });
+          dropdown.setValue(this.plugin.settings.synthesisModel || models[0].value);
+          dropdown.onChange(async (value) => {
+            this.plugin.settings.synthesisModel = value;
+            await this.plugin.saveSettings();
+          });
+        });
+      }
+    }
     new import_obsidian2.Setting(containerEl).setName("Vault Path").setDesc("Path to your Obsidian vault (auto-detected)").addText((text) => text.setPlaceholder("Vault path").setValue(this.plugin.settings.vaultPath).onChange(async (value) => {
       this.plugin.settings.vaultPath = value;
       await this.plugin.saveSettings();
@@ -24246,7 +24420,16 @@ This will be appended to the character's note file with timestamp.`;
 // services/AIClient.ts
 var AIClient = class {
   async generate(prompt, settings) {
-    if (settings.apiProvider === "openai") {
+    if (settings.generationMode === "multi") {
+      return await this.generateMulti(prompt, settings);
+    } else {
+      return await this.generateSingle(prompt, settings);
+    }
+  }
+  async generateSingle(prompt, settings) {
+    if (settings.apiProvider === "openrouter") {
+      return await this._generateOpenRouter(prompt, settings);
+    } else if (settings.apiProvider === "openai") {
       return await this._generateOpenAI(prompt, settings);
     } else if (settings.apiProvider === "anthropic") {
       return await this._generateAnthropic(prompt, settings);
@@ -24255,6 +24438,123 @@ var AIClient = class {
     } else {
       throw new Error(`Unsupported provider: ${settings.apiProvider}`);
     }
+  }
+  async generateMulti(prompt, settings) {
+    if (settings.multiStrategy === "draft-revision") {
+      return await this.generateDraftRevision(prompt, settings);
+    } else if (settings.multiStrategy === "consensus-multistage") {
+      return await this.generateConsensusMultiStage(prompt, settings);
+    } else {
+      throw new Error(`Unsupported multi-strategy: ${settings.multiStrategy}`);
+    }
+  }
+  async generateDraftRevision(prompt, settings) {
+    if (!settings.draftModel || !settings.revisionModel) {
+      throw new Error("Draft and revision models must be configured for draft-revision strategy");
+    }
+    const draftSettings = {
+      ...settings,
+      model: settings.draftModel
+    };
+    const draft = await this.generateSingle(prompt, draftSettings);
+    const revisionPrompt = `Refine the following draft to improve prose quality, maintain character voice consistency, enhance narrative flow, and ensure stylistic coherence:
+
+${draft}`;
+    const revisionSettings = {
+      ...settings,
+      model: settings.revisionModel
+    };
+    const revision = await this.generateSingle(revisionPrompt, revisionSettings);
+    return {
+      primary: revision,
+      revision,
+      stages: {
+        draft,
+        final: revision
+      }
+    };
+  }
+  async generateConsensusMultiStage(prompt, settings) {
+    if (!settings.consensusModel1 || !settings.consensusModel2) {
+      throw new Error("At least 2 consensus models must be configured");
+    }
+    const consensusModels = [
+      settings.consensusModel1,
+      settings.consensusModel2,
+      settings.consensusModel3
+    ].filter(Boolean);
+    const consensusPromises = consensusModels.map((model) => {
+      const modelSettings = { ...settings, model };
+      return this.generateSingle(prompt, modelSettings);
+    });
+    const consensusResults = await Promise.all(consensusPromises);
+    const primaryDraft = consensusResults[0];
+    const characterCheckPrompt = `Review this passage for character voice consistency, dialogue authenticity, and character trait alignment. Maintain all character personalities and ensure dialogue matches each character's established voice:
+
+${primaryDraft}`;
+    const characterSettings = {
+      ...settings,
+      model: settings.consensusModel1
+    };
+    const characterChecked = await this.generateSingle(characterCheckPrompt, characterSettings);
+    const stylePrompt = `Refine this passage to match the author's unique style and narrative voice. Ensure prose quality, pacing, and stylistic coherence throughout:
+
+${characterChecked}`;
+    const styleSettings = {
+      ...settings,
+      model: settings.consensusModel1
+    };
+    const styleRefined = await this.generateSingle(stylePrompt, styleSettings);
+    let final = styleRefined;
+    if (settings.synthesisModel && consensusResults.length > 1) {
+      const synthesisPrompt = `Combine the best elements from these alternative versions into a single refined passage. Prioritize quality, coherence, and the most compelling narrative elements:
+
+${consensusResults.map((alt, i) => `Version ${i + 1}:
+${alt}`).join("\n\n---\n\n")}`;
+      const synthesisSettings = {
+        ...settings,
+        model: settings.synthesisModel
+      };
+      final = await this.generateSingle(synthesisPrompt, synthesisSettings);
+    }
+    return {
+      primary: final,
+      alternatives: consensusResults.slice(1),
+      revision: final,
+      stages: {
+        draft: primaryDraft,
+        characterChecked,
+        styleRefined,
+        final
+      }
+    };
+  }
+  async _generateOpenRouter(prompt, settings) {
+    var _a;
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${settings.apiKey}`,
+        "HTTP-Referer": "https://github.com/JHarp199345/Gwriter",
+        "X-Title": "Writing Dashboard"
+      },
+      body: JSON.stringify({
+        model: settings.model,
+        messages: [
+          { role: "system", content: "You are a professional writing assistant." },
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 4e3,
+        temperature: 0.7
+      })
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
+      throw new Error(`OpenRouter API error: ${((_a = error.error) == null ? void 0 : _a.message) || response.statusText}`);
+    }
+    const data = await response.json();
+    return data.choices[0].message.content;
   }
   async _generateOpenAI(prompt, settings) {
     var _a;
@@ -24382,6 +24682,14 @@ var DEFAULT_SETTINGS = {
   apiKey: "",
   apiProvider: "openai",
   model: "gpt-4",
+  generationMode: "single",
+  multiStrategy: "draft-revision",
+  draftModel: "gpt-3.5-turbo",
+  revisionModel: "gpt-4",
+  consensusModel1: "gpt-4",
+  consensusModel2: "claude-3-opus",
+  consensusModel3: "gemini-pro",
+  synthesisModel: "gpt-4",
   vaultPath: "",
   characterFolder: "Characters",
   book2Path: "Book - MAIN 2.md",
