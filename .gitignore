@@ -25,6 +25,11 @@ yarn.lock
 obsidian-plugin/main.js.map
 obsidian-plugin/.obsidian/
 
+# Root plugin files (for community release) - these should be tracked
+!main.js
+!manifest.json
+!styles.css
+
 # IDE
 .vscode/
 .idea/
