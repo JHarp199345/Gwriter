@@ -23859,8 +23859,11 @@ var ANTHROPIC_MODELS = [
   { value: "claude-3-haiku", label: "Claude 3 Haiku" }
 ];
 var GEMINI_MODELS = [
-  { value: "gemini-3.0-pro", label: "Gemini 3.0 Pro" },
-  { value: "gemini-3.0-flash", label: "Gemini 3.0 Flash" },
+  { value: "gemini-3-pro-preview", label: "Gemini 3.0 Pro (Preview)" },
+  { value: "gemini-3-flash-preview", label: "Gemini 3.0 Flash (Preview)" },
+  { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+  { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+  { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
   { value: "gemini-2.0-flash-exp", label: "Gemini 2.0 Flash Experimental" },
   { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
   { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
@@ -23882,8 +23885,11 @@ var OPENROUTER_MODELS = [
   { value: "anthropic/claude-3-opus", label: "Anthropic Claude 3 Opus" },
   { value: "anthropic/claude-3-sonnet", label: "Anthropic Claude 3 Sonnet" },
   { value: "anthropic/claude-3-haiku", label: "Anthropic Claude 3 Haiku" },
-  { value: "google/gemini-3.0-pro", label: "Google Gemini 3.0 Pro" },
-  { value: "google/gemini-3.0-flash", label: "Google Gemini 3.0 Flash" },
+  { value: "google/gemini-3-pro-preview", label: "Google Gemini 3.0 Pro (Preview)" },
+  { value: "google/gemini-3-flash-preview", label: "Google Gemini 3.0 Flash (Preview)" },
+  { value: "google/gemini-2.5-pro", label: "Google Gemini 2.5 Pro" },
+  { value: "google/gemini-2.5-flash", label: "Google Gemini 2.5 Flash" },
+  { value: "google/gemini-2.5-flash-lite", label: "Google Gemini 2.5 Flash Lite" },
   { value: "google/gemini-2.0-flash-exp", label: "Google Gemini 2.0 Flash Experimental" },
   { value: "google/gemini-1.5-pro", label: "Google Gemini 1.5 Pro" },
   { value: "google/gemini-1.5-flash", label: "Google Gemini 1.5 Flash" },
