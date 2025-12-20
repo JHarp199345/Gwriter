@@ -79,18 +79,165 @@ export class ContextAggregator {
 	private async getSmartConnections(limit: number = 64): Promise<string> {
 		// Try to read Smart Connections data
 		const scDataPath = '.obsidian/plugins/smart-connections/data.json';
+		let smartConnectionsAvailable = false;
+		
 		try {
 			const file = this.vault.getAbstractFileByPath(scDataPath);
 			if (file instanceof TFile) {
 				const data = JSON.parse(await this.vault.read(file));
-				// For now, return a placeholder - full implementation would
-				// query embeddings and return actual similar note content
-				return '[Smart Connections data loaded - similarity search available]';
+				smartConnectionsAvailable = true;
+				// Smart Connections data exists - now extract Book 1 content
 			}
 		} catch (error) {
-			return `[Smart Connections: Error loading data - ${error}]`;
+			// Smart Connections not available, will use fallback
 		}
-		return '[Smart Connections: No data found - ensure plugin is installed and has indexed your vault]';
+		
+		// Extract Book 1 canon content from vault
+		const book1Content = await this.extractBook1Content(limit);
+		
+		if (book1Content.length > 0) {
+			const scStatus = smartConnectionsAvailable 
+				? '[Smart Connections: Active - Book 1 canon loaded]' 
+				: '[Smart Connections: Not installed - Using Book 1 files directly]';
+			return `${scStatus}\n\n${book1Content}`;
+		}
+		
+		if (smartConnectionsAvailable) {
+			return '[Smart Connections: Data found but no Book 1 content detected. Ensure Book 1 files exist in your vault.]';
+		}
+		
+		return '[Smart Connections: Not available. To use Book 1 canon context, either install Smart Connections plugin or ensure Book 1 files are accessible in your vault.]';
+	}
+
+	/**
+	 * Extract Book 1 canon content from vault
+	 * Looks for common Book 1 patterns: chunked folders, Book 1 files, etc.
+	 */
+	private async extractBook1Content(maxChunks: number = 64): Promise<string> {
+		const content: string[] = [];
+		const processedFiles = new Set<string>();
+		
+		// Common Book 1 folder/file patterns
+		const book1Patterns = [
+			'Book 1 - Chunked',
+			'Book-1-Chunked',
+			'Book1-Chunked',
+			'Book 1',
+			'Book-1',
+			'Book1'
+		];
+		
+		// Search for Book 1 chunked folders first (most common)
+		for (const pattern of book1Patterns) {
+			try {
+				const folder = this.vault.getAbstractFileByPath(pattern);
+				if (folder instanceof TFolder) {
+					const chunks = await this.readChunkedFolder(folder, maxChunks);
+					content.push(...chunks);
+					if (content.length >= maxChunks) break;
+				}
+			} catch {
+				// Folder doesn't exist, continue
+			}
+		}
+		
+		// If no chunked folder found, look for Book 1 files directly
+		if (content.length === 0) {
+			for (const pattern of book1Patterns) {
+				try {
+					const file = this.vault.getAbstractFileByPath(`${pattern}.md`);
+					if (file instanceof TFile && !processedFiles.has(file.path)) {
+						const fileContent = await this.vault.read(file);
+						// Extract sample chunks from the file
+						const chunks = this.chunkText(fileContent, Math.min(maxChunks, 10));
+						content.push(...chunks);
+						processedFiles.add(file.path);
+					}
+				} catch {
+					// File doesn't exist, continue
+				}
+			}
+		}
+		
+		// Also search for any files with "Book 1" in the name
+		if (content.length < maxChunks) {
+			const allFiles = this.vault.getMarkdownFiles();
+			for (const file of allFiles) {
+				if (processedFiles.has(file.path)) continue;
+				
+				const fileName = file.basename.toLowerCase();
+				if (fileName.includes('book 1') || fileName.includes('book-1') || fileName.includes('book1')) {
+					try {
+						const fileContent = await this.vault.read(file);
+						const chunks = this.chunkText(fileContent, Math.min(maxChunks - content.length, 5));
+						content.push(...chunks);
+						processedFiles.add(file.path);
+						if (content.length >= maxChunks) break;
+					} catch {
+						// Error reading file, skip
+					}
+				}
+			}
+		}
+		
+		// Format content with file references
+		if (content.length === 0) {
+			return '';
+		}
+		
+		return content.slice(0, maxChunks).join('\n\n---\n\n');
+	}
+
+	/**
+	 * Read all chunk files from a chunked folder
+	 */
+	private async readChunkedFolder(folder: TFolder, maxChunks: number): Promise<string[]> {
+		const chunks: string[] = [];
+		const chunkFiles: TFile[] = [];
+		
+		// Collect all markdown files
+		for (const child of folder.children) {
+			if (child instanceof TFile && child.extension === 'md') {
+				chunkFiles.push(child);
+			}
+		}
+		
+		// Sort by name to maintain order
+		chunkFiles.sort((a, b) => a.name.localeCompare(b.name));
+		
+		// Read up to maxChunks files
+		for (let i = 0; i < Math.min(chunkFiles.length, maxChunks); i++) {
+			try {
+				const content = await this.vault.read(chunkFiles[i]);
+				if (content.trim()) {
+					chunks.push(`[From: ${chunkFiles[i].name}]\n${content}`);
+				}
+			} catch {
+				// Error reading file, skip
+			}
+		}
+		
+		return chunks;
+	}
+
+	/**
+	 * Chunk text into smaller pieces (for large files)
+	 */
+	private chunkText(text: string, maxChunks: number): string[] {
+		const words = text.trim().split(/\s+/);
+		if (words.length === 0) return [];
+		
+		const wordsPerChunk = Math.max(500, Math.ceil(words.length / maxChunks));
+		const chunks: string[] = [];
+		
+		for (let i = 0; i < words.length && chunks.length < maxChunks; i += wordsPerChunk) {
+			const chunk = words.slice(i, i + wordsPerChunk).join(' ');
+			if (chunk.trim()) {
+				chunks.push(chunk);
+			}
+		}
+		
+		return chunks;
 	}
 
 	private async getAllCharacterNotes(): Promise<Record<string, string>> {
