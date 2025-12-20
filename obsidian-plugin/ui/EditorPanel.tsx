@@ -17,10 +17,10 @@ export const EditorPanel: React.FC<{
 
 	const selectedLabel =
 		mode === 'chapter'
-			? 'Scene Summary / Directions:'
+			? 'Scene summary / directions:'
 			: mode === 'micro-edit'
-			? 'Selected Passage:'
-			: 'Selected Text (for character update):';
+			? 'Selected passage:'
+			: 'Selected text (for character update):';
 
 	const selectedPlaceholder =
 		mode === 'chapter'
@@ -50,12 +50,12 @@ export const EditorPanel: React.FC<{
 				<div className="editor-section">
 					<div className="generated-header">
 						<div style={{ display: 'flex', flexDirection: 'column' }}>
-							<label>Generated Output:</label>
+							<label>Generated output:</label>
 							<span className="generation-status" style={{ margin: 0 }}>
 								{outputWords.toLocaleString()} words / {outputChars.toLocaleString()} chars
 							</span>
 						</div>
-						<button onClick={onCopy} className="copy-button">Copy to Clipboard</button>
+						<button onClick={onCopy} className="copy-button">Copy to clipboard</button>
 					</div>
 					<textarea
 						value={generatedText}

@@ -79,7 +79,7 @@ export class ContextAggregator {
 							try {
 								return JSON.stringify(error);
 							} catch {
-								return String(error);
+								return '[unserializable error]';
 							}
 						})();
 			return `[Error reading file ${path}: ${message}]`;

@@ -204,7 +204,7 @@ export const SetupWizardComponent: React.FC<SetupWizardComponentProps> = ({ plug
 							try {
 								return JSON.stringify(error);
 							} catch {
-								return String(error);
+								return '[unserializable error]';
 							}
 						})();
 			new Notice(`Error creating files: ${message}`);

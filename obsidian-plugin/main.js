@@ -23741,7 +23741,7 @@ var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, onCop
   const selectedChars = (selectedText || "").length;
   const outputWords = TextChunker.getWordCount(generatedText || "");
   const outputChars = (generatedText || "").length;
-  const selectedLabel = mode === "chapter" ? "Scene Summary / Directions:" : mode === "micro-edit" ? "Selected Passage:" : "Selected Text (for character update):";
+  const selectedLabel = mode === "chapter" ? "Scene summary / directions:" : mode === "micro-edit" ? "Selected passage:" : "Selected text (for character update):";
   const selectedPlaceholder = mode === "chapter" ? "Write a rough summary of the scene you want (beats, directions, key dialogue notes, etc.)..." : mode === "micro-edit" ? "Paste the passage you want revised..." : "Paste selected text here for character extraction...";
   return /* @__PURE__ */ import_react2.default.createElement("div", { className: "editor-panel" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "editor-section" }, /* @__PURE__ */ import_react2.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 } }, /* @__PURE__ */ import_react2.default.createElement("label", null, selectedLabel), /* @__PURE__ */ import_react2.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, selectedWords.toLocaleString(), " words / ", selectedChars.toLocaleString(), " chars")), /* @__PURE__ */ import_react2.default.createElement(
     "textarea",
@@ -23752,7 +23752,7 @@ var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, onCop
       rows: 8,
       className: "editor-textarea"
     }
-  )), generatedText && /* @__PURE__ */ import_react2.default.createElement("div", { className: "editor-section" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "generated-header" }, /* @__PURE__ */ import_react2.default.createElement("div", { style: { display: "flex", flexDirection: "column" } }, /* @__PURE__ */ import_react2.default.createElement("label", null, "Generated Output:"), /* @__PURE__ */ import_react2.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, outputWords.toLocaleString(), " words / ", outputChars.toLocaleString(), " chars")), /* @__PURE__ */ import_react2.default.createElement("button", { onClick: onCopy, className: "copy-button" }, "Copy to Clipboard")), /* @__PURE__ */ import_react2.default.createElement(
+  )), generatedText && /* @__PURE__ */ import_react2.default.createElement("div", { className: "editor-section" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "generated-header" }, /* @__PURE__ */ import_react2.default.createElement("div", { style: { display: "flex", flexDirection: "column" } }, /* @__PURE__ */ import_react2.default.createElement("label", null, "Generated output:"), /* @__PURE__ */ import_react2.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, outputWords.toLocaleString(), " words / ", outputChars.toLocaleString(), " chars")), /* @__PURE__ */ import_react2.default.createElement("button", { onClick: onCopy, className: "copy-button" }, "Copy to clipboard")), /* @__PURE__ */ import_react2.default.createElement(
     "textarea",
     {
       value: generatedText,
@@ -23963,8 +23963,10 @@ var DashboardComponent = ({ plugin }) => {
       return value.message;
     if (typeof value === "string")
       return value;
-    if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint")
-      return String(value);
+    if (typeof value === "number" || typeof value === "boolean")
+      return value.toString();
+    if (typeof value === "bigint")
+      return value.toString();
     if (value === null)
       return "null";
     if (value === void 0)
@@ -23972,7 +23974,7 @@ var DashboardComponent = ({ plugin }) => {
     try {
       return JSON.stringify(value);
     } catch (e) {
-      return String(value);
+      return "[unserializable value]";
     }
   };
   const [mode, setMode] = (0, import_react5.useState)("chapter");
@@ -24076,14 +24078,22 @@ Continue anyway?`,
       }
       if (plugin.settings.generationMode === "multi") {
         setGenerationStage("Initializing multi-model generation...");
-        const result = await plugin.aiClient.generate(prompt, plugin.settings);
+        const multiSettings = {
+          ...plugin.settings,
+          generationMode: "multi"
+        };
+        const result = await plugin.aiClient.generate(prompt, multiSettings);
         if (result.stages) {
           setGenerationStage(`Finalizing (${Object.keys(result.stages).length} stages completed)...`);
         }
         setGeneratedText(result.primary);
       } else {
         setGenerationStage("Generating...");
-        const result = await plugin.aiClient.generate(prompt, plugin.settings);
+        const singleSettings = {
+          ...plugin.settings,
+          generationMode: "single"
+        };
+        const result = await plugin.aiClient.generate(prompt, singleSettings);
         setGeneratedText(result);
       }
       setGenerationStage("");
@@ -24126,7 +24136,10 @@ Continue anyway?`,
         storyBible,
         instructions
       );
-      const singleModeSettings = { ...plugin.settings, generationMode: "single" };
+      const singleModeSettings = {
+        ...plugin.settings,
+        generationMode: "single"
+      };
       const extractionResult = await plugin.aiClient.generate(prompt, singleModeSettings);
       const updates = plugin.characterExtractor.parseExtraction(extractionResult);
       await plugin.vaultService.updateCharacterNotes(updates);
@@ -24227,7 +24240,10 @@ Continue anyway?`,
           setGenerationStage(`${label}...`);
           const passage = chapters[i].fullText;
           const rosterPrompt = plugin.promptEngine.buildCharacterRosterPrompt(passage, storyBible);
-          const singleModeSettings = { ...plugin.settings, generationMode: "single" };
+          const singleModeSettings = {
+            ...plugin.settings,
+            generationMode: "single"
+          };
           try {
             const rosterResult = await withRetries(label, async () => {
               return await plugin.aiClient.generate(rosterPrompt, singleModeSettings);
@@ -24264,7 +24280,10 @@ Continue anyway?`,
           characterNotes,
           storyBible
         });
-        const singleModeSettings = { ...plugin.settings, generationMode: "single" };
+        const singleModeSettings = {
+          ...plugin.settings,
+          generationMode: "single"
+        };
         try {
           const extractionResult = await withRetries(label, async () => {
             return await plugin.aiClient.generate(prompt, singleModeSettings);
@@ -24696,7 +24715,7 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
         try {
           return JSON.stringify(error);
         } catch (e) {
-          return String(error);
+          return "[unserializable error]";
         }
       })();
       new import_obsidian5.Notice(`Error creating files: ${message}`);
@@ -24823,7 +24842,7 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian6.Setting(containerEl).setName("API provider").setDesc("Choose your AI provider. OpenRouter recommended for multi mode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "OpenRouter (Recommended)").addOption("openai", "OpenAI").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("API provider").setDesc("Choose your AI provider. OpenRouter recommended for multi mode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "OpenRouter (recommended)").addOption("openai", "OpenAI").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
       this.plugin.settings.apiProvider = value;
       const models = getModelsForProvider(value);
       const currentModel = this.plugin.settings.model;
@@ -25217,7 +25236,7 @@ var ContextAggregator = class {
         try {
           return JSON.stringify(error);
         } catch (e) {
-          return String(error);
+          return "[unserializable error]";
         }
       })();
       return `[Error reading file ${path}: ${message}]`;
@@ -25705,8 +25724,11 @@ var AIClient = class {
       return value.message;
     if (typeof value === "string")
       return value;
-    if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
-      return String(value);
+    if (typeof value === "number" || typeof value === "boolean") {
+      return value.toString();
+    }
+    if (typeof value === "bigint") {
+      return value.toString();
     }
     if (value === null)
       return "null";
@@ -25715,7 +25737,7 @@ var AIClient = class {
     try {
       return JSON.stringify(value);
     } catch (e) {
-      return String(value);
+      return "[unserializable value]";
     }
   }
   _getJson(resp) {
@@ -26134,10 +26156,10 @@ var BookMainSelectorModal = class extends FilePickerModal {
       app: plugin.app,
       files,
       placeholder: 'Type to search for your manuscript file (e.g., "Reach of the Abyss")',
-      onPick: async (item) => {
+      onPick: (item) => {
         plugin.settings.book2Path = item.path;
         plugin.settings.setupCompleted = true;
-        await plugin.saveSettings();
+        return plugin.saveSettings();
       }
     });
   }

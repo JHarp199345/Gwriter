@@ -22,13 +22,14 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const formatUnknownForUi = (value: unknown): string => {
 		if (value instanceof Error) return value.message;
 		if (typeof value === 'string') return value;
-		if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+		if (typeof value === 'number' || typeof value === 'boolean') return value.toString();
+		if (typeof value === 'bigint') return value.toString();
 		if (value === null) return 'null';
 		if (value === undefined) return 'undefined';
 		try {
 			return JSON.stringify(value);
 		} catch {
-			return String(value);
+			return '[unserializable value]';
 		}
 	};
 
@@ -152,7 +153,11 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 			if (plugin.settings.generationMode === 'multi') {
 				setGenerationStage('Initializing multi-model generation...');
-				const result = await plugin.aiClient.generate(prompt, plugin.settings as typeof plugin.settings & { generationMode: 'multi' });
+				const multiSettings: typeof plugin.settings & { generationMode: 'multi' } = {
+					...plugin.settings,
+					generationMode: 'multi'
+				};
+				const result = await plugin.aiClient.generate(prompt, multiSettings);
 				
 				// Show stages if available
 				if (result.stages) {
@@ -162,7 +167,11 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				setGeneratedText(result.primary);
 			} else {
 				setGenerationStage('Generating...');
-				const result = await plugin.aiClient.generate(prompt, plugin.settings as typeof plugin.settings & { generationMode: 'single' });
+				const singleSettings: typeof plugin.settings & { generationMode: 'single' } = {
+					...plugin.settings,
+					generationMode: 'single'
+				};
+				const result = await plugin.aiClient.generate(prompt, singleSettings);
 				setGeneratedText(result);
 			}
 			
@@ -212,7 +221,10 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			);
 			
 			// Character extraction always uses single mode
-			const singleModeSettings = { ...plugin.settings, generationMode: 'single' as const };
+			const singleModeSettings: typeof plugin.settings & { generationMode: 'single' } = {
+				...plugin.settings,
+				generationMode: 'single'
+			};
 			const extractionResult = await plugin.aiClient.generate(prompt, singleModeSettings);
 			const updates = plugin.characterExtractor.parseExtraction(extractionResult);
 			
@@ -348,7 +360,10 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					setGenerationStage(`${label}...`);
 					const passage = chapters[i].fullText;
 					const rosterPrompt = plugin.promptEngine.buildCharacterRosterPrompt(passage, storyBible);
-					const singleModeSettings = { ...plugin.settings, generationMode: 'single' as const };
+					const singleModeSettings: typeof plugin.settings & { generationMode: 'single' } = {
+						...plugin.settings,
+						generationMode: 'single'
+					};
 					try {
 						const rosterResult = await withRetries(label, async () => {
 							return await plugin.aiClient.generate(rosterPrompt, singleModeSettings);
@@ -395,7 +410,10 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					characterNotes,
 					storyBible
 				});
-				const singleModeSettings = { ...plugin.settings, generationMode: 'single' as const };
+				const singleModeSettings: typeof plugin.settings & { generationMode: 'single' } = {
+					...plugin.settings,
+					generationMode: 'single'
+				};
 				try {
 					const extractionResult = await withRetries(label, async () => {
 						return await plugin.aiClient.generate(prompt, singleModeSettings);

@@ -8,10 +8,10 @@ export class BookMainSelectorModal extends FilePickerModal {
 			app: plugin.app,
 			files,
 			placeholder: 'Type to search for your manuscript file (e.g., "Reach of the Abyss")',
-			onPick: async (item) => {
+			onPick: (item) => {
 				plugin.settings.book2Path = item.path;
 				plugin.settings.setupCompleted = true;
-				await plugin.saveSettings();
+				return plugin.saveSettings();
 			}
 		});
 	}
