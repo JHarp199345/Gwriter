@@ -6,6 +6,26 @@ export class ContextAggregator {
 	private vault: Vault;
 	private plugin: WritingDashboardPlugin;
 
+	private truncate(text: string, maxChars: number, label: string): string {
+		if (!text) return '';
+		if (text.length <= maxChars) return text;
+		const trimmed = text.slice(0, maxChars);
+		return (
+			`${trimmed}\n\n` +
+			`[${label}: truncated to ${maxChars.toLocaleString()} chars from ${text.length.toLocaleString()} chars]`
+		);
+	}
+
+	private takeTail(text: string, maxChars: number, label: string): string {
+		if (!text) return '';
+		if (text.length <= maxChars) return text;
+		const trimmed = text.slice(-maxChars);
+		return (
+			`[${label}: showing last ${maxChars.toLocaleString()} chars of ${text.length.toLocaleString()} chars]\n\n` +
+			trimmed
+		);
+	}
+
 	constructor(vault: Vault, plugin: WritingDashboardPlugin) {
 		this.vault = vault;
 		this.plugin = plugin;
@@ -25,12 +45,20 @@ export class ContextAggregator {
 			}
 		}
 		
+		// Prevent runaway prompts: keep only the most useful slices of large files.
+		// (Especially important for Gemini models where the input can crowd out output space.)
+		const smartConnections = await this.getSmartConnections(24);
+		const book2Full = await this.readFile(settings.book2Path);
+		const storyBible = await this.readFile(settings.storyBiblePath);
+		const slidingWindow = await this.readFile(settings.slidingWindowPath);
+
 		return {
-			smart_connections: await this.getSmartConnections(),
-			book2: await this.readFile(settings.book2Path),
-			story_bible: await this.readFile(settings.storyBiblePath),
-			extractions: extractions,
-			sliding_window: await this.readFile(settings.slidingWindowPath)
+			smart_connections: this.truncate(smartConnections, 120_000, 'Smart connections'),
+			// Book 2 can be enormous; we only need the most recent portion for continuation.
+			book2: this.takeTail(book2Full, 140_000, 'Book 2'),
+			story_bible: this.truncate(storyBible, 120_000, 'Story bible'),
+			extractions: this.truncate(extractions, 60_000, 'Extractions'),
+			sliding_window: this.truncate(slidingWindow, 40_000, 'Sliding window')
 		};
 	}
 
@@ -49,12 +77,17 @@ export class ContextAggregator {
 			}
 		}
 		
+		const storyBible = await this.readFile(settings.storyBiblePath);
+		const slidingWindow = await this.readFile(settings.slidingWindowPath);
+		const characterNotes = this.formatCharacterNotes(await this.getAllCharacterNotes());
+		const smartConnections = await this.getSmartConnections(16);
+
 		return {
-			sliding_window: await this.readFile(settings.slidingWindowPath),
-			story_bible: await this.readFile(settings.storyBiblePath),
-			extractions: extractions,
-			character_notes: this.formatCharacterNotes(await this.getAllCharacterNotes()),
-			smart_connections: await this.getSmartConnections(32),
+			sliding_window: this.truncate(slidingWindow, 30_000, 'Sliding window'),
+			story_bible: this.truncate(storyBible, 90_000, 'Story bible'),
+			extractions: this.truncate(extractions, 50_000, 'Extractions'),
+			character_notes: this.truncate(characterNotes, 90_000, 'Character notes'),
+			smart_connections: this.truncate(smartConnections, 80_000, 'Smart connections'),
 			surrounding_before: surrounding.before,
 			surrounding_after: surrounding.after
 		};

@@ -1,5 +1,6 @@
 import { requestUrl, type RequestUrlResponse } from 'obsidian';
 import type { DashboardSettings } from '../main';
+import { estimateTokens } from './TokenEstimate';
 
 export interface MultiModelResult {
 	primary: string;
@@ -351,6 +352,23 @@ export class AIClient {
 	}
 
 	private async _generateGemini(prompt: string, settings: DashboardSettings): Promise<string> {
+		const promptTokens = estimateTokens(prompt);
+		const limit = settings.contextTokenLimit ?? 128000;
+		// Reserve space for the model to answer. If input crowds out output, Gemini can return MAX_TOKENS with no text.
+		const reservedForOutput = 6000;
+		if (promptTokens > limit - reservedForOutput) {
+			throw new Error(
+				`Prompt too large for configured context limit. ` +
+					`Estimated input ~${promptTokens.toLocaleString()} tokens (limit: ${limit.toLocaleString()}). ` +
+					`Reduce context (story bible/character notes/Smart Connections) or increase the warning limit.`
+			);
+		}
+
+		const maxOutputTokens = Math.max(
+			512,
+			Math.min(8192, limit - promptTokens - 1024)
+		);
+
 		const response = await requestUrl({
 			url: `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
 			method: 'POST',
@@ -364,7 +382,7 @@ export class AIClient {
 					}
 				],
 				generationConfig: {
-					maxOutputTokens: 4000,
+					maxOutputTokens,
 					temperature: 0.7
 				}
 			})

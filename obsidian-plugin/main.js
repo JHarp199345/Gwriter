@@ -25455,6 +25455,26 @@ ${update}
 // services/ContextAggregator.ts
 var import_obsidian8 = require("obsidian");
 var ContextAggregator = class {
+  truncate(text, maxChars, label) {
+    if (!text)
+      return "";
+    if (text.length <= maxChars)
+      return text;
+    const trimmed = text.slice(0, maxChars);
+    return `${trimmed}
+
+[${label}: truncated to ${maxChars.toLocaleString()} chars from ${text.length.toLocaleString()} chars]`;
+  }
+  takeTail(text, maxChars, label) {
+    if (!text)
+      return "";
+    if (text.length <= maxChars)
+      return text;
+    const trimmed = text.slice(-maxChars);
+    return `[${label}: showing last ${maxChars.toLocaleString()} chars of ${text.length.toLocaleString()} chars]
+
+` + trimmed;
+  }
   constructor(vault, plugin) {
     this.vault = vault;
     this.plugin = plugin;
@@ -25469,12 +25489,17 @@ var ContextAggregator = class {
         extractions = "";
       }
     }
+    const smartConnections = await this.getSmartConnections(24);
+    const book2Full = await this.readFile(settings.book2Path);
+    const storyBible = await this.readFile(settings.storyBiblePath);
+    const slidingWindow = await this.readFile(settings.slidingWindowPath);
     return {
-      smart_connections: await this.getSmartConnections(),
-      book2: await this.readFile(settings.book2Path),
-      story_bible: await this.readFile(settings.storyBiblePath),
-      extractions,
-      sliding_window: await this.readFile(settings.slidingWindowPath)
+      smart_connections: this.truncate(smartConnections, 12e4, "Smart connections"),
+      // Book 2 can be enormous; we only need the most recent portion for continuation.
+      book2: this.takeTail(book2Full, 14e4, "Book 2"),
+      story_bible: this.truncate(storyBible, 12e4, "Story bible"),
+      extractions: this.truncate(extractions, 6e4, "Extractions"),
+      sliding_window: this.truncate(slidingWindow, 4e4, "Sliding window")
     };
   }
   async getMicroEditContext(selectedText) {
@@ -25488,12 +25513,16 @@ var ContextAggregator = class {
         extractions = "";
       }
     }
+    const storyBible = await this.readFile(settings.storyBiblePath);
+    const slidingWindow = await this.readFile(settings.slidingWindowPath);
+    const characterNotes = this.formatCharacterNotes(await this.getAllCharacterNotes());
+    const smartConnections = await this.getSmartConnections(16);
     return {
-      sliding_window: await this.readFile(settings.slidingWindowPath),
-      story_bible: await this.readFile(settings.storyBiblePath),
-      extractions,
-      character_notes: this.formatCharacterNotes(await this.getAllCharacterNotes()),
-      smart_connections: await this.getSmartConnections(32),
+      sliding_window: this.truncate(slidingWindow, 3e4, "Sliding window"),
+      story_bible: this.truncate(storyBible, 9e4, "Story bible"),
+      extractions: this.truncate(extractions, 5e4, "Extractions"),
+      character_notes: this.truncate(characterNotes, 9e4, "Character notes"),
+      smart_connections: this.truncate(smartConnections, 8e4, "Smart connections"),
       surrounding_before: surrounding.before,
       surrounding_after: surrounding.after
     };
@@ -26289,6 +26318,19 @@ ${alt}`).join("\n\n---\n\n")}`;
     return text;
   }
   async _generateGemini(prompt, settings) {
+    var _a;
+    const promptTokens = estimateTokens(prompt);
+    const limit = (_a = settings.contextTokenLimit) != null ? _a : 128e3;
+    const reservedForOutput = 6e3;
+    if (promptTokens > limit - reservedForOutput) {
+      throw new Error(
+        `Prompt too large for configured context limit. Estimated input ~${promptTokens.toLocaleString()} tokens (limit: ${limit.toLocaleString()}). Reduce context (story bible/character notes/Smart Connections) or increase the warning limit.`
+      );
+    }
+    const maxOutputTokens = Math.max(
+      512,
+      Math.min(8192, limit - promptTokens - 1024)
+    );
     const response = await (0, import_obsidian9.requestUrl)({
       url: `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
       method: "POST",
@@ -26302,7 +26344,7 @@ ${alt}`).join("\n\n---\n\n")}`;
           }
         ],
         generationConfig: {
-          maxOutputTokens: 4e3,
+          maxOutputTokens,
           temperature: 0.7
         }
       })
