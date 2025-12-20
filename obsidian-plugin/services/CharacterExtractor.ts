@@ -4,6 +4,42 @@ export interface CharacterUpdate {
 }
 
 export class CharacterExtractor {
+	/**
+	 * Process multiple text chunks and aggregate character updates
+	 */
+	async processChunks(
+		chunks: string[],
+		parseExtractionFn: (extractionText: string) => CharacterUpdate[]
+	): Promise<CharacterUpdate[]> {
+		const allUpdates: Map<string, string[]> = new Map();
+		
+		// Process each chunk
+		for (const chunk of chunks) {
+			const updates = parseExtractionFn(chunk);
+			
+			// Aggregate updates by character
+			for (const update of updates) {
+				if (!allUpdates.has(update.character)) {
+					allUpdates.set(update.character, []);
+				}
+				allUpdates.get(update.character)!.push(update.update);
+			}
+		}
+		
+		// Combine updates for each character
+		const aggregatedUpdates: CharacterUpdate[] = [];
+		for (const [character, updates] of allUpdates.entries()) {
+			// Combine all updates for this character
+			const combinedUpdate = updates.join('\n\n---\n\n');
+			aggregatedUpdates.push({
+				character,
+				update: combinedUpdate
+			});
+		}
+		
+		return aggregatedUpdates;
+	}
+
 	parseExtraction(extractionText: string): CharacterUpdate[] {
 		const updates: CharacterUpdate[] = [];
 		

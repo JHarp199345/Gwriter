@@ -1,5 +1,6 @@
 import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import WritingDashboardPlugin, { DashboardSettings } from '../main';
+import { SetupWizardModal } from './SetupWizard';
 
 // Model lists for each provider
 const OPENAI_MODELS = [
@@ -277,6 +278,16 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
+			.setName('Setup Wizard')
+			.setDesc('Create default files and folders for your writing workspace')
+			.addButton(button => button
+				.setButtonText('Run Setup Wizard')
+				.onClick(() => {
+					const modal = new SetupWizardModal(this.plugin);
+					modal.open();
+				}));
+
+		new Setting(containerEl)
 			.setName('Character Folder')
 			.setDesc('Folder name for character notes (default: Characters)')
 			.addText(text => text
@@ -288,10 +299,10 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Book 2 Path')
+			.setName('Book Main Path')
 			.setDesc('Path to your active manuscript')
 			.addText(text => text
-				.setPlaceholder('Book - MAIN 2.md')
+				.setPlaceholder('Book-Main.md')
 				.setValue(this.plugin.settings.book2Path)
 				.onChange(async (value) => {
 					this.plugin.settings.book2Path = value;
@@ -310,8 +321,8 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Extractions Path')
-			.setDesc('Path to your extractions file')
+			.setName('Extractions Path (Optional)')
+			.setDesc('Path to your extractions file. Optional - only needed if you use extractions instead of chunked folders.')
 			.addText(text => text
 				.setPlaceholder('Extractions.md')
 				.setValue(this.plugin.settings.extractionsPath)

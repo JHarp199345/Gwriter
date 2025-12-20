@@ -6,6 +6,7 @@ import { ContextAggregator } from './services/ContextAggregator';
 import { PromptEngine } from './services/PromptEngine';
 import { AIClient } from './services/AIClient';
 import { CharacterExtractor } from './services/CharacterExtractor';
+import { SetupWizardModal } from './ui/SetupWizard';
 
 export interface DashboardSettings {
 	apiKey: string;
@@ -25,6 +26,7 @@ export interface DashboardSettings {
 	storyBiblePath: string;
 	extractionsPath: string;
 	slidingWindowPath: string;
+	setupCompleted: boolean;
 }
 
 const DEFAULT_SETTINGS: DashboardSettings = {
@@ -41,10 +43,11 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 	synthesisModel: 'gpt-4',
 	vaultPath: '',
 	characterFolder: 'Characters',
-	book2Path: 'Book - MAIN 2.md',
+	book2Path: 'Book-Main.md',
 	storyBiblePath: 'Book - Story Bible.md',
 	extractionsPath: 'Extractions.md',
-	slidingWindowPath: 'Memory - Sliding Window.md'
+	slidingWindowPath: 'Memory - Sliding Window.md',
+	setupCompleted: false
 };
 
 export default class WritingDashboardPlugin extends Plugin {
@@ -89,6 +92,32 @@ export default class WritingDashboardPlugin extends Plugin {
 				this.activateView();
 			}
 		});
+
+		this.addCommand({
+			id: 'run-setup-wizard',
+			name: 'Run Setup Wizard',
+			callback: () => {
+				this.showSetupWizard();
+			}
+		});
+
+		// Check for first-run setup
+		if (!this.settings.setupCompleted) {
+			const bookMainExists = this.app.vault.getAbstractFileByPath('Book-Main.md') !== null;
+			if (!bookMainExists) {
+				// Show setup wizard automatically on first run
+				this.showSetupWizard();
+			} else {
+				// Book-Main.md exists, mark setup as completed
+				this.settings.setupCompleted = true;
+				await this.saveSettings();
+			}
+		}
+	}
+
+	async showSetupWizard() {
+		const modal = new SetupWizardModal(this);
+		modal.open();
 	}
 
 	async onunload() {

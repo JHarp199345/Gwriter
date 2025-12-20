@@ -6,7 +6,6 @@
 	"description": "AI-powered writing dashboard with chapter generation, micro-edits, and character management. Works entirely within the app.",
 	"author": "JHarp199345",
 	"authorUrl": "https://github.com/JHarp199345",
-	"isDesktopOnly": true,
-	"main": "main.js",
-	"styles": ["styles.css"]
+	"isDesktopOnly": true
+
 }

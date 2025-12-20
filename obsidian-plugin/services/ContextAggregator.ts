@@ -14,11 +14,22 @@ export class ContextAggregator {
 	async getChapterContext(): Promise<Context> {
 		const settings = this.plugin.settings;
 		
+		// Handle extractionsPath gracefully - it's optional
+		let extractions = '';
+		if (settings.extractionsPath) {
+			try {
+				extractions = await this.readFile(settings.extractionsPath);
+			} catch {
+				// File doesn't exist, use empty string
+				extractions = '';
+			}
+		}
+		
 		return {
 			smart_connections: await this.getSmartConnections(),
 			book2: await this.readFile(settings.book2Path),
 			story_bible: await this.readFile(settings.storyBiblePath),
-			extractions: await this.readFile(settings.extractionsPath),
+			extractions: extractions,
 			sliding_window: await this.readFile(settings.slidingWindowPath)
 		};
 	}
@@ -27,10 +38,21 @@ export class ContextAggregator {
 		const settings = this.plugin.settings;
 		const surrounding = await this.getSurroundingContext(selectedText, 500, 500);
 		
+		// Handle extractionsPath gracefully - it's optional
+		let extractions = '';
+		if (settings.extractionsPath) {
+			try {
+				extractions = await this.readFile(settings.extractionsPath);
+			} catch {
+				// File doesn't exist, use empty string
+				extractions = '';
+			}
+		}
+		
 		return {
 			sliding_window: await this.readFile(settings.slidingWindowPath),
 			story_bible: await this.readFile(settings.storyBiblePath),
-			extractions: await this.readFile(settings.extractionsPath),
+			extractions: extractions,
 			character_notes: await this.formatCharacterNotes(await this.getAllCharacterNotes()),
 			smart_connections: await this.getSmartConnections(32),
 			surrounding_before: surrounding.before,
