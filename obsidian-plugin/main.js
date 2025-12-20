@@ -23910,9 +23910,17 @@ var DashboardComponent = ({ plugin }) => {
   const [error, setError] = (0, import_react5.useState)(null);
   const [promptTokenEstimate, setPromptTokenEstimate] = (0, import_react5.useState)(null);
   const [promptCharCount, setPromptCharCount] = (0, import_react5.useState)(null);
+  const [bulkSourcePath, setBulkSourcePath] = (0, import_react5.useState)(
+    plugin.settings.characterExtractionSourcePath
+  );
   (0, import_react5.useEffect)(() => {
     if (mode === "chapter" && (!directorNotes || directorNotes.trim().length === 0)) {
       setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS);
+    }
+  }, [mode]);
+  (0, import_react5.useEffect)(() => {
+    if (mode === "character-update") {
+      setBulkSourcePath(plugin.settings.characterExtractionSourcePath);
     }
   }, [mode]);
   const handleGenerate = async () => {
@@ -24020,6 +24028,7 @@ Continue anyway?`
       onPick: async (file) => {
         plugin.settings.characterExtractionSourcePath = file.path;
         await plugin.saveSettings();
+        setBulkSourcePath(file.path);
       }
     });
     modal.open();
@@ -24027,6 +24036,7 @@ Continue anyway?`
   const handleClearCharacterExtractionSource = async () => {
     delete plugin.settings.characterExtractionSourcePath;
     await plugin.saveSettings();
+    setBulkSourcePath(void 0);
   };
   const handleProcessEntireBook = async () => {
     var _a;
@@ -24230,7 +24240,7 @@ Folder: ${result.folder}/`
       mode,
       onResetToDefault: mode === "chapter" ? () => setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS) : void 0
     }
-  ), promptTokenEstimate !== null && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Estimated prompt size: ~", promptTokenEstimate.toLocaleString(), " tokens", promptCharCount !== null ? ` (${promptCharCount.toLocaleString()} chars)` : "", plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit ? ` \u2014 exceeds warning limit (${plugin.settings.contextTokenLimit.toLocaleString()})` : ""), error && /* @__PURE__ */ import_react5.default.createElement("div", { className: "error-message" }, "\u274C ", error), isGenerating && generationStage && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "\u23F3 ", generationStage), mode === "character-update" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Bulk source: ", plugin.settings.characterExtractionSourcePath || plugin.settings.book2Path, plugin.settings.characterExtractionSourcePath ? " (custom)" : " (Book Main Path)"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "controls" }, mode !== "character-update" && /* @__PURE__ */ import_react5.default.createElement(
+  ), promptTokenEstimate !== null && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Estimated prompt size: ~", promptTokenEstimate.toLocaleString(), " tokens", promptCharCount !== null ? ` (${promptCharCount.toLocaleString()} chars)` : "", plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit ? ` \u2014 exceeds warning limit (${plugin.settings.contextTokenLimit.toLocaleString()})` : ""), error && /* @__PURE__ */ import_react5.default.createElement("div", { className: "error-message" }, "\u274C ", error), isGenerating && generationStage && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "\u23F3 ", generationStage), mode === "character-update" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Bulk source: ", bulkSourcePath || plugin.settings.book2Path, bulkSourcePath ? " (custom)" : " (Book Main Path)"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "controls" }, mode !== "character-update" && /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
       onClick: handleGenerate,

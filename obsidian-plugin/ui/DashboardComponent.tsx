@@ -28,6 +28,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [error, setError] = useState<string | null>(null);
 	const [promptTokenEstimate, setPromptTokenEstimate] = useState<number | null>(null);
 	const [promptCharCount, setPromptCharCount] = useState<number | null>(null);
+	const [bulkSourcePath, setBulkSourcePath] = useState<string | undefined>(
+		plugin.settings.characterExtractionSourcePath
+	);
 
 	// Chapter mode default instructions
 	useEffect(() => {
@@ -35,6 +38,14 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS);
 		}
 		// Only run when mode changes (intentional)
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [mode]);
+
+	// Keep bulk source label in sync when entering character mode (settings changes won't otherwise re-render)
+	useEffect(() => {
+		if (mode === 'character-update') {
+			setBulkSourcePath(plugin.settings.characterExtractionSourcePath);
+		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [mode]);
 
@@ -159,6 +170,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			onPick: async (file) => {
 				plugin.settings.characterExtractionSourcePath = file.path;
 				await plugin.saveSettings();
+				setBulkSourcePath(file.path);
 			}
 		});
 		modal.open();
@@ -167,6 +179,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const handleClearCharacterExtractionSource = async () => {
 		delete plugin.settings.characterExtractionSourcePath;
 		await plugin.saveSettings();
+		setBulkSourcePath(undefined);
 	};
 
 	const handleProcessEntireBook = async () => {
@@ -435,8 +448,8 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					)}
 					{mode === 'character-update' && (
 						<div className="generation-status">
-							Bulk source: {plugin.settings.characterExtractionSourcePath || plugin.settings.book2Path}
-							{plugin.settings.characterExtractionSourcePath ? ' (custom)' : ' (Book Main Path)'}
+							Bulk source: {bulkSourcePath || plugin.settings.book2Path}
+							{bulkSourcePath ? ' (custom)' : ' (Book Main Path)'}
 						</div>
 					)}
 					<div className="controls">
