@@ -24009,12 +24009,6 @@ var DashboardComponent = ({ plugin }) => {
   );
   const DEMO_FOLDER = "Writing dashboard demo";
   const DEMO_CHARACTER_FOLDER = `${DEMO_FOLDER}/Characters`;
-  const DEMO_PROVIDER_LINKS = [
-    { name: "OpenAI", url: "https://platform.openai.com/api-keys" },
-    { name: "Anthropic", url: "https://console.anthropic.com/settings/keys" },
-    { name: "Google Gemini", url: "https://aistudio.google.com/app/apikey" },
-    { name: "OpenRouter", url: "https://openrouter.ai/keys" }
-  ];
   const DEMO_CHAPTER_OUTPUT = `Ava kept to the seam of shadow where the alley met the service corridor, the city\u2019s night noise dulled by concrete and distance. The corporate tower rose above her like a blackened ribcage, windows lit in irregular bands as though the building itself was breathing.
 
 Marcus slid in beside her with the careless ease of someone who\u2019d never been caught. He smelled faintly of rain and cheap coffee. \u201CWe\u2019re late,\u201D he whispered.
@@ -24087,7 +24081,7 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
       (_a = setting == null ? void 0 : setting.open) == null ? void 0 : _a.call(setting);
       (_b = setting == null ? void 0 : setting.openTabById) == null ? void 0 : _b.call(setting, "writing-dashboard");
     } catch (e) {
-      new import_obsidian3.Notice("Open settings \u2192 Writing dashboard to configure your API key.");
+      new import_obsidian3.Notice("Open settings \u2192 writing dashboard to configure your API key.");
     }
   };
   const isGuidedDemoActive = demoStep !== "off" && demoStep !== "done";

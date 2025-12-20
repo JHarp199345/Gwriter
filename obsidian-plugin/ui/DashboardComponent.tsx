@@ -72,13 +72,6 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 	const DEMO_FOLDER = 'Writing dashboard demo';
 	const DEMO_CHARACTER_FOLDER = `${DEMO_FOLDER}/Characters`;
-	const DEMO_PROVIDER_LINKS: Array<{ name: string; url: string }> = [
-		{ name: 'OpenAI', url: 'https://platform.openai.com/api-keys' },
-		{ name: 'Anthropic', url: 'https://console.anthropic.com/settings/keys' },
-		{ name: 'Google Gemini', url: 'https://aistudio.google.com/app/apikey' },
-		{ name: 'OpenRouter', url: 'https://openrouter.ai/keys' }
-	];
-
 	const DEMO_CHAPTER_OUTPUT =
 		`Ava kept to the seam of shadow where the alley met the service corridor, ` +
 		`the city’s night noise dulled by concrete and distance. The corporate tower rose ` +
@@ -149,7 +142,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			setting?.open?.();
 			setting?.openTabById?.('writing-dashboard');
 		} catch {
-			new Notice('Open settings → Writing dashboard to configure your API key.');
+			new Notice('Open settings → writing dashboard to configure your API key.');
 		}
 	};
 
