@@ -120,7 +120,7 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('API provider')
-			.setDesc('Choose your AI provider. OpenRouter recommended for multi mode.')
+			.setDesc('Choose your AI provider. Openrouter is recommended for multi mode.')
 			.addDropdown(dropdown => dropdown
 				.addOption('openrouter', 'Openrouter (recommended)')
 				.addOption('openai', 'Openai')
@@ -303,7 +303,7 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Book main path')
 			.setDesc('Path to your active manuscript')
 			.addText(text => text
-				.setPlaceholder('Book-Main.md')
+				.setPlaceholder('book-main.md')
 				.setValue(this.plugin.settings.book2Path)
 				.onChange(async (value) => {
 					this.plugin.settings.book2Path = value;
@@ -314,7 +314,7 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Story bible path')
 			.setDesc('Path to your story bible')
 			.addText(text => text
-				.setPlaceholder('Book - Story Bible.md')
+				.setPlaceholder('book - story bible.md')
 				.setValue(this.plugin.settings.storyBiblePath)
 				.onChange(async (value) => {
 					this.plugin.settings.storyBiblePath = value;
@@ -336,7 +336,7 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Sliding window path')
 			.setDesc('Path to your sliding window memory file')
 			.addText(text => text
-				.setPlaceholder('Memory - Sliding Window.md')
+				.setPlaceholder('memory - sliding window.md')
 				.setValue(this.plugin.settings.slidingWindowPath)
 				.onChange(async (value) => {
 					this.plugin.settings.slidingWindowPath = value;
@@ -361,7 +361,7 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Default character extraction instructions')
 			.setDesc('Used by character update (selected text). If the extraction instructions box is empty/invalid, this default is used instead.')
 			.addTextArea(text => text
-				.setPlaceholder('[CHARACTER UPDATE INSTRUCTIONS] ...')
+				.setPlaceholder('[Character update instructions] ...')
 				.setValue(this.plugin.settings.defaultCharacterExtractionInstructions || '')
 				.onChange(async (value) => {
 					this.plugin.settings.defaultCharacterExtractionInstructions = value;

@@ -22,10 +22,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		if (value instanceof Error) return value.message;
 		if (typeof value === 'string') return value;
 		if (typeof value === 'number' || typeof value === 'boolean') return value.toString();
-		if (typeof value === 'bigint') {
-			const bigintValue: bigint = value;
-			return bigintValue.toString();
-		}
+		if (typeof value === 'bigint') return 'bigint';
 		if (value === null) return 'null';
 		if (value === undefined) return 'undefined';
 		try {
@@ -117,9 +114,6 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		try {
 			let prompt: string;
 			let context;
-
-			type SingleSettings = Omit<DashboardSettings, 'generationMode'> & { generationMode: 'single' };
-			type MultiSettings = Omit<DashboardSettings, 'generationMode'> & { generationMode: 'multi' };
 
 			if (mode === 'chapter') {
 				context = await plugin.contextAggregator.getChapterContext();

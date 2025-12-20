@@ -21,8 +21,7 @@ export class AIClient {
 			return value.toString();
 		}
 		if (typeof value === 'bigint') {
-			const bigintValue: bigint = value;
-			return bigintValue.toString();
+			return 'bigint';
 		}
 		if (value === null) return 'null';
 		if (value === undefined) return 'undefined';

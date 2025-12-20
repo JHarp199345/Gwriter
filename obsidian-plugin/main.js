@@ -23964,10 +23964,8 @@ var DashboardComponent = ({ plugin }) => {
       return value;
     if (typeof value === "number" || typeof value === "boolean")
       return value.toString();
-    if (typeof value === "bigint") {
-      const bigintValue = value;
-      return bigintValue.toString();
-    }
+    if (typeof value === "bigint")
+      return "bigint";
     if (value === null)
       return "null";
     if (value === void 0)
@@ -24826,7 +24824,7 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian6.Setting(containerEl).setName("API provider").setDesc("Choose your AI provider. OpenRouter recommended for multi mode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "Openrouter (recommended)").addOption("openai", "Openai").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("API provider").setDesc("Choose your AI provider. Openrouter is recommended for multi mode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "Openrouter (recommended)").addOption("openai", "Openai").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
       this.plugin.settings.apiProvider = value;
       const models = getModelsForProvider(value);
       const currentModel = this.plugin.settings.model;
@@ -24936,11 +24934,11 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
       this.plugin.settings.characterFolder = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian6.Setting(containerEl).setName("Book main path").setDesc("Path to your active manuscript").addText((text) => text.setPlaceholder("Book-Main.md").setValue(this.plugin.settings.book2Path).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("Book main path").setDesc("Path to your active manuscript").addText((text) => text.setPlaceholder("book-main.md").setValue(this.plugin.settings.book2Path).onChange(async (value) => {
       this.plugin.settings.book2Path = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian6.Setting(containerEl).setName("Story bible path").setDesc("Path to your story bible").addText((text) => text.setPlaceholder("Book - Story Bible.md").setValue(this.plugin.settings.storyBiblePath).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("Story bible path").setDesc("Path to your story bible").addText((text) => text.setPlaceholder("book - story bible.md").setValue(this.plugin.settings.storyBiblePath).onChange(async (value) => {
       this.plugin.settings.storyBiblePath = value;
       await this.plugin.saveSettings();
     }));
@@ -24948,7 +24946,7 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
       this.plugin.settings.extractionsPath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian6.Setting(containerEl).setName("Sliding window path").setDesc("Path to your sliding window memory file").addText((text) => text.setPlaceholder("Memory - Sliding Window.md").setValue(this.plugin.settings.slidingWindowPath).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("Sliding window path").setDesc("Path to your sliding window memory file").addText((text) => text.setPlaceholder("memory - sliding window.md").setValue(this.plugin.settings.slidingWindowPath).onChange(async (value) => {
       this.plugin.settings.slidingWindowPath = value;
       await this.plugin.saveSettings();
     }));
@@ -24961,7 +24959,7 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian6.Setting(containerEl).setName("Default character extraction instructions").setDesc("Used by character update (selected text). If the extraction instructions box is empty/invalid, this default is used instead.").addTextArea((text) => text.setPlaceholder("[CHARACTER UPDATE INSTRUCTIONS] ...").setValue(this.plugin.settings.defaultCharacterExtractionInstructions || "").onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("Default character extraction instructions").setDesc("Used by character update (selected text). If the extraction instructions box is empty/invalid, this default is used instead.").addTextArea((text) => text.setPlaceholder("[Character update instructions] ...").setValue(this.plugin.settings.defaultCharacterExtractionInstructions || "").onChange(async (value) => {
       this.plugin.settings.defaultCharacterExtractionInstructions = value;
       await this.plugin.saveSettings();
     }));
@@ -25712,8 +25710,7 @@ var AIClient = class {
       return value.toString();
     }
     if (typeof value === "bigint") {
-      const bigintValue = value;
-      return bigintValue.toString();
+      return "bigint";
     }
     if (value === null)
       return "null";
