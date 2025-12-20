@@ -433,6 +433,12 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							⏳ {generationStage}
 						</div>
 					)}
+					{mode === 'character-update' && (
+						<div className="generation-status">
+							Bulk source: {plugin.settings.characterExtractionSourcePath || plugin.settings.book2Path}
+							{plugin.settings.characterExtractionSourcePath ? ' (custom)' : ' (Book Main Path)'}
+						</div>
+					)}
 					<div className="controls">
 						{mode !== 'character-update' && (
 							<button 
@@ -445,10 +451,6 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 						)}
 						{mode === 'character-update' && (
 							<>
-								<div className="generation-status">
-									Bulk source: {plugin.settings.characterExtractionSourcePath || plugin.settings.book2Path}
-									{plugin.settings.characterExtractionSourcePath ? ' (custom)' : ' (Book Main Path)'}
-								</div>
 								<button 
 									onClick={handleUpdateCharacters}
 									disabled={isGenerating || !selectedText || !plugin.settings.apiKey}

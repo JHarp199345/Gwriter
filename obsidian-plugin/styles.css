@@ -258,7 +258,9 @@
 
 .controls {
 	display: flex;
+	flex-wrap: wrap;
 	gap: 10px;
+	align-items: center;
 }
 
 .generate-button,
@@ -270,6 +272,7 @@
 	border-radius: 4px;
 	cursor: pointer;
 	font-weight: 500;
+	white-space: nowrap;
 }
 
 .generate-button:hover:not(:disabled),

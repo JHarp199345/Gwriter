@@ -24230,7 +24230,7 @@ Folder: ${result.folder}/`
       mode,
       onResetToDefault: mode === "chapter" ? () => setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS) : void 0
     }
-  ), promptTokenEstimate !== null && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Estimated prompt size: ~", promptTokenEstimate.toLocaleString(), " tokens", promptCharCount !== null ? ` (${promptCharCount.toLocaleString()} chars)` : "", plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit ? ` \u2014 exceeds warning limit (${plugin.settings.contextTokenLimit.toLocaleString()})` : ""), error && /* @__PURE__ */ import_react5.default.createElement("div", { className: "error-message" }, "\u274C ", error), isGenerating && generationStage && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "\u23F3 ", generationStage), /* @__PURE__ */ import_react5.default.createElement("div", { className: "controls" }, mode !== "character-update" && /* @__PURE__ */ import_react5.default.createElement(
+  ), promptTokenEstimate !== null && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Estimated prompt size: ~", promptTokenEstimate.toLocaleString(), " tokens", promptCharCount !== null ? ` (${promptCharCount.toLocaleString()} chars)` : "", plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit ? ` \u2014 exceeds warning limit (${plugin.settings.contextTokenLimit.toLocaleString()})` : ""), error && /* @__PURE__ */ import_react5.default.createElement("div", { className: "error-message" }, "\u274C ", error), isGenerating && generationStage && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "\u23F3 ", generationStage), mode === "character-update" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Bulk source: ", plugin.settings.characterExtractionSourcePath || plugin.settings.book2Path, plugin.settings.characterExtractionSourcePath ? " (custom)" : " (Book Main Path)"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "controls" }, mode !== "character-update" && /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
       onClick: handleGenerate,
@@ -24238,7 +24238,7 @@ Folder: ${result.folder}/`
       className: "generate-button"
     },
     isGenerating ? "Generating..." : mode === "chapter" ? "Generate Chapter" : "Generate Edit"
-  ), mode === "character-update" && /* @__PURE__ */ import_react5.default.createElement(import_react5.default.Fragment, null, /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Bulk source: ", plugin.settings.characterExtractionSourcePath || plugin.settings.book2Path, plugin.settings.characterExtractionSourcePath ? " (custom)" : " (Book Main Path)"), /* @__PURE__ */ import_react5.default.createElement(
+  ), mode === "character-update" && /* @__PURE__ */ import_react5.default.createElement(import_react5.default.Fragment, null, /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
       onClick: handleUpdateCharacters,
