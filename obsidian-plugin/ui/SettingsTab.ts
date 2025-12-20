@@ -345,7 +345,7 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Character extraction chunk size (words)')
-			.setDesc('Used by "Process entire book" to batch character extraction. Larger chunks (e.g., 2000–3000) tend to improve character context.')
+			.setDesc('Used by "process entire book" to batch character extraction. Larger chunks (e.g., 2000–3000) tend to improve character context.')
 			.addText(text => text
 				.setPlaceholder('2500')
 				.setValue(String(this.plugin.settings.characterExtractionChunkSize ?? 2500))
@@ -361,7 +361,7 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Default character extraction instructions')
 			.setDesc('Used by character update (selected text). If the extraction instructions box is empty/invalid, this default is used instead.')
 			.addTextArea(text => text
-				.setPlaceholder('[Character update instructions] ...')
+				.setPlaceholder('[Character update instructions]...')
 				.setValue(this.plugin.settings.defaultCharacterExtractionInstructions || '')
 				.onChange(async (value) => {
 					this.plugin.settings.defaultCharacterExtractionInstructions = value;

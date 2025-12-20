@@ -24950,7 +24950,7 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
       this.plugin.settings.slidingWindowPath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian6.Setting(containerEl).setName("Character extraction chunk size (words)").setDesc('Used by "Process entire book" to batch character extraction. Larger chunks (e.g., 2000\u20133000) tend to improve character context.').addText((text) => {
+    new import_obsidian6.Setting(containerEl).setName("Character extraction chunk size (words)").setDesc('Used by "process entire book" to batch character extraction. Larger chunks (e.g., 2000\u20133000) tend to improve character context.').addText((text) => {
       var _a;
       return text.setPlaceholder("2500").setValue(String((_a = this.plugin.settings.characterExtractionChunkSize) != null ? _a : 2500)).onChange(async (value) => {
         const parsed = parseInt(value, 10);
@@ -24959,7 +24959,7 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian6.Setting(containerEl).setName("Default character extraction instructions").setDesc("Used by character update (selected text). If the extraction instructions box is empty/invalid, this default is used instead.").addTextArea((text) => text.setPlaceholder("[Character update instructions] ...").setValue(this.plugin.settings.defaultCharacterExtractionInstructions || "").onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("Default character extraction instructions").setDesc("Used by character update (selected text). If the extraction instructions box is empty/invalid, this default is used instead.").addTextArea((text) => text.setPlaceholder("[Character update instructions]...").setValue(this.plugin.settings.defaultCharacterExtractionInstructions || "").onChange(async (value) => {
       this.plugin.settings.defaultCharacterExtractionInstructions = value;
       await this.plugin.saveSettings();
     }));
