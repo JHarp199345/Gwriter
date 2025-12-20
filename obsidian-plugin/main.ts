@@ -48,6 +48,11 @@ export interface DashboardSettings {
 	 */
 	defaultCharacterExtractionInstructions: string;
 	setupCompleted: boolean;
+	/**
+	 * If true, do not auto-start the guided demo for first-time users.
+	 * Users can still run the demo manually from settings or the command palette.
+	 */
+	guidedDemoDismissed: boolean;
 	fileState: Record<
 		string,
 		{
@@ -107,6 +112,7 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 		`## Character Name\n` +
 		`- Bullet updates only (no extra headings)\n`,
 	setupCompleted: false,
+	guidedDemoDismissed: false,
 	fileState: {}
 };
 
@@ -122,6 +128,14 @@ export default class WritingDashboardPlugin extends Plugin {
 	 * This avoids wiring additional cross-component state management.
 	 */
 	guidedDemoStartRequested = false;
+
+	private notifyUi(eventName: string) {
+		try {
+			window.dispatchEvent(new CustomEvent(eventName));
+		} catch {
+			// ignore
+		}
+	}
 	/**
 	 * Tracks the last markdown file the user opened in Obsidian.
 	 * Used for actions like "Chunk Selected File" so users don't need to keep updating settings.
@@ -247,6 +261,7 @@ export default class WritingDashboardPlugin extends Plugin {
 
 	requestGuidedDemoStart() {
 		this.guidedDemoStartRequested = true;
+		this.notifyUi('writing-dashboard:guided-demo-start');
 		void this.activateView();
 	}
 
@@ -260,6 +275,7 @@ export default class WritingDashboardPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+		this.notifyUi('writing-dashboard:settings-changed');
 	}
 
 	async activateView() {

@@ -38,6 +38,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 	const [mode, setMode] = useState<Mode>('chapter');
 	const [demoStep, setDemoStep] = useState<DemoStep>('off');
+	const [apiKeyPresent, setApiKeyPresent] = useState<boolean>(Boolean(plugin.settings.apiKey));
 	const [demoStepCompleted, setDemoStepCompleted] = useState<Record<Exclude<DemoStep, 'off'>, boolean>>({
 		chapter: false,
 		'micro-edit': false,
@@ -149,7 +150,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	};
 
 	const isGuidedDemoActive = demoStep !== 'off' && demoStep !== 'done';
-	const canUseAiInDemo = Boolean(plugin.settings.apiKey);
+	const canUseAiInDemo = apiKeyPresent;
 
 	const startGuidedDemo = () => {
 		// Reset UI state
@@ -202,6 +203,13 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		new Notice('Guided demo exited.');
 	};
 
+	const skipGuidedDemo = () => {
+		plugin.settings.guidedDemoDismissed = true;
+		void plugin.saveSettings();
+		exitGuidedDemo();
+		new Notice('Guided demo skipped.');
+	};
+
 	const continueGuidedDemo = () => {
 		if (demoStep === 'chapter') {
 			// Step 2: micro edit (uses generated output excerpt)
@@ -232,6 +240,11 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		if (demoStep === 'character-update') {
 			setDemoStep('done');
 			setDemoStepCompleted((prev) => ({ ...prev, done: true }));
+			// Don't auto-start again once the user completed the demo.
+			if (!plugin.settings.guidedDemoDismissed) {
+				plugin.settings.guidedDemoDismissed = true;
+				void plugin.saveSettings();
+			}
 			new Notice(`Guided demo complete. Demo notes are in "${DEMO_FOLDER}/".`);
 		}
 	};
@@ -264,11 +277,31 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 	// Start guided demo if requested by plugin command/settings/wizard
 	useEffect(() => {
+		const onSettingsChanged = () => {
+			setApiKeyPresent(Boolean(plugin.settings.apiKey));
+		};
+
+		const onGuidedDemoStart = () => {
+			startGuidedDemo();
+		};
+
+		window.addEventListener('writing-dashboard:settings-changed', onSettingsChanged as EventListener);
+		window.addEventListener('writing-dashboard:guided-demo-start', onGuidedDemoStart as EventListener);
+
+		// Back-compat: if the command was invoked before the dashboard mounted, honor the flag.
 		if (plugin.guidedDemoStartRequested) {
 			plugin.guidedDemoStartRequested = false;
 			startGuidedDemo();
+		} else if (!plugin.settings.setupCompleted && !plugin.settings.guidedDemoDismissed) {
+			// Auto-start demo for first-time users. They can skip.
+			startGuidedDemo();
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only on mount
+
+		return () => {
+			window.removeEventListener('writing-dashboard:settings-changed', onSettingsChanged as EventListener);
+			window.removeEventListener('writing-dashboard:guided-demo-start', onGuidedDemoStart as EventListener);
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: mount-only subscription
 	}, []);
 
 	// Keep bulk source label in sync when entering character mode (settings changes won't otherwise re-render)
@@ -838,6 +871,11 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 						<button onClick={openPluginSettings} disabled={isGenerating} className="mod-secondary">
 							Open settings
 						</button>
+						{!plugin.settings.setupCompleted && (
+							<button onClick={skipGuidedDemo} disabled={isGenerating} className="mod-secondary">
+								Skip demo
+							</button>
+						)}
 						{demoStep !== 'done' && (
 							<button
 								onClick={continueGuidedDemo}
@@ -863,20 +901,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					</div>
 				</div>
 			)}
-			{demoStep === 'off' && !plugin.settings.setupCompleted && (
-				<div className="demo-banner demo-banner-idle">
-					<div className="demo-banner-left">
-						<strong>New here?</strong>
-						<span className="demo-banner-step">Run a guided demo that generates demo-only text.</span>
-					</div>
-					<div className="demo-banner-actions">
-						<button onClick={startGuidedDemo} disabled={isGenerating} className="mod-cta">
-							Run guided demo
-						</button>
-					</div>
-				</div>
-			)}
-			{!plugin.settings.apiKey && (
+			{!apiKeyPresent && !isGuidedDemoActive && (
 				<div className="backend-warning">
 					⚠️ Please configure your API key in settings → writing dashboard
 				</div>
@@ -963,7 +988,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 						{mode !== 'character-update' && (
 							<button 
 								onClick={handleGenerate}
-								disabled={isGenerating || !plugin.settings.apiKey}
+								disabled={isGenerating || (!apiKeyPresent && !isGuidedDemoActive)}
 								className="generate-button"
 							>
 								{isGenerating ? 'Generating...' : mode === 'chapter' ? 'Generate chapter' : 'Generate edit'}
@@ -973,7 +998,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							<>
 								<button 
 									onClick={handleUpdateCharacters}
-									disabled={isGenerating || !selectedText || !plugin.settings.apiKey}
+									disabled={isGenerating || !selectedText || (!apiKeyPresent && !isGuidedDemoActive)}
 									className="update-characters-button"
 								>
 									Update characters
@@ -994,14 +1019,14 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 								</button>
 								<button 
 									onClick={handleProcessEntireBook}
-									disabled={isGenerating || !plugin.settings.apiKey}
+									disabled={isGenerating || !apiKeyPresent}
 									className="update-characters-button"
 								>
 									Process entire book
 								</button>
 								<button 
 									onClick={handleChunkSelectedFile}
-									disabled={isGenerating || !plugin.settings.apiKey}
+									disabled={isGenerating || !apiKeyPresent}
 									className="update-characters-button"
 								>
 									Chunk current note

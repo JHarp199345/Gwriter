@@ -23978,6 +23978,7 @@ var DashboardComponent = ({ plugin }) => {
   };
   const [mode, setMode] = (0, import_react5.useState)("chapter");
   const [demoStep, setDemoStep] = (0, import_react5.useState)("off");
+  const [apiKeyPresent, setApiKeyPresent] = (0, import_react5.useState)(Boolean(plugin.settings.apiKey));
   const [demoStepCompleted, setDemoStepCompleted] = (0, import_react5.useState)({
     chapter: false,
     "micro-edit": false,
@@ -24088,7 +24089,7 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
     }
   };
   const isGuidedDemoActive = demoStep !== "off" && demoStep !== "done";
-  const canUseAiInDemo = Boolean(plugin.settings.apiKey);
+  const canUseAiInDemo = apiKeyPresent;
   const startGuidedDemo = () => {
     setError(null);
     setPromptTokenEstimate(null);
@@ -24129,6 +24130,12 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
     });
     new import_obsidian3.Notice("Guided demo exited.");
   };
+  const skipGuidedDemo = () => {
+    plugin.settings.guidedDemoDismissed = true;
+    void plugin.saveSettings();
+    exitGuidedDemo();
+    new import_obsidian3.Notice("Guided demo skipped.");
+  };
   const continueGuidedDemo = () => {
     if (demoStep === "chapter") {
       const excerpt = (generatedText || "").slice(0, 1200).trim();
@@ -24151,6 +24158,10 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
     if (demoStep === "character-update") {
       setDemoStep("done");
       setDemoStepCompleted((prev) => ({ ...prev, done: true }));
+      if (!plugin.settings.guidedDemoDismissed) {
+        plugin.settings.guidedDemoDismissed = true;
+        void plugin.saveSettings();
+      }
       new import_obsidian3.Notice(`Guided demo complete. Demo notes are in "${DEMO_FOLDER}/".`);
     }
   };
@@ -24172,10 +24183,24 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
     }
   }, [mode]);
   (0, import_react5.useEffect)(() => {
+    const onSettingsChanged = () => {
+      setApiKeyPresent(Boolean(plugin.settings.apiKey));
+    };
+    const onGuidedDemoStart = () => {
+      startGuidedDemo();
+    };
+    window.addEventListener("writing-dashboard:settings-changed", onSettingsChanged);
+    window.addEventListener("writing-dashboard:guided-demo-start", onGuidedDemoStart);
     if (plugin.guidedDemoStartRequested) {
       plugin.guidedDemoStartRequested = false;
       startGuidedDemo();
+    } else if (!plugin.settings.setupCompleted && !plugin.settings.guidedDemoDismissed) {
+      startGuidedDemo();
     }
+    return () => {
+      window.removeEventListener("writing-dashboard:settings-changed", onSettingsChanged);
+      window.removeEventListener("writing-dashboard:guided-demo-start", onGuidedDemoStart);
+    };
   }, []);
   (0, import_react5.useEffect)(() => {
     if (mode === "character-update") {
@@ -24625,7 +24650,7 @@ Continue anyway?`,
       }
     }
   };
-  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "writing-dashboard" }, demoStep !== "off" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner-left" }, /* @__PURE__ */ import_react5.default.createElement("strong", null, "Guided demo"), /* @__PURE__ */ import_react5.default.createElement("span", { className: "demo-banner-step" }, demoStep === "chapter" && "Step 1/3: Generate a chapter (demo text)", demoStep === "micro-edit" && "Step 2/3: Micro edit (demo text)", demoStep === "character-update" && "Step 3/3: Update characters (demo folder)", demoStep === "done" && "Complete"), !canUseAiInDemo && /* @__PURE__ */ import_react5.default.createElement("span", { className: "demo-banner-step" }, "Offline demo: uses sample outputs. Add an API key to run real generation.")), /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner-actions" }, /* @__PURE__ */ import_react5.default.createElement("button", { onClick: openPluginSettings, disabled: isGenerating, className: "mod-secondary" }, "Open settings"), demoStep !== "done" && /* @__PURE__ */ import_react5.default.createElement(
+  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "writing-dashboard" }, demoStep !== "off" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner-left" }, /* @__PURE__ */ import_react5.default.createElement("strong", null, "Guided demo"), /* @__PURE__ */ import_react5.default.createElement("span", { className: "demo-banner-step" }, demoStep === "chapter" && "Step 1/3: Generate a chapter (demo text)", demoStep === "micro-edit" && "Step 2/3: Micro edit (demo text)", demoStep === "character-update" && "Step 3/3: Update characters (demo folder)", demoStep === "done" && "Complete"), !canUseAiInDemo && /* @__PURE__ */ import_react5.default.createElement("span", { className: "demo-banner-step" }, "Offline demo: uses sample outputs. Add an API key to run real generation.")), /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner-actions" }, /* @__PURE__ */ import_react5.default.createElement("button", { onClick: openPluginSettings, disabled: isGenerating, className: "mod-secondary" }, "Open settings"), !plugin.settings.setupCompleted && /* @__PURE__ */ import_react5.default.createElement("button", { onClick: skipGuidedDemo, disabled: isGenerating, className: "mod-secondary" }, "Skip demo"), demoStep !== "done" && /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
       onClick: continueGuidedDemo,
@@ -24633,7 +24658,7 @@ Continue anyway?`,
       className: "mod-cta"
     },
     "Next"
-  ), demoStep === "done" && /* @__PURE__ */ import_react5.default.createElement("button", { onClick: exitGuidedDemo, disabled: isGenerating, className: "mod-cta" }, "Close demo"), /* @__PURE__ */ import_react5.default.createElement("button", { onClick: exitGuidedDemo, disabled: isGenerating, className: "mod-secondary" }, "Exit"))), demoStep === "off" && !plugin.settings.setupCompleted && /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner demo-banner-idle" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner-left" }, /* @__PURE__ */ import_react5.default.createElement("strong", null, "New here?"), /* @__PURE__ */ import_react5.default.createElement("span", { className: "demo-banner-step" }, "Run a guided demo that generates demo-only text.")), /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner-actions" }, /* @__PURE__ */ import_react5.default.createElement("button", { onClick: startGuidedDemo, disabled: isGenerating, className: "mod-cta" }, "Run guided demo"))), !plugin.settings.apiKey && /* @__PURE__ */ import_react5.default.createElement("div", { className: "backend-warning" }, "\u26A0\uFE0F Please configure your API key in settings \u2192 writing dashboard"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: `sidebar ${isVaultPanelCollapsed ? "collapsed" : ""}` }, /* @__PURE__ */ import_react5.default.createElement(
+  ), demoStep === "done" && /* @__PURE__ */ import_react5.default.createElement("button", { onClick: exitGuidedDemo, disabled: isGenerating, className: "mod-cta" }, "Close demo"), /* @__PURE__ */ import_react5.default.createElement("button", { onClick: exitGuidedDemo, disabled: isGenerating, className: "mod-secondary" }, "Exit"))), !apiKeyPresent && !isGuidedDemoActive && /* @__PURE__ */ import_react5.default.createElement("div", { className: "backend-warning" }, "\u26A0\uFE0F Please configure your API key in settings \u2192 writing dashboard"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: `sidebar ${isVaultPanelCollapsed ? "collapsed" : ""}` }, /* @__PURE__ */ import_react5.default.createElement(
     VaultBrowser,
     {
       plugin,
@@ -24692,7 +24717,7 @@ Continue anyway?`,
     "button",
     {
       onClick: handleGenerate,
-      disabled: isGenerating || !plugin.settings.apiKey,
+      disabled: isGenerating || !apiKeyPresent && !isGuidedDemoActive,
       className: "generate-button"
     },
     isGenerating ? "Generating..." : mode === "chapter" ? "Generate chapter" : "Generate edit"
@@ -24700,7 +24725,7 @@ Continue anyway?`,
     "button",
     {
       onClick: handleUpdateCharacters,
-      disabled: isGenerating || !selectedText || !plugin.settings.apiKey,
+      disabled: isGenerating || !selectedText || !apiKeyPresent && !isGuidedDemoActive,
       className: "update-characters-button"
     },
     "Update characters"
@@ -24724,7 +24749,7 @@ Continue anyway?`,
     "button",
     {
       onClick: handleProcessEntireBook,
-      disabled: isGenerating || !plugin.settings.apiKey,
+      disabled: isGenerating || !apiKeyPresent,
       className: "update-characters-button"
     },
     "Process entire book"
@@ -24732,7 +24757,7 @@ Continue anyway?`,
     "button",
     {
       onClick: handleChunkSelectedFile,
-      disabled: isGenerating || !plugin.settings.apiKey,
+      disabled: isGenerating || !apiKeyPresent,
       className: "update-characters-button"
     },
     "Chunk current note"
@@ -26455,6 +26480,7 @@ Output format (required):
 - Bullet updates only (no extra headings)
 `,
   setupCompleted: false,
+  guidedDemoDismissed: false,
   fileState: {}
 };
 var WritingDashboardPlugin = class extends import_obsidian10.Plugin {
@@ -26470,6 +26496,12 @@ var WritingDashboardPlugin = class extends import_obsidian10.Plugin {
      * Used for actions like "Chunk Selected File" so users don't need to keep updating settings.
      */
     this.lastOpenedMarkdownPath = null;
+  }
+  notifyUi(eventName) {
+    try {
+      window.dispatchEvent(new CustomEvent(eventName));
+    } catch (e) {
+    }
   }
   async onload() {
     await this.loadSettings();
@@ -26561,6 +26593,7 @@ var WritingDashboardPlugin = class extends import_obsidian10.Plugin {
   }
   requestGuidedDemoStart() {
     this.guidedDemoStartRequested = true;
+    this.notifyUi("writing-dashboard:guided-demo-start");
     void this.activateView();
   }
   async onunload() {
@@ -26570,6 +26603,7 @@ var WritingDashboardPlugin = class extends import_obsidian10.Plugin {
   }
   async saveSettings() {
     await this.saveData(this.settings);
+    this.notifyUi("writing-dashboard:settings-changed");
   }
   async activateView() {
     const { workspace } = this.app;
