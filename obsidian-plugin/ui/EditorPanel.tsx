@@ -1,21 +1,47 @@
 import React from 'react';
 import WritingDashboardPlugin from '../main';
+import { TextChunker } from '../services/TextChunker';
 
 export const EditorPanel: React.FC<{
 	plugin: WritingDashboardPlugin;
+	mode: 'chapter' | 'micro-edit' | 'character-update';
 	selectedText: string;
 	onSelectionChange: (text: string) => void;
 	generatedText: string;
 	onCopy: () => void;
-}> = ({ selectedText, onSelectionChange, generatedText, onCopy }) => {
+}> = ({ mode, selectedText, onSelectionChange, generatedText, onCopy }) => {
+	const selectedWords = TextChunker.getWordCount(selectedText || '');
+	const selectedChars = (selectedText || '').length;
+	const outputWords = TextChunker.getWordCount(generatedText || '');
+	const outputChars = (generatedText || '').length;
+
+	const selectedLabel =
+		mode === 'chapter'
+			? 'Scene Summary / Directions:'
+			: mode === 'micro-edit'
+			? 'Selected Passage:'
+			: 'Selected Text (for character update):';
+
+	const selectedPlaceholder =
+		mode === 'chapter'
+			? 'Write a rough summary of the scene you want (beats, directions, key dialogue notes, etc.)...'
+			: mode === 'micro-edit'
+			? 'Paste the passage you want revised...'
+			: 'Paste selected text here for character extraction...';
+
 	return (
 		<div className="editor-panel">
 			<div className="editor-section">
-				<label>Selected Text / Clipboard Input:</label>
+				<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
+					<label>{selectedLabel}</label>
+					<span className="generation-status" style={{ margin: 0 }}>
+						{selectedWords.toLocaleString()} words / {selectedChars.toLocaleString()} chars
+					</span>
+				</div>
 				<textarea
 					value={selectedText}
 					onChange={(e) => onSelectionChange(e.target.value)}
-					placeholder="Paste selected text here, or type your instructions for chapter generation..."
+					placeholder={selectedPlaceholder}
 					rows={8}
 					className="editor-textarea"
 				/>
@@ -23,7 +49,12 @@ export const EditorPanel: React.FC<{
 			{generatedText && (
 				<div className="editor-section">
 					<div className="generated-header">
-						<label>Generated Output:</label>
+						<div style={{ display: 'flex', flexDirection: 'column' }}>
+							<label>Generated Output:</label>
+							<span className="generation-status" style={{ margin: 0 }}>
+								{outputWords.toLocaleString()} words / {outputChars.toLocaleString()} chars
+							</span>
+						</div>
 						<button onClick={onCopy} className="copy-button">Copy to Clipboard</button>
 					</div>
 					<textarea

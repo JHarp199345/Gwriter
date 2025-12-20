@@ -10,7 +10,13 @@ export interface Context {
 }
 
 export class PromptEngine {
-	buildChapterPrompt(context: Context, instructions: string, wordCount: number): string {
+	buildChapterPrompt(
+		context: Context,
+		rewriteInstructions: string,
+		sceneSummary: string,
+		minWords: number,
+		maxWords: number
+	): string {
 		return `SYSTEM INSTRUCTION FOR AI (1M CONTEXT):
 
 You are working on a multi-book narrative. Interpret the following file contents as directed:
@@ -47,16 +53,19 @@ ${context.sliding_window || ''}
 Continue directly from this.
 
 -------------------------------------------------------------
-AUTHOR INSTRUCTIONS
+REWRITE INSTRUCTIONS
 -------------------------------------------------------------
-${instructions}
-
-Author provides summary of events to be written or directions (like a director) or both.
+${rewriteInstructions}
 
 -------------------------------------------------------------
-TARGET WORD COUNT
+SCENE SUMMARY / DIRECTIONS
 -------------------------------------------------------------
-${wordCount} words
+${sceneSummary}
+
+-------------------------------------------------------------
+TARGET LENGTH RANGE
+-------------------------------------------------------------
+Between ${minWords} and ${maxWords} words (aim for the middle unless the scene requires otherwise).
 
 -------------------------------------------------------------
 SUMMARY OF YOUR ROLE
@@ -65,7 +74,8 @@ SUMMARY OF YOUR ROLE
 - Book 2 = active writing
 - Story Bible + Extractions = world + theme rules
 - Sliding Window = direct lead-in
-- Instructions = style constraints
+- Rewrite Instructions = style and constraints
+- Scene Summary = outline to be rewritten into full prose
 
 Continue writing Book 2 using all provided context.
 Maintain perfect continuity and match the author's voice.`;

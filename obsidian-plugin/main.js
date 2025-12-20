@@ -1105,7 +1105,7 @@ var require_react_development = __commonJS({
           var dispatcher = resolveDispatcher();
           return dispatcher.useRef(initialValue);
         }
-        function useEffect3(create, deps) {
+        function useEffect4(create, deps) {
           var dispatcher = resolveDispatcher();
           return dispatcher.useEffect(create, deps);
         }
@@ -1888,7 +1888,7 @@ var require_react_development = __commonJS({
         exports.useContext = useContext;
         exports.useDebugValue = useDebugValue;
         exports.useDeferredValue = useDeferredValue;
-        exports.useEffect = useEffect3;
+        exports.useEffect = useEffect4;
         exports.useId = useId;
         exports.useImperativeHandle = useImperativeHandle;
         exports.useInsertionEffect = useInsertionEffect;
@@ -23622,61 +23622,6 @@ var VaultBrowser = ({ plugin }) => {
 
 // ui/EditorPanel.tsx
 var import_react2 = __toESM(require_react());
-var EditorPanel = ({ selectedText, onSelectionChange, generatedText, onCopy }) => {
-  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "editor-panel" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "editor-section" }, /* @__PURE__ */ import_react2.default.createElement("label", null, "Selected Text / Clipboard Input:"), /* @__PURE__ */ import_react2.default.createElement(
-    "textarea",
-    {
-      value: selectedText,
-      onChange: (e) => onSelectionChange(e.target.value),
-      placeholder: "Paste selected text here, or type your instructions for chapter generation...",
-      rows: 8,
-      className: "editor-textarea"
-    }
-  )), generatedText && /* @__PURE__ */ import_react2.default.createElement("div", { className: "editor-section" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "generated-header" }, /* @__PURE__ */ import_react2.default.createElement("label", null, "Generated Output:"), /* @__PURE__ */ import_react2.default.createElement("button", { onClick: onCopy, className: "copy-button" }, "Copy to Clipboard")), /* @__PURE__ */ import_react2.default.createElement(
-    "textarea",
-    {
-      value: generatedText,
-      readOnly: true,
-      rows: 12,
-      className: "generated-textarea"
-    }
-  )));
-};
-
-// ui/DirectorNotes.tsx
-var import_react3 = __toESM(require_react());
-var DirectorNotes = ({ value, onChange, mode }) => {
-  const textareaRef = (0, import_react3.useRef)(null);
-  const placeholder = mode === "chapter" ? "Enter your slate instructions, directions, and story elements..." : mode === "micro-edit" ? "Enter your grievances, plot disagreements, or desired changes..." : "Character extraction will analyze the selected text automatically...";
-  return /* @__PURE__ */ import_react3.default.createElement("div", { className: "director-notes" }, /* @__PURE__ */ import_react3.default.createElement("label", null, mode === "chapter" ? "Author Instructions:" : mode === "micro-edit" ? "Grievances & Directives:" : "Notes (optional):"), /* @__PURE__ */ import_react3.default.createElement(
-    "textarea",
-    {
-      ref: textareaRef,
-      value,
-      onChange: (e) => onChange(e.target.value),
-      placeholder,
-      rows: 6,
-      disabled: mode === "character-update",
-      className: "director-notes-textarea"
-    }
-  ));
-};
-
-// ui/ModeSelector.tsx
-var import_react4 = __toESM(require_react());
-var ModeSelector = ({ mode, onChange }) => {
-  return /* @__PURE__ */ import_react4.default.createElement("div", { className: "mode-selector" }, /* @__PURE__ */ import_react4.default.createElement("label", null, "Mode:"), /* @__PURE__ */ import_react4.default.createElement(
-    "select",
-    {
-      value: mode,
-      onChange: (e) => onChange(e.target.value),
-      className: "mode-dropdown"
-    },
-    /* @__PURE__ */ import_react4.default.createElement("option", { value: "chapter" }, "Chapter Generate"),
-    /* @__PURE__ */ import_react4.default.createElement("option", { value: "micro-edit" }, "Micro Edit"),
-    /* @__PURE__ */ import_react4.default.createElement("option", { value: "character-update" }, "Character Update")
-  ));
-};
 
 // services/TextChunker.ts
 var TextChunker = class {
@@ -23779,6 +23724,79 @@ var TextChunker = class {
   }
 };
 
+// ui/EditorPanel.tsx
+var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, onCopy }) => {
+  const selectedWords = TextChunker.getWordCount(selectedText || "");
+  const selectedChars = (selectedText || "").length;
+  const outputWords = TextChunker.getWordCount(generatedText || "");
+  const outputChars = (generatedText || "").length;
+  const selectedLabel = mode === "chapter" ? "Scene Summary / Directions:" : mode === "micro-edit" ? "Selected Passage:" : "Selected Text (for character update):";
+  const selectedPlaceholder = mode === "chapter" ? "Write a rough summary of the scene you want (beats, directions, key dialogue notes, etc.)..." : mode === "micro-edit" ? "Paste the passage you want revised..." : "Paste selected text here for character extraction...";
+  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "editor-panel" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "editor-section" }, /* @__PURE__ */ import_react2.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 } }, /* @__PURE__ */ import_react2.default.createElement("label", null, selectedLabel), /* @__PURE__ */ import_react2.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, selectedWords.toLocaleString(), " words / ", selectedChars.toLocaleString(), " chars")), /* @__PURE__ */ import_react2.default.createElement(
+    "textarea",
+    {
+      value: selectedText,
+      onChange: (e) => onSelectionChange(e.target.value),
+      placeholder: selectedPlaceholder,
+      rows: 8,
+      className: "editor-textarea"
+    }
+  )), generatedText && /* @__PURE__ */ import_react2.default.createElement("div", { className: "editor-section" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "generated-header" }, /* @__PURE__ */ import_react2.default.createElement("div", { style: { display: "flex", flexDirection: "column" } }, /* @__PURE__ */ import_react2.default.createElement("label", null, "Generated Output:"), /* @__PURE__ */ import_react2.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, outputWords.toLocaleString(), " words / ", outputChars.toLocaleString(), " chars")), /* @__PURE__ */ import_react2.default.createElement("button", { onClick: onCopy, className: "copy-button" }, "Copy to Clipboard")), /* @__PURE__ */ import_react2.default.createElement(
+    "textarea",
+    {
+      value: generatedText,
+      readOnly: true,
+      rows: 12,
+      className: "generated-textarea"
+    }
+  )));
+};
+
+// ui/DirectorNotes.tsx
+var import_react3 = __toESM(require_react());
+var DirectorNotes = ({ value, onChange, mode, onResetToDefault }) => {
+  const textareaRef = (0, import_react3.useRef)(null);
+  const placeholder = mode === "chapter" ? "Enter your rewrite instructions..." : mode === "micro-edit" ? "Enter your grievances, plot disagreements, or desired changes..." : "Character extraction will analyze the selected text automatically...";
+  const wordCount = TextChunker.getWordCount(value || "");
+  const charCount = (value || "").length;
+  return /* @__PURE__ */ import_react3.default.createElement("div", { className: "director-notes" }, /* @__PURE__ */ import_react3.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 } }, /* @__PURE__ */ import_react3.default.createElement("label", null, mode === "chapter" ? "Rewrite Instructions:" : mode === "micro-edit" ? "Grievances & Directives:" : "Notes (optional):"), /* @__PURE__ */ import_react3.default.createElement("div", { style: { display: "flex", gap: 12, alignItems: "center" } }, /* @__PURE__ */ import_react3.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, wordCount.toLocaleString(), " words / ", charCount.toLocaleString(), " chars"), mode === "chapter" && onResetToDefault && /* @__PURE__ */ import_react3.default.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: onResetToDefault,
+      className: "copy-button"
+    },
+    "Reset to default"
+  ))), /* @__PURE__ */ import_react3.default.createElement(
+    "textarea",
+    {
+      ref: textareaRef,
+      value,
+      onChange: (e) => onChange(e.target.value),
+      placeholder,
+      rows: 6,
+      disabled: mode === "character-update",
+      className: "director-notes-textarea"
+    }
+  ));
+};
+
+// ui/ModeSelector.tsx
+var import_react4 = __toESM(require_react());
+var ModeSelector = ({ mode, onChange }) => {
+  return /* @__PURE__ */ import_react4.default.createElement("div", { className: "mode-selector" }, /* @__PURE__ */ import_react4.default.createElement("label", null, "Mode:"), /* @__PURE__ */ import_react4.default.createElement(
+    "select",
+    {
+      value: mode,
+      onChange: (e) => onChange(e.target.value),
+      className: "mode-dropdown"
+    },
+    /* @__PURE__ */ import_react4.default.createElement("option", { value: "chapter" }, "Chapter Generate"),
+    /* @__PURE__ */ import_react4.default.createElement("option", { value: "micro-edit" }, "Micro Edit"),
+    /* @__PURE__ */ import_react4.default.createElement("option", { value: "character-update" }, "Character Update")
+  ));
+};
+
 // services/ContentHash.ts
 function fnv1a32(input) {
   let hash = 2166136261;
@@ -23879,17 +23897,24 @@ function rosterToBulletList(roster) {
 }
 
 // ui/DashboardComponent.tsx
+var DEFAULT_REWRITE_INSTRUCTIONS = "[INSTRUCTION: The Scene Summary is a rough summary OR directions. Rewrite it into a fully detailed dramatic scene. Include dialogue, sensory details, and action. Do not summarize; write the prose. Match the tone, rhythm, and pacing of the provided context.]";
 var DashboardComponent = ({ plugin }) => {
   const [mode, setMode] = (0, import_react5.useState)("chapter");
   const [selectedText, setSelectedText] = (0, import_react5.useState)("");
   const [directorNotes, setDirectorNotes] = (0, import_react5.useState)("");
-  const [wordCount, setWordCount] = (0, import_react5.useState)(2e3);
+  const [minWords, setMinWords] = (0, import_react5.useState)(2e3);
+  const [maxWords, setMaxWords] = (0, import_react5.useState)(6e3);
   const [generatedText, setGeneratedText] = (0, import_react5.useState)("");
   const [isGenerating, setIsGenerating] = (0, import_react5.useState)(false);
   const [generationStage, setGenerationStage] = (0, import_react5.useState)("");
   const [error, setError] = (0, import_react5.useState)(null);
   const [promptTokenEstimate, setPromptTokenEstimate] = (0, import_react5.useState)(null);
   const [promptCharCount, setPromptCharCount] = (0, import_react5.useState)(null);
+  (0, import_react5.useEffect)(() => {
+    if (mode === "chapter" && (!directorNotes || directorNotes.trim().length === 0)) {
+      setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS);
+    }
+  }, [mode]);
   const handleGenerate = async () => {
     var _a;
     if (!plugin.settings.apiKey) {
@@ -23904,7 +23929,15 @@ var DashboardComponent = ({ plugin }) => {
       let context;
       if (mode === "chapter") {
         context = await plugin.contextAggregator.getChapterContext();
-        prompt = plugin.promptEngine.buildChapterPrompt(context, directorNotes, wordCount);
+        const min = Math.max(100, Math.min(minWords, maxWords));
+        const max = Math.max(100, Math.max(minWords, maxWords));
+        prompt = plugin.promptEngine.buildChapterPrompt(
+          context,
+          directorNotes,
+          selectedText,
+          min,
+          max
+        );
       } else {
         context = await plugin.contextAggregator.getMicroEditContext(selectedText);
         prompt = plugin.promptEngine.buildMicroEditPrompt(selectedText, directorNotes, context);
@@ -24112,8 +24145,8 @@ Continue anyway?`
         alert("Chunks are up to date \u2014 no rebuild needed.");
         return;
       }
-      const wordCount2 = TextChunker.getWordCount(textToChunk);
-      setGenerationStage(`Chunking ${wordCount2} words into 500-word chunks...`);
+      const wordCount = TextChunker.getWordCount(textToChunk);
+      setGenerationStage(`Chunking ${wordCount} words into 500-word chunks...`);
       const result = await plugin.vaultService.chunkFile(sourceFilePath, textToChunk, 500, true);
       plugin.settings.fileState = plugin.settings.fileState || {};
       plugin.settings.fileState[sourceFilePath] = {
@@ -24153,26 +24186,49 @@ Folder: ${result.folder}/`
     EditorPanel,
     {
       plugin,
+      mode,
       selectedText,
       onSelectionChange: setSelectedText,
       generatedText,
       onCopy: handleCopyToClipboard
     }
-  ), mode === "chapter" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "word-count-input" }, /* @__PURE__ */ import_react5.default.createElement("label", null, "Target Word Count:"), /* @__PURE__ */ import_react5.default.createElement(
+  ), mode === "chapter" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "word-count-input" }, /* @__PURE__ */ import_react5.default.createElement("label", null, "Target Word Range:"), /* @__PURE__ */ import_react5.default.createElement(
     "input",
     {
       type: "number",
-      value: wordCount,
-      onChange: (e) => setWordCount(parseInt(e.target.value) || 2e3),
+      value: minWords,
+      onChange: (e) => {
+        const v = parseInt(e.target.value) || 0;
+        const nextMin = Math.max(100, Math.min(2e6, v));
+        setMinWords(nextMin);
+        if (nextMin > maxWords)
+          setMaxWords(nextMin);
+      },
       min: "100",
-      max: "10000"
+      max: "2000000"
+    }
+  ), /* @__PURE__ */ import_react5.default.createElement("span", { style: { margin: "0 8px" } }, "to"), /* @__PURE__ */ import_react5.default.createElement(
+    "input",
+    {
+      type: "number",
+      value: maxWords,
+      onChange: (e) => {
+        const v = parseInt(e.target.value) || 0;
+        const nextMax = Math.max(100, Math.min(2e6, v));
+        setMaxWords(nextMax);
+        if (nextMax < minWords)
+          setMinWords(nextMax);
+      },
+      min: "100",
+      max: "2000000"
     }
   )), /* @__PURE__ */ import_react5.default.createElement(
     DirectorNotes,
     {
       value: directorNotes,
       onChange: setDirectorNotes,
-      mode
+      mode,
+      onResetToDefault: mode === "chapter" ? () => setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS) : void 0
     }
   ), promptTokenEstimate !== null && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Estimated prompt size: ~", promptTokenEstimate.toLocaleString(), " tokens", promptCharCount !== null ? ` (${promptCharCount.toLocaleString()} chars)` : "", plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit ? ` \u2014 exceeds warning limit (${plugin.settings.contextTokenLimit.toLocaleString()})` : ""), error && /* @__PURE__ */ import_react5.default.createElement("div", { className: "error-message" }, "\u274C ", error), isGenerating && generationStage && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "\u23F3 ", generationStage), /* @__PURE__ */ import_react5.default.createElement("div", { className: "controls" }, mode !== "character-update" && /* @__PURE__ */ import_react5.default.createElement(
     "button",
@@ -25140,7 +25196,7 @@ ${content}
 
 // services/PromptEngine.ts
 var PromptEngine = class {
-  buildChapterPrompt(context, instructions, wordCount) {
+  buildChapterPrompt(context, rewriteInstructions, sceneSummary, minWords, maxWords) {
     return `SYSTEM INSTRUCTION FOR AI (1M CONTEXT):
 
 You are working on a multi-book narrative. Interpret the following file contents as directed:
@@ -25177,16 +25233,19 @@ ${context.sliding_window || ""}
 Continue directly from this.
 
 -------------------------------------------------------------
-AUTHOR INSTRUCTIONS
+REWRITE INSTRUCTIONS
 -------------------------------------------------------------
-${instructions}
-
-Author provides summary of events to be written or directions (like a director) or both.
+${rewriteInstructions}
 
 -------------------------------------------------------------
-TARGET WORD COUNT
+SCENE SUMMARY / DIRECTIONS
 -------------------------------------------------------------
-${wordCount} words
+${sceneSummary}
+
+-------------------------------------------------------------
+TARGET LENGTH RANGE
+-------------------------------------------------------------
+Between ${minWords} and ${maxWords} words (aim for the middle unless the scene requires otherwise).
 
 -------------------------------------------------------------
 SUMMARY OF YOUR ROLE
@@ -25195,7 +25254,8 @@ SUMMARY OF YOUR ROLE
 - Book 2 = active writing
 - Story Bible + Extractions = world + theme rules
 - Sliding Window = direct lead-in
-- Instructions = style constraints
+- Rewrite Instructions = style and constraints
+- Scene Summary = outline to be rewritten into full prose
 
 Continue writing Book 2 using all provided context.
 Maintain perfect continuity and match the author's voice.`;

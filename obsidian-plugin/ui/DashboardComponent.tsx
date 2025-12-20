@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import WritingDashboardPlugin from '../main';
 import { VaultBrowser } from './VaultBrowser';
 import { EditorPanel } from './EditorPanel';
@@ -13,17 +13,30 @@ import { parseCharacterRoster, rosterToBulletList } from '../services/CharacterR
 
 type Mode = 'chapter' | 'micro-edit' | 'character-update';
 
+const DEFAULT_REWRITE_INSTRUCTIONS =
+	'[INSTRUCTION: The Scene Summary is a rough summary OR directions. Rewrite it into a fully detailed dramatic scene. Include dialogue, sensory details, and action. Do not summarize; write the prose. Match the tone, rhythm, and pacing of the provided context.]';
+
 export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = ({ plugin }) => {
 	const [mode, setMode] = useState<Mode>('chapter');
 	const [selectedText, setSelectedText] = useState('');
 	const [directorNotes, setDirectorNotes] = useState('');
-	const [wordCount, setWordCount] = useState(2000);
+	const [minWords, setMinWords] = useState(2000);
+	const [maxWords, setMaxWords] = useState(6000);
 	const [generatedText, setGeneratedText] = useState('');
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [generationStage, setGenerationStage] = useState<string>('');
 	const [error, setError] = useState<string | null>(null);
 	const [promptTokenEstimate, setPromptTokenEstimate] = useState<number | null>(null);
 	const [promptCharCount, setPromptCharCount] = useState<number | null>(null);
+
+	// Chapter mode default instructions
+	useEffect(() => {
+		if (mode === 'chapter' && (!directorNotes || directorNotes.trim().length === 0)) {
+			setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS);
+		}
+		// Only run when mode changes (intentional)
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [mode]);
 
 	const handleGenerate = async () => {
 		if (!plugin.settings.apiKey) {
@@ -40,7 +53,15 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 			if (mode === 'chapter') {
 				context = await plugin.contextAggregator.getChapterContext();
-				prompt = plugin.promptEngine.buildChapterPrompt(context, directorNotes, wordCount);
+				const min = Math.max(100, Math.min(minWords, maxWords));
+				const max = Math.max(100, Math.max(minWords, maxWords));
+				prompt = plugin.promptEngine.buildChapterPrompt(
+					context,
+					directorNotes,
+					selectedText,
+					min,
+					max
+				);
 			} else {
 				// micro-edit
 				context = await plugin.contextAggregator.getMicroEditContext(selectedText);
@@ -351,6 +372,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				<div className="main-workspace">
 					<EditorPanel 
 						plugin={plugin}
+						mode={mode}
 						selectedText={selectedText}
 						onSelectionChange={setSelectedText}
 						generatedText={generatedText}
@@ -358,13 +380,31 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					/>
 					{mode === 'chapter' && (
 						<div className="word-count-input">
-							<label>Target Word Count:</label>
+							<label>Target Word Range:</label>
 							<input
 								type="number"
-								value={wordCount}
-								onChange={(e) => setWordCount(parseInt(e.target.value) || 2000)}
+								value={minWords}
+								onChange={(e) => {
+									const v = parseInt(e.target.value) || 0;
+									const nextMin = Math.max(100, Math.min(2000000, v));
+									setMinWords(nextMin);
+									if (nextMin > maxWords) setMaxWords(nextMin);
+								}}
 								min="100"
-								max="10000"
+								max="2000000"
+							/>
+							<span style={{ margin: '0 8px' }}>to</span>
+							<input
+								type="number"
+								value={maxWords}
+								onChange={(e) => {
+									const v = parseInt(e.target.value) || 0;
+									const nextMax = Math.max(100, Math.min(2000000, v));
+									setMaxWords(nextMax);
+									if (nextMax < minWords) setMinWords(nextMax);
+								}}
+								min="100"
+								max="2000000"
 							/>
 						</div>
 					)}
@@ -372,6 +412,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 						value={directorNotes}
 						onChange={setDirectorNotes}
 						mode={mode}
+						onResetToDefault={mode === 'chapter' ? () => setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS) : undefined}
 					/>
 					{promptTokenEstimate !== null && (
 						<div className="generation-status">
