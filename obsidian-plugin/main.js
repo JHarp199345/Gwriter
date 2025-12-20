@@ -23738,6 +23738,16 @@ var TextChunker = class {
   }
 };
 
+// services/ContentHash.ts
+function fnv1a32(input) {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = hash + ((hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24)) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
 // ui/DashboardComponent.tsx
 var DashboardComponent = ({ plugin }) => {
   const [mode, setMode] = (0, import_react5.useState)("chapter");
@@ -23819,6 +23829,7 @@ var DashboardComponent = ({ plugin }) => {
     }
   };
   const handleProcessEntireBook = async () => {
+    var _a;
     if (!plugin.settings.apiKey) {
       setError("Please configure your API key in settings");
       return;
@@ -23827,9 +23838,18 @@ var DashboardComponent = ({ plugin }) => {
     setError(null);
     setGenerationStage("Loading book...");
     try {
-      const bookText = await plugin.contextAggregator.readFile(plugin.settings.book2Path);
+      const bookPath = plugin.settings.book2Path;
+      const bookText = await plugin.contextAggregator.readFile(bookPath);
       if (!bookText || bookText.trim().length === 0) {
         setError("Book file is empty or not found");
+        return;
+      }
+      const hashNow = fnv1a32(bookText);
+      const fileState = ((_a = plugin.settings.fileState) == null ? void 0 : _a[bookPath]) || {};
+      if (fileState.lastProcessHash === hashNow) {
+        setError(null);
+        setGenerationStage("");
+        alert("Book unchanged since last processing \u2014 skipping.");
         return;
       }
       const chunks = TextChunker.chunkText(bookText, 500);
@@ -23858,6 +23878,13 @@ var DashboardComponent = ({ plugin }) => {
       }));
       setGenerationStage("Saving character updates...");
       await plugin.vaultService.updateCharacterNotes(aggregatedUpdates);
+      plugin.settings.fileState = plugin.settings.fileState || {};
+      plugin.settings.fileState[bookPath] = {
+        ...plugin.settings.fileState[bookPath] || {},
+        lastProcessHash: hashNow,
+        lastProcessedAt: new Date().toISOString()
+      };
+      await plugin.saveSettings();
       setError(null);
       setGenerationStage("");
       alert(`Processed entire book and updated ${aggregatedUpdates.length} character note(s)`);
@@ -23870,6 +23897,7 @@ var DashboardComponent = ({ plugin }) => {
     }
   };
   const handleChunkSelectedFile = async () => {
+    var _a;
     if (!plugin.settings.apiKey) {
       setError("Please configure your API key in settings");
       return;
@@ -23878,26 +23906,48 @@ var DashboardComponent = ({ plugin }) => {
     setError(null);
     setGenerationStage("Chunking file...");
     try {
-      const sourceFilePath = plugin.lastOpenedMarkdownPath || plugin.settings.book2Path;
-      let textToChunk;
-      if (selectedText && selectedText.trim().length > 0) {
-        textToChunk = selectedText;
-        setGenerationStage("Chunking selected text...");
-      } else {
-        textToChunk = await plugin.contextAggregator.readFile(sourceFilePath);
-        setGenerationStage(`Chunking ${sourceFilePath}...`);
+      const sourceFilePath = plugin.lastOpenedMarkdownPath;
+      if (!sourceFilePath) {
+        setError("No active note detected. Open the note you want to chunk first.");
+        return;
       }
+      const textToChunk = await plugin.contextAggregator.readFile(sourceFilePath);
+      setGenerationStage(`Reading ${sourceFilePath}...`);
       if (!textToChunk || textToChunk.trim().length === 0) {
-        setError("No text to chunk. Please select text or ensure the file has content.");
+        setError("No text to chunk. Ensure the note has content.");
+        return;
+      }
+      const hashNow = fnv1a32(textToChunk);
+      const prevState = (_a = plugin.settings.fileState) == null ? void 0 : _a[sourceFilePath];
+      if ((prevState == null ? void 0 : prevState.lastChunkHash) === hashNow) {
+        setError(null);
+        setGenerationStage("");
+        alert("Chunks are up to date \u2014 no rebuild needed.");
         return;
       }
       const wordCount2 = TextChunker.getWordCount(textToChunk);
       setGenerationStage(`Chunking ${wordCount2} words into 500-word chunks...`);
-      const createdFiles = await plugin.vaultService.chunkFile(sourceFilePath, textToChunk, 500);
+      const result = await plugin.vaultService.chunkFile(sourceFilePath, textToChunk, 500, true);
+      plugin.settings.fileState = plugin.settings.fileState || {};
+      plugin.settings.fileState[sourceFilePath] = {
+        ...plugin.settings.fileState[sourceFilePath] || {},
+        lastChunkHash: hashNow,
+        lastChunkedAt: new Date().toISOString(),
+        lastChunkCount: result.totalChunks
+      };
+      await plugin.saveSettings();
       setError(null);
       setGenerationStage("");
-      const folderName = sourceFilePath.replace(/\.md$/, "").replace(/\.\w+$/, "");
-      alert(`Created ${createdFiles.length} chunk file(s) in ${folderName}-Chunked/`);
+      const written = result.created + result.overwritten;
+      alert(
+        `Chunks rebuilt for ${sourceFilePath}
+
+- Total chunks: ${result.totalChunks}
+- Written: ${written} (overwritten ${result.overwritten}, created ${result.created})
+- Deleted extra: ${result.deletedExtra}
+
+Folder: ${result.folder}/`
+      );
     } catch (err) {
       setError(err.message || "Chunking failed");
       console.error("Chunking error:", err);
@@ -23968,7 +24018,7 @@ var DashboardComponent = ({ plugin }) => {
       disabled: isGenerating || !plugin.settings.apiKey,
       className: "update-characters-button"
     },
-    "Chunk Selected File"
+    "Chunk Current Note"
   ))), /* @__PURE__ */ import_react5.default.createElement(ModeSelector, { mode, onChange: setMode }))));
 };
 
@@ -24477,22 +24527,75 @@ var VaultService = class {
    * @param sourceFilePath Path to the source file (e.g., "Book-Main.md")
    * @param text Text content to chunk
    * @param wordsPerChunk Number of words per chunk (default: 500)
-   * @returns Array of created chunk file paths
+   * @param overwrite If true, overwrites existing chunk files and deletes extra old chunks
+   * @returns Stats about what was written/skipped/deleted
    */
-  async chunkFile(sourceFilePath, text, wordsPerChunk = 500) {
+  async chunkFile(sourceFilePath, text, wordsPerChunk = 500, overwrite = false) {
     const baseName = sourceFilePath.replace(/\.md$/, "").replace(/\.\w+$/, "");
     const chunkedFolderName = `${baseName}-Chunked`;
     const chunks = TextChunker.chunkText(text, wordsPerChunk);
     await this.createFolderIfNotExists(chunkedFolderName);
-    const createdFiles = [];
+    const filePaths = [];
+    let created = 0;
+    let overwrittenCount = 0;
+    let skipped = 0;
     for (let i = 0; i < chunks.length; i++) {
       const chunkNumber = String(i + 1).padStart(3, "0");
       const chunkFileName = `${baseName}-CHUNK-${chunkNumber}.md`;
       const chunkFilePath = `${chunkedFolderName}/${chunkFileName}`;
-      await this.createFileIfNotExists(chunkFilePath, chunks[i]);
-      createdFiles.push(chunkFilePath);
+      const existing = this.vault.getAbstractFileByPath(chunkFilePath);
+      if (overwrite) {
+        if (existing instanceof import_obsidian4.TFile) {
+          await this.vault.modify(existing, chunks[i]);
+          overwrittenCount++;
+        } else {
+          const wasCreated = await this.createFileIfNotExists(chunkFilePath, chunks[i]);
+          if (wasCreated)
+            created++;
+        }
+      } else {
+        if (existing instanceof import_obsidian4.TFile) {
+          skipped++;
+        } else {
+          const wasCreated = await this.createFileIfNotExists(chunkFilePath, chunks[i]);
+          if (wasCreated)
+            created++;
+        }
+      }
+      filePaths.push(chunkFilePath);
     }
-    return createdFiles;
+    let deletedExtra = 0;
+    if (overwrite) {
+      const folder = this.vault.getAbstractFileByPath(chunkedFolderName);
+      if (folder instanceof import_obsidian4.TFolder) {
+        const maxIndex = chunks.length;
+        const regex = new RegExp(`^${this._escapeRegExp(baseName)}-CHUNK-(\\d{3})\\.md$`);
+        for (const child of folder.children) {
+          if (!(child instanceof import_obsidian4.TFile) || child.extension !== "md")
+            continue;
+          const match = child.name.match(regex);
+          if (!match)
+            continue;
+          const idx = parseInt(match[1], 10);
+          if (Number.isFinite(idx) && idx > maxIndex) {
+            await this.vault.delete(child);
+            deletedExtra++;
+          }
+        }
+      }
+    }
+    return {
+      folder: chunkedFolderName,
+      totalChunks: chunks.length,
+      created,
+      overwritten: overwrittenCount,
+      skipped,
+      deletedExtra,
+      filePaths
+    };
+  }
+  _escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   async updateCharacterNotes(updates) {
     const characterFolder = this.plugin.settings.characterFolder;
@@ -25334,7 +25437,8 @@ var DEFAULT_SETTINGS = {
   storyBiblePath: "Book - Story Bible.md",
   extractionsPath: "Extractions.md",
   slidingWindowPath: "Memory - Sliding Window.md",
-  setupCompleted: false
+  setupCompleted: false,
+  fileState: {}
 };
 var WritingDashboardPlugin = class extends import_obsidian6.Plugin {
   constructor() {

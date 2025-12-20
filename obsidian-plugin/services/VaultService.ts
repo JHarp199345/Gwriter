@@ -73,9 +73,23 @@ export class VaultService {
 	 * @param sourceFilePath Path to the source file (e.g., "Book-Main.md")
 	 * @param text Text content to chunk
 	 * @param wordsPerChunk Number of words per chunk (default: 500)
-	 * @returns Array of created chunk file paths
+	 * @param overwrite If true, overwrites existing chunk files and deletes extra old chunks
+	 * @returns Stats about what was written/skipped/deleted
 	 */
-	async chunkFile(sourceFilePath: string, text: string, wordsPerChunk: number = 500): Promise<string[]> {
+	async chunkFile(
+		sourceFilePath: string,
+		text: string,
+		wordsPerChunk: number = 500,
+		overwrite: boolean = false
+	): Promise<{
+		folder: string;
+		totalChunks: number;
+		created: number;
+		overwritten: number;
+		skipped: number;
+		deletedExtra: number;
+		filePaths: string[];
+	}> {
 		// Extract base filename without extension
 		const baseName = sourceFilePath.replace(/\.md$/, '').replace(/\.\w+$/, '');
 		const chunkedFolderName = `${baseName}-Chunked`;
@@ -85,7 +99,10 @@ export class VaultService {
 		// Ensure chunked folder exists
 		await this.createFolderIfNotExists(chunkedFolderName);
 		
-		const createdFiles: string[] = [];
+		const filePaths: string[] = [];
+		let created = 0;
+		let overwrittenCount = 0;
+		let skipped = 0;
 		
 		// Create chunk files
 		for (let i = 0; i < chunks.length; i++) {
@@ -93,12 +110,61 @@ export class VaultService {
 			const chunkFileName = `${baseName}-CHUNK-${chunkNumber}.md`;
 			const chunkFilePath = `${chunkedFolderName}/${chunkFileName}`;
 			
-			// Create chunk file
-			await this.createFileIfNotExists(chunkFilePath, chunks[i]);
-			createdFiles.push(chunkFilePath);
+			const existing = this.vault.getAbstractFileByPath(chunkFilePath);
+			if (overwrite) {
+				// Overwrite if exists, otherwise create
+				if (existing instanceof TFile) {
+					await this.vault.modify(existing, chunks[i]);
+					overwrittenCount++;
+				} else {
+					const wasCreated = await this.createFileIfNotExists(chunkFilePath, chunks[i]);
+					if (wasCreated) created++;
+				}
+			} else {
+				// Create chunk file only if it doesn't already exist
+				if (existing instanceof TFile) {
+					skipped++;
+				} else {
+					const wasCreated = await this.createFileIfNotExists(chunkFilePath, chunks[i]);
+					if (wasCreated) created++;
+				}
+			}
+			filePaths.push(chunkFilePath);
+		}
+
+		// If overwriting, delete any extra old chunk files beyond the new chunk count
+		let deletedExtra = 0;
+		if (overwrite) {
+			const folder = this.vault.getAbstractFileByPath(chunkedFolderName);
+			if (folder instanceof TFolder) {
+				const maxIndex = chunks.length;
+				const regex = new RegExp(`^${this._escapeRegExp(baseName)}-CHUNK-(\\d{3})\\.md$`);
+				for (const child of folder.children) {
+					if (!(child instanceof TFile) || child.extension !== 'md') continue;
+					const match = child.name.match(regex);
+					if (!match) continue;
+					const idx = parseInt(match[1], 10);
+					if (Number.isFinite(idx) && idx > maxIndex) {
+						await this.vault.delete(child);
+						deletedExtra++;
+					}
+				}
+			}
 		}
 		
-		return createdFiles;
+		return {
+			folder: chunkedFolderName,
+			totalChunks: chunks.length,
+			created,
+			overwritten: overwrittenCount,
+			skipped,
+			deletedExtra,
+			filePaths
+		};
+	}
+
+	private _escapeRegExp(value: string): string {
+		return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	}
 
 	async updateCharacterNotes(updates: Array<{ character: string; update: string }>): Promise<void> {

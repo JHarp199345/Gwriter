@@ -6,6 +6,7 @@ import { DirectorNotes } from './DirectorNotes';
 import { ModeSelector } from './ModeSelector';
 import { MultiModelResult } from '../services/AIClient';
 import { TextChunker } from '../services/TextChunker';
+import { fnv1a32 } from '../services/ContentHash';
 
 type Mode = 'chapter' | 'micro-edit' | 'character-update';
 
@@ -118,10 +119,21 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		
 		try {
 			// Read the entire book file
-			const bookText = await plugin.contextAggregator.readFile(plugin.settings.book2Path);
+			const bookPath = plugin.settings.book2Path;
+			const bookText = await plugin.contextAggregator.readFile(bookPath);
 			
 			if (!bookText || bookText.trim().length === 0) {
 				setError('Book file is empty or not found');
+				return;
+			}
+
+			// Skip if unchanged since last processing
+			const hashNow = fnv1a32(bookText);
+			const fileState = plugin.settings.fileState?.[bookPath] || {};
+			if (fileState.lastProcessHash === hashNow) {
+				setError(null);
+				setGenerationStage('');
+				alert('Book unchanged since last processing — skipping.');
 				return;
 			}
 
@@ -167,6 +179,15 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			// Apply updates to character files
 			setGenerationStage('Saving character updates...');
 			await plugin.vaultService.updateCharacterNotes(aggregatedUpdates);
+
+			// Record processing hash/timestamp
+			plugin.settings.fileState = plugin.settings.fileState || {};
+			plugin.settings.fileState[bookPath] = {
+				...(plugin.settings.fileState[bookPath] || {}),
+				lastProcessHash: hashNow,
+				lastProcessedAt: new Date().toISOString()
+			};
+			await plugin.saveSettings();
 			
 			setError(null);
 			setGenerationStage('');
@@ -191,35 +212,57 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		setGenerationStage('Chunking file...');
 		
 		try {
-			// Determine source file - prefer the last opened markdown note, fallback to Book Main Path
-			const sourceFilePath = plugin.lastOpenedMarkdownPath || plugin.settings.book2Path;
-			let textToChunk: string;
-			
-			if (selectedText && selectedText.trim().length > 0) {
-				// Use selected text if available
-				textToChunk = selectedText;
-				setGenerationStage('Chunking selected text...');
-			} else {
-				// Use entire file
-				textToChunk = await plugin.contextAggregator.readFile(sourceFilePath);
-				setGenerationStage(`Chunking ${sourceFilePath}...`);
+			// Chunk is file-based: always chunk the current note file (not the dashboard text box)
+			const sourceFilePath = plugin.lastOpenedMarkdownPath;
+			if (!sourceFilePath) {
+				setError('No active note detected. Open the note you want to chunk first.');
+				return;
 			}
+
+			const textToChunk = await plugin.contextAggregator.readFile(sourceFilePath);
+			setGenerationStage(`Reading ${sourceFilePath}...`);
 			
 			if (!textToChunk || textToChunk.trim().length === 0) {
-				setError('No text to chunk. Please select text or ensure the file has content.');
+				setError('No text to chunk. Ensure the note has content.');
+				return;
+			}
+
+			// Only rebuild chunks when content changed
+			const hashNow = fnv1a32(textToChunk);
+			const prevState = plugin.settings.fileState?.[sourceFilePath];
+			if (prevState?.lastChunkHash === hashNow) {
+				setError(null);
+				setGenerationStage('');
+				alert('Chunks are up to date — no rebuild needed.');
 				return;
 			}
 			
 			const wordCount = TextChunker.getWordCount(textToChunk);
 			setGenerationStage(`Chunking ${wordCount} words into 500-word chunks...`);
 			
-			// Chunk the text
-			const createdFiles = await plugin.vaultService.chunkFile(sourceFilePath, textToChunk, 500);
+			// Chunk the text (overwrite mode) and clean up extra old chunks
+			const result = await plugin.vaultService.chunkFile(sourceFilePath, textToChunk, 500, true);
+
+			// Record chunk hash/timestamp
+			plugin.settings.fileState = plugin.settings.fileState || {};
+			plugin.settings.fileState[sourceFilePath] = {
+				...(plugin.settings.fileState[sourceFilePath] || {}),
+				lastChunkHash: hashNow,
+				lastChunkedAt: new Date().toISOString(),
+				lastChunkCount: result.totalChunks
+			};
+			await plugin.saveSettings();
 			
 			setError(null);
 			setGenerationStage('');
-			const folderName = sourceFilePath.replace(/\.md$/, '').replace(/\.\w+$/, '');
-			alert(`Created ${createdFiles.length} chunk file(s) in ${folderName}-Chunked/`);
+			const written = result.created + result.overwritten;
+			alert(
+				`Chunks rebuilt for ${sourceFilePath}\n\n` +
+				`- Total chunks: ${result.totalChunks}\n` +
+				`- Written: ${written} (overwritten ${result.overwritten}, created ${result.created})\n` +
+				`- Deleted extra: ${result.deletedExtra}\n\n` +
+				`Folder: ${result.folder}/`
+			);
 		} catch (err: any) {
 			setError(err.message || 'Chunking failed');
 			console.error('Chunking error:', err);
@@ -313,7 +356,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 									disabled={isGenerating || !plugin.settings.apiKey}
 									className="update-characters-button"
 								>
-									Chunk Selected File
+									Chunk Current Note
 								</button>
 							</>
 						)}

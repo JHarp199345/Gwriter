@@ -27,6 +27,16 @@ export interface DashboardSettings {
 	extractionsPath: string;
 	slidingWindowPath: string;
 	setupCompleted: boolean;
+	fileState: Record<
+		string,
+		{
+			lastChunkHash?: string;
+			lastChunkedAt?: string;
+			lastChunkCount?: number;
+			lastProcessHash?: string;
+			lastProcessedAt?: string;
+		}
+	>;
 }
 
 const DEFAULT_SETTINGS: DashboardSettings = {
@@ -47,7 +57,8 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 	storyBiblePath: 'Book - Story Bible.md',
 	extractionsPath: 'Extractions.md',
 	slidingWindowPath: 'Memory - Sliding Window.md',
-	setupCompleted: false
+	setupCompleted: false,
+	fileState: {}
 };
 
 export default class WritingDashboardPlugin extends Plugin {
