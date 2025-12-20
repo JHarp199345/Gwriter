@@ -27,18 +27,65 @@
 	overflow-y: auto;
 }
 
+.sidebar.collapsed {
+	width: 38px;
+	padding-right: 0;
+	overflow: hidden;
+}
+
+.vault-browser-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 6px;
+}
+
+.sidebar.collapsed .vault-browser-header {
+	justify-content: center;
+}
+
+.vault-browser-title {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.sidebar.collapsed .vault-browser-title {
+	display: none;
+}
+
+.vault-collapse-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	cursor: pointer;
+}
+
+.vault-collapse-btn:hover {
+	background: var(--background-modifier-hover);
+}
+
+.sidebar.collapsed .vault-collapse-btn {
+	width: 30px;
+	height: 30px;
+}
+
 .main-workspace {
 	flex: 1;
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
 	overflow-y: auto;
-}
-
-.vault-browser h3 {
-	margin-top: 0;
-	font-size: 14px;
-	font-weight: 600;
 }
 
 .vault-tree {

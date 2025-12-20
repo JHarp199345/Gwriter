@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import WritingDashboardPlugin from '../main';
 
-export const VaultBrowser: React.FC<{ plugin: WritingDashboardPlugin }> = ({ plugin }) => {
+export const VaultBrowser: React.FC<{
+	plugin: WritingDashboardPlugin;
+	collapsed?: boolean;
+	onToggleCollapsed?: (nextCollapsed: boolean) => void;
+}> = ({ plugin, collapsed = false, onToggleCollapsed }) => {
 	const [structure, setStructure] = useState<Array<{ name: string; path: string; type: 'file' | 'folder' }>>([]);
 	const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
@@ -54,10 +58,23 @@ export const VaultBrowser: React.FC<{ plugin: WritingDashboardPlugin }> = ({ plu
 
 	return (
 		<div className="vault-browser">
-			<h3>Vault Structure</h3>
-			<div className="vault-tree">
-				{rootItems.map(item => renderItem(item))}
+			<div className="vault-browser-header">
+				<h3 className="vault-browser-title">{collapsed ? '📁' : 'Vault structure'}</h3>
+				<button
+					type="button"
+					className="vault-collapse-btn"
+					aria-label={collapsed ? 'Expand vault structure' : 'Collapse vault structure'}
+					title={collapsed ? 'Expand' : 'Collapse'}
+					onClick={() => onToggleCollapsed?.(!collapsed)}
+				>
+					{collapsed ? '»' : '«'}
+				</button>
 			</div>
+			{!collapsed && (
+				<div className="vault-tree">
+					{rootItems.map(item => renderItem(item))}
+				</div>
+			)}
 		</div>
 	);
 };

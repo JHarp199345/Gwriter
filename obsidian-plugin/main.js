@@ -23579,7 +23579,7 @@ var import_react5 = __toESM(require_react());
 
 // ui/VaultBrowser.tsx
 var import_react = __toESM(require_react());
-var VaultBrowser = ({ plugin }) => {
+var VaultBrowser = ({ plugin, collapsed = false, onToggleCollapsed }) => {
   const [structure, setStructure] = (0, import_react.useState)([]);
   const [expandedFolders, setExpandedFolders] = (0, import_react.useState)(/* @__PURE__ */ new Set());
   (0, import_react.useEffect)(() => {
@@ -23617,7 +23617,17 @@ var VaultBrowser = ({ plugin }) => {
     }
   };
   const rootItems = structure.filter((item) => !item.path.includes("/"));
-  return /* @__PURE__ */ import_react.default.createElement("div", { className: "vault-browser" }, /* @__PURE__ */ import_react.default.createElement("h3", null, "Vault Structure"), /* @__PURE__ */ import_react.default.createElement("div", { className: "vault-tree" }, rootItems.map((item) => renderItem(item))));
+  return /* @__PURE__ */ import_react.default.createElement("div", { className: "vault-browser" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vault-browser-header" }, /* @__PURE__ */ import_react.default.createElement("h3", { className: "vault-browser-title" }, collapsed ? "\u{1F4C1}" : "Vault structure"), /* @__PURE__ */ import_react.default.createElement(
+    "button",
+    {
+      type: "button",
+      className: "vault-collapse-btn",
+      "aria-label": collapsed ? "Expand vault structure" : "Collapse vault structure",
+      title: collapsed ? "Expand" : "Collapse",
+      onClick: () => onToggleCollapsed == null ? void 0 : onToggleCollapsed(!collapsed)
+    },
+    collapsed ? "\xBB" : "\xAB"
+  )), !collapsed && /* @__PURE__ */ import_react.default.createElement("div", { className: "vault-tree" }, rootItems.map((item) => renderItem(item))));
 };
 
 // ui/EditorPanel.tsx
@@ -23900,6 +23910,13 @@ function rosterToBulletList(roster) {
 var DEFAULT_REWRITE_INSTRUCTIONS = "[INSTRUCTION: The Scene Summary is a rough summary OR directions. Rewrite it into a fully detailed dramatic scene. Include dialogue, sensory details, and action. Do not summarize; write the prose. Match the tone, rhythm, and pacing of the provided context.]";
 var DashboardComponent = ({ plugin }) => {
   const [mode, setMode] = (0, import_react5.useState)("chapter");
+  const [isVaultPanelCollapsed, setIsVaultPanelCollapsed] = (0, import_react5.useState)(() => {
+    try {
+      return window.localStorage.getItem("writing-dashboard:vaultPanelCollapsed") === "1";
+    } catch (e) {
+      return false;
+    }
+  });
   const [selectedText, setSelectedText] = (0, import_react5.useState)("");
   const [directorNotes, setDirectorNotes] = (0, import_react5.useState)("");
   const [minWords, setMinWords] = (0, import_react5.useState)(2e3);
@@ -23923,6 +23940,15 @@ var DashboardComponent = ({ plugin }) => {
       setBulkSourcePath(plugin.settings.characterExtractionSourcePath);
     }
   }, [mode]);
+  (0, import_react5.useEffect)(() => {
+    try {
+      window.localStorage.setItem(
+        "writing-dashboard:vaultPanelCollapsed",
+        isVaultPanelCollapsed ? "1" : "0"
+      );
+    } catch (e) {
+    }
+  }, [isVaultPanelCollapsed]);
   const handleGenerate = async () => {
     var _a;
     if (!plugin.settings.apiKey) {
@@ -24261,7 +24287,14 @@ Folder: ${result.folder}/`
       alert("Copied to clipboard!");
     }
   };
-  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "writing-dashboard" }, !plugin.settings.apiKey && /* @__PURE__ */ import_react5.default.createElement("div", { className: "backend-warning" }, "\u26A0\uFE0F Please configure your API key in Settings \u2192 Writing Dashboard"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "sidebar" }, /* @__PURE__ */ import_react5.default.createElement(VaultBrowser, { plugin })), /* @__PURE__ */ import_react5.default.createElement("div", { className: "main-workspace" }, /* @__PURE__ */ import_react5.default.createElement(
+  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "writing-dashboard" }, !plugin.settings.apiKey && /* @__PURE__ */ import_react5.default.createElement("div", { className: "backend-warning" }, "\u26A0\uFE0F Please configure your API key in Settings \u2192 Writing Dashboard"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: `sidebar ${isVaultPanelCollapsed ? "collapsed" : ""}` }, /* @__PURE__ */ import_react5.default.createElement(
+    VaultBrowser,
+    {
+      plugin,
+      collapsed: isVaultPanelCollapsed,
+      onToggleCollapsed: setIsVaultPanelCollapsed
+    }
+  )), /* @__PURE__ */ import_react5.default.createElement("div", { className: "main-workspace" }, /* @__PURE__ */ import_react5.default.createElement(
     EditorPanel,
     {
       plugin,

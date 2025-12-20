@@ -18,6 +18,13 @@ const DEFAULT_REWRITE_INSTRUCTIONS =
 
 export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = ({ plugin }) => {
 	const [mode, setMode] = useState<Mode>('chapter');
+	const [isVaultPanelCollapsed, setIsVaultPanelCollapsed] = useState<boolean>(() => {
+		try {
+			return window.localStorage.getItem('writing-dashboard:vaultPanelCollapsed') === '1';
+		} catch {
+			return false;
+		}
+	});
 	const [selectedText, setSelectedText] = useState('');
 	const [directorNotes, setDirectorNotes] = useState('');
 	const [minWords, setMinWords] = useState(2000);
@@ -48,6 +55,17 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [mode]);
+
+	useEffect(() => {
+		try {
+			window.localStorage.setItem(
+				'writing-dashboard:vaultPanelCollapsed',
+				isVaultPanelCollapsed ? '1' : '0'
+			);
+		} catch {
+			// ignore
+		}
+	}, [isVaultPanelCollapsed]);
 
 	const handleGenerate = async () => {
 		if (!plugin.settings.apiKey) {
@@ -471,8 +489,12 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				</div>
 			)}
 			<div className="dashboard-layout">
-				<div className="sidebar">
-					<VaultBrowser plugin={plugin} />
+				<div className={`sidebar ${isVaultPanelCollapsed ? 'collapsed' : ''}`}>
+					<VaultBrowser
+						plugin={plugin}
+						collapsed={isVaultPanelCollapsed}
+						onToggleCollapsed={setIsVaultPanelCollapsed}
+					/>
 				</div>
 				<div className="main-workspace">
 					<EditorPanel 
