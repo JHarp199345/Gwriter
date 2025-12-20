@@ -361,7 +361,7 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Default character extraction instructions')
 			.setDesc('Used by character update (selected text). If the extraction instructions box is empty/invalid, this default is used instead.')
 			.addTextArea(text => text
-				.setPlaceholder('[Character update instructions]...')
+				.setPlaceholder('Character update instructions...')
 				.setValue(this.plugin.settings.defaultCharacterExtractionInstructions || '')
 				.onChange(async (value) => {
 					this.plugin.settings.defaultCharacterExtractionInstructions = value;
