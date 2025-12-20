@@ -23973,13 +23973,18 @@ var DashboardComponent = ({ plugin }) => {
     plugin.settings.characterExtractionSourcePath
   );
   (0, import_react5.useEffect)(() => {
-    if (mode === "chapter" && (!directorNotes || directorNotes.trim().length === 0)) {
-      setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS);
-    }
-  }, [mode]);
-  (0, import_react5.useEffect)(() => {
-    if (mode === "character-update" && (!directorNotes || directorNotes.trim().length === 0)) {
-      setDirectorNotes(plugin.settings.defaultCharacterExtractionInstructions || "");
+    const trimmed = (directorNotes || "").trim();
+    const isBlank = trimmed.length === 0;
+    const chapterDefault = DEFAULT_REWRITE_INSTRUCTIONS.trim();
+    const characterDefault = (plugin.settings.defaultCharacterExtractionInstructions || "").trim();
+    if (mode === "chapter") {
+      if (isBlank || characterDefault && trimmed === characterDefault) {
+        setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS);
+      }
+    } else if (mode === "character-update") {
+      if (isBlank || trimmed === chapterDefault) {
+        setDirectorNotes(plugin.settings.defaultCharacterExtractionInstructions || "");
+      }
     }
   }, [mode]);
   (0, import_react5.useEffect)(() => {

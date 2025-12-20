@@ -43,17 +43,22 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 	// Chapter mode default instructions
 	useEffect(() => {
-		if (mode === 'chapter' && (!directorNotes || directorNotes.trim().length === 0)) {
-			setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS);
-		}
-		// Only run when mode changes (intentional)
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [mode]);
+		const trimmed = (directorNotes || '').trim();
+		const isBlank = trimmed.length === 0;
+		const chapterDefault = DEFAULT_REWRITE_INSTRUCTIONS.trim();
+		const characterDefault = (plugin.settings.defaultCharacterExtractionInstructions || '').trim();
 
-	// Character update default instructions (from settings)
-	useEffect(() => {
-		if (mode === 'character-update' && (!directorNotes || directorNotes.trim().length === 0)) {
-			setDirectorNotes(plugin.settings.defaultCharacterExtractionInstructions || '');
+		// Two-way overwrite between the two defaults:
+		// - entering chapter: if blank OR still the character-update default, set chapter default
+		// - entering character-update: if blank OR still the chapter default, set character default
+		if (mode === 'chapter') {
+			if (isBlank || (characterDefault && trimmed === characterDefault)) {
+				setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS);
+			}
+		} else if (mode === 'character-update') {
+			if (isBlank || trimmed === chapterDefault) {
+				setDirectorNotes(plugin.settings.defaultCharacterExtractionInstructions || '');
+			}
 		}
 		// Only run when mode changes (intentional)
 		// eslint-disable-next-line react-hooks/exhaustive-deps
