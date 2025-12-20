@@ -38,7 +38,7 @@ This creates `main.js` which is the compiled plugin.
 3. Enter your API key (OpenAI, Anthropic, Gemini, or OpenRouter)
 4. Select your API provider and model
 5. Configure file paths to match your vault structure:
-   - Book Main Path (e.g., `Book-Main.md`)
+   - Book Main Path (any file name is fine; e.g., `Book - MAIN 2.md`)
    - Story Bible Path (e.g., `Book - Story Bible.md`)
    - Sliding Window Path (e.g., `Memory - Sliding Window.md`)
    - Character Folder (e.g., `Characters`)

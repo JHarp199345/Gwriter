@@ -1,6 +1,6 @@
 # Writing Dashboard
 
-A comprehensive writing dashboard for Obsidian that integrates AI-powered chapter generation, micro-editing, and character management into your writing workflow.
+A writing dashboard plugin that integrates AI-powered chapter generation, micro-editing, and character management into your writing workflow.
 
 ## Features
 
@@ -10,8 +10,8 @@ A comprehensive writing dashboard for Obsidian that integrates AI-powered chapte
    - Smart Connections (Book 1 canon)
    - Story Bible + Extractions
    - Sliding Window (immediate context)
-   - Your director instructions
-   - Target word count
+   - Your Scene Summary + Rewrite Instructions
+   - Target word **range** (Min/Max)
 
 2. **Micro Edit** - Refine specific passages with:
    - Selected text analysis
@@ -25,6 +25,10 @@ A comprehensive writing dashboard for Obsidian that integrates AI-powered chapte
    - Timestamped updates
    - Voice evidence, traits, relationships, arc progression
    - Automatic character folder management
+   - Bulk backfill (**Process Entire Book**) with improved recall:
+     - Pick which file to process (Book 1 / Book 2 / any note)
+     - Splits by H1 chapter headings (`# `)
+     - 2-pass pipeline (roster pass + per-chapter extraction)
 
 ### 📁 Vault Integration
 
@@ -36,9 +40,11 @@ A comprehensive writing dashboard for Obsidian that integrates AI-powered chapte
 ### ✨ Key Highlights
 
 - **Fully Self-Contained** - No Python backend required! Everything runs within Obsidian
-- **Multi-Provider Support** - Works with OpenAI, Anthropic (Claude), and Google Gemini
+- **Multi-Provider Support** - Works with OpenAI, Anthropic (Claude), Google Gemini, and OpenRouter
 - **Smart Context Integration** - Automatically pulls from your Story Bible, Extractions, Sliding Window, and Character notes
 - **Surrounding Context** - Micro-edit mode includes 500 words before/after selected text for better narrative continuity
+- **Prompt Size Warning** - Estimates prompt size and warns if you exceed your configured context limit
+- **Smarter First-Run Setup** - If your vault already has notes, the plugin can prompt you to select your main manuscript file
 
 ## Architecture
 
@@ -108,10 +114,15 @@ A comprehensive writing dashboard for Obsidian that integrates AI-powered chapte
 ### Chapter Generation
 
 1. Select **Chapter Generate** mode (bottom-right dropdown)
-2. Paste your slate instructions in the "Director Notes" field
-3. Set target word count
+2. Write your **Scene Summary / Directions**
+3. Review/edit **Rewrite Instructions** (defaults are auto-filled; includes a Reset button)
+4. Set a **target word range** (Min → Max). For an exact target, set Min=Max.
 4. Click **Generate Chapter**
 5. Review output and copy to clipboard
+
+Notes:
+- The dashboard shows word/character counters for Scene Summary, Rewrite Instructions, and Generated Output.
+- The dashboard may warn you if the prompt is estimated to exceed your configured context window.
 
 ### Micro Editing
 
@@ -128,6 +139,12 @@ A comprehensive writing dashboard for Obsidian that integrates AI-powered chapte
 2. Paste character-relevant text in "Selected Text"
 3. Click **Update Characters**
 4. Character notes will be updated with timestamped entries in the `Characters/` folder
+
+Bulk character backfill:
+1. Select **Character Update** mode
+2. Click **Select file to process** and choose the manuscript you want to scan
+3. Click **Process Entire Book**
+4. The plugin performs a 2-pass scan (roster + per-chapter extraction) and updates character notes
 
 ## File Structure
 
@@ -181,7 +198,9 @@ Character notes are stored in markdown with timestamped updates:
 [what changed]
 
 **Spoiler Notes:**
-[sensitive information]## Smart Connections Integration
+[sensitive information]
+
+## Smart Connections Integration
 
 The dashboard attempts to read Smart Connections data from:
 `.obsidian/plugins/smart-connections/data.json`
@@ -263,31 +282,3 @@ For issues, feature requests, or questions:
 ---
 
 **Note**: The Python backend in the `backend/` folder is legacy code and is no longer required. The plugin is now fully self-contained and makes AI API calls directly from within Obsidian.
-
-Smart Connections Integration
-The dashboard attempts to read Smart Connections data from:
-.obsidian/plugins/smart-connections/data.json
-If Smart Connections isn't available, it will use a fallback message. The plugin works without Smart Connections, but having it installed enhances context awareness.
-Troubleshooting
-API Key Issues
-Ensure your API key is correctly entered in settings
-Verify the API key is valid and has credits/quota
-Check that the model name matches your provider:
-OpenAI: gpt-4, gpt-3.5-turbo, etc.
-Anthropic: claude-3-opus, claude-3-sonnet, etc.
-Gemini: gemini-pro, gemini-1.5-pro, etc.
-API Errors
-Verify your API key is correct
-Check your API provider account for rate limits
-Ensure the model name is correct for your provider
-Check your internet connection
-File Not Found Errors
-Verify file paths in settings match your vault structure
-Ensure files exist at the specified paths
-Check vault path is correct
-Make sure file names match exactly (case-sensitive on Mac/Linux)
-Keyboard Not Working in Text Areas
-This was fixed in v1.0.0. If you experience issues, try:
-Clicking in the text area again
-Restarting Obsidian
-Updating to the latest version

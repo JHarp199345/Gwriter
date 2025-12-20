@@ -1,6 +1,6 @@
 # Writing Dashboard
 
-A comprehensive writing dashboard for Obsidian that integrates AI-powered chapter generation, micro-editing, and character management into your writing workflow.
+A writing dashboard plugin that integrates AI-powered chapter generation, micro-editing, and character management into your writing workflow.
 
 ## Features
 
@@ -10,8 +10,8 @@ A comprehensive writing dashboard for Obsidian that integrates AI-powered chapte
    - Smart Connections (Book 1 canon)
    - Story Bible + Extractions
    - Sliding Window (immediate context)
-   - Your director instructions
-   - Target word count
+   - Your Scene Summary + Rewrite Instructions
+   - Target word **range** (Min/Max)
 
 2. **Micro Edit** - Refine specific passages with:
    - Selected text analysis
@@ -24,6 +24,10 @@ A comprehensive writing dashboard for Obsidian that integrates AI-powered chapte
    - Timestamped updates
    - Voice evidence, traits, relationships, arc progression
    - Automatic character folder management
+   - Bulk backfill (**Process Entire Book**) with improved recall:
+     - Pick which file to process (Book 1 / Book 2 / any note)
+     - Splits by H1 chapter headings (`# `)
+     - 2-pass pipeline (roster pass + per-chapter extraction)
 
 ### 📁 Vault Integration
 
@@ -76,10 +80,11 @@ A comprehensive writing dashboard for Obsidian that integrates AI-powered chapte
 ### Chapter Generation
 
 1. Select **Chapter Generate** mode
-2. Paste your slate instructions in the "Director Notes" field
-3. Set target word count
-4. Click **Generate Chapter**
-5. Review output and copy to clipboard
+2. Write your **Scene Summary / Directions**
+3. Review/edit **Rewrite Instructions** (defaults are auto-filled; includes a Reset button)
+4. Set a **target word range** (Min → Max). For an exact target, set Min=Max.
+5. Click **Generate Chapter**
+6. Review output and copy to clipboard
 
 ### Micro Editing
 
@@ -95,6 +100,12 @@ A comprehensive writing dashboard for Obsidian that integrates AI-powered chapte
 2. Paste character-relevant text in "Selected Text"
 3. Click **Update Characters**
 4. Character notes will be updated with timestamped entries
+
+Bulk character backfill:
+1. Select **Character Update** mode
+2. Click **Select file to process** and choose the manuscript you want to scan
+3. Click **Process Entire Book**
+4. The plugin performs a 2-pass scan (roster + per-chapter extraction) and updates character notes
 
 ## Architecture
 
