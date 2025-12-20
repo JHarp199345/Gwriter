@@ -24091,6 +24091,10 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
   const isGuidedDemoActive = demoStep !== "off" && demoStep !== "done";
   const canUseAiInDemo = apiKeyPresent;
   const startGuidedDemo = () => {
+    if (!plugin.settings.guidedDemoShownOnce) {
+      plugin.settings.guidedDemoShownOnce = true;
+      void plugin.saveSettings();
+    }
     setError(null);
     setPromptTokenEstimate(null);
     setPromptCharCount(null);
@@ -24132,6 +24136,7 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
   };
   const skipGuidedDemo = () => {
     plugin.settings.guidedDemoDismissed = true;
+    plugin.settings.guidedDemoShownOnce = true;
     void plugin.saveSettings();
     exitGuidedDemo();
     new import_obsidian3.Notice("Guided demo skipped.");
@@ -24160,6 +24165,7 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
       setDemoStepCompleted((prev) => ({ ...prev, done: true }));
       if (!plugin.settings.guidedDemoDismissed) {
         plugin.settings.guidedDemoDismissed = true;
+        plugin.settings.guidedDemoShownOnce = true;
         void plugin.saveSettings();
       }
       new import_obsidian3.Notice(`Guided demo complete. Demo notes are in "${DEMO_FOLDER}/".`);
@@ -24194,7 +24200,7 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
     if (plugin.guidedDemoStartRequested) {
       plugin.guidedDemoStartRequested = false;
       startGuidedDemo();
-    } else if (!plugin.settings.setupCompleted && !plugin.settings.guidedDemoDismissed) {
+    } else if (!plugin.settings.guidedDemoDismissed && !plugin.settings.guidedDemoShownOnce) {
       startGuidedDemo();
     }
     return () => {
@@ -26481,6 +26487,7 @@ Output format (required):
 `,
   setupCompleted: false,
   guidedDemoDismissed: false,
+  guidedDemoShownOnce: false,
   fileState: {}
 };
 var WritingDashboardPlugin = class extends import_obsidian10.Plugin {

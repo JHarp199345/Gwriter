@@ -153,6 +153,12 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const canUseAiInDemo = apiKeyPresent;
 
 	const startGuidedDemo = () => {
+		// Mark as shown so we don't auto-start repeatedly for the same vault.
+		if (!plugin.settings.guidedDemoShownOnce) {
+			plugin.settings.guidedDemoShownOnce = true;
+			void plugin.saveSettings();
+		}
+
 		// Reset UI state
 		setError(null);
 		setPromptTokenEstimate(null);
@@ -205,6 +211,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 	const skipGuidedDemo = () => {
 		plugin.settings.guidedDemoDismissed = true;
+		plugin.settings.guidedDemoShownOnce = true;
 		void plugin.saveSettings();
 		exitGuidedDemo();
 		new Notice('Guided demo skipped.');
@@ -243,6 +250,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			// Don't auto-start again once the user completed the demo.
 			if (!plugin.settings.guidedDemoDismissed) {
 				plugin.settings.guidedDemoDismissed = true;
+				plugin.settings.guidedDemoShownOnce = true;
 				void plugin.saveSettings();
 			}
 			new Notice(`Guided demo complete. Demo notes are in "${DEMO_FOLDER}/".`);
@@ -292,8 +300,8 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		if (plugin.guidedDemoStartRequested) {
 			plugin.guidedDemoStartRequested = false;
 			startGuidedDemo();
-		} else if (!plugin.settings.setupCompleted && !plugin.settings.guidedDemoDismissed) {
-			// Auto-start demo for first-time users. They can skip.
+		} else if (!plugin.settings.guidedDemoDismissed && !plugin.settings.guidedDemoShownOnce) {
+			// Auto-start demo exactly once (unless dismissed). They can skip.
 			startGuidedDemo();
 		}
 

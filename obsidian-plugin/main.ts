@@ -53,6 +53,11 @@ export interface DashboardSettings {
 	 * Users can still run the demo manually from settings or the command palette.
 	 */
 	guidedDemoDismissed: boolean;
+	/**
+	 * Tracks whether the guided demo has been shown/started at least once for this vault.
+	 * Used to auto-start the demo exactly once (unless dismissed).
+	 */
+	guidedDemoShownOnce: boolean;
 	fileState: Record<
 		string,
 		{
@@ -113,6 +118,7 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 		`- Bullet updates only (no extra headings)\n`,
 	setupCompleted: false,
 	guidedDemoDismissed: false,
+	guidedDemoShownOnce: false,
 	fileState: {}
 };
 
