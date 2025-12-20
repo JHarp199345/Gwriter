@@ -24930,7 +24930,7 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
       const modal = new SetupWizardModal(this.plugin);
       modal.open();
     }));
-    new import_obsidian6.Setting(containerEl).setName("Character folder").setDesc("Folder name for character notes (default: characters)").addText((text) => text.setPlaceholder("Characters").setValue(this.plugin.settings.characterFolder).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("Character folder").setDesc("Folder name for character notes (default: characters)").addText((text) => text.setPlaceholder("characters").setValue(this.plugin.settings.characterFolder).onChange(async (value) => {
       this.plugin.settings.characterFolder = value;
       await this.plugin.saveSettings();
     }));
@@ -24942,7 +24942,7 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
       this.plugin.settings.storyBiblePath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian6.Setting(containerEl).setName("Extractions path (optional)").setDesc("Path to your extractions file. Optional - only needed if you use extractions instead of chunked folders.").addText((text) => text.setPlaceholder("Extractions.md").setValue(this.plugin.settings.extractionsPath).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("Extractions path (optional)").setDesc("Path to your extractions file. Optional - only needed if you use extractions instead of chunked folders.").addText((text) => text.setPlaceholder("extractions.md").setValue(this.plugin.settings.extractionsPath).onChange(async (value) => {
       this.plugin.settings.extractionsPath = value;
       await this.plugin.saveSettings();
     }));

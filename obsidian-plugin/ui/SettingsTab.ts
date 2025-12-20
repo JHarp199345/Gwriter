@@ -292,7 +292,7 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Character folder')
 			.setDesc('Folder name for character notes (default: characters)')
 			.addText(text => text
-				.setPlaceholder('Characters')
+				.setPlaceholder('characters')
 				.setValue(this.plugin.settings.characterFolder)
 				.onChange(async (value) => {
 					this.plugin.settings.characterFolder = value;
@@ -325,7 +325,7 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Extractions path (optional)')
 			.setDesc('Path to your extractions file. Optional - only needed if you use extractions instead of chunked folders.')
 			.addText(text => text
-				.setPlaceholder('Extractions.md')
+				.setPlaceholder('extractions.md')
 				.setValue(this.plugin.settings.extractionsPath)
 				.onChange(async (value) => {
 					this.plugin.settings.extractionsPath = value;
