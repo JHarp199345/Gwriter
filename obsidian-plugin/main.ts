@@ -32,6 +32,11 @@ export interface DashboardSettings {
 	 * (Chunking for Smart Connections/reference folders is separate.)
 	 */
 	characterExtractionChunkSize: number;
+	/**
+	 * Soft limit for estimated prompt tokens. Used to warn/confirm before sending requests.
+	 * Defaults to 128k (common large-context tier).
+	 */
+	contextTokenLimit: number;
 	setupCompleted: boolean;
 	fileState: Record<
 		string,
@@ -64,6 +69,7 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 	extractionsPath: 'Extractions.md',
 	slidingWindowPath: 'Memory - Sliding Window.md',
 	characterExtractionChunkSize: 2500,
+	contextTokenLimit: 128000,
 	setupCompleted: false,
 	fileState: {}
 };

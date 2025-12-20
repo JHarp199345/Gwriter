@@ -355,6 +355,19 @@ export class SettingsTab extends PluginSettingTab {
 					this.plugin.settings.characterExtractionChunkSize = clamped;
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName('Context Token Limit (warning)')
+			.setDesc('Shows a warning before generating if the estimated prompt tokens exceed this limit. Default: 128000.')
+			.addText(text => text
+				.setPlaceholder('128000')
+				.setValue(String(this.plugin.settings.contextTokenLimit ?? 128000))
+				.onChange(async (value) => {
+					const parsed = parseInt(value, 10);
+					const clamped = Number.isFinite(parsed) ? Math.min(2000000, Math.max(1000, parsed)) : 128000;
+					this.plugin.settings.contextTokenLimit = clamped;
+					await this.plugin.saveSettings();
+				}));
 	}
 }
 

@@ -23748,6 +23748,13 @@ function fnv1a32(input) {
   return hash.toString(16).padStart(8, "0");
 }
 
+// services/TokenEstimate.ts
+function estimateTokens(text) {
+  if (!text)
+    return 0;
+  return Math.ceil(text.length / 4);
+}
+
 // ui/DashboardComponent.tsx
 var DashboardComponent = ({ plugin }) => {
   const [mode, setMode] = (0, import_react5.useState)("chapter");
@@ -23758,7 +23765,10 @@ var DashboardComponent = ({ plugin }) => {
   const [isGenerating, setIsGenerating] = (0, import_react5.useState)(false);
   const [generationStage, setGenerationStage] = (0, import_react5.useState)("");
   const [error, setError] = (0, import_react5.useState)(null);
+  const [promptTokenEstimate, setPromptTokenEstimate] = (0, import_react5.useState)(null);
+  const [promptCharCount, setPromptCharCount] = (0, import_react5.useState)(null);
   const handleGenerate = async () => {
+    var _a;
     if (!plugin.settings.apiKey) {
       setError("Please configure your API key in settings");
       return;
@@ -23775,6 +23785,23 @@ var DashboardComponent = ({ plugin }) => {
       } else {
         context = await plugin.contextAggregator.getMicroEditContext(selectedText);
         prompt = plugin.promptEngine.buildMicroEditPrompt(selectedText, directorNotes, context);
+      }
+      const estimatedTokens = estimateTokens(prompt);
+      setPromptTokenEstimate(estimatedTokens);
+      setPromptCharCount(prompt.length);
+      const limit = (_a = plugin.settings.contextTokenLimit) != null ? _a : 128e3;
+      if (estimatedTokens > limit) {
+        const proceed = window.confirm(
+          `Estimated prompt size: ~${estimatedTokens.toLocaleString()} tokens (limit: ${limit.toLocaleString()}).
+
+This may exceed your model context window and cause truncation/failure.
+
+Continue anyway?`
+        );
+        if (!proceed) {
+          setGenerationStage("");
+          return;
+        }
       }
       if (plugin.settings.generationMode === "multi") {
         setGenerationStage("Initializing multi-model generation...");
@@ -23988,7 +24015,7 @@ Folder: ${result.folder}/`
       onChange: setDirectorNotes,
       mode
     }
-  ), error && /* @__PURE__ */ import_react5.default.createElement("div", { className: "error-message" }, "\u274C ", error), isGenerating && generationStage && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "\u23F3 ", generationStage), /* @__PURE__ */ import_react5.default.createElement("div", { className: "controls" }, mode !== "character-update" && /* @__PURE__ */ import_react5.default.createElement(
+  ), promptTokenEstimate !== null && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Estimated prompt size: ~", promptTokenEstimate.toLocaleString(), " tokens", promptCharCount !== null ? ` (${promptCharCount.toLocaleString()} chars)` : "", plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit ? ` \u2014 exceeds warning limit (${plugin.settings.contextTokenLimit.toLocaleString()})` : ""), error && /* @__PURE__ */ import_react5.default.createElement("div", { className: "error-message" }, "\u274C ", error), isGenerating && generationStage && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "\u23F3 ", generationStage), /* @__PURE__ */ import_react5.default.createElement("div", { className: "controls" }, mode !== "character-update" && /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
       onClick: handleGenerate,
@@ -24482,6 +24509,15 @@ var SettingsTab = class extends import_obsidian3.PluginSettingTab {
         const parsed = parseInt(value, 10);
         const clamped = Number.isFinite(parsed) ? Math.min(1e4, Math.max(250, parsed)) : 2500;
         this.plugin.settings.characterExtractionChunkSize = clamped;
+        await this.plugin.saveSettings();
+      });
+    });
+    new import_obsidian3.Setting(containerEl).setName("Context Token Limit (warning)").setDesc("Shows a warning before generating if the estimated prompt tokens exceed this limit. Default: 128000.").addText((text) => {
+      var _a;
+      return text.setPlaceholder("128000").setValue(String((_a = this.plugin.settings.contextTokenLimit) != null ? _a : 128e3)).onChange(async (value) => {
+        const parsed = parseInt(value, 10);
+        const clamped = Number.isFinite(parsed) ? Math.min(2e6, Math.max(1e3, parsed)) : 128e3;
+        this.plugin.settings.contextTokenLimit = clamped;
         await this.plugin.saveSettings();
       });
     });
@@ -25488,6 +25524,7 @@ var DEFAULT_SETTINGS = {
   extractionsPath: "Extractions.md",
   slidingWindowPath: "Memory - Sliding Window.md",
   characterExtractionChunkSize: 2500,
+  contextTokenLimit: 128e3,
   setupCompleted: false,
   fileState: {}
 };

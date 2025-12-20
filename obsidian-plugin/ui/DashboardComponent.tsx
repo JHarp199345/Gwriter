@@ -7,6 +7,7 @@ import { ModeSelector } from './ModeSelector';
 import { MultiModelResult } from '../services/AIClient';
 import { TextChunker } from '../services/TextChunker';
 import { fnv1a32 } from '../services/ContentHash';
+import { estimateTokens } from '../services/TokenEstimate';
 
 type Mode = 'chapter' | 'micro-edit' | 'character-update';
 
@@ -19,6 +20,8 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [generationStage, setGenerationStage] = useState<string>('');
 	const [error, setError] = useState<string | null>(null);
+	const [promptTokenEstimate, setPromptTokenEstimate] = useState<number | null>(null);
+	const [promptCharCount, setPromptCharCount] = useState<number | null>(null);
 
 	const handleGenerate = async () => {
 		if (!plugin.settings.apiKey) {
@@ -40,6 +43,23 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				// micro-edit
 				context = await plugin.contextAggregator.getMicroEditContext(selectedText);
 				prompt = plugin.promptEngine.buildMicroEditPrompt(selectedText, directorNotes, context);
+			}
+
+			// Estimate prompt size and warn if it may exceed the model's context window
+			const estimatedTokens = estimateTokens(prompt);
+			setPromptTokenEstimate(estimatedTokens);
+			setPromptCharCount(prompt.length);
+			const limit = plugin.settings.contextTokenLimit ?? 128000;
+			if (estimatedTokens > limit) {
+				const proceed = window.confirm(
+					`Estimated prompt size: ~${estimatedTokens.toLocaleString()} tokens (limit: ${limit.toLocaleString()}).\n\n` +
+					`This may exceed your model context window and cause truncation/failure.\n\n` +
+					`Continue anyway?`
+				);
+				if (!proceed) {
+					setGenerationStage('');
+					return;
+				}
 			}
 
 			if (plugin.settings.generationMode === 'multi') {
@@ -316,6 +336,15 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 						onChange={setDirectorNotes}
 						mode={mode}
 					/>
+					{promptTokenEstimate !== null && (
+						<div className="generation-status">
+							Estimated prompt size: ~{promptTokenEstimate.toLocaleString()} tokens
+							{promptCharCount !== null ? ` (${promptCharCount.toLocaleString()} chars)` : ''}
+							{plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit
+								? ` — exceeds warning limit (${plugin.settings.contextTokenLimit.toLocaleString()})`
+								: ''}
+						</div>
+					)}
 					{error && (
 						<div className="error-message">
 							❌ {error}
