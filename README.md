@@ -2,6 +2,24 @@
 
 A writing dashboard plugin that integrates AI-powered chapter generation, micro-editing, and character management into your writing workflow.
 
+## Quick start (recommended)
+
+1. Install and enable **Writing dashboard**.
+2. Open **Settings → Writing dashboard** (plugin settings).
+3. Choose an **API provider**, paste your **API key**, and select a **model**.
+4. Set **Book main path** to your active manuscript note.
+5. Optional but recommended: set **Story bible path** and **Sliding window path**.
+6. Open the dashboard:
+   - Ribbon icon: **Open dashboard**
+   - Command palette: **Open dashboard**
+
+## Where to get API keys
+
+- OpenAI: `https://platform.openai.com/api-keys`
+- Anthropic: `https://console.anthropic.com/settings/keys`
+- Google Gemini: `https://aistudio.google.com/app/apikey`
+- OpenRouter: `https://openrouter.ai/keys`
+
 ## Features
 
 ### 🎯 Three Writing Modes
@@ -64,7 +82,8 @@ A writing dashboard plugin that integrates AI-powered chapter generation, micro-
 - An AI API key from one of the supported providers:
   - OpenAI (GPT-4, GPT-3.5, etc.)
   - Anthropic (Claude 3 Opus, Claude 3 Sonnet, etc.)
-  - Google Gemini (gemini-pro, gemini-1.5-pro, etc.)
+  - Google Gemini (for example: `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-1.5-pro`)
+  - OpenRouter (multi-provider gateway)
 
 ### Installation
 
@@ -95,21 +114,23 @@ A writing dashboard plugin that integrates AI-powered chapter generation, micro-
 
 ### Configuration
 
-1. Open Obsidian Settings → **Writing Dashboard**
+1. Open Obsidian settings → **Writing dashboard**
 2. Configure:
    - **API Key**: Your AI API key (OpenAI, Anthropic, or Gemini)
-   - **API Provider**: Choose your provider (openai, anthropic, or gemini)
-   - **Model**: e.g., `gpt-4`, `claude-3-opus`, `gemini-pro`
+   - **API Provider**: Choose your provider (openai, anthropic, gemini, or openrouter)
+   - **Model**: examples: `gpt-4o`, `claude-3-5-sonnet`, `gemini-2.5-pro`
    - **Vault Path**: Auto-detected, but can be overridden
    - **Character Folder**: Default is `Characters`
    - **File Paths**: Configure paths to your Story Bible, Extractions, Sliding Window, etc.
+
+Note: model names change frequently. The plugin does not hardcode model availability; it sends the model id you enter to your chosen provider.
 
 ## Usage
 
 ### Opening the Dashboard
 
 - Click the **book icon** in the ribbon
-- Or use Command Palette (`Cmd+P` / `Ctrl+P`): "Open Writing Dashboard"
+- Or use Command Palette (`Cmd+P` / `Ctrl+P`): "Open dashboard"
 
 ### Chapter Generation
 
@@ -128,10 +149,16 @@ Notes:
 
 1. Select **Micro Edit** mode
 2. Paste the problematic passage in "Selected Text"
-3. Enter your grievances/directives in "Director Notes"
+3. Enter your grievances/directives in "Grievances and directives"
 4. Click **Generate Edit**
 5. The plugin automatically includes 500 words before and after your selection for context
 6. Copy the refined alternative and paste into your manuscript
+
+Examples you can paste into grievances/directives:
+- `Character A has no knowledge of Event X yet; remove any references that imply they do. Keep the scene outcome the same.`
+- `Fix POV leaks: this is Character B POV only.`
+- `Tone is too modern; make it tighter and more tense, matching surrounding chapters.`
+- `Continuity: the injury is on the left arm, not the right.`
 
 ### Character Updates
 
@@ -202,10 +229,34 @@ Character notes are stored in markdown with timestamped updates:
 
 ## Smart Connections Integration
 
-The dashboard attempts to read Smart Connections data from:
-`.obsidian/plugins/smart-connections/data.json`
+Smart Connections is optional. If installed, the dashboard attempts to read its data from your vault config directory:
+`<vault-config-dir>/plugins/smart-connections/data.json`
+
+Note: the config directory is usually `.obsidian/`, but users can change it in Obsidian. The plugin uses the current config dir automatically.
 
 If Smart Connections isn't available, it will use a fallback message. The plugin works without Smart Connections, but having it installed enhances context awareness.
+
+## Vault structure (what each folder/file is for)
+
+These paths are configurable in settings. The names below are recommended defaults.
+
+- `Characters/`
+  - One note per character (auto-updated by Character update).
+- **Book main path** (your manuscript note)
+  - The active manuscript the dashboard reads for context and chunking.
+- **Story bible path**
+  - Canon rules, arcs, timelines, constraints.
+- **Sliding window path**
+  - Short “what just happened” context for better continuity.
+- **Extractions path** (optional)
+  - Any distilled notes/summaries/constraints you want included in prompts.
+- `<Manuscript>-Chunked/` (created automatically)
+  - Chunked copy of a manuscript note for retrieval workflows (e.g., Smart Connections style context).
+
+## Privacy notes
+
+Your text is sent only to the AI provider you configured when you click generate/extraction buttons.
+No backend server is required for this plugin.
 
 ## Troubleshooting
 
@@ -214,9 +265,10 @@ If Smart Connections isn't available, it will use a fallback message. The plugin
 - Ensure your API key is correctly entered in settings
 - Verify the API key is valid and has credits/quota
 - Check that the model name matches your provider:
-  - OpenAI: `gpt-4`, `gpt-3.5-turbo`, etc.
-  - Anthropic: `claude-3-opus`, `claude-3-sonnet`, etc.
-  - Gemini: `gemini-pro`, `gemini-1.5-pro`, etc.
+  - OpenAI: `gpt-4o`, `gpt-4o-mini`, etc.
+  - Anthropic: `claude-3-5-sonnet`, `claude-3-5-haiku`, etc.
+  - Gemini: `gemini-2.5-pro`, `gemini-2.5-flash`, etc.
+  - OpenRouter: provider-prefixed model ids like `openai/gpt-4o` or `google/gemini-2.5-pro`
 
 ### API Errors
 

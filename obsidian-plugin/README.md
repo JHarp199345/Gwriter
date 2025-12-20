@@ -2,6 +2,23 @@
 
 A writing dashboard plugin that integrates AI-powered chapter generation, micro-editing, and character management into your writing workflow.
 
+## Quick start
+
+1. Install and enable **Writing dashboard**.
+2. Open **Settings → Writing dashboard**.
+3. Choose an **API provider**, paste your **API key**, and select a **model**.
+4. Set **Book main path** to your active manuscript note.
+5. Open the dashboard:
+   - Ribbon icon: **Open dashboard**
+   - Command palette: **Open dashboard**
+
+## Where to get API keys
+
+- OpenAI: `https://platform.openai.com/api-keys`
+- Anthropic: `https://console.anthropic.com/settings/keys`
+- Google Gemini: `https://aistudio.google.com/app/apikey`
+- OpenRouter: `https://openrouter.ai/keys`
+
 ## Features
 
 ### 🎯 Three Writing Modes
@@ -61,21 +78,23 @@ A writing dashboard plugin that integrates AI-powered chapter generation, micro-
 
 ## Configuration
 
-1. Open Obsidian Settings → **Writing Dashboard**
+1. Open Obsidian settings → **Writing dashboard**
 2. Configure:
    - **API Key**: Your AI API key (OpenAI, Anthropic, or Gemini)
    - **API Provider**: Choose your provider
-   - **Model**: e.g., `gpt-4`, `claude-3-opus`, `gemini-pro`
+   - **Model**: examples: `gpt-4o`, `claude-3-5-sonnet`, `gemini-2.5-pro`
    - **Vault Path**: Auto-detected, but can be overridden
    - **Character Folder**: Default is `Characters`
    - **File Paths**: Configure paths to your Story Bible, Extractions, Sliding Window, etc.
+
+Note: model names change frequently. The plugin sends the model id you enter to your chosen provider.
 
 ## Usage
 
 ### Opening the Dashboard
 
 - Click the book icon in the ribbon
-- Or use Command Palette: "Open Writing Dashboard"
+- Or use Command Palette: "Open dashboard"
 
 ### Chapter Generation
 
@@ -90,7 +109,7 @@ A writing dashboard plugin that integrates AI-powered chapter generation, micro-
 
 1. Select **Micro Edit** mode
 2. Paste the problematic passage in "Selected Text"
-3. Enter your grievances/directives in "Director Notes"
+3. Enter your grievances/directives in "Grievances and directives"
 4. Click **Generate Edit**
 5. Copy the refined alternative and paste into your manuscript
 
@@ -106,6 +125,21 @@ Bulk character backfill:
 2. Click **Select file to process** and choose the manuscript you want to scan
 3. Click **Process Entire Book**
 4. The plugin performs a 2-pass scan (roster + per-chapter extraction) and updates character notes
+
+## Vault structure (what each folder/file is for)
+
+These paths are configurable in settings. The names below are recommended defaults.
+
+- `Characters/`
+  - One note per character (auto-updated by Character update).
+- **Book main path** (your manuscript note)
+  - The active manuscript the dashboard reads for context and chunking.
+- **Story bible path**
+  - Canon rules, arcs, timelines, constraints.
+- **Sliding window path**
+  - Short “what just happened” context for better continuity.
+- **Extractions path** (optional)
+  - Any distilled notes/summaries/constraints you want included in prompts.
 
 ## Architecture
 

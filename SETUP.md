@@ -1,5 +1,12 @@
 # Quick Setup Guide
 
+## Where to get API keys
+
+- OpenAI: `https://platform.openai.com/api-keys`
+- Anthropic: `https://console.anthropic.com/settings/keys`
+- Google Gemini: `https://aistudio.google.com/app/apikey`
+- OpenRouter: `https://openrouter.ai/keys`
+
 ## Step 1: Build Obsidian Plugin
 
 ```bash
@@ -34,7 +41,7 @@ This creates `main.js` which is the compiled plugin.
 ## Step 3: Configure
 
 1. Open Obsidian Settings
-2. Go to **Writing Dashboard** settings
+2. Go to **Writing dashboard** settings
 3. Enter your API key (OpenAI, Anthropic, Gemini, or OpenRouter)
 4. Select your API provider and model
 5. Configure file paths to match your vault structure:
@@ -43,6 +50,8 @@ This creates `main.js` which is the compiled plugin.
    - Sliding Window Path (e.g., `Memory - Sliding Window.md`)
    - Character Folder (e.g., `Characters`)
    - Extractions Path (optional)
+
+Tip: model names change frequently. Use a current model id from your provider (for example: `gpt-4o`, `claude-3-5-sonnet`, `gemini-2.5-pro`).
 
 ## Step 4: Run Setup Wizard (Optional)
 
@@ -53,7 +62,7 @@ This creates `main.js` which is the compiled plugin.
 ## Step 5: Use It!
 
 1. Click the book icon in the ribbon, or
-2. Use Command Palette (`Cmd+P` / `Ctrl+P`): "Open Writing Dashboard"
+2. Use Command Palette (`Cmd+P` / `Ctrl+P`): "Open dashboard"
 3. Select your mode (Chapter Generate / Micro Edit / Character Update)
 4. Start writing!
 
