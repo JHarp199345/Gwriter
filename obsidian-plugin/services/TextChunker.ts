@@ -70,5 +70,52 @@ export class TextChunker {
 	static getWordCount(text: string): number {
 		return text.trim().split(/\s+/).filter(word => word.length > 0).length;
 	}
+
+	/**
+	 * Split a manuscript into sections based on H1 headings (lines starting with "# ").
+	 * Returns an array of sections including the heading line + content.
+	 *
+	 * If no H1 headings are found, returns a single section with the whole text.
+	 */
+	static splitByH1(text: string): Array<{ heading: string; content: string; fullText: string }> {
+		const normalized = (text || '').replace(/\r\n/g, '\n');
+		const lines = normalized.split('\n');
+
+		const sections: Array<{ heading: string; content: string; fullText: string }> = [];
+		let currentHeading = '';
+		let currentLines: string[] = [];
+		let seenAnyHeading = false;
+
+		const flush = () => {
+			const content = currentLines.join('\n').trimEnd();
+			const heading = currentHeading || '';
+			const fullText = (heading ? `${heading}\n` : '') + content;
+			if (fullText.trim()) {
+				sections.push({ heading, content, fullText: fullText.trim() });
+			}
+		};
+
+		for (const line of lines) {
+			if (line.startsWith('# ')) {
+				if (seenAnyHeading) {
+					flush();
+				}
+				seenAnyHeading = true;
+				currentHeading = line.trimEnd();
+				currentLines = [];
+				continue;
+			}
+			currentLines.push(line);
+		}
+
+		if (seenAnyHeading) {
+			flush();
+			return sections;
+		}
+
+		// No headings found; treat as single section
+		const full = normalized.trim();
+		return full ? [{ heading: '', content: full, fullText: full }] : [];
+	}
 }
 

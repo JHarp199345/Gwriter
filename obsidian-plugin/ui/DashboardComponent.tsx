@@ -8,6 +8,8 @@ import { MultiModelResult } from '../services/AIClient';
 import { TextChunker } from '../services/TextChunker';
 import { fnv1a32 } from '../services/ContentHash';
 import { estimateTokens } from '../services/TokenEstimate';
+import { FilePickerModal } from './FilePickerModal';
+import { parseCharacterRoster, rosterToBulletList } from '../services/CharacterRoster';
 
 type Mode = 'chapter' | 'micro-edit' | 'character-update';
 
@@ -127,6 +129,25 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		}
 	};
 
+	const handleSelectCharacterExtractionSource = async () => {
+		const files = plugin.app.vault.getMarkdownFiles();
+		const modal = new FilePickerModal({
+			app: plugin.app,
+			files,
+			placeholder: 'Pick the manuscript to process for bulk character extraction (Book 1, Book 2, etc.)',
+			onPick: async (file) => {
+				plugin.settings.characterExtractionSourcePath = file.path;
+				await plugin.saveSettings();
+			}
+		});
+		modal.open();
+	};
+
+	const handleClearCharacterExtractionSource = async () => {
+		delete plugin.settings.characterExtractionSourcePath;
+		await plugin.saveSettings();
+	};
+
 	const handleProcessEntireBook = async () => {
 		if (!plugin.settings.apiKey) {
 			setError('Please configure your API key in settings');
@@ -139,7 +160,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		
 		try {
 			// Read the entire book file
-			const bookPath = plugin.settings.book2Path;
+			const bookPath = plugin.settings.characterExtractionSourcePath || plugin.settings.book2Path;
 			const bookText = await plugin.contextAggregator.readFile(bookPath);
 			
 			if (!bookText || bookText.trim().length === 0) {
@@ -157,36 +178,52 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				return;
 			}
 
-			// Chunk the book into larger pieces for character extraction (configurable)
-			const chunkSize = plugin.settings.characterExtractionChunkSize || 2500;
-			const chunks = TextChunker.chunkText(bookText, chunkSize);
-			const totalChunks = chunks.length;
+			// Split by H1 chapters for better coherence; fallback to word chunks if no headings exist
+			const chapters = TextChunker.splitByH1(bookText);
+			const totalChapters = chapters.length;
+			if (totalChapters === 0) {
+				setError('No content found to process.');
+				return;
+			}
 			
-			setGenerationStage(`Processing ${totalChunks} chunks...`);
+			setGenerationStage(`Pass 1/2: Building roster from ${totalChapters} chapter(s)...`);
 			
 			// Get context for extraction
 			const characterNotes = await plugin.contextAggregator.getCharacterNotes();
 			const storyBible = await plugin.contextAggregator.readFile(plugin.settings.storyBiblePath);
-			
-			// Process each chunk
+
+			// Pass 1: global roster (high recall)
+			const rosterEntries: ReturnType<typeof parseCharacterRoster> = [];
+			for (let i = 0; i < chapters.length; i++) {
+				setGenerationStage(`Pass 1/2: Roster scan ${i + 1} of ${totalChapters}...`);
+				const passage = chapters[i].fullText;
+				const rosterPrompt = plugin.promptEngine.buildCharacterRosterPrompt(passage, storyBible);
+				const singleModeSettings = { ...plugin.settings, generationMode: 'single' as const };
+				const rosterResult = await plugin.aiClient.generate(rosterPrompt, singleModeSettings) as string;
+				rosterEntries.push(...parseCharacterRoster(rosterResult));
+			}
+			// De-dupe roster again after aggregation
+			const mergedRoster = parseCharacterRoster(rosterToBulletList(rosterEntries));
+			const rosterText = rosterToBulletList(mergedRoster);
+
+			setGenerationStage(`Pass 2/2: Extracting character updates from ${totalChapters} chapter(s)...`);
+
+			// Pass 2: per-chapter extraction using roster + strict parsing
 			const allUpdates: Map<string, string[]> = new Map();
-			
-			for (let i = 0; i < chunks.length; i++) {
-				setGenerationStage(`Processing chunk ${i + 1} of ${totalChunks}...`);
-				
-				const chunk = chunks[i];
-				const prompt = plugin.promptEngine.buildCharacterExtractionPrompt(chunk, characterNotes, storyBible);
-				
-				// Character extraction always uses single mode
+			for (let i = 0; i < chapters.length; i++) {
+				setGenerationStage(`Pass 2/2: Chapter ${i + 1} of ${totalChapters}...`);
+				const passage = chapters[i].fullText;
+				const prompt = plugin.promptEngine.buildCharacterExtractionPromptWithRoster({
+					passage,
+					roster: rosterText,
+					characterNotes,
+					storyBible
+				});
 				const singleModeSettings = { ...plugin.settings, generationMode: 'single' as const };
 				const extractionResult = await plugin.aiClient.generate(prompt, singleModeSettings) as string;
-				const updates = plugin.characterExtractor.parseExtraction(extractionResult);
-				
-				// Aggregate updates by character
+				const updates = plugin.characterExtractor.parseExtraction(extractionResult, { strict: true });
 				for (const update of updates) {
-					if (!allUpdates.has(update.character)) {
-						allUpdates.set(update.character, []);
-					}
+					if (!allUpdates.has(update.character)) allUpdates.set(update.character, []);
 					allUpdates.get(update.character)!.push(update.update);
 				}
 			}
@@ -367,12 +404,30 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 						)}
 						{mode === 'character-update' && (
 							<>
+								<div className="generation-status">
+									Bulk source: {plugin.settings.characterExtractionSourcePath || plugin.settings.book2Path}
+									{plugin.settings.characterExtractionSourcePath ? ' (custom)' : ' (Book Main Path)'}
+								</div>
 								<button 
 									onClick={handleUpdateCharacters}
 									disabled={isGenerating || !selectedText || !plugin.settings.apiKey}
 									className="update-characters-button"
 								>
 									Update Characters
+								</button>
+								<button
+									onClick={handleSelectCharacterExtractionSource}
+									disabled={isGenerating}
+									className="update-characters-button"
+								>
+									Select file to process
+								</button>
+								<button
+									onClick={handleClearCharacterExtractionSource}
+									disabled={isGenerating || !plugin.settings.characterExtractionSourcePath}
+									className="update-characters-button"
+								>
+									Use Book Main Path
 								</button>
 								<button 
 									onClick={handleProcessEntireBook}

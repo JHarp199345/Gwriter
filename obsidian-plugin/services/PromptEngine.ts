@@ -238,5 +238,110 @@ Output in the following format for each character found:
 
 This will be appended to the character's note file with timestamp.`;
 	}
+
+	buildCharacterRosterPrompt(passage: string, storyBible: string): string {
+		return `SYSTEM INSTRUCTION FOR AI:
+
+You are building a comprehensive character roster from a narrative text.
+
+-------------------------------------------------------------
+PASSAGE
+-------------------------------------------------------------
+${passage}
+
+-------------------------------------------------------------
+STORY BIBLE (context)
+-------------------------------------------------------------
+${storyBible || '[No story bible provided]'}
+
+-------------------------------------------------------------
+TASK
+-------------------------------------------------------------
+Extract ALL characters referenced in the passage, including:
+- main characters
+- side characters
+- one-off named characters
+- characters referenced by title or alias
+
+Output one character per line in this exact format:
+- Name | aliases: Alias1, Alias2
+
+If no aliases are known, omit the aliases portion:
+- Name
+
+Only output the list. No extra commentary.`;
+	}
+
+	buildCharacterExtractionPromptWithRoster(params: {
+		passage: string;
+		roster: string;
+		characterNotes: Record<string, string>;
+		storyBible: string;
+	}): string {
+		const characterNotesText = Object.entries(params.characterNotes)
+			.map(([name, content]) => `## ${name}\n${content}`)
+			.join('\n\n');
+
+		return `SYSTEM INSTRUCTION FOR AI:
+
+You are extracting character information from a narrative passage.
+
+-------------------------------------------------------------
+GLOBAL CHARACTER ROSTER (from full manuscript scan)
+-------------------------------------------------------------
+${params.roster}
+
+Use this roster to recognize characters even when only referred to by alias/title/pronoun.
+
+-------------------------------------------------------------
+PASSAGE TO ANALYZE
+-------------------------------------------------------------
+${params.passage}
+
+-------------------------------------------------------------
+EXISTING CHARACTER NOTES (IF ANY)
+-------------------------------------------------------------
+${characterNotesText || '[No existing character notes]'}
+
+-------------------------------------------------------------
+STORY BIBLE — CONTEXT
+-------------------------------------------------------------
+${params.storyBible}
+
+-------------------------------------------------------------
+STRICT OUTPUT FORMAT
+-------------------------------------------------------------
+1) First output a section:
+
+### Characters Mentioned
+- Name
+- Name
+
+Only include names that appear in the passage (including aliases mapping to roster entries).
+
+2) Then output ONE section per mentioned character (must use H2 headings exactly):
+
+## CharacterName
+
+**Voice Evidence:**
+[quotes or narration evidence]
+
+**New Traits:**
+- [trait]: [evidence]
+
+**Relationships:**
+- **OtherCharacter**: [relationship change/evidence]
+
+**Arc Progression:**
+[what changed in this passage]
+
+**Spoiler Notes:**
+[any sensitive information]
+
+If no new info is present for a mentioned character, still output the character section and write:
+"No new character-relevant information in this passage."
+
+Do not output any other sections.`;
+	}
 }
 

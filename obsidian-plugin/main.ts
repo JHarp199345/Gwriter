@@ -33,6 +33,11 @@ export interface DashboardSettings {
 	 */
 	characterExtractionChunkSize: number;
 	/**
+	 * Optional: a specific markdown file to run bulk character extraction against.
+	 * If unset, bulk processing uses `book2Path`.
+	 */
+	characterExtractionSourcePath?: string;
+	/**
 	 * Soft limit for estimated prompt tokens. Used to warn/confirm before sending requests.
 	 * Defaults to 128k (common large-context tier).
 	 */
@@ -178,8 +183,8 @@ export default class WritingDashboardPlugin extends Plugin {
 					const modal = new BookMainSelectorModal(this, mdFiles);
 					modal.open();
 				} else {
-					// Show setup wizard automatically on first run
-					this.showSetupWizard();
+				// Show setup wizard automatically on first run
+				this.showSetupWizard();
 				}
 			} else {
 				// Book file exists, mark setup as completed

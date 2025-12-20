@@ -23570,7 +23570,7 @@ module.exports = __toCommonJS(main_exports);
 var import_obsidian7 = require("obsidian");
 
 // ui/DashboardView.ts
-var import_obsidian = require("obsidian");
+var import_obsidian2 = require("obsidian");
 var import_client = __toESM(require_client());
 var import_react6 = __toESM(require_react());
 
@@ -23736,6 +23736,47 @@ var TextChunker = class {
   static getWordCount(text) {
     return text.trim().split(/\s+/).filter((word) => word.length > 0).length;
   }
+  /**
+   * Split a manuscript into sections based on H1 headings (lines starting with "# ").
+   * Returns an array of sections including the heading line + content.
+   *
+   * If no H1 headings are found, returns a single section with the whole text.
+   */
+  static splitByH1(text) {
+    const normalized = (text || "").replace(/\r\n/g, "\n");
+    const lines = normalized.split("\n");
+    const sections = [];
+    let currentHeading = "";
+    let currentLines = [];
+    let seenAnyHeading = false;
+    const flush = () => {
+      const content = currentLines.join("\n").trimEnd();
+      const heading = currentHeading || "";
+      const fullText = (heading ? `${heading}
+` : "") + content;
+      if (fullText.trim()) {
+        sections.push({ heading, content, fullText: fullText.trim() });
+      }
+    };
+    for (const line of lines) {
+      if (line.startsWith("# ")) {
+        if (seenAnyHeading) {
+          flush();
+        }
+        seenAnyHeading = true;
+        currentHeading = line.trimEnd();
+        currentLines = [];
+        continue;
+      }
+      currentLines.push(line);
+    }
+    if (seenAnyHeading) {
+      flush();
+      return sections;
+    }
+    const full = normalized.trim();
+    return full ? [{ heading: "", content: full, fullText: full }] : [];
+  }
 };
 
 // services/ContentHash.ts
@@ -23753,6 +23794,88 @@ function estimateTokens(text) {
   if (!text)
     return 0;
   return Math.ceil(text.length / 4);
+}
+
+// ui/FilePickerModal.ts
+var import_obsidian = require("obsidian");
+var FilePickerModal = class extends import_obsidian.FuzzySuggestModal {
+  constructor(opts) {
+    super(opts.app);
+    this.files = opts.files;
+    this.placeholderText = opts.placeholder;
+    this.onPick = opts.onPick;
+    this.setPlaceholder(this.placeholderText);
+  }
+  getItems() {
+    return this.files.slice().sort((a, b) => {
+      var _a, _b, _c, _d;
+      const aScore = (((_a = a.stat) == null ? void 0 : _a.mtime) || 0) + (((_b = a.stat) == null ? void 0 : _b.size) || 0);
+      const bScore = (((_c = b.stat) == null ? void 0 : _c.mtime) || 0) + (((_d = b.stat) == null ? void 0 : _d.size) || 0);
+      return bScore - aScore;
+    });
+  }
+  getItemText(item) {
+    return item.path;
+  }
+  onChooseItem(item) {
+    void this.onPick(item);
+  }
+};
+
+// services/CharacterRoster.ts
+function normalizeName(name) {
+  return name.trim().replace(/\s+/g, " ");
+}
+function parseCharacterRoster(text) {
+  const raw = (text || "").trim();
+  if (!raw)
+    return [];
+  const entries = [];
+  const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  for (const line of lines) {
+    const cleaned = line.replace(/^[-*]\s+/, "").replace(/^\d+[\).\]]\s+/, "").trim();
+    if (!cleaned)
+      continue;
+    const [left, right] = cleaned.split(/\s*\|\s*/);
+    const namePart = normalizeName(left || "");
+    if (!namePart)
+      continue;
+    const entry = { name: namePart };
+    if (right) {
+      const m = right.match(/aliases?\s*:\s*(.+)$/i);
+      if (m == null ? void 0 : m[1]) {
+        const aliases = m[1].split(",").map((a) => normalizeName(a)).filter(Boolean);
+        if (aliases.length)
+          entry.aliases = aliases;
+      }
+    }
+    entries.push(entry);
+  }
+  if (entries.length === 0 && raw.includes(",")) {
+    for (const part of raw.split(",").map((p) => normalizeName(p)).filter(Boolean)) {
+      entries.push({ name: part });
+    }
+  }
+  const byLower = /* @__PURE__ */ new Map();
+  for (const e of entries) {
+    const key = e.name.toLowerCase();
+    const existing = byLower.get(key);
+    if (!existing) {
+      byLower.set(key, e);
+    } else {
+      const merged = new Set([...existing.aliases || [], ...e.aliases || []].map((a) => a));
+      existing.aliases = merged.size ? Array.from(merged) : existing.aliases;
+    }
+  }
+  return Array.from(byLower.values());
+}
+function rosterToBulletList(roster) {
+  if (!roster.length)
+    return "[No roster]";
+  return roster.map((r) => {
+    var _a;
+    return `- ${r.name}${((_a = r.aliases) == null ? void 0 : _a.length) ? ` | aliases: ${r.aliases.join(", ")}` : ""}`;
+  }).join("\n");
 }
 
 // ui/DashboardComponent.tsx
@@ -23855,6 +23978,23 @@ Continue anyway?`
       setIsGenerating(false);
     }
   };
+  const handleSelectCharacterExtractionSource = async () => {
+    const files = plugin.app.vault.getMarkdownFiles();
+    const modal = new FilePickerModal({
+      app: plugin.app,
+      files,
+      placeholder: "Pick the manuscript to process for bulk character extraction (Book 1, Book 2, etc.)",
+      onPick: async (file) => {
+        plugin.settings.characterExtractionSourcePath = file.path;
+        await plugin.saveSettings();
+      }
+    });
+    modal.open();
+  };
+  const handleClearCharacterExtractionSource = async () => {
+    delete plugin.settings.characterExtractionSourcePath;
+    await plugin.saveSettings();
+  };
   const handleProcessEntireBook = async () => {
     var _a;
     if (!plugin.settings.apiKey) {
@@ -23865,7 +24005,7 @@ Continue anyway?`
     setError(null);
     setGenerationStage("Loading book...");
     try {
-      const bookPath = plugin.settings.book2Path;
+      const bookPath = plugin.settings.characterExtractionSourcePath || plugin.settings.book2Path;
       const bookText = await plugin.contextAggregator.readFile(bookPath);
       if (!bookText || bookText.trim().length === 0) {
         setError("Book file is empty or not found");
@@ -23879,24 +24019,43 @@ Continue anyway?`
         alert("Book unchanged since last processing \u2014 skipping.");
         return;
       }
-      const chunkSize = plugin.settings.characterExtractionChunkSize || 2500;
-      const chunks = TextChunker.chunkText(bookText, chunkSize);
-      const totalChunks = chunks.length;
-      setGenerationStage(`Processing ${totalChunks} chunks...`);
+      const chapters = TextChunker.splitByH1(bookText);
+      const totalChapters = chapters.length;
+      if (totalChapters === 0) {
+        setError("No content found to process.");
+        return;
+      }
+      setGenerationStage(`Pass 1/2: Building roster from ${totalChapters} chapter(s)...`);
       const characterNotes = await plugin.contextAggregator.getCharacterNotes();
       const storyBible = await plugin.contextAggregator.readFile(plugin.settings.storyBiblePath);
+      const rosterEntries = [];
+      for (let i = 0; i < chapters.length; i++) {
+        setGenerationStage(`Pass 1/2: Roster scan ${i + 1} of ${totalChapters}...`);
+        const passage = chapters[i].fullText;
+        const rosterPrompt = plugin.promptEngine.buildCharacterRosterPrompt(passage, storyBible);
+        const singleModeSettings = { ...plugin.settings, generationMode: "single" };
+        const rosterResult = await plugin.aiClient.generate(rosterPrompt, singleModeSettings);
+        rosterEntries.push(...parseCharacterRoster(rosterResult));
+      }
+      const mergedRoster = parseCharacterRoster(rosterToBulletList(rosterEntries));
+      const rosterText = rosterToBulletList(mergedRoster);
+      setGenerationStage(`Pass 2/2: Extracting character updates from ${totalChapters} chapter(s)...`);
       const allUpdates = /* @__PURE__ */ new Map();
-      for (let i = 0; i < chunks.length; i++) {
-        setGenerationStage(`Processing chunk ${i + 1} of ${totalChunks}...`);
-        const chunk = chunks[i];
-        const prompt = plugin.promptEngine.buildCharacterExtractionPrompt(chunk, characterNotes, storyBible);
+      for (let i = 0; i < chapters.length; i++) {
+        setGenerationStage(`Pass 2/2: Chapter ${i + 1} of ${totalChapters}...`);
+        const passage = chapters[i].fullText;
+        const prompt = plugin.promptEngine.buildCharacterExtractionPromptWithRoster({
+          passage,
+          roster: rosterText,
+          characterNotes,
+          storyBible
+        });
         const singleModeSettings = { ...plugin.settings, generationMode: "single" };
         const extractionResult = await plugin.aiClient.generate(prompt, singleModeSettings);
-        const updates = plugin.characterExtractor.parseExtraction(extractionResult);
+        const updates = plugin.characterExtractor.parseExtraction(extractionResult, { strict: true });
         for (const update of updates) {
-          if (!allUpdates.has(update.character)) {
+          if (!allUpdates.has(update.character))
             allUpdates.set(update.character, []);
-          }
           allUpdates.get(update.character).push(update.update);
         }
       }
@@ -24023,7 +24182,7 @@ Folder: ${result.folder}/`
       className: "generate-button"
     },
     isGenerating ? "Generating..." : mode === "chapter" ? "Generate Chapter" : "Generate Edit"
-  ), mode === "character-update" && /* @__PURE__ */ import_react5.default.createElement(import_react5.default.Fragment, null, /* @__PURE__ */ import_react5.default.createElement(
+  ), mode === "character-update" && /* @__PURE__ */ import_react5.default.createElement(import_react5.default.Fragment, null, /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Bulk source: ", plugin.settings.characterExtractionSourcePath || plugin.settings.book2Path, plugin.settings.characterExtractionSourcePath ? " (custom)" : " (Book Main Path)"), /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
       onClick: handleUpdateCharacters,
@@ -24031,6 +24190,22 @@ Folder: ${result.folder}/`
       className: "update-characters-button"
     },
     "Update Characters"
+  ), /* @__PURE__ */ import_react5.default.createElement(
+    "button",
+    {
+      onClick: handleSelectCharacterExtractionSource,
+      disabled: isGenerating,
+      className: "update-characters-button"
+    },
+    "Select file to process"
+  ), /* @__PURE__ */ import_react5.default.createElement(
+    "button",
+    {
+      onClick: handleClearCharacterExtractionSource,
+      disabled: isGenerating || !plugin.settings.characterExtractionSourcePath,
+      className: "update-characters-button"
+    },
+    "Use Book Main Path"
   ), /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
@@ -24052,7 +24227,7 @@ Folder: ${result.folder}/`
 
 // ui/DashboardView.ts
 var VIEW_TYPE_DASHBOARD = "writing-dashboard";
-var DashboardView = class extends import_obsidian.ItemView {
+var DashboardView = class extends import_obsidian2.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.reactRoot = null;
@@ -24085,12 +24260,12 @@ var DashboardView = class extends import_obsidian.ItemView {
 };
 
 // ui/SettingsTab.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 
 // ui/SetupWizard.tsx
 var import_react7 = __toESM(require_react());
 var import_client2 = __toESM(require_client());
-var import_obsidian2 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 function getSetupItems(plugin) {
   const bookPath = plugin.settings.book2Path || "Book-Main.md";
   return [
@@ -24151,7 +24326,7 @@ Recent narrative context for AI generation.
     }
   ];
 }
-var SetupWizardModal = class extends import_obsidian2.Modal {
+var SetupWizardModal = class extends import_obsidian3.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.reactRoot = null;
@@ -24359,7 +24534,7 @@ function getModelsForProvider(provider) {
       return [];
   }
 }
-var SettingsTab = class extends import_obsidian3.PluginSettingTab {
+var SettingsTab = class extends import_obsidian4.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -24368,16 +24543,16 @@ var SettingsTab = class extends import_obsidian3.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.createEl("h2", { text: "Writing Dashboard Settings" });
-    new import_obsidian3.Setting(containerEl).setName("API Key").setDesc("Your AI API key (stored securely)").addText((text) => text.setPlaceholder("Enter API key").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
+    new import_obsidian4.Setting(containerEl).setName("API Key").setDesc("Your AI API key (stored securely)").addText((text) => text.setPlaceholder("Enter API key").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
       this.plugin.settings.apiKey = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian3.Setting(containerEl).setName("Generation Mode").setDesc("SingleModalMode: Fast, single model. MultiMode: Higher quality with multiple models.").addDropdown((dropdown) => dropdown.addOption("single", "SingleModalMode").addOption("multi", "MultiMode").setValue(this.plugin.settings.generationMode).onChange(async (value) => {
+    new import_obsidian4.Setting(containerEl).setName("Generation Mode").setDesc("SingleModalMode: Fast, single model. MultiMode: Higher quality with multiple models.").addDropdown((dropdown) => dropdown.addOption("single", "SingleModalMode").addOption("multi", "MultiMode").setValue(this.plugin.settings.generationMode).onChange(async (value) => {
       this.plugin.settings.generationMode = value;
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian3.Setting(containerEl).setName("API Provider").setDesc("Choose your AI provider. OpenRouter recommended for MultiMode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "OpenRouter (Recommended)").addOption("openai", "OpenAI").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
+    new import_obsidian4.Setting(containerEl).setName("API Provider").setDesc("Choose your AI provider. OpenRouter recommended for MultiMode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "OpenRouter (Recommended)").addOption("openai", "OpenAI").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
       this.plugin.settings.apiProvider = value;
       const models = getModelsForProvider(value);
       const currentModel = this.plugin.settings.model;
@@ -24387,7 +24562,7 @@ var SettingsTab = class extends import_obsidian3.PluginSettingTab {
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian3.Setting(containerEl).setName("Model").setDesc("AI model to use").addDropdown((dropdown) => {
+    new import_obsidian4.Setting(containerEl).setName("Model").setDesc("AI model to use").addDropdown((dropdown) => {
       const models = getModelsForProvider(this.plugin.settings.apiProvider);
       models.forEach((model) => {
         dropdown.addOption(model.value, model.label);
@@ -24399,13 +24574,13 @@ var SettingsTab = class extends import_obsidian3.PluginSettingTab {
       });
     });
     if (this.plugin.settings.generationMode === "multi") {
-      new import_obsidian3.Setting(containerEl).setName("Multi-Mode Strategy").setDesc("Draft+Revision: Fast draft + quality revision. Consensus+Multi-Stage: Maximum quality (slower, more expensive).").addDropdown((dropdown) => dropdown.addOption("draft-revision", "Draft + Revision").addOption("consensus-multistage", "Consensus + Multi-Stage (Maximum Quality)").setValue(this.plugin.settings.multiStrategy).onChange(async (value) => {
+      new import_obsidian4.Setting(containerEl).setName("Multi-Mode Strategy").setDesc("Draft+Revision: Fast draft + quality revision. Consensus+Multi-Stage: Maximum quality (slower, more expensive).").addDropdown((dropdown) => dropdown.addOption("draft-revision", "Draft + Revision").addOption("consensus-multistage", "Consensus + Multi-Stage (Maximum Quality)").setValue(this.plugin.settings.multiStrategy).onChange(async (value) => {
         this.plugin.settings.multiStrategy = value;
         await this.plugin.saveSettings();
         this.display();
       }));
       if (this.plugin.settings.multiStrategy === "draft-revision") {
-        new import_obsidian3.Setting(containerEl).setName("Draft Model").setDesc("Fast model for initial draft").addDropdown((dropdown) => {
+        new import_obsidian4.Setting(containerEl).setName("Draft Model").setDesc("Fast model for initial draft").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -24416,7 +24591,7 @@ var SettingsTab = class extends import_obsidian3.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian3.Setting(containerEl).setName("Revision Model").setDesc("Quality model for refinement").addDropdown((dropdown) => {
+        new import_obsidian4.Setting(containerEl).setName("Revision Model").setDesc("Quality model for refinement").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -24428,7 +24603,7 @@ var SettingsTab = class extends import_obsidian3.PluginSettingTab {
           });
         });
       } else {
-        new import_obsidian3.Setting(containerEl).setName("Consensus Model 1").setDesc("Primary model for consensus generation").addDropdown((dropdown) => {
+        new import_obsidian4.Setting(containerEl).setName("Consensus Model 1").setDesc("Primary model for consensus generation").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -24439,7 +24614,7 @@ var SettingsTab = class extends import_obsidian3.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian3.Setting(containerEl).setName("Consensus Model 2").setDesc("Second model for consensus generation").addDropdown((dropdown) => {
+        new import_obsidian4.Setting(containerEl).setName("Consensus Model 2").setDesc("Second model for consensus generation").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -24450,7 +24625,7 @@ var SettingsTab = class extends import_obsidian3.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian3.Setting(containerEl).setName("Consensus Model 3 (Optional)").setDesc("Third model for stronger consensus (optional)").addDropdown((dropdown) => {
+        new import_obsidian4.Setting(containerEl).setName("Consensus Model 3 (Optional)").setDesc("Third model for stronger consensus (optional)").addDropdown((dropdown) => {
           dropdown.addOption("", "None");
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
@@ -24462,7 +24637,7 @@ var SettingsTab = class extends import_obsidian3.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian3.Setting(containerEl).setName("Synthesis Model").setDesc("Model to synthesize final output from consensus").addDropdown((dropdown) => {
+        new import_obsidian4.Setting(containerEl).setName("Synthesis Model").setDesc("Model to synthesize final output from consensus").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -24475,35 +24650,35 @@ var SettingsTab = class extends import_obsidian3.PluginSettingTab {
         });
       }
     }
-    new import_obsidian3.Setting(containerEl).setName("Vault Path").setDesc("Path to your Obsidian vault (auto-detected)").addText((text) => text.setPlaceholder("Vault path").setValue(this.plugin.settings.vaultPath).onChange(async (value) => {
+    new import_obsidian4.Setting(containerEl).setName("Vault Path").setDesc("Path to your Obsidian vault (auto-detected)").addText((text) => text.setPlaceholder("Vault path").setValue(this.plugin.settings.vaultPath).onChange(async (value) => {
       this.plugin.settings.vaultPath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian3.Setting(containerEl).setName("Setup Wizard").setDesc("Create default files and folders for your writing workspace").addButton((button) => button.setButtonText("Run Setup Wizard").onClick(() => {
+    new import_obsidian4.Setting(containerEl).setName("Setup Wizard").setDesc("Create default files and folders for your writing workspace").addButton((button) => button.setButtonText("Run Setup Wizard").onClick(() => {
       const modal = new SetupWizardModal(this.plugin);
       modal.open();
     }));
-    new import_obsidian3.Setting(containerEl).setName("Character Folder").setDesc("Folder name for character notes (default: Characters)").addText((text) => text.setPlaceholder("Characters").setValue(this.plugin.settings.characterFolder).onChange(async (value) => {
+    new import_obsidian4.Setting(containerEl).setName("Character Folder").setDesc("Folder name for character notes (default: Characters)").addText((text) => text.setPlaceholder("Characters").setValue(this.plugin.settings.characterFolder).onChange(async (value) => {
       this.plugin.settings.characterFolder = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian3.Setting(containerEl).setName("Book Main Path").setDesc("Path to your active manuscript").addText((text) => text.setPlaceholder("Book-Main.md").setValue(this.plugin.settings.book2Path).onChange(async (value) => {
+    new import_obsidian4.Setting(containerEl).setName("Book Main Path").setDesc("Path to your active manuscript").addText((text) => text.setPlaceholder("Book-Main.md").setValue(this.plugin.settings.book2Path).onChange(async (value) => {
       this.plugin.settings.book2Path = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian3.Setting(containerEl).setName("Story Bible Path").setDesc("Path to your story bible").addText((text) => text.setPlaceholder("Book - Story Bible.md").setValue(this.plugin.settings.storyBiblePath).onChange(async (value) => {
+    new import_obsidian4.Setting(containerEl).setName("Story Bible Path").setDesc("Path to your story bible").addText((text) => text.setPlaceholder("Book - Story Bible.md").setValue(this.plugin.settings.storyBiblePath).onChange(async (value) => {
       this.plugin.settings.storyBiblePath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian3.Setting(containerEl).setName("Extractions Path (Optional)").setDesc("Path to your extractions file. Optional - only needed if you use extractions instead of chunked folders.").addText((text) => text.setPlaceholder("Extractions.md").setValue(this.plugin.settings.extractionsPath).onChange(async (value) => {
+    new import_obsidian4.Setting(containerEl).setName("Extractions Path (Optional)").setDesc("Path to your extractions file. Optional - only needed if you use extractions instead of chunked folders.").addText((text) => text.setPlaceholder("Extractions.md").setValue(this.plugin.settings.extractionsPath).onChange(async (value) => {
       this.plugin.settings.extractionsPath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian3.Setting(containerEl).setName("Sliding Window Path").setDesc("Path to your sliding window memory file").addText((text) => text.setPlaceholder("Memory - Sliding Window.md").setValue(this.plugin.settings.slidingWindowPath).onChange(async (value) => {
+    new import_obsidian4.Setting(containerEl).setName("Sliding Window Path").setDesc("Path to your sliding window memory file").addText((text) => text.setPlaceholder("Memory - Sliding Window.md").setValue(this.plugin.settings.slidingWindowPath).onChange(async (value) => {
       this.plugin.settings.slidingWindowPath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian3.Setting(containerEl).setName("Character Extraction Chunk Size (words)").setDesc('Used by "Process Entire Book" to batch character extraction. Larger chunks (e.g., 2000\u20133000) tend to improve character context.').addText((text) => {
+    new import_obsidian4.Setting(containerEl).setName("Character Extraction Chunk Size (words)").setDesc('Used by "Process Entire Book" to batch character extraction. Larger chunks (e.g., 2000\u20133000) tend to improve character context.').addText((text) => {
       var _a;
       return text.setPlaceholder("2500").setValue(String((_a = this.plugin.settings.characterExtractionChunkSize) != null ? _a : 2500)).onChange(async (value) => {
         const parsed = parseInt(value, 10);
@@ -24512,7 +24687,7 @@ var SettingsTab = class extends import_obsidian3.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian3.Setting(containerEl).setName("Context Token Limit (warning)").setDesc("Shows a warning before generating if the estimated prompt tokens exceed this limit. Default: 128000.").addText((text) => {
+    new import_obsidian4.Setting(containerEl).setName("Context Token Limit (warning)").setDesc("Shows a warning before generating if the estimated prompt tokens exceed this limit. Default: 128000.").addText((text) => {
       var _a;
       return text.setPlaceholder("128000").setValue(String((_a = this.plugin.settings.contextTokenLimit) != null ? _a : 128e3)).onChange(async (value) => {
         const parsed = parseInt(value, 10);
@@ -24525,7 +24700,7 @@ var SettingsTab = class extends import_obsidian3.PluginSettingTab {
 };
 
 // services/VaultService.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 var VaultService = class {
   constructor(vault, plugin) {
     this.vault = vault;
@@ -24533,7 +24708,7 @@ var VaultService = class {
   }
   async readFile(path) {
     const file = this.vault.getAbstractFileByPath(path);
-    if (file instanceof import_obsidian4.TFile) {
+    if (file instanceof import_obsidian5.TFile) {
       return await this.vault.read(file);
     }
     throw new Error(`File not found: ${path}`);
@@ -24543,7 +24718,7 @@ var VaultService = class {
   }
   async createFileIfNotExists(path, content) {
     const file = this.vault.getAbstractFileByPath(path);
-    if (file instanceof import_obsidian4.TFile) {
+    if (file instanceof import_obsidian5.TFile) {
       return false;
     }
     await this.vault.create(path, content);
@@ -24551,7 +24726,7 @@ var VaultService = class {
   }
   async createFolderIfNotExists(path) {
     const folder = this.vault.getAbstractFileByPath(path);
-    if (folder instanceof import_obsidian4.TFolder) {
+    if (folder instanceof import_obsidian5.TFolder) {
       return false;
     }
     await this.vault.createFolder(path);
@@ -24602,7 +24777,7 @@ var VaultService = class {
       const chunkFilePath = `${chunkedFolderName}/${chunkFileName}`;
       const existing = this.vault.getAbstractFileByPath(chunkFilePath);
       if (overwrite) {
-        if (existing instanceof import_obsidian4.TFile) {
+        if (existing instanceof import_obsidian5.TFile) {
           await this.vault.modify(existing, chunks[i]);
           overwrittenCount++;
         } else {
@@ -24611,7 +24786,7 @@ var VaultService = class {
             created++;
         }
       } else {
-        if (existing instanceof import_obsidian4.TFile) {
+        if (existing instanceof import_obsidian5.TFile) {
           skipped++;
         } else {
           const wasCreated = await this.createFileIfNotExists(chunkFilePath, chunks[i]);
@@ -24624,11 +24799,11 @@ var VaultService = class {
     let deletedExtra = 0;
     if (overwrite) {
       const folder = this.vault.getAbstractFileByPath(chunkedFolderName);
-      if (folder instanceof import_obsidian4.TFolder) {
+      if (folder instanceof import_obsidian5.TFolder) {
         const maxIndex = chunks.length;
         const regex = new RegExp(`^${this._escapeRegExp(baseName)}-CHUNK-(\\d{3})\\.md$`);
         for (const child of folder.children) {
-          if (!(child instanceof import_obsidian4.TFile) || child.extension !== "md")
+          if (!(child instanceof import_obsidian5.TFile) || child.extension !== "md")
             continue;
           const match = child.name.match(regex);
           if (!match)
@@ -24696,10 +24871,10 @@ ${update}
   _traverseFolder(folder, structure, basePath) {
     for (const child of folder.children) {
       const path = basePath ? `${basePath}/${child.name}` : child.name;
-      if (child instanceof import_obsidian4.TFolder) {
+      if (child instanceof import_obsidian5.TFolder) {
         structure.push({ name: child.name, path, type: "folder" });
         this._traverseFolder(child, structure, path);
-      } else if (child instanceof import_obsidian4.TFile) {
+      } else if (child instanceof import_obsidian5.TFile) {
         structure.push({ name: child.name, path, type: "file" });
       }
     }
@@ -24707,7 +24882,7 @@ ${update}
 };
 
 // services/ContextAggregator.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 var ContextAggregator = class {
   constructor(vault, plugin) {
     this.vault = vault;
@@ -24758,7 +24933,7 @@ var ContextAggregator = class {
   async readFile(path) {
     try {
       const file = this.vault.getAbstractFileByPath(path);
-      if (file instanceof import_obsidian5.TFile) {
+      if (file instanceof import_obsidian6.TFile) {
         return await this.vault.read(file);
       }
       return `[File not found: ${path}]`;
@@ -24771,7 +24946,7 @@ var ContextAggregator = class {
     let smartConnectionsAvailable = false;
     try {
       const file = this.vault.getAbstractFileByPath(scDataPath);
-      if (file instanceof import_obsidian5.TFile) {
+      if (file instanceof import_obsidian6.TFile) {
         const data = JSON.parse(await this.vault.read(file));
         smartConnectionsAvailable = true;
       }
@@ -24807,7 +24982,7 @@ ${book1Content}`;
     for (const pattern of book1Patterns) {
       try {
         const folder = this.vault.getAbstractFileByPath(pattern);
-        if (folder instanceof import_obsidian5.TFolder) {
+        if (folder instanceof import_obsidian6.TFolder) {
           const chunks = await this.readChunkedFolder(folder, maxChunks);
           content.push(...chunks);
           if (content.length >= maxChunks)
@@ -24820,7 +24995,7 @@ ${book1Content}`;
       for (const pattern of book1Patterns) {
         try {
           const file = this.vault.getAbstractFileByPath(`${pattern}.md`);
-          if (file instanceof import_obsidian5.TFile && !processedFiles.has(file.path)) {
+          if (file instanceof import_obsidian6.TFile && !processedFiles.has(file.path)) {
             const fileContent = await this.vault.read(file);
             const chunks = this.chunkText(fileContent, Math.min(maxChunks, 10));
             content.push(...chunks);
@@ -24861,7 +25036,7 @@ ${book1Content}`;
     const chunks = [];
     const chunkFiles = [];
     for (const child of folder.children) {
-      if (child instanceof import_obsidian5.TFile && child.extension === "md") {
+      if (child instanceof import_obsidian6.TFile && child.extension === "md") {
         chunkFiles.push(child);
       }
     }
@@ -24900,9 +25075,9 @@ ${content}`);
     const characterFolder = this.plugin.settings.characterFolder;
     try {
       const folder = this.vault.getAbstractFileByPath(characterFolder);
-      if (folder instanceof import_obsidian5.TFolder) {
+      if (folder instanceof import_obsidian6.TFolder) {
         for (const child of folder.children) {
-          if (child instanceof import_obsidian5.TFile && child.extension === "md") {
+          if (child instanceof import_obsidian6.TFile && child.extension === "md") {
             const characterName = child.basename;
             notes[characterName] = await this.vault.read(child);
           }
@@ -25189,6 +25364,102 @@ Output in the following format for each character found:
 
 This will be appended to the character's note file with timestamp.`;
   }
+  buildCharacterRosterPrompt(passage, storyBible) {
+    return `SYSTEM INSTRUCTION FOR AI:
+
+You are building a comprehensive character roster from a narrative text.
+
+-------------------------------------------------------------
+PASSAGE
+-------------------------------------------------------------
+${passage}
+
+-------------------------------------------------------------
+STORY BIBLE (context)
+-------------------------------------------------------------
+${storyBible || "[No story bible provided]"}
+
+-------------------------------------------------------------
+TASK
+-------------------------------------------------------------
+Extract ALL characters referenced in the passage, including:
+- main characters
+- side characters
+- one-off named characters
+- characters referenced by title or alias
+
+Output one character per line in this exact format:
+- Name | aliases: Alias1, Alias2
+
+If no aliases are known, omit the aliases portion:
+- Name
+
+Only output the list. No extra commentary.`;
+  }
+  buildCharacterExtractionPromptWithRoster(params) {
+    const characterNotesText = Object.entries(params.characterNotes).map(([name, content]) => `## ${name}
+${content}`).join("\n\n");
+    return `SYSTEM INSTRUCTION FOR AI:
+
+You are extracting character information from a narrative passage.
+
+-------------------------------------------------------------
+GLOBAL CHARACTER ROSTER (from full manuscript scan)
+-------------------------------------------------------------
+${params.roster}
+
+Use this roster to recognize characters even when only referred to by alias/title/pronoun.
+
+-------------------------------------------------------------
+PASSAGE TO ANALYZE
+-------------------------------------------------------------
+${params.passage}
+
+-------------------------------------------------------------
+EXISTING CHARACTER NOTES (IF ANY)
+-------------------------------------------------------------
+${characterNotesText || "[No existing character notes]"}
+
+-------------------------------------------------------------
+STORY BIBLE \u2014 CONTEXT
+-------------------------------------------------------------
+${params.storyBible}
+
+-------------------------------------------------------------
+STRICT OUTPUT FORMAT
+-------------------------------------------------------------
+1) First output a section:
+
+### Characters Mentioned
+- Name
+- Name
+
+Only include names that appear in the passage (including aliases mapping to roster entries).
+
+2) Then output ONE section per mentioned character (must use H2 headings exactly):
+
+## CharacterName
+
+**Voice Evidence:**
+[quotes or narration evidence]
+
+**New Traits:**
+- [trait]: [evidence]
+
+**Relationships:**
+- **OtherCharacter**: [relationship change/evidence]
+
+**Arc Progression:**
+[what changed in this passage]
+
+**Spoiler Notes:**
+[any sensitive information]
+
+If no new info is present for a mentioned character, still output the character section and write:
+"No new character-relevant information in this passage."
+
+Do not output any other sections.`;
+  }
 };
 
 // services/AIClient.ts
@@ -25436,8 +25707,10 @@ var CharacterExtractor = class {
     }
     return aggregatedUpdates;
   }
-  parseExtraction(extractionText) {
+  parseExtraction(extractionText, opts) {
+    var _a;
     const updates = [];
+    const strict = (_a = opts == null ? void 0 : opts.strict) != null ? _a : false;
     const characterSections = extractionText.split(/^##\s+(.+)$/m);
     for (let i = 1; i < characterSections.length; i += 2) {
       if (i + 1 < characterSections.length) {
@@ -25454,7 +25727,7 @@ var CharacterExtractor = class {
         }
       }
     }
-    if (updates.length === 0) {
+    if (!strict && updates.length === 0) {
       const characterPattern = /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/g;
       const potentialCharacters = /* @__PURE__ */ new Set();
       let match;
@@ -25476,31 +25749,18 @@ var CharacterExtractor = class {
 };
 
 // ui/BookMainSelectorModal.ts
-var import_obsidian6 = require("obsidian");
-var BookMainSelectorModal = class extends import_obsidian6.FuzzySuggestModal {
+var BookMainSelectorModal = class extends FilePickerModal {
   constructor(plugin, files) {
-    super(plugin.app);
-    this.plugin = plugin;
-    this.files = files;
-    this.setPlaceholder('Type to search for your manuscript file (e.g., "Reach of the Abyss")');
-  }
-  getItems() {
-    return this.files.slice().sort((a, b) => {
-      var _a, _b, _c, _d;
-      const aScore = (((_a = a.stat) == null ? void 0 : _a.mtime) || 0) + (((_b = a.stat) == null ? void 0 : _b.size) || 0);
-      const bScore = (((_c = b.stat) == null ? void 0 : _c.mtime) || 0) + (((_d = b.stat) == null ? void 0 : _d.size) || 0);
-      return bScore - aScore;
+    super({
+      app: plugin.app,
+      files,
+      placeholder: 'Type to search for your manuscript file (e.g., "Reach of the Abyss")',
+      onPick: async (item) => {
+        plugin.settings.book2Path = item.path;
+        plugin.settings.setupCompleted = true;
+        await plugin.saveSettings();
+      }
     });
-  }
-  getItemText(item) {
-    return item.path;
-  }
-  onChooseItem(item) {
-    void (async () => {
-      this.plugin.settings.book2Path = item.path;
-      this.plugin.settings.setupCompleted = true;
-      await this.plugin.saveSettings();
-    })();
   }
 };
 

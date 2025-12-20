@@ -40,8 +40,9 @@ export class CharacterExtractor {
 		return aggregatedUpdates;
 	}
 
-	parseExtraction(extractionText: string): CharacterUpdate[] {
+	parseExtraction(extractionText: string, opts?: { strict?: boolean }): CharacterUpdate[] {
 		const updates: CharacterUpdate[] = [];
+		const strict = opts?.strict ?? false;
 		
 		// Split by character sections (## CharacterName)
 		const characterSections = extractionText.split(/^##\s+(.+)$/m);
@@ -65,8 +66,8 @@ export class CharacterExtractor {
 			}
 		}
 		
-		// If no structured format found, try to extract character names from text
-		if (updates.length === 0) {
+		// If no structured format found, try to extract character names from text (optional)
+		if (!strict && updates.length === 0) {
 			// Look for character names mentioned in the text (capitalized words)
 			const characterPattern = /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/g;
 			const potentialCharacters = new Set<string>();
