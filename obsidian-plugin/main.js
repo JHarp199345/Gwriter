@@ -23978,7 +23978,6 @@ var DashboardComponent = ({ plugin }) => {
   };
   const [mode, setMode] = (0, import_react5.useState)("chapter");
   const [demoStep, setDemoStep] = (0, import_react5.useState)("off");
-  const [demoUsesAi, setDemoUsesAi] = (0, import_react5.useState)(Boolean(plugin.settings.apiKey));
   const [demoStepCompleted, setDemoStepCompleted] = (0, import_react5.useState)({
     chapter: false,
     "micro-edit": false,
@@ -24088,6 +24087,8 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
       new import_obsidian3.Notice("Open settings \u2192 Writing dashboard to configure your API key.");
     }
   };
+  const isGuidedDemoActive = demoStep !== "off" && demoStep !== "done";
+  const canUseAiInDemo = Boolean(plugin.settings.apiKey);
   const startGuidedDemo = () => {
     setError(null);
     setPromptTokenEstimate(null);
@@ -24096,7 +24097,6 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
     setGeneratedText("");
     setMinWords(800);
     setMaxWords(1200);
-    setDemoUsesAi(Boolean(plugin.settings.apiKey));
     setMode("chapter");
     setSelectedText(
       [
@@ -24115,11 +24115,9 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
       "character-update": false,
       done: false
     });
-    if (!plugin.settings.apiKey) {
-      new import_obsidian3.Notice("Guided demo started in offline mode (no API key).");
-    } else {
-      new import_obsidian3.Notice("Guided demo started. This will only generate demo text.");
-    }
+    new import_obsidian3.Notice(
+      plugin.settings.apiKey ? "Guided demo started. This will only generate demo text." : "Guided demo started in offline mode (no API key)."
+    );
   };
   const exitGuidedDemo = () => {
     setDemoStep("off");
@@ -24195,7 +24193,7 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
   }, [isVaultPanelCollapsed]);
   const handleGenerate = async () => {
     var _a;
-    if (!plugin.settings.apiKey && demoStep !== "off" && !demoUsesAi) {
+    if (!plugin.settings.apiKey && isGuidedDemoActive) {
       setIsGenerating(true);
       setError(null);
       setGenerationStage("Generating (offline demo)...");
@@ -24280,10 +24278,28 @@ Continue anyway?`,
       }
       setGenerationStage("");
     } catch (err) {
-      const message = formatUnknownForUi(err);
-      setError(message || "Generation failed");
-      console.error("Generation error:", err);
-      setGenerationStage("");
+      if (isGuidedDemoActive) {
+        console.error("Guided demo AI generation failed; falling back to offline demo:", err);
+        setError(null);
+        setGenerationStage("Generating (offline demo fallback)...");
+        try {
+          if (mode === "chapter") {
+            setGeneratedText(DEMO_CHAPTER_OUTPUT);
+            setDemoStepCompleted((prev) => ({ ...prev, chapter: true }));
+          } else {
+            setGeneratedText(DEMO_MICRO_EDIT_OUTPUT);
+            setDemoStepCompleted((prev) => ({ ...prev, "micro-edit": true }));
+          }
+          new import_obsidian3.Notice("AI request failed. Ran offline demo instead.");
+        } finally {
+          setGenerationStage("");
+        }
+      } else {
+        const message = formatUnknownForUi(err);
+        setError(message || "Generation failed");
+        console.error("Generation error:", err);
+        setGenerationStage("");
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -24293,7 +24309,7 @@ Continue anyway?`,
       setError("Please select text to extract character information from");
       return;
     }
-    if (!plugin.settings.apiKey && demoStep !== "off" && !demoUsesAi) {
+    if (!plugin.settings.apiKey && isGuidedDemoActive) {
       setIsGenerating(true);
       setError(null);
       setGenerationStage("Extracting character information (offline demo)...");
@@ -24339,9 +24355,18 @@ Continue anyway?`,
         instructions
       );
       const singleModeSettings = { ...plugin.settings, generationMode: "single" };
-      const extractionResult = await plugin.aiClient.generate(prompt, singleModeSettings);
-      const updates = plugin.characterExtractor.parseExtraction(extractionResult);
-      if (demoStep !== "off" && demoStep !== "done") {
+      let updates;
+      try {
+        const extractionResult = await plugin.aiClient.generate(prompt, singleModeSettings);
+        updates = plugin.characterExtractor.parseExtraction(extractionResult);
+      } catch (err) {
+        if (!isGuidedDemoActive)
+          throw err;
+        console.error("Guided demo character extraction failed; falling back to offline demo:", err);
+        updates = plugin.characterExtractor.parseExtraction(DEMO_CHARACTER_EXTRACTION_OUTPUT);
+        new import_obsidian3.Notice("AI request failed. Used offline demo character extraction instead.");
+      }
+      if (isGuidedDemoActive) {
         await plugin.vaultService.createFolderIfNotExists(DEMO_FOLDER);
         await plugin.vaultService.updateCharacterNotes(updates, DEMO_CHARACTER_FOLDER);
         new import_obsidian3.Notice(`Updated ${updates.length} demo character note(s)`);
@@ -24600,16 +24625,7 @@ Continue anyway?`,
       }
     }
   };
-  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "writing-dashboard" }, demoStep !== "off" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner-left" }, /* @__PURE__ */ import_react5.default.createElement("strong", null, "Guided demo"), /* @__PURE__ */ import_react5.default.createElement("span", { className: "demo-banner-step" }, demoStep === "chapter" && "Step 1/3: Generate a chapter (demo text)", demoStep === "micro-edit" && "Step 2/3: Micro edit (demo text)", demoStep === "character-update" && "Step 3/3: Update characters (demo folder)", demoStep === "done" && "Complete"), (!plugin.settings.apiKey || !demoUsesAi) && /* @__PURE__ */ import_react5.default.createElement("span", { className: "demo-banner-step" }, "Offline demo: uses sample outputs. Add an API key to run real generation.")), /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner-actions" }, /* @__PURE__ */ import_react5.default.createElement("button", { onClick: openPluginSettings, disabled: isGenerating, className: "mod-secondary" }, "Open settings"), /* @__PURE__ */ import_react5.default.createElement(
-    "button",
-    {
-      onClick: () => setDemoUsesAi((v) => !v),
-      disabled: isGenerating || !plugin.settings.apiKey,
-      className: "mod-secondary",
-      title: !plugin.settings.apiKey ? "Add an API key to enable AI demo" : ""
-    },
-    demoUsesAi ? "Use offline demo" : "Use AI demo"
-  ), demoStep !== "done" && /* @__PURE__ */ import_react5.default.createElement(
+  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "writing-dashboard" }, demoStep !== "off" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner-left" }, /* @__PURE__ */ import_react5.default.createElement("strong", null, "Guided demo"), /* @__PURE__ */ import_react5.default.createElement("span", { className: "demo-banner-step" }, demoStep === "chapter" && "Step 1/3: Generate a chapter (demo text)", demoStep === "micro-edit" && "Step 2/3: Micro edit (demo text)", demoStep === "character-update" && "Step 3/3: Update characters (demo folder)", demoStep === "done" && "Complete"), !canUseAiInDemo && /* @__PURE__ */ import_react5.default.createElement("span", { className: "demo-banner-step" }, "Offline demo: uses sample outputs. Add an API key to run real generation.")), /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner-actions" }, /* @__PURE__ */ import_react5.default.createElement("button", { onClick: openPluginSettings, disabled: isGenerating, className: "mod-secondary" }, "Open settings"), demoStep !== "done" && /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
       onClick: continueGuidedDemo,

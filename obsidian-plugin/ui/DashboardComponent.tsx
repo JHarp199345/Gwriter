@@ -38,7 +38,6 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 	const [mode, setMode] = useState<Mode>('chapter');
 	const [demoStep, setDemoStep] = useState<DemoStep>('off');
-	const [demoUsesAi, setDemoUsesAi] = useState<boolean>(Boolean(plugin.settings.apiKey));
 	const [demoStepCompleted, setDemoStepCompleted] = useState<Record<Exclude<DemoStep, 'off'>, boolean>>({
 		chapter: false,
 		'micro-edit': false,
@@ -149,6 +148,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		}
 	};
 
+	const isGuidedDemoActive = demoStep !== 'off' && demoStep !== 'done';
+	const canUseAiInDemo = Boolean(plugin.settings.apiKey);
+
 	const startGuidedDemo = () => {
 		// Reset UI state
 		setError(null);
@@ -160,9 +162,6 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		// Smaller range to keep demo fast/cheap
 		setMinWords(800);
 		setMaxWords(1200);
-
-		// Default: offline demo if user hasn't configured an API key yet.
-		setDemoUsesAi(Boolean(plugin.settings.apiKey));
 
 		// Step 1: chapter generate
 		setMode('chapter');
@@ -185,11 +184,11 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			done: false
 		});
 
-		if (!plugin.settings.apiKey) {
-			new Notice('Guided demo started in offline mode (no API key).');
-		} else {
-			new Notice('Guided demo started. This will only generate demo text.');
-		}
+		new Notice(
+			plugin.settings.apiKey
+				? 'Guided demo started. This will only generate demo text.'
+				: 'Guided demo started in offline mode (no API key).'
+		);
 	};
 
 	const exitGuidedDemo = () => {
@@ -293,7 +292,10 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 	const handleGenerate = async () => {
 		// Guided demo can run without an API key (offline canned output).
-		if (!plugin.settings.apiKey && demoStep !== 'off' && !demoUsesAi) {
+		// Auto mode:
+		// - If API key is present, try AI.
+		// - If AI fails (invalid key/quota/network), fall back to offline demo automatically.
+		if (!plugin.settings.apiKey && isGuidedDemoActive) {
 			setIsGenerating(true);
 			setError(null);
 			setGenerationStage('Generating (offline demo)...');
@@ -390,10 +392,29 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			
 			setGenerationStage('');
 		} catch (err: unknown) {
-			const message = formatUnknownForUi(err);
-			setError(message || 'Generation failed');
-			console.error('Generation error:', err);
-			setGenerationStage('');
+			// In guided demo: fall back to offline canned outputs automatically.
+			if (isGuidedDemoActive) {
+				console.error('Guided demo AI generation failed; falling back to offline demo:', err);
+				setError(null);
+				setGenerationStage('Generating (offline demo fallback)...');
+				try {
+					if (mode === 'chapter') {
+						setGeneratedText(DEMO_CHAPTER_OUTPUT);
+						setDemoStepCompleted((prev) => ({ ...prev, chapter: true }));
+					} else {
+						setGeneratedText(DEMO_MICRO_EDIT_OUTPUT);
+						setDemoStepCompleted((prev) => ({ ...prev, 'micro-edit': true }));
+					}
+					new Notice('AI request failed. Ran offline demo instead.');
+				} finally {
+					setGenerationStage('');
+				}
+			} else {
+				const message = formatUnknownForUi(err);
+				setError(message || 'Generation failed');
+				console.error('Generation error:', err);
+				setGenerationStage('');
+			}
 		} finally {
 			setIsGenerating(false);
 		}
@@ -406,7 +427,8 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		}
 
 		// Guided demo can run without an API key (offline canned extraction).
-		if (!plugin.settings.apiKey && demoStep !== 'off' && !demoUsesAi) {
+		// Auto mode: if API key exists, try AI; on failure, fall back to offline demo automatically.
+		if (!plugin.settings.apiKey && isGuidedDemoActive) {
 			setIsGenerating(true);
 			setError(null);
 			setGenerationStage('Extracting character information (offline demo)...');
@@ -457,11 +479,19 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			
 			// Character extraction always uses single mode
 			const singleModeSettings: SingleSettings = { ...plugin.settings, generationMode: 'single' };
-			const extractionResult = await plugin.aiClient.generate(prompt, singleModeSettings);
-			const updates = plugin.characterExtractor.parseExtraction(extractionResult);
+			let updates: Array<{ character: string; update: string }>;
+			try {
+				const extractionResult = await plugin.aiClient.generate(prompt, singleModeSettings);
+				updates = plugin.characterExtractor.parseExtraction(extractionResult);
+			} catch (err: unknown) {
+				if (!isGuidedDemoActive) throw err;
+				console.error('Guided demo character extraction failed; falling back to offline demo:', err);
+				updates = plugin.characterExtractor.parseExtraction(DEMO_CHARACTER_EXTRACTION_OUTPUT);
+				new Notice('AI request failed. Used offline demo character extraction instead.');
+			}
 			
 			// Apply updates to character files
-			if (demoStep !== 'off' && demoStep !== 'done') {
+			if (isGuidedDemoActive) {
 				await plugin.vaultService.createFolderIfNotExists(DEMO_FOLDER);
 				await plugin.vaultService.updateCharacterNotes(updates, DEMO_CHARACTER_FOLDER);
 				new Notice(`Updated ${updates.length} demo character note(s)`);
@@ -798,7 +828,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							{demoStep === 'character-update' && 'Step 3/3: Update characters (demo folder)'}
 							{demoStep === 'done' && 'Complete'}
 						</span>
-						{(!plugin.settings.apiKey || !demoUsesAi) && (
+						{!canUseAiInDemo && (
 							<span className="demo-banner-step">
 								Offline demo: uses sample outputs. Add an API key to run real generation.
 							</span>
@@ -807,14 +837,6 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					<div className="demo-banner-actions">
 						<button onClick={openPluginSettings} disabled={isGenerating} className="mod-secondary">
 							Open settings
-						</button>
-						<button
-							onClick={() => setDemoUsesAi((v) => !v)}
-							disabled={isGenerating || !plugin.settings.apiKey}
-							className="mod-secondary"
-							title={!plugin.settings.apiKey ? 'Add an API key to enable AI demo' : ''}
-						>
-							{demoUsesAi ? 'Use offline demo' : 'Use AI demo'}
 						</button>
 						{demoStep !== 'done' && (
 							<button
