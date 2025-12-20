@@ -7,6 +7,7 @@ import { PromptEngine } from './services/PromptEngine';
 import { AIClient } from './services/AIClient';
 import { CharacterExtractor } from './services/CharacterExtractor';
 import { SetupWizardModal } from './ui/SetupWizard';
+import { BookMainSelectorModal } from './ui/BookMainSelectorModal';
 
 export interface DashboardSettings {
 	apiKey: string;
@@ -91,6 +92,34 @@ export default class WritingDashboardPlugin extends Plugin {
 				}
 			})
 		);
+
+		// Track renames so settings don't break if the user renames their manuscript
+		this.registerEvent(
+			this.app.vault.on('rename', async (file, oldPath) => {
+				if (!(file instanceof TFile) || file.extension !== 'md') return;
+
+				// Update current-note tracker
+				if (this.lastOpenedMarkdownPath === oldPath) {
+					this.lastOpenedMarkdownPath = file.path;
+				}
+
+				// Update Book Main Path if it was renamed
+				if (this.settings.book2Path === oldPath) {
+					this.settings.book2Path = file.path;
+				}
+
+				// Migrate per-file state (hashes/timestamps) if present
+				if (this.settings.fileState?.[oldPath]) {
+					this.settings.fileState[file.path] = {
+						...(this.settings.fileState[file.path] || {}),
+						...this.settings.fileState[oldPath]
+					};
+					delete this.settings.fileState[oldPath];
+				}
+
+				await this.saveSettings();
+			})
+		);
 		
 		// Set vault path if not set
 		if (!this.settings.vaultPath) {
@@ -134,12 +163,20 @@ export default class WritingDashboardPlugin extends Plugin {
 
 		// Check for first-run setup
 		if (!this.settings.setupCompleted) {
-			const bookMainExists = this.app.vault.getAbstractFileByPath('Book-Main.md') !== null;
+			// Treat setup as complete if the configured Book Main Path exists
+			const bookMainExists = this.app.vault.getAbstractFileByPath(this.settings.book2Path) !== null;
 			if (!bookMainExists) {
-				// Show setup wizard automatically on first run
-				this.showSetupWizard();
+				// If vault appears populated, ask user which file is the main book file
+				const mdFiles = this.app.vault.getMarkdownFiles();
+				if (mdFiles.length > 0) {
+					const modal = new BookMainSelectorModal(this, mdFiles);
+					modal.open();
+				} else {
+					// Show setup wizard automatically on first run
+					this.showSetupWizard();
+				}
 			} else {
-				// Book-Main.md exists, mark setup as completed
+				// Book file exists, mark setup as completed
 				this.settings.setupCompleted = true;
 				await this.saveSettings();
 			}

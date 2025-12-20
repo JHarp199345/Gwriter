@@ -23567,7 +23567,7 @@ __export(main_exports, {
   default: () => WritingDashboardPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 
 // ui/DashboardView.ts
 var import_obsidian = require("obsidian");
@@ -24064,25 +24064,27 @@ var import_obsidian3 = require("obsidian");
 var import_react7 = __toESM(require_react());
 var import_client2 = __toESM(require_client());
 var import_obsidian2 = require("obsidian");
-var SETUP_ITEMS = [
-  {
-    type: "file",
-    path: "Book-Main.md",
-    description: "Your active manuscript file where new chapters are written",
-    content: `# Book - Main
+function getSetupItems(plugin) {
+  const bookPath = plugin.settings.book2Path || "Book-Main.md";
+  return [
+    {
+      type: "file",
+      path: bookPath,
+      description: "Your active manuscript file where new chapters are written",
+      content: `# Book - Main
 
 Your active manuscript goes here.
 
 ## Chapters
 
 [Start writing...]`,
-    defaultChecked: true
-  },
-  {
-    type: "file",
-    path: "Book - Story Bible.md",
-    description: "World building, rules, canon, and story elements",
-    content: `# Story Bible
+      defaultChecked: true
+    },
+    {
+      type: "file",
+      path: plugin.settings.storyBiblePath || "Book - Story Bible.md",
+      description: "World building, rules, canon, and story elements",
+      content: `# Story Bible
 
 ## World Building
 [Your world rules, magic systems, etc.]
@@ -24095,32 +24097,33 @@ Your active manuscript goes here.
 
 ## Themes
 [Themes and motifs]`,
-    defaultChecked: true
-  },
-  {
-    type: "file",
-    path: "Memory - Sliding Window.md",
-    description: "Recent narrative context used for AI generation",
-    content: `# Memory - Sliding Window
+      defaultChecked: true
+    },
+    {
+      type: "file",
+      path: plugin.settings.slidingWindowPath || "Memory - Sliding Window.md",
+      description: "Recent narrative context used for AI generation",
+      content: `# Memory - Sliding Window
 
 Recent narrative context for AI generation.
 
 [This file will be updated as you write]`,
-    defaultChecked: true
-  },
-  {
-    type: "folder",
-    path: "Characters",
-    description: "Folder for character notes (auto-updated by Character Update mode)",
-    defaultChecked: true
-  },
-  {
-    type: "folder",
-    path: "Book 1 - Chunked",
-    description: "Chunked version of Book 1 (500-word sections) for Smart Connections. Only needed when starting Book 2.",
-    defaultChecked: false
-  }
-];
+      defaultChecked: true
+    },
+    {
+      type: "folder",
+      path: plugin.settings.characterFolder || "Characters",
+      description: "Folder for character notes (auto-updated by Character Update mode)",
+      defaultChecked: true
+    },
+    {
+      type: "folder",
+      path: "Book 1 - Chunked",
+      description: "Chunked version of Book 1 (500-word sections) for Smart Connections. Only needed when starting Book 2.",
+      defaultChecked: false
+    }
+  ];
+}
 var SetupWizardModal = class extends import_obsidian2.Modal {
   constructor(plugin) {
     super(plugin.app);
@@ -24153,7 +24156,7 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
   (0, import_react7.useEffect)(() => {
     const checkItems = async () => {
       const checkedItems = await Promise.all(
-        SETUP_ITEMS.map(async (item) => {
+        getSetupItems(plugin).map(async (item) => {
           const file = plugin.app.vault.getAbstractFileByPath(item.path);
           const exists = file !== null;
           return {
@@ -24228,6 +24231,14 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
       setIsCreating(false);
     }
   };
+  const handleDontShowAgain = async () => {
+    try {
+      plugin.settings.setupCompleted = true;
+      await plugin.saveSettings();
+    } finally {
+      onClose();
+    }
+  };
   if (result) {
     return /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react7.default.createElement("h2", null, "Setup Complete!"), result.created.length > 0 && /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-success" }, /* @__PURE__ */ import_react7.default.createElement("p", null, /* @__PURE__ */ import_react7.default.createElement("strong", null, "Created:")), /* @__PURE__ */ import_react7.default.createElement("ul", null, result.created.map((path) => /* @__PURE__ */ import_react7.default.createElement("li", { key: path }, path)))), result.skipped.length > 0 && /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-skipped" }, /* @__PURE__ */ import_react7.default.createElement("p", null, /* @__PURE__ */ import_react7.default.createElement("strong", null, "Skipped (already exist):")), /* @__PURE__ */ import_react7.default.createElement("ul", null, result.skipped.map((path) => /* @__PURE__ */ import_react7.default.createElement("li", { key: path }, path)))), /* @__PURE__ */ import_react7.default.createElement("button", { onClick: onClose, className: "mod-cta" }, "Close"));
   }
@@ -24239,7 +24250,7 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
       disabled: item.exists || isCreating,
       onChange: () => handleToggle(index)
     }
-  ), /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-item-content" }, /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-item-header" }, /* @__PURE__ */ import_react7.default.createElement("strong", null, item.path), item.exists && /* @__PURE__ */ import_react7.default.createElement("span", { className: "exists-badge" }, "\u2713 Already exists")), /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-item-description" }, item.description)))))), /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react7.default.createElement("button", { onClick: onClose, disabled: isCreating, className: "mod-secondary" }, "Cancel"), /* @__PURE__ */ import_react7.default.createElement(
+  ), /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-item-content" }, /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-item-header" }, /* @__PURE__ */ import_react7.default.createElement("strong", null, item.path), item.exists && /* @__PURE__ */ import_react7.default.createElement("span", { className: "exists-badge" }, "\u2713 Already exists")), /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-item-description" }, item.description)))))), /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react7.default.createElement("button", { onClick: onClose, disabled: isCreating, className: "mod-secondary" }, "Cancel"), /* @__PURE__ */ import_react7.default.createElement("button", { onClick: handleDontShowAgain, disabled: isCreating, className: "mod-secondary" }, "Don't show again"), /* @__PURE__ */ import_react7.default.createElement(
     "button",
     {
       onClick: handleCreate,
@@ -25428,6 +25439,35 @@ var CharacterExtractor = class {
   }
 };
 
+// ui/BookMainSelectorModal.ts
+var import_obsidian6 = require("obsidian");
+var BookMainSelectorModal = class extends import_obsidian6.FuzzySuggestModal {
+  constructor(plugin, files) {
+    super(plugin.app);
+    this.plugin = plugin;
+    this.files = files;
+    this.setPlaceholder('Type to search for your manuscript file (e.g., "Reach of the Abyss")');
+  }
+  getItems() {
+    return this.files.slice().sort((a, b) => {
+      var _a, _b, _c, _d;
+      const aScore = (((_a = a.stat) == null ? void 0 : _a.mtime) || 0) + (((_b = a.stat) == null ? void 0 : _b.size) || 0);
+      const bScore = (((_c = b.stat) == null ? void 0 : _c.mtime) || 0) + (((_d = b.stat) == null ? void 0 : _d.size) || 0);
+      return bScore - aScore;
+    });
+  }
+  getItemText(item) {
+    return item.path;
+  }
+  onChooseItem(item) {
+    void (async () => {
+      this.plugin.settings.book2Path = item.path;
+      this.plugin.settings.setupCompleted = true;
+      await this.plugin.saveSettings();
+    })();
+  }
+};
+
 // main.ts
 var DEFAULT_SETTINGS = {
   apiKey: "",
@@ -25451,7 +25491,7 @@ var DEFAULT_SETTINGS = {
   setupCompleted: false,
   fileState: {}
 };
-var WritingDashboardPlugin = class extends import_obsidian6.Plugin {
+var WritingDashboardPlugin = class extends import_obsidian7.Plugin {
   constructor() {
     super(...arguments);
     /**
@@ -25467,6 +25507,27 @@ var WritingDashboardPlugin = class extends import_obsidian6.Plugin {
         if (file && file.extension === "md") {
           this.lastOpenedMarkdownPath = file.path;
         }
+      })
+    );
+    this.registerEvent(
+      this.app.vault.on("rename", async (file, oldPath) => {
+        var _a;
+        if (!(file instanceof import_obsidian7.TFile) || file.extension !== "md")
+          return;
+        if (this.lastOpenedMarkdownPath === oldPath) {
+          this.lastOpenedMarkdownPath = file.path;
+        }
+        if (this.settings.book2Path === oldPath) {
+          this.settings.book2Path = file.path;
+        }
+        if ((_a = this.settings.fileState) == null ? void 0 : _a[oldPath]) {
+          this.settings.fileState[file.path] = {
+            ...this.settings.fileState[file.path] || {},
+            ...this.settings.fileState[oldPath]
+          };
+          delete this.settings.fileState[oldPath];
+        }
+        await this.saveSettings();
       })
     );
     if (!this.settings.vaultPath) {
@@ -25501,9 +25562,15 @@ var WritingDashboardPlugin = class extends import_obsidian6.Plugin {
       }
     });
     if (!this.settings.setupCompleted) {
-      const bookMainExists = this.app.vault.getAbstractFileByPath("Book-Main.md") !== null;
+      const bookMainExists = this.app.vault.getAbstractFileByPath(this.settings.book2Path) !== null;
       if (!bookMainExists) {
-        this.showSetupWizard();
+        const mdFiles = this.app.vault.getMarkdownFiles();
+        if (mdFiles.length > 0) {
+          const modal = new BookMainSelectorModal(this, mdFiles);
+          modal.open();
+        } else {
+          this.showSetupWizard();
+        }
       } else {
         this.settings.setupCompleted = true;
         await this.saveSettings();

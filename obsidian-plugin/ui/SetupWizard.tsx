@@ -11,25 +11,27 @@ interface SetupItem {
 	defaultChecked: boolean;
 }
 
-const SETUP_ITEMS: SetupItem[] = [
-	{
-		type: 'file',
-		path: 'Book-Main.md',
-		description: 'Your active manuscript file where new chapters are written',
-		content: `# Book - Main
+function getSetupItems(plugin: WritingDashboardPlugin): SetupItem[] {
+	const bookPath = plugin.settings.book2Path || 'Book-Main.md';
+	return [
+		{
+			type: 'file',
+			path: bookPath,
+			description: 'Your active manuscript file where new chapters are written',
+			content: `# Book - Main
 
 Your active manuscript goes here.
 
 ## Chapters
 
 [Start writing...]`,
-		defaultChecked: true
-	},
-	{
-		type: 'file',
-		path: 'Book - Story Bible.md',
-		description: 'World building, rules, canon, and story elements',
-		content: `# Story Bible
+			defaultChecked: true
+		},
+		{
+			type: 'file',
+			path: plugin.settings.storyBiblePath || 'Book - Story Bible.md',
+			description: 'World building, rules, canon, and story elements',
+			content: `# Story Bible
 
 ## World Building
 [Your world rules, magic systems, etc.]
@@ -42,32 +44,33 @@ Your active manuscript goes here.
 
 ## Themes
 [Themes and motifs]`,
-		defaultChecked: true
-	},
-	{
-		type: 'file',
-		path: 'Memory - Sliding Window.md',
-		description: 'Recent narrative context used for AI generation',
-		content: `# Memory - Sliding Window
+			defaultChecked: true
+		},
+		{
+			type: 'file',
+			path: plugin.settings.slidingWindowPath || 'Memory - Sliding Window.md',
+			description: 'Recent narrative context used for AI generation',
+			content: `# Memory - Sliding Window
 
 Recent narrative context for AI generation.
 
 [This file will be updated as you write]`,
-		defaultChecked: true
-	},
-	{
-		type: 'folder',
-		path: 'Characters',
-		description: 'Folder for character notes (auto-updated by Character Update mode)',
-		defaultChecked: true
-	},
-	{
-		type: 'folder',
-		path: 'Book 1 - Chunked',
-		description: 'Chunked version of Book 1 (500-word sections) for Smart Connections. Only needed when starting Book 2.',
-		defaultChecked: false
-	}
-];
+			defaultChecked: true
+		},
+		{
+			type: 'folder',
+			path: plugin.settings.characterFolder || 'Characters',
+			description: 'Folder for character notes (auto-updated by Character Update mode)',
+			defaultChecked: true
+		},
+		{
+			type: 'folder',
+			path: 'Book 1 - Chunked',
+			description: 'Chunked version of Book 1 (500-word sections) for Smart Connections. Only needed when starting Book 2.',
+			defaultChecked: false
+		}
+	];
+}
 
 export class SetupWizardModal extends Modal {
 	plugin: WritingDashboardPlugin;
@@ -113,7 +116,7 @@ export const SetupWizardComponent: React.FC<SetupWizardComponentProps> = ({ plug
 		// Check which items already exist
 		const checkItems = async () => {
 			const checkedItems = await Promise.all(
-				SETUP_ITEMS.map(async (item) => {
+				getSetupItems(plugin).map(async (item) => {
 					const file = plugin.app.vault.getAbstractFileByPath(item.path);
 					const exists = file !== null;
 					return {
@@ -200,6 +203,15 @@ export const SetupWizardComponent: React.FC<SetupWizardComponentProps> = ({ plug
 		}
 	};
 
+	const handleDontShowAgain = async () => {
+		try {
+			plugin.settings.setupCompleted = true;
+			await plugin.saveSettings();
+		} finally {
+			onClose();
+		}
+	};
+
 	if (result) {
 		return (
 			<div className="setup-wizard">
@@ -259,6 +271,9 @@ export const SetupWizardComponent: React.FC<SetupWizardComponentProps> = ({ plug
 			<div className="setup-actions">
 				<button onClick={onClose} disabled={isCreating} className="mod-secondary">
 					Cancel
+				</button>
+				<button onClick={handleDontShowAgain} disabled={isCreating} className="mod-secondary">
+					Don't show again
 				</button>
 				<button
 					onClick={handleCreate}
