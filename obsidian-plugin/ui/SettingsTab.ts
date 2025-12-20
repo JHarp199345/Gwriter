@@ -341,6 +341,20 @@ export class SettingsTab extends PluginSettingTab {
 					this.plugin.settings.slidingWindowPath = value;
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName('Character Extraction Chunk Size (words)')
+			.setDesc('Used by "Process Entire Book" to batch character extraction. Larger chunks (e.g., 2000–3000) tend to improve character context.')
+			.addText(text => text
+				.setPlaceholder('2500')
+				.setValue(String(this.plugin.settings.characterExtractionChunkSize ?? 2500))
+				.onChange(async (value) => {
+					const parsed = parseInt(value, 10);
+					// Clamp to a sane range to prevent accidental extreme values
+					const clamped = Number.isFinite(parsed) ? Math.min(10000, Math.max(250, parsed)) : 2500;
+					this.plugin.settings.characterExtractionChunkSize = clamped;
+					await this.plugin.saveSettings();
+				}));
 	}
 }
 

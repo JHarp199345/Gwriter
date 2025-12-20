@@ -26,6 +26,11 @@ export interface DashboardSettings {
 	storyBiblePath: string;
 	extractionsPath: string;
 	slidingWindowPath: string;
+	/**
+	 * Word count per chunk when running "Process Entire Book" character extraction.
+	 * (Chunking for Smart Connections/reference folders is separate.)
+	 */
+	characterExtractionChunkSize: number;
 	setupCompleted: boolean;
 	fileState: Record<
 		string,
@@ -57,6 +62,7 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 	storyBiblePath: 'Book - Story Bible.md',
 	extractionsPath: 'Extractions.md',
 	slidingWindowPath: 'Memory - Sliding Window.md',
+	characterExtractionChunkSize: 2500,
 	setupCompleted: false,
 	fileState: {}
 };

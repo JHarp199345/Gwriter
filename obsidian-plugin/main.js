@@ -23852,7 +23852,8 @@ var DashboardComponent = ({ plugin }) => {
         alert("Book unchanged since last processing \u2014 skipping.");
         return;
       }
-      const chunks = TextChunker.chunkText(bookText, 500);
+      const chunkSize = plugin.settings.characterExtractionChunkSize || 2500;
+      const chunks = TextChunker.chunkText(bookText, chunkSize);
       const totalChunks = chunks.length;
       setGenerationStage(`Processing ${totalChunks} chunks...`);
       const characterNotes = await plugin.contextAggregator.getCharacterNotes();
@@ -24464,6 +24465,15 @@ var SettingsTab = class extends import_obsidian3.PluginSettingTab {
       this.plugin.settings.slidingWindowPath = value;
       await this.plugin.saveSettings();
     }));
+    new import_obsidian3.Setting(containerEl).setName("Character Extraction Chunk Size (words)").setDesc('Used by "Process Entire Book" to batch character extraction. Larger chunks (e.g., 2000\u20133000) tend to improve character context.').addText((text) => {
+      var _a;
+      return text.setPlaceholder("2500").setValue(String((_a = this.plugin.settings.characterExtractionChunkSize) != null ? _a : 2500)).onChange(async (value) => {
+        const parsed = parseInt(value, 10);
+        const clamped = Number.isFinite(parsed) ? Math.min(1e4, Math.max(250, parsed)) : 2500;
+        this.plugin.settings.characterExtractionChunkSize = clamped;
+        await this.plugin.saveSettings();
+      });
+    });
   }
 };
 
@@ -25437,6 +25447,7 @@ var DEFAULT_SETTINGS = {
   storyBiblePath: "Book - Story Bible.md",
   extractionsPath: "Extractions.md",
   slidingWindowPath: "Memory - Sliding Window.md",
+  characterExtractionChunkSize: 2500,
   setupCompleted: false,
   fileState: {}
 };

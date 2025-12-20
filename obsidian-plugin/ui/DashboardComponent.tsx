@@ -137,8 +137,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				return;
 			}
 
-			// Chunk the book into 500-word pieces
-			const chunks = TextChunker.chunkText(bookText, 500);
+			// Chunk the book into larger pieces for character extraction (configurable)
+			const chunkSize = plugin.settings.characterExtractionChunkSize || 2500;
+			const chunks = TextChunker.chunkText(bookText, chunkSize);
 			const totalChunks = chunks.length;
 			
 			setGenerationStage(`Processing ${totalChunks} chunks...`);
