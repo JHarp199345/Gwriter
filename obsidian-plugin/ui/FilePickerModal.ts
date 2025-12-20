@@ -1,4 +1,4 @@
-import { FuzzySuggestModal, TFile } from 'obsidian';
+import { App, FuzzySuggestModal, TFile } from 'obsidian';
 
 /**
  * Generic searchable picker for markdown files in the vault.
@@ -9,7 +9,7 @@ export class FilePickerModal extends FuzzySuggestModal<TFile> {
 	private onPick: (file: TFile) => void | Promise<void>;
 
 	constructor(opts: {
-		app: any;
+		app: App;
 		files: TFile[];
 		placeholder: string;
 		onPick: (file: TFile) => void | Promise<void>;

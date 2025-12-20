@@ -143,7 +143,7 @@ export default class WritingDashboardPlugin extends Plugin {
 		
 		// Set vault path if not set
 		if (!this.settings.vaultPath) {
-			// @ts-ignore - basePath exists but not in types
+			// @ts-expect-error Obsidian adapter types do not expose `basePath`, but desktop adapters provide it.
 			this.settings.vaultPath = this.app.vault.adapter.basePath || '';
 			await this.saveSettings();
 		}
@@ -159,7 +159,7 @@ export default class WritingDashboardPlugin extends Plugin {
 			(leaf) => new DashboardView(leaf, this)
 		);
 		
-		this.addRibbonIcon('book-open', 'Open Writing Dashboard', () => {
+		this.addRibbonIcon('book-open', 'Open dashboard', () => {
 			this.activateView();
 		});
 		
@@ -167,7 +167,7 @@ export default class WritingDashboardPlugin extends Plugin {
 		
 		this.addCommand({
 			id: 'open-dashboard',
-			name: 'Open Writing Dashboard',
+			name: 'Open dashboard',
 			callback: () => {
 				this.activateView();
 			}
@@ -175,7 +175,7 @@ export default class WritingDashboardPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'run-setup-wizard',
-			name: 'Run Setup Wizard',
+			name: 'Run setup wizard',
 			callback: () => {
 				this.showSetupWizard();
 			}
@@ -203,7 +203,7 @@ export default class WritingDashboardPlugin extends Plugin {
 		}
 	}
 
-	async showSetupWizard() {
+	showSetupWizard() {
 		const modal = new SetupWizardModal(this);
 		modal.open();
 	}

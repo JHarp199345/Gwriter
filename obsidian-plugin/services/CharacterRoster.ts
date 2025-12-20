@@ -22,7 +22,9 @@ export function parseCharacterRoster(text: string): CharacterRosterEntry[] {
 	const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
 	for (const line of lines) {
-		const cleaned = line.replace(/^[-*]\s+/, '').replace(/^\d+[\).\]]\s+/, '').trim();
+		// Remove common list prefixes like "-", "*", "1.", "1)", "1]"
+		// (avoid unnecessary escapes inside character classes)
+		const cleaned = line.replace(/^[-*]\s+/, '').replace(/^\d+[.)\]]\s+/, '').trim();
 		if (!cleaned) continue;
 
 		// Split "Name | aliases: ..."

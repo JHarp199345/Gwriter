@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { createRoot, Root } from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 import WritingDashboardPlugin from '../main';
-import { Modal } from 'obsidian';
+import { Modal, Notice } from 'obsidian';
 
 interface SetupItem {
 	type: 'file' | 'folder';
@@ -74,7 +74,7 @@ Recent narrative context for AI generation.
 
 export class SetupWizardModal extends Modal {
 	plugin: WritingDashboardPlugin;
-	reactRoot: Root | null = null;
+	reactRoot: ReturnType<typeof createRoot> | null = null;
 
 	constructor(plugin: WritingDashboardPlugin) {
 		super(plugin.app);
@@ -195,9 +195,10 @@ export const SetupWizardComponent: React.FC<SetupWizardComponentProps> = ({ plug
 			// Mark setup as completed
 			plugin.settings.setupCompleted = true;
 			await plugin.saveSettings();
-		} catch (error) {
+		} catch (error: unknown) {
 			console.error('Setup error:', error);
-			alert(`Error creating files: ${error}`);
+			const message = error instanceof Error ? error.message : String(error);
+			new Notice(`Error creating files: ${message}`);
 		} finally {
 			setIsCreating(false);
 		}
@@ -215,7 +216,7 @@ export const SetupWizardComponent: React.FC<SetupWizardComponentProps> = ({ plug
 	if (result) {
 		return (
 			<div className="setup-wizard">
-				<h2>Setup Complete!</h2>
+				<h2>Setup complete!</h2>
 				{result.created.length > 0 && (
 					<div className="setup-success">
 						<p><strong>Created:</strong></p>
@@ -243,7 +244,7 @@ export const SetupWizardComponent: React.FC<SetupWizardComponentProps> = ({ plug
 
 	return (
 		<div className="setup-wizard">
-			<h2>Welcome to Writing Dashboard</h2>
+			<h2>Welcome to writing dashboard</h2>
 			<p>Set up your writing workspace by selecting which files and folders to create:</p>
 
 			<div className="setup-items">

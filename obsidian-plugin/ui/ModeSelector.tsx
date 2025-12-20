@@ -14,9 +14,9 @@ export const ModeSelector: React.FC<{
 				onChange={(e) => onChange(e.target.value as Mode)}
 				className="mode-dropdown"
 			>
-				<option value="chapter">Chapter Generate</option>
-				<option value="micro-edit">Micro Edit</option>
-				<option value="character-update">Character Update</option>
+				<option value="chapter">Chapter generate</option>
+				<option value="micro-edit">Micro edit</option>
+				<option value="character-update">Character update</option>
 			</select>
 		</div>
 	);

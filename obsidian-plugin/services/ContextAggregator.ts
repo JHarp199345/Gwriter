@@ -53,7 +53,7 @@ export class ContextAggregator {
 			sliding_window: await this.readFile(settings.slidingWindowPath),
 			story_bible: await this.readFile(settings.storyBiblePath),
 			extractions: extractions,
-			character_notes: await this.formatCharacterNotes(await this.getAllCharacterNotes()),
+			character_notes: this.formatCharacterNotes(await this.getAllCharacterNotes()),
 			smart_connections: await this.getSmartConnections(32),
 			surrounding_before: surrounding.before,
 			surrounding_after: surrounding.after
@@ -78,7 +78,8 @@ export class ContextAggregator {
 
 	private async getSmartConnections(limit: number = 64): Promise<string> {
 		// Try to read Smart Connections data
-		const scDataPath = '.obsidian/plugins/smart-connections/data.json';
+		// Obsidian's config folder is user-configurable; use vault.configDir
+		const scDataPath = `${this.vault.configDir}/plugins/smart-connections/data.json`;
 		let smartConnectionsAvailable = false;
 		
 		try {
@@ -261,7 +262,7 @@ export class ContextAggregator {
 		return notes;
 	}
 
-	private async formatCharacterNotes(characterNotes: Record<string, string>): Promise<string> {
+	private formatCharacterNotes(characterNotes: Record<string, string>): string {
 		if (Object.keys(characterNotes).length === 0) {
 			return '[No character notes found]';
 		}

@@ -1,6 +1,6 @@
 import { ItemView, WorkspaceLeaf } from 'obsidian';
 import WritingDashboardPlugin from '../main';
-import { createRoot, Root } from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 import React from 'react';
 import { DashboardComponent } from './DashboardComponent';
 
@@ -8,7 +8,7 @@ export const VIEW_TYPE_DASHBOARD = 'writing-dashboard';
 
 export class DashboardView extends ItemView {
 	plugin: WritingDashboardPlugin;
-	reactRoot: Root | null = null;
+	reactRoot: ReturnType<typeof createRoot> | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: WritingDashboardPlugin) {
 		super(leaf);
@@ -20,7 +20,7 @@ export class DashboardView extends ItemView {
 	}
 
 	getDisplayText() {
-		return 'Writing Dashboard';
+		return 'Writing dashboard';
 	}
 
 	getIcon(): string {

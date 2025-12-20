@@ -1,5 +1,5 @@
-import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
-import WritingDashboardPlugin, { DashboardSettings } from '../main';
+import { App, PluginSettingTab, Setting } from 'obsidian';
+import WritingDashboardPlugin from '../main';
 import { SetupWizardModal } from './SetupWizard';
 
 // Model lists for each provider
@@ -91,10 +91,10 @@ export class SettingsTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		containerEl.createEl('h2', { text: 'Writing Dashboard Settings' });
+		new Setting(containerEl).setName('Writing dashboard settings').setHeading();
 
 		new Setting(containerEl)
-			.setName('API Key')
+			.setName('API key')
 			.setDesc('Your AI API key (stored securely)')
 			.addText(text => text
 				.setPlaceholder('Enter API key')
@@ -105,11 +105,11 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Generation Mode')
-			.setDesc('SingleModalMode: Fast, single model. MultiMode: Higher quality with multiple models.')
+			.setName('Generation mode')
+			.setDesc('Single mode: fast, single model. Multi mode: higher quality with multiple models.')
 			.addDropdown(dropdown => dropdown
-				.addOption('single', 'SingleModalMode')
-				.addOption('multi', 'MultiMode')
+				.addOption('single', 'Single mode')
+				.addOption('multi', 'Multi mode')
 				.setValue(this.plugin.settings.generationMode)
 				.onChange(async (value: 'single' | 'multi') => {
 					this.plugin.settings.generationMode = value;
@@ -118,8 +118,8 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('API Provider')
-			.setDesc('Choose your AI provider. OpenRouter recommended for MultiMode.')
+			.setName('API provider')
+			.setDesc('Choose your AI provider. OpenRouter recommended for multi mode.')
 			.addDropdown(dropdown => dropdown
 				.addOption('openrouter', 'OpenRouter (Recommended)')
 				.addOption('openai', 'OpenAI')
@@ -156,11 +156,11 @@ export class SettingsTab extends PluginSettingTab {
 		// Multi-mode settings (only shown when MultiMode is selected)
 		if (this.plugin.settings.generationMode === 'multi') {
 			new Setting(containerEl)
-				.setName('Multi-Mode Strategy')
-				.setDesc('Draft+Revision: Fast draft + quality revision. Consensus+Multi-Stage: Maximum quality (slower, more expensive).')
+				.setName('Multi-mode strategy')
+				.setDesc('Draft + revision: fast draft + quality revision. Consensus + multi-stage: maximum quality (slower, more expensive).')
 				.addDropdown(dropdown => dropdown
-					.addOption('draft-revision', 'Draft + Revision')
-					.addOption('consensus-multistage', 'Consensus + Multi-Stage (Maximum Quality)')
+					.addOption('draft-revision', 'Draft + revision')
+					.addOption('consensus-multistage', 'Consensus + multi-stage (maximum quality)')
 					.setValue(this.plugin.settings.multiStrategy)
 					.onChange(async (value: 'draft-revision' | 'consensus-multistage') => {
 						this.plugin.settings.multiStrategy = value;
@@ -171,7 +171,7 @@ export class SettingsTab extends PluginSettingTab {
 			if (this.plugin.settings.multiStrategy === 'draft-revision') {
 				// Draft Model dropdown
 				new Setting(containerEl)
-					.setName('Draft Model')
+					.setName('Draft model')
 					.setDesc('Fast model for initial draft')
 					.addDropdown(dropdown => {
 						const models = getModelsForProvider(this.plugin.settings.apiProvider);
@@ -187,7 +187,7 @@ export class SettingsTab extends PluginSettingTab {
 
 				// Revision Model dropdown
 				new Setting(containerEl)
-					.setName('Revision Model')
+					.setName('Revision model')
 					.setDesc('Quality model for refinement')
 					.addDropdown(dropdown => {
 						const models = getModelsForProvider(this.plugin.settings.apiProvider);
@@ -203,7 +203,7 @@ export class SettingsTab extends PluginSettingTab {
 			} else {
 				// Consensus + Multi-Stage settings
 				new Setting(containerEl)
-					.setName('Consensus Model 1')
+					.setName('Consensus model 1')
 					.setDesc('Primary model for consensus generation')
 					.addDropdown(dropdown => {
 						const models = getModelsForProvider(this.plugin.settings.apiProvider);
@@ -218,7 +218,7 @@ export class SettingsTab extends PluginSettingTab {
 					});
 
 				new Setting(containerEl)
-					.setName('Consensus Model 2')
+					.setName('Consensus model 2')
 					.setDesc('Second model for consensus generation')
 					.addDropdown(dropdown => {
 						const models = getModelsForProvider(this.plugin.settings.apiProvider);
@@ -233,7 +233,7 @@ export class SettingsTab extends PluginSettingTab {
 					});
 
 				new Setting(containerEl)
-					.setName('Consensus Model 3 (Optional)')
+					.setName('Consensus model 3 (optional)')
 					.setDesc('Third model for stronger consensus (optional)')
 					.addDropdown(dropdown => {
 						dropdown.addOption('', 'None');
@@ -249,7 +249,7 @@ export class SettingsTab extends PluginSettingTab {
 					});
 
 				new Setting(containerEl)
-					.setName('Synthesis Model')
+					.setName('Synthesis model')
 					.setDesc('Model to synthesize final output from consensus')
 					.addDropdown(dropdown => {
 						const models = getModelsForProvider(this.plugin.settings.apiProvider);
@@ -267,7 +267,7 @@ export class SettingsTab extends PluginSettingTab {
 
 
 		new Setting(containerEl)
-			.setName('Vault Path')
+			.setName('Vault path')
 			.setDesc('Path to your Obsidian vault (auto-detected)')
 			.addText(text => text
 				.setPlaceholder('Vault path')
@@ -278,17 +278,17 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Setup Wizard')
+			.setName('Setup wizard')
 			.setDesc('Create default files and folders for your writing workspace')
 			.addButton(button => button
-				.setButtonText('Run Setup Wizard')
+				.setButtonText('Run setup wizard')
 				.onClick(() => {
 					const modal = new SetupWizardModal(this.plugin);
 					modal.open();
 				}));
 
 		new Setting(containerEl)
-			.setName('Character Folder')
+			.setName('Character folder')
 			.setDesc('Folder name for character notes (default: Characters)')
 			.addText(text => text
 				.setPlaceholder('Characters')
@@ -299,7 +299,7 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Book Main Path')
+			.setName('Book main path')
 			.setDesc('Path to your active manuscript')
 			.addText(text => text
 				.setPlaceholder('Book-Main.md')
@@ -310,7 +310,7 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Story Bible Path')
+			.setName('Story bible path')
 			.setDesc('Path to your story bible')
 			.addText(text => text
 				.setPlaceholder('Book - Story Bible.md')
@@ -321,7 +321,7 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Extractions Path (Optional)')
+			.setName('Extractions path (optional)')
 			.setDesc('Path to your extractions file. Optional - only needed if you use extractions instead of chunked folders.')
 			.addText(text => text
 				.setPlaceholder('Extractions.md')
@@ -332,7 +332,7 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Sliding Window Path')
+			.setName('Sliding window path')
 			.setDesc('Path to your sliding window memory file')
 			.addText(text => text
 				.setPlaceholder('Memory - Sliding Window.md')
@@ -343,8 +343,8 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Character Extraction Chunk Size (words)')
-			.setDesc('Used by "Process Entire Book" to batch character extraction. Larger chunks (e.g., 2000–3000) tend to improve character context.')
+			.setName('Character extraction chunk size (words)')
+			.setDesc('Used by "Process entire book" to batch character extraction. Larger chunks (e.g., 2000–3000) tend to improve character context.')
 			.addText(text => text
 				.setPlaceholder('2500')
 				.setValue(String(this.plugin.settings.characterExtractionChunkSize ?? 2500))
@@ -357,7 +357,7 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Context Token Limit (warning)')
+			.setName('Context token limit (warning)')
 			.setDesc('Shows a warning before generating if the estimated prompt tokens exceed this limit. Default: 128000.')
 			.addText(text => text
 				.setPlaceholder('128000')

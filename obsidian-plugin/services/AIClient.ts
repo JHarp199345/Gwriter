@@ -1,4 +1,5 @@
-import WritingDashboardPlugin, { DashboardSettings } from '../main';
+import { requestUrl, type RequestUrlResponse } from 'obsidian';
+import type { DashboardSettings } from '../main';
 
 export interface MultiModelResult {
 	primary: string;
@@ -13,6 +14,55 @@ export interface MultiModelResult {
 }
 
 export class AIClient {
+	private _getJson(resp: RequestUrlResponse): unknown {
+		// requestUrl may populate `json`, but fall back to parsing `text` when needed.
+		const anyResp = resp as unknown as { json?: unknown; text?: string };
+		if (anyResp.json !== undefined) return anyResp.json;
+		if (typeof anyResp.text === 'string' && anyResp.text.trim().length > 0) {
+			try {
+				return JSON.parse(anyResp.text);
+			} catch {
+				return { text: anyResp.text };
+			}
+		}
+		return undefined;
+	}
+
+	private _getNestedErrorMessage(payload: unknown): string | undefined {
+		if (!payload || typeof payload !== 'object') return undefined;
+		const obj = payload as Record<string, unknown>;
+
+		// Common: { error: { message: string } }
+		const err = obj.error;
+		if (err && typeof err === 'object') {
+			const errObj = err as Record<string, unknown>;
+			const msg = errObj.message;
+			if (typeof msg === 'string' && msg.trim().length > 0) return msg;
+		}
+
+		// Sometimes: { message: string }
+		const msg = obj.message;
+		if (typeof msg === 'string' && msg.trim().length > 0) return msg;
+
+		// Sometimes: { error: string }
+		if (typeof err === 'string' && err.trim().length > 0) return err;
+
+		return undefined;
+	}
+
+	private _getOpenAIStyleContent(payload: unknown): string | undefined {
+		if (!payload || typeof payload !== 'object') return undefined;
+		const obj = payload as Record<string, unknown>;
+		const choices = obj.choices;
+		if (!Array.isArray(choices) || choices.length === 0) return undefined;
+		const first = choices[0];
+		if (!first || typeof first !== 'object') return undefined;
+		const message = (first as Record<string, unknown>).message;
+		if (!message || typeof message !== 'object') return undefined;
+		const content = (message as Record<string, unknown>).content;
+		return typeof content === 'string' ? content : undefined;
+	}
+
 	private _safeJsonPreview(value: unknown, maxLen = 1200): string {
 		try {
 			const text = JSON.stringify(value);
@@ -165,7 +215,8 @@ export class AIClient {
 	}
 
 	private async _generateOpenRouter(prompt: string, settings: DashboardSettings): Promise<string> {
-		const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+		const response = await requestUrl({
+			url: 'https://openrouter.ai/api/v1/chat/completions',
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -184,24 +235,25 @@ export class AIClient {
 			})
 		});
 
-		if (!response.ok) {
-			const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
-			throw new Error(`OpenRouter API error: ${error.error?.message || response.statusText}`);
+		if (response.status >= 400) {
+			const error = this._getJson(response);
+			throw new Error(`OpenRouter API error: ${this._getNestedErrorMessage(error) || response.status}`);
 		}
 
-		const data = await response.json();
-		const content = data?.choices?.[0]?.message?.content;
+		const data = this._getJson(response);
+		const content = this._getOpenAIStyleContent(data);
 		if (typeof content !== 'string' || content.trim().length === 0) {
 			throw new Error(
 				`OpenRouter response missing message content. ` +
-				`Preview: ${this._safeJsonPreview(data?.error || data)}`
+				`Preview: ${this._safeJsonPreview(data)}`
 			);
 		}
 		return content;
 	}
 
 	private async _generateOpenAI(prompt: string, settings: DashboardSettings): Promise<string> {
-		const response = await fetch('https://api.openai.com/v1/chat/completions', {
+		const response = await requestUrl({
+			url: 'https://api.openai.com/v1/chat/completions',
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -218,24 +270,25 @@ export class AIClient {
 			})
 		});
 
-		if (!response.ok) {
-			const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
-			throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
+		if (response.status >= 400) {
+			const error = this._getJson(response);
+			throw new Error(`OpenAI API error: ${this._getNestedErrorMessage(error) || response.status}`);
 		}
 
-		const data = await response.json();
-		const content = data?.choices?.[0]?.message?.content;
+		const data = this._getJson(response);
+		const content = this._getOpenAIStyleContent(data);
 		if (typeof content !== 'string' || content.trim().length === 0) {
 			throw new Error(
 				`OpenAI response missing message content. ` +
-				`Preview: ${this._safeJsonPreview(data?.error || data)}`
+				`Preview: ${this._safeJsonPreview(data)}`
 			);
 		}
 		return content;
 	}
 
 	private async _generateAnthropic(prompt: string, settings: DashboardSettings): Promise<string> {
-		const response = await fetch('https://api.anthropic.com/v1/messages', {
+		const response = await requestUrl({
+			url: 'https://api.anthropic.com/v1/messages',
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -245,78 +298,109 @@ export class AIClient {
 			body: JSON.stringify({
 				model: settings.model,
 				max_tokens: 4000,
-				messages: [
-					{ role: 'user', content: prompt }
-				]
+				messages: [{ role: 'user', content: prompt }]
 			})
 		});
 
-		if (!response.ok) {
-			const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
-			throw new Error(`Anthropic API error: ${error.error?.message || response.statusText}`);
+		if (response.status >= 400) {
+			const error = this._getJson(response);
+			throw new Error(`Anthropic API error: ${this._getNestedErrorMessage(error) || response.status}`);
 		}
 
-		const data = await response.json();
-		const text = data?.content?.[0]?.text;
+		const data = this._getJson(response);
+		let text: string | undefined;
+		if (data && typeof data === 'object') {
+			const obj = data as Record<string, unknown>;
+			const content = obj.content;
+			if (Array.isArray(content) && content[0] && typeof content[0] === 'object') {
+				const first = content[0] as Record<string, unknown>;
+				const t = first.text;
+				if (typeof t === 'string') text = t;
+			}
+		}
 		if (typeof text !== 'string' || text.trim().length === 0) {
 			throw new Error(
 				`Anthropic response missing content text. ` +
-				`Preview: ${this._safeJsonPreview(data?.error || data)}`
+				`Preview: ${this._safeJsonPreview(data)}`
 			);
 		}
 		return text;
 	}
 
 	private async _generateGemini(prompt: string, settings: DashboardSettings): Promise<string> {
-		const response = await fetch(
-			`https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
-			{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					contents: [{
-						parts: [{
-							text: prompt
-						}]
-					}],
-					generationConfig: {
-						maxOutputTokens: 4000,
-						temperature: 0.7
+		const response = await requestUrl({
+			url: `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				contents: [
+					{
+						parts: [{ text: prompt }]
 					}
-				})
-			}
-		);
+				],
+				generationConfig: {
+					maxOutputTokens: 4000,
+					temperature: 0.7
+				}
+			})
+		});
 
-		if (!response.ok) {
-			const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
-			throw new Error(`Gemini API error: ${error.error?.message || response.statusText}`);
+		if (response.status >= 400) {
+			const error = this._getJson(response);
+			throw new Error(`Gemini API error: ${this._getNestedErrorMessage(error) || response.status}`);
 		}
 
-		const data = await response.json();
+		const data = this._getJson(response);
 
-		const candidates = data?.candidates;
+		const candidates =
+			data && typeof data === 'object'
+				? (data as Record<string, unknown>).candidates
+				: undefined;
 		if (!Array.isArray(candidates) || candidates.length === 0) {
-			const blockReason = data?.promptFeedback?.blockReason;
+			let blockReason: unknown;
+			let promptFeedback: unknown;
+			if (data && typeof data === 'object') {
+				promptFeedback = (data as Record<string, unknown>).promptFeedback;
+				if (promptFeedback && typeof promptFeedback === 'object') {
+					blockReason = (promptFeedback as Record<string, unknown>).blockReason;
+				}
+			}
 			const details =
 				blockReason ? ` blockReason=${String(blockReason)}` : '';
 			const preview = this._safeJsonPreview(
-				data?.error || data?.promptFeedback || data
+				promptFeedback || data
 			);
 			throw new Error(
 				`Gemini returned no candidates.${details} Preview: ${preview}`
 			);
 		}
 
-		const parts = candidates?.[0]?.content?.parts;
+		const firstCandidate = candidates[0];
+		let parts: unknown;
+		if (firstCandidate && typeof firstCandidate === 'object') {
+			const content = (firstCandidate as Record<string, unknown>).content;
+			if (content && typeof content === 'object') {
+				parts = (content as Record<string, unknown>).parts;
+			}
+		}
+		const partText = (p: unknown): string | null => {
+			if (!p || typeof p !== 'object') return null;
+			if (!('text' in p)) return null;
+			const t = (p as { text?: unknown }).text;
+			return typeof t === 'string' ? t : null;
+		};
 		const text = Array.isArray(parts)
-			? parts.map((p: any) => p?.text).filter(Boolean).join('\n')
+			? parts.map(partText).filter((t): t is string => Boolean(t)).join('\n')
 			: undefined;
 
 		if (typeof text !== 'string' || text.trim().length === 0) {
-			const finishReason = candidates?.[0]?.finishReason;
-			const preview = this._safeJsonPreview(candidates?.[0] || data);
+			let finishReason: unknown;
+			if (firstCandidate && typeof firstCandidate === 'object') {
+				finishReason = (firstCandidate as Record<string, unknown>).finishReason;
+			}
+			const preview = this._safeJsonPreview(firstCandidate || data);
 			throw new Error(
 				`Gemini candidate missing text. finishReason=${String(finishReason)} Preview: ${preview}`
 			);

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Notice } from 'obsidian';
 import WritingDashboardPlugin from '../main';
 import { VaultBrowser } from './VaultBrowser';
 import { EditorPanel } from './EditorPanel';
@@ -10,6 +11,7 @@ import { fnv1a32 } from '../services/ContentHash';
 import { estimateTokens } from '../services/TokenEstimate';
 import { FilePickerModal } from './FilePickerModal';
 import { parseCharacterRoster, rosterToBulletList } from '../services/CharacterRoster';
+import { showConfirmModal } from './ConfirmModal';
 
 type Mode = 'chapter' | 'micro-edit' | 'character-update';
 
@@ -103,11 +105,15 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			setPromptCharCount(prompt.length);
 			const limit = plugin.settings.contextTokenLimit ?? 128000;
 			if (estimatedTokens > limit) {
-				const proceed = window.confirm(
-					`Estimated prompt size: ~${estimatedTokens.toLocaleString()} tokens (limit: ${limit.toLocaleString()}).\n\n` +
-					`This may exceed your model context window and cause truncation/failure.\n\n` +
-					`Continue anyway?`
-				);
+				const proceed = await showConfirmModal(plugin.app, {
+					title: 'Large prompt warning',
+					message:
+						`Estimated prompt size: ~${estimatedTokens.toLocaleString()} tokens (limit: ${limit.toLocaleString()}).\n\n` +
+						`This may exceed your model context window and cause truncation/failure.\n\n` +
+						`Continue anyway?`,
+					confirmText: 'Continue',
+					cancelText: 'Cancel'
+				});
 				if (!proceed) {
 					setGenerationStage('');
 					return;
@@ -131,8 +137,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			}
 			
 			setGenerationStage('');
-		} catch (err: any) {
-			setError(err.message || 'Generation failed');
+		} catch (err: unknown) {
+			const message = err instanceof Error ? err.message : String(err);
+			setError(message || 'Generation failed');
 			console.error('Generation error:', err);
 			setGenerationStage('');
 		} finally {
@@ -169,9 +176,10 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			setError(null);
 			setGenerationStage('');
 			// Show success message
-			alert(`Updated ${updates.length} character note(s)`);
-		} catch (err: any) {
-			setError(err.message || 'Character extraction failed');
+			new Notice(`Updated ${updates.length} character note(s)`);
+		} catch (err: unknown) {
+			const message = err instanceof Error ? err.message : String(err);
+			setError(message || 'Character extraction failed');
 			console.error('Character update error:', err);
 			setGenerationStage('');
 		} finally {
@@ -179,7 +187,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		}
 	};
 
-	const handleSelectCharacterExtractionSource = async () => {
+	const handleSelectCharacterExtractionSource = () => {
 		const files = plugin.app.vault.getMarkdownFiles();
 		const modal = new FilePickerModal({
 			app: plugin.app,
@@ -274,7 +282,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			if (fileState.lastProcessHash === hashNow && !canRetryFailures) {
 				setError(null);
 				setGenerationStage('');
-				alert('Book unchanged since last processing — skipping.');
+				new Notice('Book unchanged since last processing — skipping.');
 				return;
 			}
 
@@ -386,13 +394,12 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			setError(null);
 			setGenerationStage('');
 			if (failedChapterIndices.length > 0) {
-				alert(
-					`Processed entire book and updated ${aggregatedUpdates.length} character note(s)\n\n` +
-					`Some chapters failed (${failedChapterIndices.length}). Re-run "Process Entire Book" to retry only the failures.\n` +
-					`Failed chapters: ${failedChapterIndices.map((n) => n + 1).join(', ')}`
+				new Notice(
+					`Processed book and updated ${aggregatedUpdates.length} character note(s). ` +
+						`${failedChapterIndices.length} chapter(s) failed; re-run to retry failures.`
 				);
 			} else {
-				alert(`Processed entire book and updated ${aggregatedUpdates.length} character note(s)`);
+				new Notice(`Processed book and updated ${aggregatedUpdates.length} character note(s)`);
 			}
 		} catch (err: unknown) {
 			setError(getErrorMessage(err) || 'Processing entire book failed');
@@ -435,7 +442,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			if (prevState?.lastChunkHash === hashNow) {
 				setError(null);
 				setGenerationStage('');
-				alert('Chunks are up to date — no rebuild needed.');
+				new Notice('Chunks are up to date — no rebuild needed.');
 				return;
 			}
 			
@@ -458,15 +465,12 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			setError(null);
 			setGenerationStage('');
 			const written = result.created + result.overwritten;
-			alert(
-				`Chunks rebuilt for ${sourceFilePath}\n\n` +
-				`- Total chunks: ${result.totalChunks}\n` +
-				`- Written: ${written} (overwritten ${result.overwritten}, created ${result.created})\n` +
-				`- Deleted extra: ${result.deletedExtra}\n\n` +
-				`Folder: ${result.folder}/`
+			new Notice(
+				`Chunks rebuilt (${result.totalChunks} total; ${written} written; ${result.deletedExtra} deleted)`
 			);
-		} catch (err: any) {
-			setError(err.message || 'Chunking failed');
+		} catch (err: unknown) {
+			const message = err instanceof Error ? err.message : String(err);
+			setError(message || 'Chunking failed');
 			console.error('Chunking error:', err);
 			setGenerationStage('');
 		} finally {
@@ -474,10 +478,15 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		}
 	};
 
-	const handleCopyToClipboard = () => {
+	const handleCopyToClipboard = async () => {
 		if (generatedText) {
-			navigator.clipboard.writeText(generatedText);
-			alert('Copied to clipboard!');
+			try {
+				await navigator.clipboard.writeText(generatedText);
+				new Notice('Copied to clipboard');
+			} catch (err) {
+				console.error('Copy failed:', err);
+				new Notice('Copy failed');
+			}
 		}
 	};
 
@@ -485,7 +494,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		<div className="writing-dashboard">
 			{!plugin.settings.apiKey && (
 				<div className="backend-warning">
-					⚠️ Please configure your API key in Settings → Writing Dashboard
+					⚠️ Please configure your API key in Settings → Writing dashboard
 				</div>
 			)}
 			<div className="dashboard-layout">
@@ -507,7 +516,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					/>
 					{mode === 'chapter' && (
 						<div className="word-count-input">
-							<label>Target Word Range:</label>
+							<label>Target word range:</label>
 							<input
 								type="number"
 								value={minWords}
@@ -563,7 +572,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					{mode === 'character-update' && (
 						<div className="generation-status">
 							Bulk source: {bulkSourcePath || plugin.settings.book2Path}
-							{bulkSourcePath ? ' (custom)' : ' (Book Main Path)'}
+							{bulkSourcePath ? ' (custom)' : ' (book main path)'}
 						</div>
 					)}
 					<div className="controls">
@@ -573,7 +582,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 								disabled={isGenerating || !plugin.settings.apiKey}
 								className="generate-button"
 							>
-								{isGenerating ? 'Generating...' : mode === 'chapter' ? 'Generate Chapter' : 'Generate Edit'}
+								{isGenerating ? 'Generating...' : mode === 'chapter' ? 'Generate chapter' : 'Generate edit'}
 							</button>
 						)}
 						{mode === 'character-update' && (
@@ -583,7 +592,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 									disabled={isGenerating || !selectedText || !plugin.settings.apiKey}
 									className="update-characters-button"
 								>
-									Update Characters
+									Update characters
 								</button>
 								<button
 									onClick={handleSelectCharacterExtractionSource}
@@ -597,21 +606,21 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 									disabled={isGenerating || !plugin.settings.characterExtractionSourcePath}
 									className="update-characters-button"
 								>
-									Use Book Main Path
+									Use book main path
 								</button>
 								<button 
 									onClick={handleProcessEntireBook}
 									disabled={isGenerating || !plugin.settings.apiKey}
 									className="update-characters-button"
 								>
-									Process Entire Book
+									Process entire book
 								</button>
 								<button 
 									onClick={handleChunkSelectedFile}
 									disabled={isGenerating || !plugin.settings.apiKey}
 									className="update-characters-button"
 								>
-									Chunk Current Note
+									Chunk current note
 								</button>
 							</>
 						)}

@@ -23567,15 +23567,16 @@ __export(main_exports, {
   default: () => WritingDashboardPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian7 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 
 // ui/DashboardView.ts
-var import_obsidian2 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 var import_client = __toESM(require_client());
 var import_react6 = __toESM(require_react());
 
 // ui/DashboardComponent.tsx
 var import_react5 = __toESM(require_react());
+var import_obsidian3 = require("obsidian");
 
 // ui/VaultBrowser.tsx
 var import_react = __toESM(require_react());
@@ -23801,9 +23802,9 @@ var ModeSelector = ({ mode, onChange }) => {
       onChange: (e) => onChange(e.target.value),
       className: "mode-dropdown"
     },
-    /* @__PURE__ */ import_react4.default.createElement("option", { value: "chapter" }, "Chapter Generate"),
-    /* @__PURE__ */ import_react4.default.createElement("option", { value: "micro-edit" }, "Micro Edit"),
-    /* @__PURE__ */ import_react4.default.createElement("option", { value: "character-update" }, "Character Update")
+    /* @__PURE__ */ import_react4.default.createElement("option", { value: "chapter" }, "Chapter generate"),
+    /* @__PURE__ */ import_react4.default.createElement("option", { value: "micro-edit" }, "Micro edit"),
+    /* @__PURE__ */ import_react4.default.createElement("option", { value: "character-update" }, "Character update")
   ));
 };
 
@@ -23861,7 +23862,7 @@ function parseCharacterRoster(text) {
   const entries = [];
   const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   for (const line of lines) {
-    const cleaned = line.replace(/^[-*]\s+/, "").replace(/^\d+[\).\]]\s+/, "").trim();
+    const cleaned = line.replace(/^[-*]\s+/, "").replace(/^\d+[.)\]]\s+/, "").trim();
     if (!cleaned)
       continue;
     const [left, right] = cleaned.split(/\s*\|\s*/);
@@ -23904,6 +23905,47 @@ function rosterToBulletList(roster) {
     var _a;
     return `- ${r.name}${((_a = r.aliases) == null ? void 0 : _a.length) ? ` | aliases: ${r.aliases.join(", ")}` : ""}`;
   }).join("\n");
+}
+
+// ui/ConfirmModal.ts
+var import_obsidian2 = require("obsidian");
+function showConfirmModal(app, opts) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const settle = (value) => {
+      if (settled)
+        return;
+      settled = true;
+      resolve(value);
+    };
+    const modal = new class extends import_obsidian2.Modal {
+      onOpen() {
+        this.titleEl.setText(opts.title);
+        this.contentEl.createEl("p", { text: opts.message });
+        new import_obsidian2.Setting(this.contentEl).addButton((btn) => {
+          var _a;
+          btn.setButtonText((_a = opts.cancelText) != null ? _a : "Cancel");
+          btn.onClick(() => {
+            settle(false);
+            this.close();
+          });
+        }).addButton((btn) => {
+          var _a;
+          btn.setCta();
+          btn.setButtonText((_a = opts.confirmText) != null ? _a : "Continue");
+          btn.onClick(() => {
+            settle(true);
+            this.close();
+          });
+        });
+      }
+      onClose() {
+        settle(false);
+        this.contentEl.empty();
+      }
+    }(app);
+    modal.open();
+  });
 }
 
 // ui/DashboardComponent.tsx
@@ -23981,13 +24023,16 @@ var DashboardComponent = ({ plugin }) => {
       setPromptCharCount(prompt.length);
       const limit = (_a = plugin.settings.contextTokenLimit) != null ? _a : 128e3;
       if (estimatedTokens > limit) {
-        const proceed = window.confirm(
-          `Estimated prompt size: ~${estimatedTokens.toLocaleString()} tokens (limit: ${limit.toLocaleString()}).
+        const proceed = await showConfirmModal(plugin.app, {
+          title: "Large prompt warning",
+          message: `Estimated prompt size: ~${estimatedTokens.toLocaleString()} tokens (limit: ${limit.toLocaleString()}).
 
 This may exceed your model context window and cause truncation/failure.
 
-Continue anyway?`
-        );
+Continue anyway?`,
+          confirmText: "Continue",
+          cancelText: "Cancel"
+        });
         if (!proceed) {
           setGenerationStage("");
           return;
@@ -24007,7 +24052,8 @@ Continue anyway?`
       }
       setGenerationStage("");
     } catch (err) {
-      setError(err.message || "Generation failed");
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message || "Generation failed");
       console.error("Generation error:", err);
       setGenerationStage("");
     } finally {
@@ -24036,16 +24082,17 @@ Continue anyway?`
       await plugin.vaultService.updateCharacterNotes(updates);
       setError(null);
       setGenerationStage("");
-      alert(`Updated ${updates.length} character note(s)`);
+      new import_obsidian3.Notice(`Updated ${updates.length} character note(s)`);
     } catch (err) {
-      setError(err.message || "Character extraction failed");
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message || "Character extraction failed");
       console.error("Character update error:", err);
       setGenerationStage("");
     } finally {
       setIsGenerating(false);
     }
   };
-  const handleSelectCharacterExtractionSource = async () => {
+  const handleSelectCharacterExtractionSource = () => {
     const files = plugin.app.vault.getMarkdownFiles();
     const modal = new FilePickerModal({
       app: plugin.app,
@@ -24112,7 +24159,7 @@ Continue anyway?`
       if (fileState.lastProcessHash === hashNow && !canRetryFailures) {
         setError(null);
         setGenerationStage("");
-        alert("Book unchanged since last processing \u2014 skipping.");
+        new import_obsidian3.Notice("Book unchanged since last processing \u2014 skipping.");
         return;
       }
       let rosterText;
@@ -24204,14 +24251,11 @@ Continue anyway?`
       setError(null);
       setGenerationStage("");
       if (failedChapterIndices.length > 0) {
-        alert(
-          `Processed entire book and updated ${aggregatedUpdates.length} character note(s)
-
-Some chapters failed (${failedChapterIndices.length}). Re-run "Process Entire Book" to retry only the failures.
-Failed chapters: ${failedChapterIndices.map((n) => n + 1).join(", ")}`
+        new import_obsidian3.Notice(
+          `Processed book and updated ${aggregatedUpdates.length} character note(s). ${failedChapterIndices.length} chapter(s) failed; re-run to retry failures.`
         );
       } else {
-        alert(`Processed entire book and updated ${aggregatedUpdates.length} character note(s)`);
+        new import_obsidian3.Notice(`Processed book and updated ${aggregatedUpdates.length} character note(s)`);
       }
     } catch (err) {
       setError(getErrorMessage(err) || "Processing entire book failed");
@@ -24247,7 +24291,7 @@ Failed chapters: ${failedChapterIndices.map((n) => n + 1).join(", ")}`
       if ((prevState == null ? void 0 : prevState.lastChunkHash) === hashNow) {
         setError(null);
         setGenerationStage("");
-        alert("Chunks are up to date \u2014 no rebuild needed.");
+        new import_obsidian3.Notice("Chunks are up to date \u2014 no rebuild needed.");
         return;
       }
       const wordCount = TextChunker.getWordCount(textToChunk);
@@ -24264,30 +24308,30 @@ Failed chapters: ${failedChapterIndices.map((n) => n + 1).join(", ")}`
       setError(null);
       setGenerationStage("");
       const written = result.created + result.overwritten;
-      alert(
-        `Chunks rebuilt for ${sourceFilePath}
-
-- Total chunks: ${result.totalChunks}
-- Written: ${written} (overwritten ${result.overwritten}, created ${result.created})
-- Deleted extra: ${result.deletedExtra}
-
-Folder: ${result.folder}/`
+      new import_obsidian3.Notice(
+        `Chunks rebuilt (${result.totalChunks} total; ${written} written; ${result.deletedExtra} deleted)`
       );
     } catch (err) {
-      setError(err.message || "Chunking failed");
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message || "Chunking failed");
       console.error("Chunking error:", err);
       setGenerationStage("");
     } finally {
       setIsGenerating(false);
     }
   };
-  const handleCopyToClipboard = () => {
+  const handleCopyToClipboard = async () => {
     if (generatedText) {
-      navigator.clipboard.writeText(generatedText);
-      alert("Copied to clipboard!");
+      try {
+        await navigator.clipboard.writeText(generatedText);
+        new import_obsidian3.Notice("Copied to clipboard");
+      } catch (err) {
+        console.error("Copy failed:", err);
+        new import_obsidian3.Notice("Copy failed");
+      }
     }
   };
-  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "writing-dashboard" }, !plugin.settings.apiKey && /* @__PURE__ */ import_react5.default.createElement("div", { className: "backend-warning" }, "\u26A0\uFE0F Please configure your API key in Settings \u2192 Writing Dashboard"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: `sidebar ${isVaultPanelCollapsed ? "collapsed" : ""}` }, /* @__PURE__ */ import_react5.default.createElement(
+  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "writing-dashboard" }, !plugin.settings.apiKey && /* @__PURE__ */ import_react5.default.createElement("div", { className: "backend-warning" }, "\u26A0\uFE0F Please configure your API key in Settings \u2192 Writing dashboard"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: `sidebar ${isVaultPanelCollapsed ? "collapsed" : ""}` }, /* @__PURE__ */ import_react5.default.createElement(
     VaultBrowser,
     {
       plugin,
@@ -24304,7 +24348,7 @@ Folder: ${result.folder}/`
       generatedText,
       onCopy: handleCopyToClipboard
     }
-  ), mode === "chapter" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "word-count-input" }, /* @__PURE__ */ import_react5.default.createElement("label", null, "Target Word Range:"), /* @__PURE__ */ import_react5.default.createElement(
+  ), mode === "chapter" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "word-count-input" }, /* @__PURE__ */ import_react5.default.createElement("label", null, "Target word range:"), /* @__PURE__ */ import_react5.default.createElement(
     "input",
     {
       type: "number",
@@ -24342,14 +24386,14 @@ Folder: ${result.folder}/`
       mode,
       onResetToDefault: mode === "chapter" ? () => setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS) : void 0
     }
-  ), promptTokenEstimate !== null && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Estimated prompt size: ~", promptTokenEstimate.toLocaleString(), " tokens", promptCharCount !== null ? ` (${promptCharCount.toLocaleString()} chars)` : "", plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit ? ` \u2014 exceeds warning limit (${plugin.settings.contextTokenLimit.toLocaleString()})` : ""), error && /* @__PURE__ */ import_react5.default.createElement("div", { className: "error-message" }, "\u274C ", error), isGenerating && generationStage && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "\u23F3 ", generationStage), mode === "character-update" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Bulk source: ", bulkSourcePath || plugin.settings.book2Path, bulkSourcePath ? " (custom)" : " (Book Main Path)"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "controls" }, mode !== "character-update" && /* @__PURE__ */ import_react5.default.createElement(
+  ), promptTokenEstimate !== null && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Estimated prompt size: ~", promptTokenEstimate.toLocaleString(), " tokens", promptCharCount !== null ? ` (${promptCharCount.toLocaleString()} chars)` : "", plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit ? ` \u2014 exceeds warning limit (${plugin.settings.contextTokenLimit.toLocaleString()})` : ""), error && /* @__PURE__ */ import_react5.default.createElement("div", { className: "error-message" }, "\u274C ", error), isGenerating && generationStage && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "\u23F3 ", generationStage), mode === "character-update" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Bulk source: ", bulkSourcePath || plugin.settings.book2Path, bulkSourcePath ? " (custom)" : " (book main path)"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "controls" }, mode !== "character-update" && /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
       onClick: handleGenerate,
       disabled: isGenerating || !plugin.settings.apiKey,
       className: "generate-button"
     },
-    isGenerating ? "Generating..." : mode === "chapter" ? "Generate Chapter" : "Generate Edit"
+    isGenerating ? "Generating..." : mode === "chapter" ? "Generate chapter" : "Generate edit"
   ), mode === "character-update" && /* @__PURE__ */ import_react5.default.createElement(import_react5.default.Fragment, null, /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
@@ -24357,7 +24401,7 @@ Folder: ${result.folder}/`
       disabled: isGenerating || !selectedText || !plugin.settings.apiKey,
       className: "update-characters-button"
     },
-    "Update Characters"
+    "Update characters"
   ), /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
@@ -24373,7 +24417,7 @@ Folder: ${result.folder}/`
       disabled: isGenerating || !plugin.settings.characterExtractionSourcePath,
       className: "update-characters-button"
     },
-    "Use Book Main Path"
+    "Use book main path"
   ), /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
@@ -24381,7 +24425,7 @@ Folder: ${result.folder}/`
       disabled: isGenerating || !plugin.settings.apiKey,
       className: "update-characters-button"
     },
-    "Process Entire Book"
+    "Process entire book"
   ), /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
@@ -24389,13 +24433,13 @@ Folder: ${result.folder}/`
       disabled: isGenerating || !plugin.settings.apiKey,
       className: "update-characters-button"
     },
-    "Chunk Current Note"
+    "Chunk current note"
   ))), /* @__PURE__ */ import_react5.default.createElement(ModeSelector, { mode, onChange: setMode }))));
 };
 
 // ui/DashboardView.ts
 var VIEW_TYPE_DASHBOARD = "writing-dashboard";
-var DashboardView = class extends import_obsidian2.ItemView {
+var DashboardView = class extends import_obsidian4.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.reactRoot = null;
@@ -24405,7 +24449,7 @@ var DashboardView = class extends import_obsidian2.ItemView {
     return VIEW_TYPE_DASHBOARD;
   }
   getDisplayText() {
-    return "Writing Dashboard";
+    return "Writing dashboard";
   }
   getIcon() {
     return "book-open";
@@ -24428,12 +24472,12 @@ var DashboardView = class extends import_obsidian2.ItemView {
 };
 
 // ui/SettingsTab.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 
 // ui/SetupWizard.tsx
 var import_react7 = __toESM(require_react());
 var import_client2 = __toESM(require_client());
-var import_obsidian3 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 function getSetupItems(plugin) {
   const bookPath = plugin.settings.book2Path || "Book-Main.md";
   return [
@@ -24494,7 +24538,7 @@ Recent narrative context for AI generation.
     }
   ];
 }
-var SetupWizardModal = class extends import_obsidian3.Modal {
+var SetupWizardModal = class extends import_obsidian5.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.reactRoot = null;
@@ -24596,7 +24640,8 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
       await plugin.saveSettings();
     } catch (error) {
       console.error("Setup error:", error);
-      alert(`Error creating files: ${error}`);
+      const message = error instanceof Error ? error.message : String(error);
+      new import_obsidian5.Notice(`Error creating files: ${message}`);
     } finally {
       setIsCreating(false);
     }
@@ -24610,9 +24655,9 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
     }
   };
   if (result) {
-    return /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react7.default.createElement("h2", null, "Setup Complete!"), result.created.length > 0 && /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-success" }, /* @__PURE__ */ import_react7.default.createElement("p", null, /* @__PURE__ */ import_react7.default.createElement("strong", null, "Created:")), /* @__PURE__ */ import_react7.default.createElement("ul", null, result.created.map((path) => /* @__PURE__ */ import_react7.default.createElement("li", { key: path }, path)))), result.skipped.length > 0 && /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-skipped" }, /* @__PURE__ */ import_react7.default.createElement("p", null, /* @__PURE__ */ import_react7.default.createElement("strong", null, "Skipped (already exist):")), /* @__PURE__ */ import_react7.default.createElement("ul", null, result.skipped.map((path) => /* @__PURE__ */ import_react7.default.createElement("li", { key: path }, path)))), /* @__PURE__ */ import_react7.default.createElement("button", { onClick: onClose, className: "mod-cta" }, "Close"));
+    return /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react7.default.createElement("h2", null, "Setup complete!"), result.created.length > 0 && /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-success" }, /* @__PURE__ */ import_react7.default.createElement("p", null, /* @__PURE__ */ import_react7.default.createElement("strong", null, "Created:")), /* @__PURE__ */ import_react7.default.createElement("ul", null, result.created.map((path) => /* @__PURE__ */ import_react7.default.createElement("li", { key: path }, path)))), result.skipped.length > 0 && /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-skipped" }, /* @__PURE__ */ import_react7.default.createElement("p", null, /* @__PURE__ */ import_react7.default.createElement("strong", null, "Skipped (already exist):")), /* @__PURE__ */ import_react7.default.createElement("ul", null, result.skipped.map((path) => /* @__PURE__ */ import_react7.default.createElement("li", { key: path }, path)))), /* @__PURE__ */ import_react7.default.createElement("button", { onClick: onClose, className: "mod-cta" }, "Close"));
   }
-  return /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react7.default.createElement("h2", null, "Welcome to Writing Dashboard"), /* @__PURE__ */ import_react7.default.createElement("p", null, "Set up your writing workspace by selecting which files and folders to create:"), /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-items" }, items.map((item, index) => /* @__PURE__ */ import_react7.default.createElement("div", { key: item.path, className: "setup-item" }, /* @__PURE__ */ import_react7.default.createElement("label", { className: item.exists ? "disabled" : "" }, /* @__PURE__ */ import_react7.default.createElement(
+  return /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react7.default.createElement("h2", null, "Welcome to writing dashboard"), /* @__PURE__ */ import_react7.default.createElement("p", null, "Set up your writing workspace by selecting which files and folders to create:"), /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-items" }, items.map((item, index) => /* @__PURE__ */ import_react7.default.createElement("div", { key: item.path, className: "setup-item" }, /* @__PURE__ */ import_react7.default.createElement("label", { className: item.exists ? "disabled" : "" }, /* @__PURE__ */ import_react7.default.createElement(
     "input",
     {
       type: "checkbox",
@@ -24702,7 +24747,7 @@ function getModelsForProvider(provider) {
       return [];
   }
 }
-var SettingsTab = class extends import_obsidian4.PluginSettingTab {
+var SettingsTab = class extends import_obsidian6.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -24710,17 +24755,17 @@ var SettingsTab = class extends import_obsidian4.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "Writing Dashboard Settings" });
-    new import_obsidian4.Setting(containerEl).setName("API Key").setDesc("Your AI API key (stored securely)").addText((text) => text.setPlaceholder("Enter API key").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("Writing dashboard settings").setHeading();
+    new import_obsidian6.Setting(containerEl).setName("API key").setDesc("Your AI API key (stored securely)").addText((text) => text.setPlaceholder("Enter API key").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
       this.plugin.settings.apiKey = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName("Generation Mode").setDesc("SingleModalMode: Fast, single model. MultiMode: Higher quality with multiple models.").addDropdown((dropdown) => dropdown.addOption("single", "SingleModalMode").addOption("multi", "MultiMode").setValue(this.plugin.settings.generationMode).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("Generation mode").setDesc("Single mode: fast, single model. Multi mode: higher quality with multiple models.").addDropdown((dropdown) => dropdown.addOption("single", "Single mode").addOption("multi", "Multi mode").setValue(this.plugin.settings.generationMode).onChange(async (value) => {
       this.plugin.settings.generationMode = value;
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian4.Setting(containerEl).setName("API Provider").setDesc("Choose your AI provider. OpenRouter recommended for MultiMode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "OpenRouter (Recommended)").addOption("openai", "OpenAI").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("API provider").setDesc("Choose your AI provider. OpenRouter recommended for multi mode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "OpenRouter (Recommended)").addOption("openai", "OpenAI").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
       this.plugin.settings.apiProvider = value;
       const models = getModelsForProvider(value);
       const currentModel = this.plugin.settings.model;
@@ -24730,7 +24775,7 @@ var SettingsTab = class extends import_obsidian4.PluginSettingTab {
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian4.Setting(containerEl).setName("Model").setDesc("AI model to use").addDropdown((dropdown) => {
+    new import_obsidian6.Setting(containerEl).setName("Model").setDesc("AI model to use").addDropdown((dropdown) => {
       const models = getModelsForProvider(this.plugin.settings.apiProvider);
       models.forEach((model) => {
         dropdown.addOption(model.value, model.label);
@@ -24742,13 +24787,13 @@ var SettingsTab = class extends import_obsidian4.PluginSettingTab {
       });
     });
     if (this.plugin.settings.generationMode === "multi") {
-      new import_obsidian4.Setting(containerEl).setName("Multi-Mode Strategy").setDesc("Draft+Revision: Fast draft + quality revision. Consensus+Multi-Stage: Maximum quality (slower, more expensive).").addDropdown((dropdown) => dropdown.addOption("draft-revision", "Draft + Revision").addOption("consensus-multistage", "Consensus + Multi-Stage (Maximum Quality)").setValue(this.plugin.settings.multiStrategy).onChange(async (value) => {
+      new import_obsidian6.Setting(containerEl).setName("Multi-mode strategy").setDesc("Draft + revision: fast draft + quality revision. Consensus + multi-stage: maximum quality (slower, more expensive).").addDropdown((dropdown) => dropdown.addOption("draft-revision", "Draft + revision").addOption("consensus-multistage", "Consensus + multi-stage (maximum quality)").setValue(this.plugin.settings.multiStrategy).onChange(async (value) => {
         this.plugin.settings.multiStrategy = value;
         await this.plugin.saveSettings();
         this.display();
       }));
       if (this.plugin.settings.multiStrategy === "draft-revision") {
-        new import_obsidian4.Setting(containerEl).setName("Draft Model").setDesc("Fast model for initial draft").addDropdown((dropdown) => {
+        new import_obsidian6.Setting(containerEl).setName("Draft model").setDesc("Fast model for initial draft").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -24759,7 +24804,7 @@ var SettingsTab = class extends import_obsidian4.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian4.Setting(containerEl).setName("Revision Model").setDesc("Quality model for refinement").addDropdown((dropdown) => {
+        new import_obsidian6.Setting(containerEl).setName("Revision model").setDesc("Quality model for refinement").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -24771,7 +24816,7 @@ var SettingsTab = class extends import_obsidian4.PluginSettingTab {
           });
         });
       } else {
-        new import_obsidian4.Setting(containerEl).setName("Consensus Model 1").setDesc("Primary model for consensus generation").addDropdown((dropdown) => {
+        new import_obsidian6.Setting(containerEl).setName("Consensus model 1").setDesc("Primary model for consensus generation").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -24782,7 +24827,7 @@ var SettingsTab = class extends import_obsidian4.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian4.Setting(containerEl).setName("Consensus Model 2").setDesc("Second model for consensus generation").addDropdown((dropdown) => {
+        new import_obsidian6.Setting(containerEl).setName("Consensus model 2").setDesc("Second model for consensus generation").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -24793,7 +24838,7 @@ var SettingsTab = class extends import_obsidian4.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian4.Setting(containerEl).setName("Consensus Model 3 (Optional)").setDesc("Third model for stronger consensus (optional)").addDropdown((dropdown) => {
+        new import_obsidian6.Setting(containerEl).setName("Consensus model 3 (optional)").setDesc("Third model for stronger consensus (optional)").addDropdown((dropdown) => {
           dropdown.addOption("", "None");
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
@@ -24805,7 +24850,7 @@ var SettingsTab = class extends import_obsidian4.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian4.Setting(containerEl).setName("Synthesis Model").setDesc("Model to synthesize final output from consensus").addDropdown((dropdown) => {
+        new import_obsidian6.Setting(containerEl).setName("Synthesis model").setDesc("Model to synthesize final output from consensus").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -24818,35 +24863,35 @@ var SettingsTab = class extends import_obsidian4.PluginSettingTab {
         });
       }
     }
-    new import_obsidian4.Setting(containerEl).setName("Vault Path").setDesc("Path to your Obsidian vault (auto-detected)").addText((text) => text.setPlaceholder("Vault path").setValue(this.plugin.settings.vaultPath).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("Vault path").setDesc("Path to your Obsidian vault (auto-detected)").addText((text) => text.setPlaceholder("Vault path").setValue(this.plugin.settings.vaultPath).onChange(async (value) => {
       this.plugin.settings.vaultPath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName("Setup Wizard").setDesc("Create default files and folders for your writing workspace").addButton((button) => button.setButtonText("Run Setup Wizard").onClick(() => {
+    new import_obsidian6.Setting(containerEl).setName("Setup wizard").setDesc("Create default files and folders for your writing workspace").addButton((button) => button.setButtonText("Run setup wizard").onClick(() => {
       const modal = new SetupWizardModal(this.plugin);
       modal.open();
     }));
-    new import_obsidian4.Setting(containerEl).setName("Character Folder").setDesc("Folder name for character notes (default: Characters)").addText((text) => text.setPlaceholder("Characters").setValue(this.plugin.settings.characterFolder).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("Character folder").setDesc("Folder name for character notes (default: Characters)").addText((text) => text.setPlaceholder("Characters").setValue(this.plugin.settings.characterFolder).onChange(async (value) => {
       this.plugin.settings.characterFolder = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName("Book Main Path").setDesc("Path to your active manuscript").addText((text) => text.setPlaceholder("Book-Main.md").setValue(this.plugin.settings.book2Path).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("Book main path").setDesc("Path to your active manuscript").addText((text) => text.setPlaceholder("Book-Main.md").setValue(this.plugin.settings.book2Path).onChange(async (value) => {
       this.plugin.settings.book2Path = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName("Story Bible Path").setDesc("Path to your story bible").addText((text) => text.setPlaceholder("Book - Story Bible.md").setValue(this.plugin.settings.storyBiblePath).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("Story bible path").setDesc("Path to your story bible").addText((text) => text.setPlaceholder("Book - Story Bible.md").setValue(this.plugin.settings.storyBiblePath).onChange(async (value) => {
       this.plugin.settings.storyBiblePath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName("Extractions Path (Optional)").setDesc("Path to your extractions file. Optional - only needed if you use extractions instead of chunked folders.").addText((text) => text.setPlaceholder("Extractions.md").setValue(this.plugin.settings.extractionsPath).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("Extractions path (optional)").setDesc("Path to your extractions file. Optional - only needed if you use extractions instead of chunked folders.").addText((text) => text.setPlaceholder("Extractions.md").setValue(this.plugin.settings.extractionsPath).onChange(async (value) => {
       this.plugin.settings.extractionsPath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName("Sliding Window Path").setDesc("Path to your sliding window memory file").addText((text) => text.setPlaceholder("Memory - Sliding Window.md").setValue(this.plugin.settings.slidingWindowPath).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("Sliding window path").setDesc("Path to your sliding window memory file").addText((text) => text.setPlaceholder("Memory - Sliding Window.md").setValue(this.plugin.settings.slidingWindowPath).onChange(async (value) => {
       this.plugin.settings.slidingWindowPath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName("Character Extraction Chunk Size (words)").setDesc('Used by "Process Entire Book" to batch character extraction. Larger chunks (e.g., 2000\u20133000) tend to improve character context.').addText((text) => {
+    new import_obsidian6.Setting(containerEl).setName("Character extraction chunk size (words)").setDesc('Used by "Process entire book" to batch character extraction. Larger chunks (e.g., 2000\u20133000) tend to improve character context.').addText((text) => {
       var _a;
       return text.setPlaceholder("2500").setValue(String((_a = this.plugin.settings.characterExtractionChunkSize) != null ? _a : 2500)).onChange(async (value) => {
         const parsed = parseInt(value, 10);
@@ -24855,7 +24900,7 @@ var SettingsTab = class extends import_obsidian4.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian4.Setting(containerEl).setName("Context Token Limit (warning)").setDesc("Shows a warning before generating if the estimated prompt tokens exceed this limit. Default: 128000.").addText((text) => {
+    new import_obsidian6.Setting(containerEl).setName("Context token limit (warning)").setDesc("Shows a warning before generating if the estimated prompt tokens exceed this limit. Default: 128000.").addText((text) => {
       var _a;
       return text.setPlaceholder("128000").setValue(String((_a = this.plugin.settings.contextTokenLimit) != null ? _a : 128e3)).onChange(async (value) => {
         const parsed = parseInt(value, 10);
@@ -24868,7 +24913,7 @@ var SettingsTab = class extends import_obsidian4.PluginSettingTab {
 };
 
 // services/VaultService.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 var VaultService = class {
   constructor(vault, plugin) {
     this.vault = vault;
@@ -24876,7 +24921,7 @@ var VaultService = class {
   }
   async readFile(path) {
     const file = this.vault.getAbstractFileByPath(path);
-    if (file instanceof import_obsidian5.TFile) {
+    if (file instanceof import_obsidian7.TFile) {
       return await this.vault.read(file);
     }
     throw new Error(`File not found: ${path}`);
@@ -24886,7 +24931,7 @@ var VaultService = class {
   }
   async createFileIfNotExists(path, content) {
     const file = this.vault.getAbstractFileByPath(path);
-    if (file instanceof import_obsidian5.TFile) {
+    if (file instanceof import_obsidian7.TFile) {
       return false;
     }
     await this.vault.create(path, content);
@@ -24894,7 +24939,7 @@ var VaultService = class {
   }
   async createFolderIfNotExists(path) {
     const folder = this.vault.getAbstractFileByPath(path);
-    if (folder instanceof import_obsidian5.TFolder) {
+    if (folder instanceof import_obsidian7.TFolder) {
       return false;
     }
     await this.vault.createFolder(path);
@@ -24945,7 +24990,7 @@ var VaultService = class {
       const chunkFilePath = `${chunkedFolderName}/${chunkFileName}`;
       const existing = this.vault.getAbstractFileByPath(chunkFilePath);
       if (overwrite) {
-        if (existing instanceof import_obsidian5.TFile) {
+        if (existing instanceof import_obsidian7.TFile) {
           await this.vault.modify(existing, chunks[i]);
           overwrittenCount++;
         } else {
@@ -24954,7 +24999,7 @@ var VaultService = class {
             created++;
         }
       } else {
-        if (existing instanceof import_obsidian5.TFile) {
+        if (existing instanceof import_obsidian7.TFile) {
           skipped++;
         } else {
           const wasCreated = await this.createFileIfNotExists(chunkFilePath, chunks[i]);
@@ -24967,11 +25012,11 @@ var VaultService = class {
     let deletedExtra = 0;
     if (overwrite) {
       const folder = this.vault.getAbstractFileByPath(chunkedFolderName);
-      if (folder instanceof import_obsidian5.TFolder) {
+      if (folder instanceof import_obsidian7.TFolder) {
         const maxIndex = chunks.length;
         const regex = new RegExp(`^${this._escapeRegExp(baseName)}-CHUNK-(\\d{3})\\.md$`);
         for (const child of folder.children) {
-          if (!(child instanceof import_obsidian5.TFile) || child.extension !== "md")
+          if (!(child instanceof import_obsidian7.TFile) || child.extension !== "md")
             continue;
           const match = child.name.match(regex);
           if (!match)
@@ -25039,10 +25084,10 @@ ${update}
   _traverseFolder(folder, structure, basePath) {
     for (const child of folder.children) {
       const path = basePath ? `${basePath}/${child.name}` : child.name;
-      if (child instanceof import_obsidian5.TFolder) {
+      if (child instanceof import_obsidian7.TFolder) {
         structure.push({ name: child.name, path, type: "folder" });
         this._traverseFolder(child, structure, path);
-      } else if (child instanceof import_obsidian5.TFile) {
+      } else if (child instanceof import_obsidian7.TFile) {
         structure.push({ name: child.name, path, type: "file" });
       }
     }
@@ -25050,7 +25095,7 @@ ${update}
 };
 
 // services/ContextAggregator.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 var ContextAggregator = class {
   constructor(vault, plugin) {
     this.vault = vault;
@@ -25089,7 +25134,7 @@ var ContextAggregator = class {
       sliding_window: await this.readFile(settings.slidingWindowPath),
       story_bible: await this.readFile(settings.storyBiblePath),
       extractions,
-      character_notes: await this.formatCharacterNotes(await this.getAllCharacterNotes()),
+      character_notes: this.formatCharacterNotes(await this.getAllCharacterNotes()),
       smart_connections: await this.getSmartConnections(32),
       surrounding_before: surrounding.before,
       surrounding_after: surrounding.after
@@ -25101,7 +25146,7 @@ var ContextAggregator = class {
   async readFile(path) {
     try {
       const file = this.vault.getAbstractFileByPath(path);
-      if (file instanceof import_obsidian6.TFile) {
+      if (file instanceof import_obsidian8.TFile) {
         return await this.vault.read(file);
       }
       return `[File not found: ${path}]`;
@@ -25110,11 +25155,11 @@ var ContextAggregator = class {
     }
   }
   async getSmartConnections(limit = 64) {
-    const scDataPath = ".obsidian/plugins/smart-connections/data.json";
+    const scDataPath = `${this.vault.configDir}/plugins/smart-connections/data.json`;
     let smartConnectionsAvailable = false;
     try {
       const file = this.vault.getAbstractFileByPath(scDataPath);
-      if (file instanceof import_obsidian6.TFile) {
+      if (file instanceof import_obsidian8.TFile) {
         const data = JSON.parse(await this.vault.read(file));
         smartConnectionsAvailable = true;
       }
@@ -25150,7 +25195,7 @@ ${book1Content}`;
     for (const pattern of book1Patterns) {
       try {
         const folder = this.vault.getAbstractFileByPath(pattern);
-        if (folder instanceof import_obsidian6.TFolder) {
+        if (folder instanceof import_obsidian8.TFolder) {
           const chunks = await this.readChunkedFolder(folder, maxChunks);
           content.push(...chunks);
           if (content.length >= maxChunks)
@@ -25163,7 +25208,7 @@ ${book1Content}`;
       for (const pattern of book1Patterns) {
         try {
           const file = this.vault.getAbstractFileByPath(`${pattern}.md`);
-          if (file instanceof import_obsidian6.TFile && !processedFiles.has(file.path)) {
+          if (file instanceof import_obsidian8.TFile && !processedFiles.has(file.path)) {
             const fileContent = await this.vault.read(file);
             const chunks = this.chunkText(fileContent, Math.min(maxChunks, 10));
             content.push(...chunks);
@@ -25204,7 +25249,7 @@ ${book1Content}`;
     const chunks = [];
     const chunkFiles = [];
     for (const child of folder.children) {
-      if (child instanceof import_obsidian6.TFile && child.extension === "md") {
+      if (child instanceof import_obsidian8.TFile && child.extension === "md") {
         chunkFiles.push(child);
       }
     }
@@ -25243,9 +25288,9 @@ ${content}`);
     const characterFolder = this.plugin.settings.characterFolder;
     try {
       const folder = this.vault.getAbstractFileByPath(characterFolder);
-      if (folder instanceof import_obsidian6.TFolder) {
+      if (folder instanceof import_obsidian8.TFolder) {
         for (const child of folder.children) {
-          if (child instanceof import_obsidian6.TFile && child.extension === "md") {
+          if (child instanceof import_obsidian8.TFile && child.extension === "md") {
             const characterName = child.basename;
             notes[characterName] = await this.vault.read(child);
           }
@@ -25255,7 +25300,7 @@ ${content}`);
     }
     return notes;
   }
-  async formatCharacterNotes(characterNotes) {
+  formatCharacterNotes(characterNotes) {
     if (Object.keys(characterNotes).length === 0) {
       return "[No character notes found]";
     }
@@ -25635,7 +25680,55 @@ Do not output any other sections.`;
 };
 
 // services/AIClient.ts
+var import_obsidian9 = require("obsidian");
 var AIClient = class {
+  _getJson(resp) {
+    const anyResp = resp;
+    if (anyResp.json !== void 0)
+      return anyResp.json;
+    if (typeof anyResp.text === "string" && anyResp.text.trim().length > 0) {
+      try {
+        return JSON.parse(anyResp.text);
+      } catch (e) {
+        return { text: anyResp.text };
+      }
+    }
+    return void 0;
+  }
+  _getNestedErrorMessage(payload) {
+    if (!payload || typeof payload !== "object")
+      return void 0;
+    const obj = payload;
+    const err = obj.error;
+    if (err && typeof err === "object") {
+      const errObj = err;
+      const msg2 = errObj.message;
+      if (typeof msg2 === "string" && msg2.trim().length > 0)
+        return msg2;
+    }
+    const msg = obj.message;
+    if (typeof msg === "string" && msg.trim().length > 0)
+      return msg;
+    if (typeof err === "string" && err.trim().length > 0)
+      return err;
+    return void 0;
+  }
+  _getOpenAIStyleContent(payload) {
+    if (!payload || typeof payload !== "object")
+      return void 0;
+    const obj = payload;
+    const choices = obj.choices;
+    if (!Array.isArray(choices) || choices.length === 0)
+      return void 0;
+    const first = choices[0];
+    if (!first || typeof first !== "object")
+      return void 0;
+    const message = first.message;
+    if (!message || typeof message !== "object")
+      return void 0;
+    const content = message.content;
+    return typeof content === "string" ? content : void 0;
+  }
   _safeJsonPreview(value, maxLen = 1200) {
     try {
       const text = JSON.stringify(value);
@@ -25757,8 +25850,8 @@ ${alt}`).join("\n\n---\n\n")}`;
     };
   }
   async _generateOpenRouter(prompt, settings) {
-    var _a, _b, _c, _d;
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await (0, import_obsidian9.requestUrl)({
+      url: "https://openrouter.ai/api/v1/chat/completions",
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -25776,22 +25869,22 @@ ${alt}`).join("\n\n---\n\n")}`;
         temperature: 0.7
       })
     });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
-      throw new Error(`OpenRouter API error: ${((_a = error.error) == null ? void 0 : _a.message) || response.statusText}`);
+    if (response.status >= 400) {
+      const error = this._getJson(response);
+      throw new Error(`OpenRouter API error: ${this._getNestedErrorMessage(error) || response.status}`);
     }
-    const data = await response.json();
-    const content = (_d = (_c = (_b = data == null ? void 0 : data.choices) == null ? void 0 : _b[0]) == null ? void 0 : _c.message) == null ? void 0 : _d.content;
+    const data = this._getJson(response);
+    const content = this._getOpenAIStyleContent(data);
     if (typeof content !== "string" || content.trim().length === 0) {
       throw new Error(
-        `OpenRouter response missing message content. Preview: ${this._safeJsonPreview((data == null ? void 0 : data.error) || data)}`
+        `OpenRouter response missing message content. Preview: ${this._safeJsonPreview(data)}`
       );
     }
     return content;
   }
   async _generateOpenAI(prompt, settings) {
-    var _a, _b, _c, _d;
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await (0, import_obsidian9.requestUrl)({
+      url: "https://api.openai.com/v1/chat/completions",
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -25807,22 +25900,22 @@ ${alt}`).join("\n\n---\n\n")}`;
         temperature: 0.7
       })
     });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
-      throw new Error(`OpenAI API error: ${((_a = error.error) == null ? void 0 : _a.message) || response.statusText}`);
+    if (response.status >= 400) {
+      const error = this._getJson(response);
+      throw new Error(`OpenAI API error: ${this._getNestedErrorMessage(error) || response.status}`);
     }
-    const data = await response.json();
-    const content = (_d = (_c = (_b = data == null ? void 0 : data.choices) == null ? void 0 : _b[0]) == null ? void 0 : _c.message) == null ? void 0 : _d.content;
+    const data = this._getJson(response);
+    const content = this._getOpenAIStyleContent(data);
     if (typeof content !== "string" || content.trim().length === 0) {
       throw new Error(
-        `OpenAI response missing message content. Preview: ${this._safeJsonPreview((data == null ? void 0 : data.error) || data)}`
+        `OpenAI response missing message content. Preview: ${this._safeJsonPreview(data)}`
       );
     }
     return content;
   }
   async _generateAnthropic(prompt, settings) {
-    var _a, _b, _c;
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await (0, import_obsidian9.requestUrl)({
+      url: "https://api.anthropic.com/v1/messages",
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -25832,67 +25925,97 @@ ${alt}`).join("\n\n---\n\n")}`;
       body: JSON.stringify({
         model: settings.model,
         max_tokens: 4e3,
-        messages: [
-          { role: "user", content: prompt }
-        ]
+        messages: [{ role: "user", content: prompt }]
       })
     });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
-      throw new Error(`Anthropic API error: ${((_a = error.error) == null ? void 0 : _a.message) || response.statusText}`);
+    if (response.status >= 400) {
+      const error = this._getJson(response);
+      throw new Error(`Anthropic API error: ${this._getNestedErrorMessage(error) || response.status}`);
     }
-    const data = await response.json();
-    const text = (_c = (_b = data == null ? void 0 : data.content) == null ? void 0 : _b[0]) == null ? void 0 : _c.text;
+    const data = this._getJson(response);
+    let text;
+    if (data && typeof data === "object") {
+      const obj = data;
+      const content = obj.content;
+      if (Array.isArray(content) && content[0] && typeof content[0] === "object") {
+        const first = content[0];
+        const t = first.text;
+        if (typeof t === "string")
+          text = t;
+      }
+    }
     if (typeof text !== "string" || text.trim().length === 0) {
       throw new Error(
-        `Anthropic response missing content text. Preview: ${this._safeJsonPreview((data == null ? void 0 : data.error) || data)}`
+        `Anthropic response missing content text. Preview: ${this._safeJsonPreview(data)}`
       );
     }
     return text;
   }
   async _generateGemini(prompt, settings) {
-    var _a, _b, _c, _d, _e;
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
-          }],
-          generationConfig: {
-            maxOutputTokens: 4e3,
-            temperature: 0.7
+    const response = await (0, import_obsidian9.requestUrl)({
+      url: `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }]
           }
-        })
-      }
-    );
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
-      throw new Error(`Gemini API error: ${((_a = error.error) == null ? void 0 : _a.message) || response.statusText}`);
+        ],
+        generationConfig: {
+          maxOutputTokens: 4e3,
+          temperature: 0.7
+        }
+      })
+    });
+    if (response.status >= 400) {
+      const error = this._getJson(response);
+      throw new Error(`Gemini API error: ${this._getNestedErrorMessage(error) || response.status}`);
     }
-    const data = await response.json();
-    const candidates = data == null ? void 0 : data.candidates;
+    const data = this._getJson(response);
+    const candidates = data && typeof data === "object" ? data.candidates : void 0;
     if (!Array.isArray(candidates) || candidates.length === 0) {
-      const blockReason = (_b = data == null ? void 0 : data.promptFeedback) == null ? void 0 : _b.blockReason;
+      let blockReason;
+      let promptFeedback;
+      if (data && typeof data === "object") {
+        promptFeedback = data.promptFeedback;
+        if (promptFeedback && typeof promptFeedback === "object") {
+          blockReason = promptFeedback.blockReason;
+        }
+      }
       const details = blockReason ? ` blockReason=${String(blockReason)}` : "";
       const preview = this._safeJsonPreview(
-        (data == null ? void 0 : data.error) || (data == null ? void 0 : data.promptFeedback) || data
+        promptFeedback || data
       );
       throw new Error(
         `Gemini returned no candidates.${details} Preview: ${preview}`
       );
     }
-    const parts = (_d = (_c = candidates == null ? void 0 : candidates[0]) == null ? void 0 : _c.content) == null ? void 0 : _d.parts;
-    const text = Array.isArray(parts) ? parts.map((p) => p == null ? void 0 : p.text).filter(Boolean).join("\n") : void 0;
+    const firstCandidate = candidates[0];
+    let parts;
+    if (firstCandidate && typeof firstCandidate === "object") {
+      const content = firstCandidate.content;
+      if (content && typeof content === "object") {
+        parts = content.parts;
+      }
+    }
+    const partText = (p) => {
+      if (!p || typeof p !== "object")
+        return null;
+      if (!("text" in p))
+        return null;
+      const t = p.text;
+      return typeof t === "string" ? t : null;
+    };
+    const text = Array.isArray(parts) ? parts.map(partText).filter((t) => Boolean(t)).join("\n") : void 0;
     if (typeof text !== "string" || text.trim().length === 0) {
-      const finishReason = (_e = candidates == null ? void 0 : candidates[0]) == null ? void 0 : _e.finishReason;
-      const preview = this._safeJsonPreview((candidates == null ? void 0 : candidates[0]) || data);
+      let finishReason;
+      if (firstCandidate && typeof firstCandidate === "object") {
+        finishReason = firstCandidate.finishReason;
+      }
+      const preview = this._safeJsonPreview(firstCandidate || data);
       throw new Error(
         `Gemini candidate missing text. finishReason=${String(finishReason)} Preview: ${preview}`
       );
@@ -25906,7 +26029,7 @@ var CharacterExtractor = class {
   /**
    * Process multiple text chunks and aggregate character updates
    */
-  async processChunks(chunks, parseExtractionFn) {
+  processChunks(chunks, parseExtractionFn) {
     const allUpdates = /* @__PURE__ */ new Map();
     for (const chunk of chunks) {
       const updates = parseExtractionFn(chunk);
@@ -26008,7 +26131,7 @@ var DEFAULT_SETTINGS = {
   setupCompleted: false,
   fileState: {}
 };
-var WritingDashboardPlugin = class extends import_obsidian7.Plugin {
+var WritingDashboardPlugin = class extends import_obsidian10.Plugin {
   constructor() {
     super(...arguments);
     /**
@@ -26029,7 +26152,7 @@ var WritingDashboardPlugin = class extends import_obsidian7.Plugin {
     this.registerEvent(
       this.app.vault.on("rename", async (file, oldPath) => {
         var _a;
-        if (!(file instanceof import_obsidian7.TFile) || file.extension !== "md")
+        if (!(file instanceof import_obsidian10.TFile) || file.extension !== "md")
           return;
         if (this.lastOpenedMarkdownPath === oldPath) {
           this.lastOpenedMarkdownPath = file.path;
@@ -26060,20 +26183,20 @@ var WritingDashboardPlugin = class extends import_obsidian7.Plugin {
       VIEW_TYPE_DASHBOARD,
       (leaf) => new DashboardView(leaf, this)
     );
-    this.addRibbonIcon("book-open", "Open Writing Dashboard", () => {
+    this.addRibbonIcon("book-open", "Open dashboard", () => {
       this.activateView();
     });
     this.addSettingTab(new SettingsTab(this.app, this));
     this.addCommand({
       id: "open-dashboard",
-      name: "Open Writing Dashboard",
+      name: "Open dashboard",
       callback: () => {
         this.activateView();
       }
     });
     this.addCommand({
       id: "run-setup-wizard",
-      name: "Run Setup Wizard",
+      name: "Run setup wizard",
       callback: () => {
         this.showSetupWizard();
       }
@@ -26094,7 +26217,7 @@ var WritingDashboardPlugin = class extends import_obsidian7.Plugin {
       }
     }
   }
-  async showSetupWizard() {
+  showSetupWizard() {
     const modal = new SetupWizardModal(this);
     modal.open();
   }

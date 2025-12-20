@@ -7,10 +7,10 @@ export class CharacterExtractor {
 	/**
 	 * Process multiple text chunks and aggregate character updates
 	 */
-	async processChunks(
+	processChunks(
 		chunks: string[],
 		parseExtractionFn: (extractionText: string) => CharacterUpdate[]
-	): Promise<CharacterUpdate[]> {
+	): CharacterUpdate[] {
 		const allUpdates: Map<string, string[]> = new Map();
 		
 		// Process each chunk

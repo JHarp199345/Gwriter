@@ -1,4 +1,5 @@
-import WritingDashboardPlugin, { DashboardSettings } from '../main';
+import { requestUrl } from 'obsidian';
+import type { DashboardSettings } from '../main';
 
 export class PythonBridge {
 	private baseUrl: string;
@@ -18,7 +19,8 @@ export class PythonBridge {
 			? '/api/generate/chapter'
 			: '/api/generate/micro-edit';
 		
-		const response = await fetch(`${this.baseUrl}${endpoint}`, {
+		const response = await requestUrl({
+			url: `${this.baseUrl}${endpoint}`,
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
@@ -30,19 +32,19 @@ export class PythonBridge {
 			})
 		});
 		
-		if (!response.ok) {
-			const errorText = await response.text();
-			throw new Error(`Backend error: ${response.status} - ${errorText}`);
+		if (response.status >= 400) {
+			throw new Error(`Backend error: ${response.status} - ${response.text || ''}`);
 		}
 		
-		return await response.json();
+		return (response.json as { text: string }) ?? JSON.parse(response.text);
 	}
 
 	async extractCharacters(params: {
 		selectedText: string;
 		settings: DashboardSettings;
 	}): Promise<{ updates: Array<{ character: string; update: string }> }> {
-		const response = await fetch(`${this.baseUrl}/api/extract/characters`, {
+		const response = await requestUrl({
+			url: `${this.baseUrl}/api/extract/characters`,
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
@@ -51,18 +53,17 @@ export class PythonBridge {
 			})
 		});
 		
-		if (!response.ok) {
-			const errorText = await response.text();
-			throw new Error(`Backend error: ${response.status} - ${errorText}`);
+		if (response.status >= 400) {
+			throw new Error(`Backend error: ${response.status} - ${response.text || ''}`);
 		}
 		
-		return await response.json();
+		return (response.json as { updates: Array<{ character: string; update: string }> }) ?? JSON.parse(response.text);
 	}
 
 	async healthCheck(): Promise<boolean> {
 		try {
-			const response = await fetch(`${this.baseUrl}/health`);
-			return response.ok;
+			const response = await requestUrl({ url: `${this.baseUrl}/health`, method: 'GET' });
+			return response.status >= 200 && response.status < 300;
 		} catch {
 			return false;
 		}
