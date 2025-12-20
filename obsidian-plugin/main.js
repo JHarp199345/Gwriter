@@ -23878,7 +23878,7 @@ var DashboardComponent = ({ plugin }) => {
     setError(null);
     setGenerationStage("Chunking file...");
     try {
-      const sourceFilePath = plugin.settings.book2Path;
+      const sourceFilePath = plugin.lastOpenedMarkdownPath || plugin.settings.book2Path;
       let textToChunk;
       if (selectedText && selectedText.trim().length > 0) {
         textToChunk = selectedText;
@@ -25337,8 +25337,23 @@ var DEFAULT_SETTINGS = {
   setupCompleted: false
 };
 var WritingDashboardPlugin = class extends import_obsidian6.Plugin {
+  constructor() {
+    super(...arguments);
+    /**
+     * Tracks the last markdown file the user opened in Obsidian.
+     * Used for actions like "Chunk Selected File" so users don't need to keep updating settings.
+     */
+    this.lastOpenedMarkdownPath = null;
+  }
   async onload() {
     await this.loadSettings();
+    this.registerEvent(
+      this.app.workspace.on("file-open", (file) => {
+        if (file && file.extension === "md") {
+          this.lastOpenedMarkdownPath = file.path;
+        }
+      })
+    );
     if (!this.settings.vaultPath) {
       this.settings.vaultPath = this.app.vault.adapter.basePath || "";
       await this.saveSettings();

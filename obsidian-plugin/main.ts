@@ -57,9 +57,23 @@ export default class WritingDashboardPlugin extends Plugin {
 	promptEngine: PromptEngine;
 	aiClient: AIClient;
 	characterExtractor: CharacterExtractor;
+	/**
+	 * Tracks the last markdown file the user opened in Obsidian.
+	 * Used for actions like "Chunk Selected File" so users don't need to keep updating settings.
+	 */
+	lastOpenedMarkdownPath: string | null = null;
 
 	async onload() {
 		await this.loadSettings();
+
+		// Track the last opened markdown file (the "current note" the user is working on)
+		this.registerEvent(
+			this.app.workspace.on('file-open', (file) => {
+				if (file && file.extension === 'md') {
+					this.lastOpenedMarkdownPath = file.path;
+				}
+			})
+		);
 		
 		// Set vault path if not set
 		if (!this.settings.vaultPath) {

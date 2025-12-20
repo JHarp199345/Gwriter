@@ -191,8 +191,8 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		setGenerationStage('Chunking file...');
 		
 		try {
-			// Determine source file - use book2Path as default
-			const sourceFilePath = plugin.settings.book2Path;
+			// Determine source file - prefer the last opened markdown note, fallback to Book Main Path
+			const sourceFilePath = plugin.lastOpenedMarkdownPath || plugin.settings.book2Path;
 			let textToChunk: string;
 			
 			if (selectedText && selectedText.trim().length > 0) {
