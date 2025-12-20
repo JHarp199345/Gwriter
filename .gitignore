@@ -19,6 +19,7 @@ yarn-debug.log*
 yarn-error.log*
 package-lock.json
 yarn.lock
+.npmrc
 
 # Obsidian Plugin
 # Note: main.js is included for community plugin installation

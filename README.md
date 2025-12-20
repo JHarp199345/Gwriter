@@ -233,11 +233,17 @@ npm install
 npm run dev
 
 # Production build
-npm run build### Building for Release
-h
+npm run build
+
+### Building for Release
+
+```bash
 cd obsidian-plugin
 npm run build
-# main.js will be created/updated## Contributing
+# main.js will be created/updated
+```
+
+## Contributing
 
 Contributions are welcome! Please feel free to:
 - Open issues for bugs or feature requests
