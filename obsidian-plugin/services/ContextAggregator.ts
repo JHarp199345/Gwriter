@@ -6,24 +6,40 @@ export class ContextAggregator {
 	private vault: Vault;
 	private plugin: WritingDashboardPlugin;
 
-	private truncate(text: string, maxChars: number, label: string): string {
+	private budgetToChars(tokens: number): number {
+		// estimateTokens uses ~4 chars per token; invert that here
+		return Math.max(0, Math.floor(tokens * 4));
+	}
+
+	private trimHeadToBudget(text: string, maxTokens: number, label: string): string {
 		if (!text) return '';
+		const maxChars = this.budgetToChars(maxTokens);
 		if (text.length <= maxChars) return text;
 		const trimmed = text.slice(0, maxChars);
 		return (
 			`${trimmed}\n\n` +
-			`[${label}: truncated to ${maxChars.toLocaleString()} chars from ${text.length.toLocaleString()} chars]`
+			`[${label}: truncated to ~${maxTokens.toLocaleString()} tokens]`
 		);
 	}
 
-	private takeTail(text: string, maxChars: number, label: string): string {
+	private trimTailToBudget(text: string, maxTokens: number, label: string): string {
 		if (!text) return '';
+		const maxChars = this.budgetToChars(maxTokens);
 		if (text.length <= maxChars) return text;
 		const trimmed = text.slice(-maxChars);
 		return (
-			`[${label}: showing last ${maxChars.toLocaleString()} chars of ${text.length.toLocaleString()} chars]\n\n` +
+			`[${label}: showing last ~${maxTokens.toLocaleString()} tokens]\n\n` +
 			trimmed
 		);
+	}
+
+	private computeContextBudgetTokens(): { limit: number; reserveForOutput: number; reserveForNonContext: number } {
+		const limit = this.plugin.settings.contextTokenLimit ?? 128000;
+		// Reserve space for: prompt scaffolding + user inputs + output.
+		// Keep output reservation large enough to avoid Gemini "MAX_TOKENS with empty text" cases.
+		const reserveForOutput = Math.min(20000, Math.max(6000, Math.floor(limit * 0.02)));
+		const reserveForNonContext = Math.min(20000, Math.max(4000, Math.floor(limit * 0.02)));
+		return { limit, reserveForOutput, reserveForNonContext };
 	}
 
 	constructor(vault: Vault, plugin: WritingDashboardPlugin) {
@@ -45,20 +61,33 @@ export class ContextAggregator {
 			}
 		}
 		
-		// Prevent runaway prompts: keep only the most useful slices of large files.
-		// (Especially important for Gemini models where the input can crowd out output space.)
-		const smartConnections = await this.getSmartConnections(24);
+		// Budget context dynamically based on the configured contextTokenLimit.
+		const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
+		const contextBudget = Math.max(1000, limit - reserveForOutput - reserveForNonContext);
+
+		// More available tokens => more Book 1 canon chunks to include.
+		const smartChunkLimit = Math.min(200, Math.max(24, Math.floor(contextBudget / 12000)));
+		const smartConnections = await this.getSmartConnections(smartChunkLimit);
 		const book2Full = await this.readFile(settings.book2Path);
 		const storyBible = await this.readFile(settings.storyBiblePath);
 		const slidingWindow = await this.readFile(settings.slidingWindowPath);
 
+		// Allocate context budget by priority. Book 2 gets the remainder (tail).
+		const smartBudget = Math.floor(contextBudget * 0.30);
+		const bibleBudget = Math.floor(contextBudget * 0.18);
+		const extractionsBudget = Math.floor(contextBudget * 0.08);
+		const slidingBudget = Math.floor(contextBudget * 0.04);
+		const used =
+			smartBudget + bibleBudget + extractionsBudget + slidingBudget;
+		const book2Budget = Math.max(1000, contextBudget - used);
+
 		return {
-			smart_connections: this.truncate(smartConnections, 120_000, 'Smart connections'),
-			// Book 2 can be enormous; we only need the most recent portion for continuation.
-			book2: this.takeTail(book2Full, 140_000, 'Book 2'),
-			story_bible: this.truncate(storyBible, 120_000, 'Story bible'),
-			extractions: this.truncate(extractions, 60_000, 'Extractions'),
-			sliding_window: this.truncate(slidingWindow, 40_000, 'Sliding window')
+			smart_connections: this.trimHeadToBudget(smartConnections, smartBudget, 'Smart connections'),
+			// For continuation, the most recent manuscript tail matters most.
+			book2: this.trimTailToBudget(book2Full, book2Budget, 'Book 2'),
+			story_bible: this.trimHeadToBudget(storyBible, bibleBudget, 'Story bible'),
+			extractions: this.trimHeadToBudget(extractions, extractionsBudget, 'Extractions'),
+			sliding_window: this.trimHeadToBudget(slidingWindow, slidingBudget, 'Sliding window')
 		};
 	}
 
@@ -77,17 +106,31 @@ export class ContextAggregator {
 			}
 		}
 		
+		// Budget context dynamically based on the configured contextTokenLimit.
+		const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
+		const contextBudget = Math.max(1000, limit - reserveForOutput - reserveForNonContext);
+
 		const storyBible = await this.readFile(settings.storyBiblePath);
 		const slidingWindow = await this.readFile(settings.slidingWindowPath);
 		const characterNotes = this.formatCharacterNotes(await this.getAllCharacterNotes());
-		const smartConnections = await this.getSmartConnections(16);
+
+		// Smart connections in micro-edit is a style echo; keep it smaller.
+		const smartChunkLimit = Math.min(80, Math.max(12, Math.floor(contextBudget / 20000)));
+		const smartConnections = await this.getSmartConnections(smartChunkLimit);
+
+		// Allocate budget by priority for micro edits.
+		const slidingBudget = Math.floor(contextBudget * 0.03);
+		const bibleBudget = Math.floor(contextBudget * 0.20);
+		const extractionsBudget = Math.floor(contextBudget * 0.10);
+		const characterBudget = Math.floor(contextBudget * 0.32);
+		const smartBudget = Math.floor(contextBudget * 0.15);
 
 		return {
-			sliding_window: this.truncate(slidingWindow, 30_000, 'Sliding window'),
-			story_bible: this.truncate(storyBible, 90_000, 'Story bible'),
-			extractions: this.truncate(extractions, 50_000, 'Extractions'),
-			character_notes: this.truncate(characterNotes, 90_000, 'Character notes'),
-			smart_connections: this.truncate(smartConnections, 80_000, 'Smart connections'),
+			sliding_window: this.trimHeadToBudget(slidingWindow, slidingBudget, 'Sliding window'),
+			story_bible: this.trimHeadToBudget(storyBible, bibleBudget, 'Story bible'),
+			extractions: this.trimHeadToBudget(extractions, extractionsBudget, 'Extractions'),
+			character_notes: this.trimHeadToBudget(characterNotes, characterBudget, 'Character notes'),
+			smart_connections: this.trimHeadToBudget(smartConnections, smartBudget, 'Smart connections'),
 			surrounding_before: surrounding.before,
 			surrounding_after: surrounding.after
 		};

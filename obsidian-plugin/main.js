@@ -25455,25 +25455,37 @@ ${update}
 // services/ContextAggregator.ts
 var import_obsidian8 = require("obsidian");
 var ContextAggregator = class {
-  truncate(text, maxChars, label) {
+  budgetToChars(tokens) {
+    return Math.max(0, Math.floor(tokens * 4));
+  }
+  trimHeadToBudget(text, maxTokens, label) {
     if (!text)
       return "";
+    const maxChars = this.budgetToChars(maxTokens);
     if (text.length <= maxChars)
       return text;
     const trimmed = text.slice(0, maxChars);
     return `${trimmed}
 
-[${label}: truncated to ${maxChars.toLocaleString()} chars from ${text.length.toLocaleString()} chars]`;
+[${label}: truncated to ~${maxTokens.toLocaleString()} tokens]`;
   }
-  takeTail(text, maxChars, label) {
+  trimTailToBudget(text, maxTokens, label) {
     if (!text)
       return "";
+    const maxChars = this.budgetToChars(maxTokens);
     if (text.length <= maxChars)
       return text;
     const trimmed = text.slice(-maxChars);
-    return `[${label}: showing last ${maxChars.toLocaleString()} chars of ${text.length.toLocaleString()} chars]
+    return `[${label}: showing last ~${maxTokens.toLocaleString()} tokens]
 
 ` + trimmed;
+  }
+  computeContextBudgetTokens() {
+    var _a;
+    const limit = (_a = this.plugin.settings.contextTokenLimit) != null ? _a : 128e3;
+    const reserveForOutput = Math.min(2e4, Math.max(6e3, Math.floor(limit * 0.02)));
+    const reserveForNonContext = Math.min(2e4, Math.max(4e3, Math.floor(limit * 0.02)));
+    return { limit, reserveForOutput, reserveForNonContext };
   }
   constructor(vault, plugin) {
     this.vault = vault;
@@ -25489,17 +25501,26 @@ var ContextAggregator = class {
         extractions = "";
       }
     }
-    const smartConnections = await this.getSmartConnections(24);
+    const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
+    const contextBudget = Math.max(1e3, limit - reserveForOutput - reserveForNonContext);
+    const smartChunkLimit = Math.min(200, Math.max(24, Math.floor(contextBudget / 12e3)));
+    const smartConnections = await this.getSmartConnections(smartChunkLimit);
     const book2Full = await this.readFile(settings.book2Path);
     const storyBible = await this.readFile(settings.storyBiblePath);
     const slidingWindow = await this.readFile(settings.slidingWindowPath);
+    const smartBudget = Math.floor(contextBudget * 0.3);
+    const bibleBudget = Math.floor(contextBudget * 0.18);
+    const extractionsBudget = Math.floor(contextBudget * 0.08);
+    const slidingBudget = Math.floor(contextBudget * 0.04);
+    const used = smartBudget + bibleBudget + extractionsBudget + slidingBudget;
+    const book2Budget = Math.max(1e3, contextBudget - used);
     return {
-      smart_connections: this.truncate(smartConnections, 12e4, "Smart connections"),
-      // Book 2 can be enormous; we only need the most recent portion for continuation.
-      book2: this.takeTail(book2Full, 14e4, "Book 2"),
-      story_bible: this.truncate(storyBible, 12e4, "Story bible"),
-      extractions: this.truncate(extractions, 6e4, "Extractions"),
-      sliding_window: this.truncate(slidingWindow, 4e4, "Sliding window")
+      smart_connections: this.trimHeadToBudget(smartConnections, smartBudget, "Smart connections"),
+      // For continuation, the most recent manuscript tail matters most.
+      book2: this.trimTailToBudget(book2Full, book2Budget, "Book 2"),
+      story_bible: this.trimHeadToBudget(storyBible, bibleBudget, "Story bible"),
+      extractions: this.trimHeadToBudget(extractions, extractionsBudget, "Extractions"),
+      sliding_window: this.trimHeadToBudget(slidingWindow, slidingBudget, "Sliding window")
     };
   }
   async getMicroEditContext(selectedText) {
@@ -25513,16 +25534,24 @@ var ContextAggregator = class {
         extractions = "";
       }
     }
+    const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
+    const contextBudget = Math.max(1e3, limit - reserveForOutput - reserveForNonContext);
     const storyBible = await this.readFile(settings.storyBiblePath);
     const slidingWindow = await this.readFile(settings.slidingWindowPath);
     const characterNotes = this.formatCharacterNotes(await this.getAllCharacterNotes());
-    const smartConnections = await this.getSmartConnections(16);
+    const smartChunkLimit = Math.min(80, Math.max(12, Math.floor(contextBudget / 2e4)));
+    const smartConnections = await this.getSmartConnections(smartChunkLimit);
+    const slidingBudget = Math.floor(contextBudget * 0.03);
+    const bibleBudget = Math.floor(contextBudget * 0.2);
+    const extractionsBudget = Math.floor(contextBudget * 0.1);
+    const characterBudget = Math.floor(contextBudget * 0.32);
+    const smartBudget = Math.floor(contextBudget * 0.15);
     return {
-      sliding_window: this.truncate(slidingWindow, 3e4, "Sliding window"),
-      story_bible: this.truncate(storyBible, 9e4, "Story bible"),
-      extractions: this.truncate(extractions, 5e4, "Extractions"),
-      character_notes: this.truncate(characterNotes, 9e4, "Character notes"),
-      smart_connections: this.truncate(smartConnections, 8e4, "Smart connections"),
+      sliding_window: this.trimHeadToBudget(slidingWindow, slidingBudget, "Sliding window"),
+      story_bible: this.trimHeadToBudget(storyBible, bibleBudget, "Story bible"),
+      extractions: this.trimHeadToBudget(extractions, extractionsBudget, "Extractions"),
+      character_notes: this.trimHeadToBudget(characterNotes, characterBudget, "Character notes"),
+      smart_connections: this.trimHeadToBudget(smartConnections, smartBudget, "Smart connections"),
       surrounding_before: surrounding.before,
       surrounding_after: surrounding.after
     };
