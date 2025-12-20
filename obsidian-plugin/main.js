@@ -23977,6 +23977,13 @@ var DashboardComponent = ({ plugin }) => {
     }
   };
   const [mode, setMode] = (0, import_react5.useState)("chapter");
+  const [demoStep, setDemoStep] = (0, import_react5.useState)("off");
+  const [demoStepCompleted, setDemoStepCompleted] = (0, import_react5.useState)({
+    chapter: false,
+    "micro-edit": false,
+    "character-update": false,
+    done: false
+  });
   const [isVaultPanelCollapsed, setIsVaultPanelCollapsed] = (0, import_react5.useState)(() => {
     try {
       return window.localStorage.getItem("writing-dashboard:vaultPanelCollapsed") === "1";
@@ -23997,6 +24004,71 @@ var DashboardComponent = ({ plugin }) => {
   const [bulkSourcePath, setBulkSourcePath] = (0, import_react5.useState)(
     plugin.settings.characterExtractionSourcePath
   );
+  const DEMO_FOLDER = "Writing dashboard demo";
+  const DEMO_CHARACTER_FOLDER = `${DEMO_FOLDER}/Characters`;
+  const startGuidedDemo = () => {
+    setError(null);
+    setPromptTokenEstimate(null);
+    setPromptCharCount(null);
+    setGenerationStage("");
+    setGeneratedText("");
+    setMinWords(800);
+    setMaxWords(1200);
+    setMode("chapter");
+    setSelectedText(
+      [
+        "Write a tense, character-driven scene set at night in a quiet city.",
+        "Include two named characters: Ava (the protagonist) and Marcus (an uneasy ally).",
+        "Ava is trying to recover a stolen keycard without alerting security.",
+        "Marcus pushes for a riskier plan; Ava stays cautious.",
+        "End with a cliffhanger discovery (a hidden message or unexpected witness)."
+      ].join("\n")
+    );
+    setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS);
+    setDemoStep("chapter");
+    setDemoStepCompleted({
+      chapter: false,
+      "micro-edit": false,
+      "character-update": false,
+      done: false
+    });
+    new import_obsidian3.Notice("Guided demo started. This will only generate demo text.");
+  };
+  const exitGuidedDemo = () => {
+    setDemoStep("off");
+    setDemoStepCompleted({
+      chapter: false,
+      "micro-edit": false,
+      "character-update": false,
+      done: false
+    });
+    new import_obsidian3.Notice("Guided demo exited.");
+  };
+  const continueGuidedDemo = () => {
+    if (demoStep === "chapter") {
+      const excerpt = (generatedText || "").slice(0, 1200).trim();
+      setMode("micro-edit");
+      setSelectedText(
+        excerpt.length > 0 ? excerpt : "Paste a paragraph here, then click Generate edit."
+      );
+      setDemoStep("micro-edit");
+      return;
+    }
+    if (demoStep === "micro-edit") {
+      const excerpt = (generatedText || "").slice(0, 1500).trim();
+      setMode("character-update");
+      setSelectedText(
+        excerpt.length > 0 ? excerpt : "Paste character-relevant text here, then click Update characters."
+      );
+      setDemoStep("character-update");
+      return;
+    }
+    if (demoStep === "character-update") {
+      setDemoStep("done");
+      setDemoStepCompleted((prev) => ({ ...prev, done: true }));
+      new import_obsidian3.Notice(`Guided demo complete. Demo notes are in "${DEMO_FOLDER}/".`);
+    }
+  };
   (0, import_react5.useEffect)(() => {
     const trimmed = (directorNotes || "").trim();
     const isBlank = trimmed.length === 0;
@@ -24014,6 +24086,12 @@ var DashboardComponent = ({ plugin }) => {
       setDirectorNotes("");
     }
   }, [mode]);
+  (0, import_react5.useEffect)(() => {
+    if (plugin.guidedDemoStartRequested) {
+      plugin.guidedDemoStartRequested = false;
+      startGuidedDemo();
+    }
+  }, []);
   (0, import_react5.useEffect)(() => {
     if (mode === "character-update") {
       setBulkSourcePath(plugin.settings.characterExtractionSourcePath);
@@ -24089,6 +24167,12 @@ Continue anyway?`,
         const result = await plugin.aiClient.generate(prompt, singleSettings);
         setGeneratedText(result);
       }
+      if (demoStep === "chapter") {
+        setDemoStepCompleted((prev) => ({ ...prev, chapter: true }));
+      }
+      if (demoStep === "micro-edit") {
+        setDemoStepCompleted((prev) => ({ ...prev, "micro-edit": true }));
+      }
       setGenerationStage("");
     } catch (err) {
       const message = formatUnknownForUi(err);
@@ -24132,10 +24216,17 @@ Continue anyway?`,
       const singleModeSettings = { ...plugin.settings, generationMode: "single" };
       const extractionResult = await plugin.aiClient.generate(prompt, singleModeSettings);
       const updates = plugin.characterExtractor.parseExtraction(extractionResult);
-      await plugin.vaultService.updateCharacterNotes(updates);
+      if (demoStep !== "off" && demoStep !== "done") {
+        await plugin.vaultService.createFolderIfNotExists(DEMO_FOLDER);
+        await plugin.vaultService.updateCharacterNotes(updates, DEMO_CHARACTER_FOLDER);
+        new import_obsidian3.Notice(`Updated ${updates.length} demo character note(s)`);
+        setDemoStepCompleted((prev) => ({ ...prev, "character-update": true }));
+      } else {
+        await plugin.vaultService.updateCharacterNotes(updates);
+        new import_obsidian3.Notice(`Updated ${updates.length} character note(s)`);
+      }
       setError(null);
       setGenerationStage("");
-      new import_obsidian3.Notice(`Updated ${updates.length} character note(s)`);
     } catch (err) {
       const message = formatUnknownForUi(err);
       setError(message || "Character extraction failed");
@@ -24384,7 +24475,15 @@ Continue anyway?`,
       }
     }
   };
-  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "writing-dashboard" }, !plugin.settings.apiKey && /* @__PURE__ */ import_react5.default.createElement("div", { className: "backend-warning" }, "\u26A0\uFE0F Please configure your API key in settings \u2192 writing dashboard"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: `sidebar ${isVaultPanelCollapsed ? "collapsed" : ""}` }, /* @__PURE__ */ import_react5.default.createElement(
+  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "writing-dashboard" }, demoStep !== "off" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner-left" }, /* @__PURE__ */ import_react5.default.createElement("strong", null, "Guided demo"), /* @__PURE__ */ import_react5.default.createElement("span", { className: "demo-banner-step" }, demoStep === "chapter" && "Step 1/3: Generate a chapter (demo text)", demoStep === "micro-edit" && "Step 2/3: Micro edit (demo text)", demoStep === "character-update" && "Step 3/3: Update characters (demo folder)", demoStep === "done" && "Complete")), /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner-actions" }, demoStep !== "done" && /* @__PURE__ */ import_react5.default.createElement(
+    "button",
+    {
+      onClick: continueGuidedDemo,
+      disabled: isGenerating || demoStep === "chapter" && !demoStepCompleted.chapter || demoStep === "micro-edit" && !demoStepCompleted["micro-edit"] || demoStep === "character-update" && !demoStepCompleted["character-update"],
+      className: "mod-cta"
+    },
+    "Next"
+  ), demoStep === "done" && /* @__PURE__ */ import_react5.default.createElement("button", { onClick: exitGuidedDemo, disabled: isGenerating, className: "mod-cta" }, "Close demo"), /* @__PURE__ */ import_react5.default.createElement("button", { onClick: exitGuidedDemo, disabled: isGenerating, className: "mod-secondary" }, "Exit"))), demoStep === "off" && !plugin.settings.setupCompleted && /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner demo-banner-idle" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner-left" }, /* @__PURE__ */ import_react5.default.createElement("strong", null, "New here?"), /* @__PURE__ */ import_react5.default.createElement("span", { className: "demo-banner-step" }, "Run a guided demo that generates demo-only text.")), /* @__PURE__ */ import_react5.default.createElement("div", { className: "demo-banner-actions" }, /* @__PURE__ */ import_react5.default.createElement("button", { onClick: startGuidedDemo, disabled: isGenerating, className: "mod-cta" }, "Run guided demo"))), !plugin.settings.apiKey && /* @__PURE__ */ import_react5.default.createElement("div", { className: "backend-warning" }, "\u26A0\uFE0F Please configure your API key in settings \u2192 writing dashboard"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: `sidebar ${isVaultPanelCollapsed ? "collapsed" : ""}` }, /* @__PURE__ */ import_react5.default.createElement(
     VaultBrowser,
     {
       plugin,
@@ -24653,12 +24752,13 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
         path: item.path,
         content: item.content
       }));
-      const needsCharacterTemplate = selectedItems.some((item) => item.path === "Characters");
+      const characterFolder = plugin.settings.characterFolder || "Characters";
+      const needsCharacterTemplate = selectedItems.some((item) => item.path === characterFolder);
       const result2 = await plugin.vaultService.setupDefaultStructure(structureItems);
-      if (needsCharacterTemplate && result2.created.includes("Characters")) {
+      if (needsCharacterTemplate && result2.created.includes(characterFolder)) {
         try {
           await plugin.vaultService.createFileIfNotExists(
-            "Characters/Character Template.md",
+            `${characterFolder}/Character Template.md`,
             `# Character Name
 
 ## Basic Info
@@ -24681,8 +24781,8 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
 ## Notes
 [Additional information]`
           );
-          if (!result2.created.includes("Characters/Character Template.md")) {
-            result2.created.push("Characters/Character Template.md");
+          if (!result2.created.includes(`${characterFolder}/Character Template.md`)) {
+            result2.created.push(`${characterFolder}/Character Template.md`);
           }
         } catch (error) {
           console.error("Error creating character template:", error);
@@ -24713,8 +24813,17 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
       onClose();
     }
   };
+  const handleRunGuidedDemo = async () => {
+    try {
+      plugin.settings.setupCompleted = true;
+      await plugin.saveSettings();
+    } finally {
+      onClose();
+      plugin.requestGuidedDemoStart();
+    }
+  };
   if (result) {
-    return /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react7.default.createElement("h2", null, "Setup complete!"), result.created.length > 0 && /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-success" }, /* @__PURE__ */ import_react7.default.createElement("p", null, /* @__PURE__ */ import_react7.default.createElement("strong", null, "Created:")), /* @__PURE__ */ import_react7.default.createElement("ul", null, result.created.map((path) => /* @__PURE__ */ import_react7.default.createElement("li", { key: path }, path)))), result.skipped.length > 0 && /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-skipped" }, /* @__PURE__ */ import_react7.default.createElement("p", null, /* @__PURE__ */ import_react7.default.createElement("strong", null, "Skipped (already exist):")), /* @__PURE__ */ import_react7.default.createElement("ul", null, result.skipped.map((path) => /* @__PURE__ */ import_react7.default.createElement("li", { key: path }, path)))), /* @__PURE__ */ import_react7.default.createElement("button", { onClick: onClose, className: "mod-cta" }, "Close"));
+    return /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react7.default.createElement("h2", null, "Setup complete!"), result.created.length > 0 && /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-success" }, /* @__PURE__ */ import_react7.default.createElement("p", null, /* @__PURE__ */ import_react7.default.createElement("strong", null, "Created:")), /* @__PURE__ */ import_react7.default.createElement("ul", null, result.created.map((path) => /* @__PURE__ */ import_react7.default.createElement("li", { key: path }, path)))), result.skipped.length > 0 && /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-skipped" }, /* @__PURE__ */ import_react7.default.createElement("p", null, /* @__PURE__ */ import_react7.default.createElement("strong", null, "Skipped (already exist):")), /* @__PURE__ */ import_react7.default.createElement("ul", null, result.skipped.map((path) => /* @__PURE__ */ import_react7.default.createElement("li", { key: path }, path)))), /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react7.default.createElement("button", { onClick: handleRunGuidedDemo, className: "mod-cta" }, "Run guided demo"), /* @__PURE__ */ import_react7.default.createElement("button", { onClick: onClose, className: "mod-secondary" }, "Close")));
   }
   return /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react7.default.createElement("h2", null, "Welcome to writing dashboard"), /* @__PURE__ */ import_react7.default.createElement("p", null, "Set up your writing workspace by selecting which files and folders to create:"), /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-items" }, items.map((item, index) => /* @__PURE__ */ import_react7.default.createElement("div", { key: item.path, className: "setup-item" }, /* @__PURE__ */ import_react7.default.createElement("label", { className: item.exists ? "disabled" : "" }, /* @__PURE__ */ import_react7.default.createElement(
     "input",
@@ -24724,7 +24833,7 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
       disabled: item.exists || isCreating,
       onChange: () => handleToggle(index)
     }
-  ), /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-item-content" }, /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-item-header" }, /* @__PURE__ */ import_react7.default.createElement("strong", null, item.path), item.exists && /* @__PURE__ */ import_react7.default.createElement("span", { className: "exists-badge" }, "\u2713 Already exists")), /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-item-description" }, item.description)))))), /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react7.default.createElement("button", { onClick: onClose, disabled: isCreating, className: "mod-secondary" }, "Cancel"), /* @__PURE__ */ import_react7.default.createElement("button", { onClick: handleDontShowAgain, disabled: isCreating, className: "mod-secondary" }, "Don't show again"), /* @__PURE__ */ import_react7.default.createElement(
+  ), /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-item-content" }, /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-item-header" }, /* @__PURE__ */ import_react7.default.createElement("strong", null, item.path), item.exists && /* @__PURE__ */ import_react7.default.createElement("span", { className: "exists-badge" }, "\u2713 Already exists")), /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-item-description" }, item.description)))))), /* @__PURE__ */ import_react7.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react7.default.createElement("button", { onClick: onClose, disabled: isCreating, className: "mod-secondary" }, "Cancel"), /* @__PURE__ */ import_react7.default.createElement("button", { onClick: handleDontShowAgain, disabled: isCreating, className: "mod-secondary" }, "Don't show again"), /* @__PURE__ */ import_react7.default.createElement("button", { onClick: handleRunGuidedDemo, disabled: isCreating, className: "mod-secondary" }, "Run guided demo"), /* @__PURE__ */ import_react7.default.createElement(
     "button",
     {
       onClick: handleCreate,
@@ -24930,6 +25039,11 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
       const modal = new SetupWizardModal(this.plugin);
       modal.open();
     }));
+    new import_obsidian6.Setting(containerEl).setName("Guided demo").setDesc("Generate demo-only text to learn the workflow (chapter \u2192 micro edit \u2192 character update).").addButton(
+      (button) => button.setButtonText("Run guided demo").onClick(() => {
+        this.plugin.requestGuidedDemoStart();
+      })
+    );
     new import_obsidian6.Setting(containerEl).setName("Character folder").setDesc("Folder name for character notes (default: characters)").addText((text) => text.setPlaceholder("Characters").setValue(this.plugin.settings.characterFolder).onChange(async (value) => {
       this.plugin.settings.characterFolder = value;
       await this.plugin.saveSettings();
@@ -25105,8 +25219,8 @@ var VaultService = class {
   _escapeRegExp(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
-  async updateCharacterNotes(updates) {
-    const characterFolder = this.plugin.settings.characterFolder;
+  async updateCharacterNotes(updates, folderOverride) {
+    const characterFolder = folderOverride || this.plugin.settings.characterFolder;
     await this.createFolderIfNotExists(characterFolder);
     for (const { character, update } of updates) {
       const characterPath = `${characterFolder}/${character}.md`;
@@ -26197,6 +26311,11 @@ var WritingDashboardPlugin = class extends import_obsidian10.Plugin {
   constructor() {
     super(...arguments);
     /**
+     * When true, the next time the dashboard UI mounts it will start the guided demo flow.
+     * This avoids wiring additional cross-component state management.
+     */
+    this.guidedDemoStartRequested = false;
+    /**
      * Tracks the last markdown file the user opened in Obsidian.
      * Used for actions like "Chunk Selected File" so users don't need to keep updating settings.
      */
@@ -26263,6 +26382,13 @@ var WritingDashboardPlugin = class extends import_obsidian10.Plugin {
         this.showSetupWizard();
       }
     });
+    this.addCommand({
+      id: "run-guided-demo",
+      name: "Run guided demo",
+      callback: () => {
+        this.requestGuidedDemoStart();
+      }
+    });
     if (!this.settings.setupCompleted) {
       const bookMainExists = this.app.vault.getAbstractFileByPath(this.settings.book2Path) !== null;
       if (!bookMainExists) {
@@ -26282,6 +26408,10 @@ var WritingDashboardPlugin = class extends import_obsidian10.Plugin {
   showSetupWizard() {
     const modal = new SetupWizardModal(this);
     modal.open();
+  }
+  requestGuidedDemoStart() {
+    this.guidedDemoStartRequested = true;
+    void this.activateView();
   }
   async onunload() {
   }

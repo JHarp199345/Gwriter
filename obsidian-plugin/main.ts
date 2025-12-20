@@ -118,6 +118,11 @@ export default class WritingDashboardPlugin extends Plugin {
 	aiClient: AIClient;
 	characterExtractor: CharacterExtractor;
 	/**
+	 * When true, the next time the dashboard UI mounts it will start the guided demo flow.
+	 * This avoids wiring additional cross-component state management.
+	 */
+	guidedDemoStartRequested = false;
+	/**
 	 * Tracks the last markdown file the user opened in Obsidian.
 	 * Used for actions like "Chunk Selected File" so users don't need to keep updating settings.
 	 */
@@ -205,6 +210,14 @@ export default class WritingDashboardPlugin extends Plugin {
 			}
 		});
 
+		this.addCommand({
+			id: 'run-guided-demo',
+			name: 'Run guided demo',
+			callback: () => {
+				this.requestGuidedDemoStart();
+			}
+		});
+
 		// Check for first-run setup
 		if (!this.settings.setupCompleted) {
 			// Treat setup as complete if the configured Book Main Path exists
@@ -230,6 +243,11 @@ export default class WritingDashboardPlugin extends Plugin {
 	showSetupWizard() {
 		const modal = new SetupWizardModal(this);
 		modal.open();
+	}
+
+	requestGuidedDemoStart() {
+		this.guidedDemoStartRequested = true;
+		void this.activateView();
 	}
 
 	async onunload() {

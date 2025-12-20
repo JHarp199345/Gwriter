@@ -289,6 +289,15 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
+			.setName('Guided demo')
+			.setDesc('Generate demo-only text to learn the workflow (chapter → micro edit → character update).')
+			.addButton((button) =>
+				button.setButtonText('Run guided demo').onClick(() => {
+					this.plugin.requestGuidedDemoStart();
+				})
+			);
+
+		new Setting(containerEl)
 			.setName('Character folder')
 			.setDesc('Folder name for character notes (default: characters)')
 			.addText(text => text

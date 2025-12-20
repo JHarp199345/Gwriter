@@ -147,17 +147,18 @@ export const SetupWizardComponent: React.FC<SetupWizardComponentProps> = ({ plug
 				content: item.content
 			}));
 
-			// Create Characters template file if Characters folder is selected
+			// Create a character template file if the character folder is selected
 			// Note: This needs to be created after the folder, so we'll handle it separately
-			const needsCharacterTemplate = selectedItems.some(item => item.path === 'Characters');
+			const characterFolder = plugin.settings.characterFolder || 'Characters';
+			const needsCharacterTemplate = selectedItems.some(item => item.path === characterFolder);
 
 			const result = await plugin.vaultService.setupDefaultStructure(structureItems);
 			
-			// Create Character Template file if Characters folder was created
-			if (needsCharacterTemplate && result.created.includes('Characters')) {
+			// Create Character Template file if character folder was created
+			if (needsCharacterTemplate && result.created.includes(characterFolder)) {
 				try {
 					await plugin.vaultService.createFileIfNotExists(
-						'Characters/Character Template.md',
+						`${characterFolder}/Character Template.md`,
 						`# Character Name
 
 ## Basic Info
@@ -180,8 +181,8 @@ export const SetupWizardComponent: React.FC<SetupWizardComponentProps> = ({ plug
 ## Notes
 [Additional information]`
 					);
-					if (!result.created.includes('Characters/Character Template.md')) {
-						result.created.push('Characters/Character Template.md');
+					if (!result.created.includes(`${characterFolder}/Character Template.md`)) {
+						result.created.push(`${characterFolder}/Character Template.md`);
 					}
 				} catch (error) {
 					console.error('Error creating character template:', error);
@@ -220,6 +221,16 @@ export const SetupWizardComponent: React.FC<SetupWizardComponentProps> = ({ plug
 		}
 	};
 
+	const handleRunGuidedDemo = async () => {
+		try {
+			plugin.settings.setupCompleted = true;
+			await plugin.saveSettings();
+		} finally {
+			onClose();
+			plugin.requestGuidedDemoStart();
+		}
+	};
+
 	if (result) {
 		return (
 			<div className="setup-wizard">
@@ -244,7 +255,10 @@ export const SetupWizardComponent: React.FC<SetupWizardComponentProps> = ({ plug
 						</ul>
 					</div>
 				)}
-				<button onClick={onClose} className="mod-cta">Close</button>
+				<div className="setup-actions">
+					<button onClick={handleRunGuidedDemo} className="mod-cta">Run guided demo</button>
+					<button onClick={onClose} className="mod-secondary">Close</button>
+				</div>
 			</div>
 		);
 	}
@@ -282,6 +296,9 @@ export const SetupWizardComponent: React.FC<SetupWizardComponentProps> = ({ plug
 				</button>
 				<button onClick={handleDontShowAgain} disabled={isCreating} className="mod-secondary">
 					Don't show again
+				</button>
+				<button onClick={handleRunGuidedDemo} disabled={isCreating} className="mod-secondary">
+					Run guided demo
 				</button>
 				<button
 					onClick={handleCreate}

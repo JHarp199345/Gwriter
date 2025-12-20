@@ -13,6 +13,7 @@ import { parseCharacterRoster, rosterToBulletList } from '../services/CharacterR
 import { showConfirmModal } from './ConfirmModal';
 
 type Mode = 'chapter' | 'micro-edit' | 'character-update';
+type DemoStep = 'off' | 'chapter' | 'micro-edit' | 'character-update' | 'done';
 
 const DEFAULT_REWRITE_INSTRUCTIONS =
 	'[INSTRUCTION: The Scene Summary is a rough summary OR directions. Rewrite it into a fully detailed dramatic scene. Include dialogue, sensory details, and action. Do not summarize; write the prose. Match the tone, rhythm, and pacing of the provided context.]';
@@ -36,6 +37,13 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	type MultiSettings = Omit<DashboardSettings, 'generationMode'> & { generationMode: 'multi' };
 
 	const [mode, setMode] = useState<Mode>('chapter');
+	const [demoStep, setDemoStep] = useState<DemoStep>('off');
+	const [demoStepCompleted, setDemoStepCompleted] = useState<Record<Exclude<DemoStep, 'off'>, boolean>>({
+		chapter: false,
+		'micro-edit': false,
+		'character-update': false,
+		done: false
+	});
 	const [isVaultPanelCollapsed, setIsVaultPanelCollapsed] = useState<boolean>(() => {
 		try {
 			return window.localStorage.getItem('writing-dashboard:vaultPanelCollapsed') === '1';
@@ -56,6 +64,90 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [bulkSourcePath, setBulkSourcePath] = useState<string | undefined>(
 		plugin.settings.characterExtractionSourcePath
 	);
+
+	const DEMO_FOLDER = 'Writing dashboard demo';
+	const DEMO_CHARACTER_FOLDER = `${DEMO_FOLDER}/Characters`;
+
+	const startGuidedDemo = () => {
+		// Reset UI state
+		setError(null);
+		setPromptTokenEstimate(null);
+		setPromptCharCount(null);
+		setGenerationStage('');
+		setGeneratedText('');
+
+		// Smaller range to keep demo fast/cheap
+		setMinWords(800);
+		setMaxWords(1200);
+
+		// Step 1: chapter generate
+		setMode('chapter');
+		setSelectedText(
+			[
+				'Write a tense, character-driven scene set at night in a quiet city.',
+				'Include two named characters: Ava (the protagonist) and Marcus (an uneasy ally).',
+				'Ava is trying to recover a stolen keycard without alerting security.',
+				'Marcus pushes for a riskier plan; Ava stays cautious.',
+				'End with a cliffhanger discovery (a hidden message or unexpected witness).'
+			].join('\n')
+		);
+		setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS);
+
+		setDemoStep('chapter');
+		setDemoStepCompleted({
+			chapter: false,
+			'micro-edit': false,
+			'character-update': false,
+			done: false
+		});
+
+		new Notice('Guided demo started. This will only generate demo text.');
+	};
+
+	const exitGuidedDemo = () => {
+		setDemoStep('off');
+		setDemoStepCompleted({
+			chapter: false,
+			'micro-edit': false,
+			'character-update': false,
+			done: false
+		});
+		new Notice('Guided demo exited.');
+	};
+
+	const continueGuidedDemo = () => {
+		if (demoStep === 'chapter') {
+			// Step 2: micro edit (uses generated output excerpt)
+			const excerpt = (generatedText || '').slice(0, 1200).trim();
+			setMode('micro-edit');
+			setSelectedText(
+				excerpt.length > 0
+					? excerpt
+					: 'Paste a paragraph here, then click Generate edit.'
+			);
+			setDemoStep('micro-edit');
+			return;
+		}
+
+		if (demoStep === 'micro-edit') {
+			// Step 3: character update (uses latest output excerpt)
+			const excerpt = (generatedText || '').slice(0, 1500).trim();
+			setMode('character-update');
+			setSelectedText(
+				excerpt.length > 0
+					? excerpt
+					: 'Paste character-relevant text here, then click Update characters.'
+			);
+			setDemoStep('character-update');
+			return;
+		}
+
+		if (demoStep === 'character-update') {
+			setDemoStep('done');
+			setDemoStepCompleted((prev) => ({ ...prev, done: true }));
+			new Notice(`Guided demo complete. Demo notes are in "${DEMO_FOLDER}/".`);
+		}
+	};
 
 	// Chapter mode default instructions
 	useEffect(() => {
@@ -82,6 +174,15 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		// Only run when mode changes (intentional)
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: defaults apply only on mode switch
 	}, [mode]);
+
+	// Start guided demo if requested by plugin command/settings/wizard
+	useEffect(() => {
+		if (plugin.guidedDemoStartRequested) {
+			plugin.guidedDemoStartRequested = false;
+			startGuidedDemo();
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only on mount
+	}, []);
 
 	// Keep bulk source label in sync when entering character mode (settings changes won't otherwise re-render)
 	useEffect(() => {
@@ -170,6 +271,14 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				const result = await plugin.aiClient.generate(prompt, singleSettings);
 				setGeneratedText(result);
 			}
+
+			// Guided demo progression: mark step complete after successful generation
+			if (demoStep === 'chapter') {
+				setDemoStepCompleted((prev) => ({ ...prev, chapter: true }));
+			}
+			if (demoStep === 'micro-edit') {
+				setDemoStepCompleted((prev) => ({ ...prev, 'micro-edit': true }));
+			}
 			
 			setGenerationStage('');
 		} catch (err: unknown) {
@@ -222,11 +331,18 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			const updates = plugin.characterExtractor.parseExtraction(extractionResult);
 			
 			// Apply updates to character files
-			await plugin.vaultService.updateCharacterNotes(updates);
+			if (demoStep !== 'off' && demoStep !== 'done') {
+				await plugin.vaultService.createFolderIfNotExists(DEMO_FOLDER);
+				await plugin.vaultService.updateCharacterNotes(updates, DEMO_CHARACTER_FOLDER);
+				new Notice(`Updated ${updates.length} demo character note(s)`);
+				setDemoStepCompleted((prev) => ({ ...prev, 'character-update': true }));
+			} else {
+				await plugin.vaultService.updateCharacterNotes(updates);
+				// Show success message
+				new Notice(`Updated ${updates.length} character note(s)`);
+			}
 			setError(null);
 			setGenerationStage('');
-			// Show success message
-			new Notice(`Updated ${updates.length} character note(s)`);
 		} catch (err: unknown) {
 			const message = formatUnknownForUi(err);
 			setError(message || 'Character extraction failed');
@@ -542,6 +658,56 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 	return (
 		<div className="writing-dashboard">
+			{demoStep !== 'off' && (
+				<div className="demo-banner">
+					<div className="demo-banner-left">
+						<strong>Guided demo</strong>
+						<span className="demo-banner-step">
+							{demoStep === 'chapter' && 'Step 1/3: Generate a chapter (demo text)'}
+							{demoStep === 'micro-edit' && 'Step 2/3: Micro edit (demo text)'}
+							{demoStep === 'character-update' && 'Step 3/3: Update characters (demo folder)'}
+							{demoStep === 'done' && 'Complete'}
+						</span>
+					</div>
+					<div className="demo-banner-actions">
+						{demoStep !== 'done' && (
+							<button
+								onClick={continueGuidedDemo}
+								disabled={
+									isGenerating ||
+									(demoStep === 'chapter' && !demoStepCompleted.chapter) ||
+									(demoStep === 'micro-edit' && !demoStepCompleted['micro-edit']) ||
+									(demoStep === 'character-update' && !demoStepCompleted['character-update'])
+								}
+								className="mod-cta"
+							>
+								Next
+							</button>
+						)}
+						{demoStep === 'done' && (
+							<button onClick={exitGuidedDemo} disabled={isGenerating} className="mod-cta">
+								Close demo
+							</button>
+						)}
+						<button onClick={exitGuidedDemo} disabled={isGenerating} className="mod-secondary">
+							Exit
+						</button>
+					</div>
+				</div>
+			)}
+			{demoStep === 'off' && !plugin.settings.setupCompleted && (
+				<div className="demo-banner demo-banner-idle">
+					<div className="demo-banner-left">
+						<strong>New here?</strong>
+						<span className="demo-banner-step">Run a guided demo that generates demo-only text.</span>
+					</div>
+					<div className="demo-banner-actions">
+						<button onClick={startGuidedDemo} disabled={isGenerating} className="mod-cta">
+							Run guided demo
+						</button>
+					</div>
+				</div>
+			)}
 			{!plugin.settings.apiKey && (
 				<div className="backend-warning">
 					⚠️ Please configure your API key in settings → writing dashboard

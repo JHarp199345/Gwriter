@@ -167,8 +167,11 @@ export class VaultService {
 		return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	}
 
-	async updateCharacterNotes(updates: Array<{ character: string; update: string }>): Promise<void> {
-		const characterFolder = this.plugin.settings.characterFolder;
+	async updateCharacterNotes(
+		updates: Array<{ character: string; update: string }>,
+		folderOverride?: string
+	): Promise<void> {
+		const characterFolder = folderOverride || this.plugin.settings.characterFolder;
 		
 		// Ensure folder exists
 		await this.createFolderIfNotExists(characterFolder);
