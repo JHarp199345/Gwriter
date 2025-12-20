@@ -114,18 +114,16 @@ export const SetupWizardComponent: React.FC<SetupWizardComponentProps> = ({ plug
 
 	useEffect(() => {
 		// Check which items already exist
-		const checkItems = async () => {
-			const checkedItems = await Promise.all(
-				getSetupItems(plugin).map(async (item) => {
-					const file = plugin.app.vault.getAbstractFileByPath(item.path);
-					const exists = file !== null;
-					return {
-						...item,
-						checked: item.defaultChecked && !exists,
-						exists
-					};
-				})
-			);
+		const checkItems = () => {
+			const checkedItems = getSetupItems(plugin).map((item) => {
+				const file = plugin.app.vault.getAbstractFileByPath(item.path);
+				const exists = file !== null;
+				return {
+					...item,
+					checked: item.defaultChecked && !exists,
+					exists
+				};
+			});
 			setItems(checkedItems);
 		};
 		checkItems();

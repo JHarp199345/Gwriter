@@ -95,11 +95,11 @@ export class ContextAggregator {
 		try {
 			const file = this.vault.getAbstractFileByPath(scDataPath);
 			if (file instanceof TFile) {
-				const data = JSON.parse(await this.vault.read(file));
+				JSON.parse(await this.vault.read(file));
 				smartConnectionsAvailable = true;
 				// Smart Connections data exists - now extract Book 1 content
 			}
-		} catch (error) {
+		} catch {
 			// Smart Connections not available, will use fallback
 		}
 		

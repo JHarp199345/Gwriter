@@ -107,6 +107,8 @@ export class AIClient {
 		prompt: string,
 		settings: DashboardSettings
 	): Promise<string> {
+		// Capture before narrowing so template literals don't end up with `never` types in unreachable branches.
+		const provider = settings.apiProvider;
 		if (settings.apiProvider === 'openrouter') {
 			return await this._generateOpenRouter(prompt, settings);
 		} else if (settings.apiProvider === 'openai') {
@@ -116,7 +118,7 @@ export class AIClient {
 		} else if (settings.apiProvider === 'gemini') {
 			return await this._generateGemini(prompt, settings);
 		} else {
-			throw new Error(`Unsupported provider: ${settings.apiProvider}`);
+			throw new Error(`Unsupported provider: ${provider}`);
 		}
 	}
 
@@ -124,12 +126,14 @@ export class AIClient {
 		prompt: string,
 		settings: DashboardSettings
 	): Promise<MultiModelResult> {
+		// Capture before narrowing so template literals don't end up with `never` types in unreachable branches.
+		const strategy = settings.multiStrategy;
 		if (settings.multiStrategy === 'draft-revision') {
 			return await this.generateDraftRevision(prompt, settings);
 		} else if (settings.multiStrategy === 'consensus-multistage') {
 			return await this.generateConsensusMultiStage(prompt, settings);
 		} else {
-			throw new Error(`Unsupported multi-strategy: ${settings.multiStrategy}`);
+			throw new Error(`Unsupported multi-strategy: ${strategy}`);
 		}
 	}
 
@@ -180,7 +184,7 @@ export class AIClient {
 			settings.consensusModel1,
 			settings.consensusModel2,
 			settings.consensusModel3
-		].filter(Boolean) as string[];
+		].filter((m): m is string => typeof m === 'string' && m.length > 0);
 
 		const consensusPromises = consensusModels.map(model => {
 			const modelSettings: DashboardSettings = { ...settings, model };

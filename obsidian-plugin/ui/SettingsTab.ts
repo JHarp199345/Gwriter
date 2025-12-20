@@ -122,8 +122,8 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('API provider')
 			.setDesc('Choose your AI provider. OpenRouter recommended for multi mode.')
 			.addDropdown(dropdown => dropdown
-				.addOption('openrouter', 'OpenRouter (recommended)')
-				.addOption('openai', 'OpenAI')
+				.addOption('openrouter', 'Openrouter (recommended)')
+				.addOption('openai', 'Openai')
 				.addOption('anthropic', 'Anthropic')
 				.addOption('gemini', 'Gemini')
 				.setValue(this.plugin.settings.apiProvider)

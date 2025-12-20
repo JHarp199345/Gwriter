@@ -5,7 +5,6 @@ import { VaultBrowser } from './VaultBrowser';
 import { EditorPanel } from './EditorPanel';
 import { DirectorNotes } from './DirectorNotes';
 import { ModeSelector } from './ModeSelector';
-import { MultiModelResult } from '../services/AIClient';
 import { TextChunker } from '../services/TextChunker';
 import { fnv1a32 } from '../services/ContentHash';
 import { estimateTokens } from '../services/TokenEstimate';
@@ -420,8 +419,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					}, 3);
 					const updates = plugin.characterExtractor.parseExtraction(extractionResult, { strict: true });
 					for (const update of updates) {
-						if (!allUpdates.has(update.character)) allUpdates.set(update.character, []);
-						allUpdates.get(update.character)!.push(update.update);
+						const existing = allUpdates.get(update.character) ?? [];
+						existing.push(update.update);
+						allUpdates.set(update.character, existing);
 					}
 				} catch (err: unknown) {
 					console.error(`${label} failed:`, err);

@@ -19,10 +19,9 @@ export class CharacterExtractor {
 			
 			// Aggregate updates by character
 			for (const update of updates) {
-				if (!allUpdates.has(update.character)) {
-					allUpdates.set(update.character, []);
-				}
-				allUpdates.get(update.character)!.push(update.update);
+				const existing = allUpdates.get(update.character) ?? [];
+				existing.push(update.update);
+				allUpdates.set(update.character, existing);
 			}
 		}
 		

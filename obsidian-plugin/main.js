@@ -23655,7 +23655,6 @@ var TextChunker = class {
       if (currentWordCount >= wordsPerChunk) {
         let foundBreak = false;
         for (let j = i + 1; j < Math.min(i + 50, words.length); j++) {
-          const nextWord = words[j];
           if (j > 0 && /[.!?]$/.test(words[j - 1])) {
             const chunkText = currentChunk.join(" ");
             if (chunkText.trim()) {
@@ -24175,7 +24174,7 @@ Continue anyway?`,
     setBulkSourcePath(void 0);
   };
   const handleProcessEntireBook = async () => {
-    var _a;
+    var _a, _b;
     if (!plugin.settings.apiKey) {
       setError("Please configure your API key in settings");
       return;
@@ -24290,9 +24289,9 @@ Continue anyway?`,
           }, 3);
           const updates = plugin.characterExtractor.parseExtraction(extractionResult, { strict: true });
           for (const update of updates) {
-            if (!allUpdates.has(update.character))
-              allUpdates.set(update.character, []);
-            allUpdates.get(update.character).push(update.update);
+            const existing = (_b = allUpdates.get(update.character)) != null ? _b : [];
+            existing.push(update.update);
+            allUpdates.set(update.character, existing);
           }
         } catch (err) {
           console.error(`${label} failed:`, err);
@@ -24639,18 +24638,16 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
   const [isCreating, setIsCreating] = (0, import_react7.useState)(false);
   const [result, setResult] = (0, import_react7.useState)(null);
   (0, import_react7.useEffect)(() => {
-    const checkItems = async () => {
-      const checkedItems = await Promise.all(
-        getSetupItems(plugin).map(async (item) => {
-          const file = plugin.app.vault.getAbstractFileByPath(item.path);
-          const exists = file !== null;
-          return {
-            ...item,
-            checked: item.defaultChecked && !exists,
-            exists
-          };
-        })
-      );
+    const checkItems = () => {
+      const checkedItems = getSetupItems(plugin).map((item) => {
+        const file = plugin.app.vault.getAbstractFileByPath(item.path);
+        const exists = file !== null;
+        return {
+          ...item,
+          checked: item.defaultChecked && !exists,
+          exists
+        };
+      });
       setItems(checkedItems);
     };
     checkItems();
@@ -24842,7 +24839,7 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian6.Setting(containerEl).setName("API provider").setDesc("Choose your AI provider. OpenRouter recommended for multi mode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "OpenRouter (recommended)").addOption("openai", "OpenAI").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("API provider").setDesc("Choose your AI provider. OpenRouter recommended for multi mode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "Openrouter (recommended)").addOption("openai", "Openai").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
       this.plugin.settings.apiProvider = value;
       const models = getModelsForProvider(value);
       const currentModel = this.plugin.settings.model;
@@ -25248,10 +25245,10 @@ var ContextAggregator = class {
     try {
       const file = this.vault.getAbstractFileByPath(scDataPath);
       if (file instanceof import_obsidian8.TFile) {
-        const data = JSON.parse(await this.vault.read(file));
+        JSON.parse(await this.vault.read(file));
         smartConnectionsAvailable = true;
       }
-    } catch (error) {
+    } catch (e) {
     }
     const book1Content = await this.extractBook1Content(limit);
     if (book1Content.length > 0) {
@@ -25805,6 +25802,7 @@ var AIClient = class {
     }
   }
   async generateSingle(prompt, settings) {
+    const provider = settings.apiProvider;
     if (settings.apiProvider === "openrouter") {
       return await this._generateOpenRouter(prompt, settings);
     } else if (settings.apiProvider === "openai") {
@@ -25814,16 +25812,17 @@ var AIClient = class {
     } else if (settings.apiProvider === "gemini") {
       return await this._generateGemini(prompt, settings);
     } else {
-      throw new Error(`Unsupported provider: ${settings.apiProvider}`);
+      throw new Error(`Unsupported provider: ${provider}`);
     }
   }
   async generateMulti(prompt, settings) {
+    const strategy = settings.multiStrategy;
     if (settings.multiStrategy === "draft-revision") {
       return await this.generateDraftRevision(prompt, settings);
     } else if (settings.multiStrategy === "consensus-multistage") {
       return await this.generateConsensusMultiStage(prompt, settings);
     } else {
-      throw new Error(`Unsupported multi-strategy: ${settings.multiStrategy}`);
+      throw new Error(`Unsupported multi-strategy: ${strategy}`);
     }
   }
   async generateDraftRevision(prompt, settings) {
@@ -25860,7 +25859,7 @@ ${draft}`;
       settings.consensusModel1,
       settings.consensusModel2,
       settings.consensusModel3
-    ].filter(Boolean);
+    ].filter((m) => typeof m === "string" && m.length > 0);
     const consensusPromises = consensusModels.map((model) => {
       const modelSettings = { ...settings, model };
       return this.generateSingle(prompt, modelSettings);
@@ -26088,14 +26087,14 @@ var CharacterExtractor = class {
    * Process multiple text chunks and aggregate character updates
    */
   processChunks(chunks, parseExtractionFn) {
+    var _a;
     const allUpdates = /* @__PURE__ */ new Map();
     for (const chunk of chunks) {
       const updates = parseExtractionFn(chunk);
       for (const update of updates) {
-        if (!allUpdates.has(update.character)) {
-          allUpdates.set(update.character, []);
-        }
-        allUpdates.get(update.character).push(update.update);
+        const existing = (_a = allUpdates.get(update.character)) != null ? _a : [];
+        existing.push(update.update);
+        allUpdates.set(update.character, existing);
       }
     }
     const aggregatedUpdates = [];

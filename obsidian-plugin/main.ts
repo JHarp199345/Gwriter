@@ -1,4 +1,4 @@
-import { Plugin, TFile, TFolder, Setting, App } from 'obsidian';
+import { Plugin, TFile } from 'obsidian';
 import { DashboardView, VIEW_TYPE_DASHBOARD } from './ui/DashboardView';
 import { SettingsTab } from './ui/SettingsTab';
 import { VaultService } from './services/VaultService';
