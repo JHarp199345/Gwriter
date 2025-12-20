@@ -23992,6 +23992,8 @@ var DashboardComponent = ({ plugin }) => {
       if (isBlank || trimmed === chapterDefault) {
         setDirectorNotes(plugin.settings.defaultCharacterExtractionInstructions || "");
       }
+    } else if (mode === "micro-edit") {
+      setDirectorNotes("");
     }
   }, [mode]);
   (0, import_react5.useEffect)(() => {

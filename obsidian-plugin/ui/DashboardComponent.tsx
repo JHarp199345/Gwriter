@@ -59,6 +59,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			if (isBlank || trimmed === chapterDefault) {
 				setDirectorNotes(plugin.settings.defaultCharacterExtractionInstructions || '');
 			}
+		} else if (mode === 'micro-edit') {
+			// Always clear so the placeholder guidance is visible.
+			setDirectorNotes('');
 		}
 		// Only run when mode changes (intentional)
 		// eslint-disable-next-line react-hooks/exhaustive-deps
