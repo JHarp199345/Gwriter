@@ -292,7 +292,7 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Character folder')
 			.setDesc('Folder name for character notes (default: characters)')
 			.addText(text => text
-				.setPlaceholder('characters')
+				.setPlaceholder('Characters')
 				.setValue(this.plugin.settings.characterFolder)
 				.onChange(async (value) => {
 					this.plugin.settings.characterFolder = value;
@@ -303,7 +303,7 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Book main path')
 			.setDesc('Path to your active manuscript')
 			.addText(text => text
-				.setPlaceholder('book-main.md')
+				.setPlaceholder('Book-main.md')
 				.setValue(this.plugin.settings.book2Path)
 				.onChange(async (value) => {
 					this.plugin.settings.book2Path = value;
@@ -314,7 +314,7 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Story bible path')
 			.setDesc('Path to your story bible')
 			.addText(text => text
-				.setPlaceholder('book - story bible.md')
+				.setPlaceholder('Book - story bible.md')
 				.setValue(this.plugin.settings.storyBiblePath)
 				.onChange(async (value) => {
 					this.plugin.settings.storyBiblePath = value;
@@ -325,7 +325,7 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Extractions path (optional)')
 			.setDesc('Path to your extractions file. Optional - only needed if you use extractions instead of chunked folders.')
 			.addText(text => text
-				.setPlaceholder('extractions.md')
+				.setPlaceholder('Extractions.md')
 				.setValue(this.plugin.settings.extractionsPath)
 				.onChange(async (value) => {
 					this.plugin.settings.extractionsPath = value;
@@ -336,7 +336,7 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Sliding window path')
 			.setDesc('Path to your sliding window memory file')
 			.addText(text => text
-				.setPlaceholder('memory - sliding window.md')
+				.setPlaceholder('Memory - sliding window.md')
 				.setValue(this.plugin.settings.slidingWindowPath)
 				.onChange(async (value) => {
 					this.plugin.settings.slidingWindowPath = value;
