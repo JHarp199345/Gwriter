@@ -14,6 +14,20 @@ export interface MultiModelResult {
 }
 
 export class AIClient {
+	private _formatUnknown(value: unknown): string {
+		if (value instanceof Error) return value.message;
+		if (typeof value === 'string') return value;
+		if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+			return String(value);
+		}
+		if (value === null) return 'null';
+		if (value === undefined) return 'undefined';
+		try {
+			return JSON.stringify(value);
+		} catch {
+			return String(value);
+		}
+	}
 	private _getJson(resp: RequestUrlResponse): unknown {
 		// requestUrl may populate `json`, but fall back to parsing `text` when needed.
 		const anyResp = resp as unknown as { json?: unknown; text?: string };
@@ -73,6 +87,8 @@ export class AIClient {
 		}
 	}
 
+	async generate(prompt: string, settings: DashboardSettings & { generationMode: 'single' }): Promise<string>;
+	async generate(prompt: string, settings: DashboardSettings & { generationMode: 'multi' }): Promise<MultiModelResult>;
 	async generate(
 		prompt: string,
 		settings: DashboardSettings
@@ -368,7 +384,7 @@ export class AIClient {
 				}
 			}
 			const details =
-				blockReason ? ` blockReason=${String(blockReason)}` : '';
+				blockReason ? ` blockReason=${this._formatUnknown(blockReason)}` : '';
 			const preview = this._safeJsonPreview(
 				promptFeedback || data
 			);
@@ -402,7 +418,7 @@ export class AIClient {
 			}
 			const preview = this._safeJsonPreview(firstCandidate || data);
 			throw new Error(
-				`Gemini candidate missing text. finishReason=${String(finishReason)} Preview: ${preview}`
+				`Gemini candidate missing text. finishReason=${this._formatUnknown(finishReason)} Preview: ${preview}`
 			);
 		}
 

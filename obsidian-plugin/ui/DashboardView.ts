@@ -27,7 +27,7 @@ export class DashboardView extends ItemView {
 		return 'book-open';
 	}
 
-	async onOpen() {
+	onOpen(): Promise<void> {
 		const container = this.containerEl.children[1];
 		container.empty();
 		const reactContainer = container.createDiv();
@@ -35,13 +35,15 @@ export class DashboardView extends ItemView {
 		this.reactRoot.render(
 			React.createElement(DashboardComponent, { plugin: this.plugin })
 		);
+		return Promise.resolve();
 	}
 
-	async onClose() {
+	onClose(): Promise<void> {
 		if (this.reactRoot) {
 			this.reactRoot.unmount();
 			this.reactRoot = null;
 		}
+		return Promise.resolve();
 	}
 }
 

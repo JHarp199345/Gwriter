@@ -23958,6 +23958,23 @@ function showConfirmModal(app, opts) {
 // ui/DashboardComponent.tsx
 var DEFAULT_REWRITE_INSTRUCTIONS = "[INSTRUCTION: The Scene Summary is a rough summary OR directions. Rewrite it into a fully detailed dramatic scene. Include dialogue, sensory details, and action. Do not summarize; write the prose. Match the tone, rhythm, and pacing of the provided context.]";
 var DashboardComponent = ({ plugin }) => {
+  const formatUnknownForUi = (value) => {
+    if (value instanceof Error)
+      return value.message;
+    if (typeof value === "string")
+      return value;
+    if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint")
+      return String(value);
+    if (value === null)
+      return "null";
+    if (value === void 0)
+      return "undefined";
+    try {
+      return JSON.stringify(value);
+    } catch (e) {
+      return String(value);
+    }
+  };
   const [mode, setMode] = (0, import_react5.useState)("chapter");
   const [isVaultPanelCollapsed, setIsVaultPanelCollapsed] = (0, import_react5.useState)(() => {
     try {
@@ -24071,7 +24088,7 @@ Continue anyway?`,
       }
       setGenerationStage("");
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = formatUnknownForUi(err);
       setError(message || "Generation failed");
       console.error("Generation error:", err);
       setGenerationStage("");
@@ -24117,7 +24134,7 @@ Continue anyway?`,
       setGenerationStage("");
       new import_obsidian3.Notice(`Updated ${updates.length} character note(s)`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = formatUnknownForUi(err);
       setError(message || "Character extraction failed");
       console.error("Character update error:", err);
       setGenerationStage("");
@@ -24154,7 +24171,7 @@ Continue anyway?`,
     setError(null);
     setGenerationStage("Loading book...");
     const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
-    const getErrorMessage = (err) => err instanceof Error ? err.message : String(err);
+    const getErrorMessage = (err) => formatUnknownForUi(err);
     const withRetries = async (label, fn, maxRetries = 2) => {
       let attempt = 0;
       while (true) {
@@ -24345,7 +24362,7 @@ Continue anyway?`,
         `Chunks rebuilt (${result.totalChunks} total; ${written} written; ${result.deletedExtra} deleted)`
       );
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = formatUnknownForUi(err);
       setError(message || "Chunking failed");
       console.error("Chunking error:", err);
       setGenerationStage("");
@@ -24364,7 +24381,7 @@ Continue anyway?`,
       }
     }
   };
-  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "writing-dashboard" }, !plugin.settings.apiKey && /* @__PURE__ */ import_react5.default.createElement("div", { className: "backend-warning" }, "\u26A0\uFE0F Please configure your API key in Settings \u2192 Writing dashboard"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: `sidebar ${isVaultPanelCollapsed ? "collapsed" : ""}` }, /* @__PURE__ */ import_react5.default.createElement(
+  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "writing-dashboard" }, !plugin.settings.apiKey && /* @__PURE__ */ import_react5.default.createElement("div", { className: "backend-warning" }, "\u26A0\uFE0F Please configure your API key in settings \u2192 writing dashboard"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: `sidebar ${isVaultPanelCollapsed ? "collapsed" : ""}` }, /* @__PURE__ */ import_react5.default.createElement(
     VaultBrowser,
     {
       plugin,
@@ -24487,7 +24504,7 @@ var DashboardView = class extends import_obsidian4.ItemView {
   getIcon() {
     return "book-open";
   }
-  async onOpen() {
+  onOpen() {
     const container = this.containerEl.children[1];
     container.empty();
     const reactContainer = container.createDiv();
@@ -24495,12 +24512,14 @@ var DashboardView = class extends import_obsidian4.ItemView {
     this.reactRoot.render(
       import_react6.default.createElement(DashboardComponent, { plugin: this.plugin })
     );
+    return Promise.resolve();
   }
-  async onClose() {
+  onClose() {
     if (this.reactRoot) {
       this.reactRoot.unmount();
       this.reactRoot = null;
     }
+    return Promise.resolve();
   }
 };
 
@@ -24673,7 +24692,13 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
       await plugin.saveSettings();
     } catch (error) {
       console.error("Setup error:", error);
-      const message = error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : (() => {
+        try {
+          return JSON.stringify(error);
+        } catch (e) {
+          return String(error);
+        }
+      })();
       new import_obsidian5.Notice(`Error creating files: ${message}`);
     } finally {
       setIsCreating(false);
@@ -24788,7 +24813,7 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian6.Setting(containerEl).setName("Writing dashboard settings").setHeading();
+    new import_obsidian6.Setting(containerEl).setName("Configuration").setHeading();
     new import_obsidian6.Setting(containerEl).setName("API key").setDesc("Your AI API key (stored securely)").addText((text) => text.setPlaceholder("Enter API key").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
       this.plugin.settings.apiKey = value;
       await this.plugin.saveSettings();
@@ -25188,7 +25213,14 @@ var ContextAggregator = class {
       }
       return `[File not found: ${path}]`;
     } catch (error) {
-      return `[Error reading file ${path}: ${error}]`;
+      const message = error instanceof Error ? error.message : (() => {
+        try {
+          return JSON.stringify(error);
+        } catch (e) {
+          return String(error);
+        }
+      })();
+      return `[Error reading file ${path}: ${message}]`;
     }
   }
   async getSmartConnections(limit = 64) {
@@ -25668,6 +25700,24 @@ Do not output any other sections.`;
 // services/AIClient.ts
 var import_obsidian9 = require("obsidian");
 var AIClient = class {
+  _formatUnknown(value) {
+    if (value instanceof Error)
+      return value.message;
+    if (typeof value === "string")
+      return value;
+    if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+      return String(value);
+    }
+    if (value === null)
+      return "null";
+    if (value === void 0)
+      return "undefined";
+    try {
+      return JSON.stringify(value);
+    } catch (e) {
+      return String(value);
+    }
+  }
   _getJson(resp) {
     const anyResp = resp;
     if (anyResp.json !== void 0)
@@ -25971,7 +26021,7 @@ ${alt}`).join("\n\n---\n\n")}`;
           blockReason = promptFeedback.blockReason;
         }
       }
-      const details = blockReason ? ` blockReason=${String(blockReason)}` : "";
+      const details = blockReason ? ` blockReason=${this._formatUnknown(blockReason)}` : "";
       const preview = this._safeJsonPreview(
         promptFeedback || data
       );
@@ -26003,7 +26053,7 @@ ${alt}`).join("\n\n---\n\n")}`;
       }
       const preview = this._safeJsonPreview(firstCandidate || data);
       throw new Error(
-        `Gemini candidate missing text. finishReason=${String(finishReason)} Preview: ${preview}`
+        `Gemini candidate missing text. finishReason=${this._formatUnknown(finishReason)} Preview: ${preview}`
       );
     }
     return text;
@@ -26190,14 +26240,14 @@ var WritingDashboardPlugin = class extends import_obsidian10.Plugin {
       (leaf) => new DashboardView(leaf, this)
     );
     this.addRibbonIcon("book-open", "Open dashboard", () => {
-      this.activateView();
+      void this.activateView();
     });
     this.addSettingTab(new SettingsTab(this.app, this));
     this.addCommand({
       id: "open-dashboard",
       name: "Open dashboard",
       callback: () => {
-        this.activateView();
+        void this.activateView();
       }
     });
     this.addCommand({

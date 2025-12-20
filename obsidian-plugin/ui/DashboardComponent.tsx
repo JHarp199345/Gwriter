@@ -19,6 +19,19 @@ const DEFAULT_REWRITE_INSTRUCTIONS =
 	'[INSTRUCTION: The Scene Summary is a rough summary OR directions. Rewrite it into a fully detailed dramatic scene. Include dialogue, sensory details, and action. Do not summarize; write the prose. Match the tone, rhythm, and pacing of the provided context.]';
 
 export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = ({ plugin }) => {
+	const formatUnknownForUi = (value: unknown): string => {
+		if (value instanceof Error) return value.message;
+		if (typeof value === 'string') return value;
+		if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+		if (value === null) return 'null';
+		if (value === undefined) return 'undefined';
+		try {
+			return JSON.stringify(value);
+		} catch {
+			return String(value);
+		}
+	};
+
 	const [mode, setMode] = useState<Mode>('chapter');
 	const [isVaultPanelCollapsed, setIsVaultPanelCollapsed] = useState<boolean>(() => {
 		try {
@@ -64,7 +77,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			setDirectorNotes('');
 		}
 		// Only run when mode changes (intentional)
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: defaults apply only on mode switch
 	}, [mode]);
 
 	// Keep bulk source label in sync when entering character mode (settings changes won't otherwise re-render)
@@ -72,7 +85,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		if (mode === 'character-update') {
 			setBulkSourcePath(plugin.settings.characterExtractionSourcePath);
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: sync label only on mode switch
 	}, [mode]);
 
 	useEffect(() => {
@@ -139,7 +152,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 			if (plugin.settings.generationMode === 'multi') {
 				setGenerationStage('Initializing multi-model generation...');
-				const result = await plugin.aiClient.generate(prompt, plugin.settings) as MultiModelResult;
+				const result = await plugin.aiClient.generate(prompt, plugin.settings as typeof plugin.settings & { generationMode: 'multi' });
 				
 				// Show stages if available
 				if (result.stages) {
@@ -149,13 +162,13 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				setGeneratedText(result.primary);
 			} else {
 				setGenerationStage('Generating...');
-				const result = await plugin.aiClient.generate(prompt, plugin.settings) as string;
+				const result = await plugin.aiClient.generate(prompt, plugin.settings as typeof plugin.settings & { generationMode: 'single' });
 				setGeneratedText(result);
 			}
 			
 			setGenerationStage('');
 		} catch (err: unknown) {
-			const message = err instanceof Error ? err.message : String(err);
+			const message = formatUnknownForUi(err);
 			setError(message || 'Generation failed');
 			console.error('Generation error:', err);
 			setGenerationStage('');
@@ -200,7 +213,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			
 			// Character extraction always uses single mode
 			const singleModeSettings = { ...plugin.settings, generationMode: 'single' as const };
-			const extractionResult = await plugin.aiClient.generate(prompt, singleModeSettings) as string;
+			const extractionResult = await plugin.aiClient.generate(prompt, singleModeSettings);
 			const updates = plugin.characterExtractor.parseExtraction(extractionResult);
 			
 			// Apply updates to character files
@@ -210,7 +223,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			// Show success message
 			new Notice(`Updated ${updates.length} character note(s)`);
 		} catch (err: unknown) {
-			const message = err instanceof Error ? err.message : String(err);
+			const message = formatUnknownForUi(err);
 			setError(message || 'Character extraction failed');
 			console.error('Character update error:', err);
 			setGenerationStage('');
@@ -251,8 +264,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		setGenerationStage('Loading book...');
 		
 		const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
-		const getErrorMessage = (err: unknown) =>
-			err instanceof Error ? err.message : String(err);
+		const getErrorMessage = (err: unknown) => formatUnknownForUi(err);
 
 		const withRetries = async <T,>(
 			label: string,
@@ -339,7 +351,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					const singleModeSettings = { ...plugin.settings, generationMode: 'single' as const };
 					try {
 						const rosterResult = await withRetries(label, async () => {
-							return (await plugin.aiClient.generate(rosterPrompt, singleModeSettings)) as string;
+							return await plugin.aiClient.generate(rosterPrompt, singleModeSettings);
 						}, 2);
 						rosterEntries.push(...parseCharacterRoster(rosterResult));
 					} catch (err: unknown) {
@@ -386,7 +398,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				const singleModeSettings = { ...plugin.settings, generationMode: 'single' as const };
 				try {
 					const extractionResult = await withRetries(label, async () => {
-						return (await plugin.aiClient.generate(prompt, singleModeSettings)) as string;
+						return await plugin.aiClient.generate(prompt, singleModeSettings);
 					}, 3);
 					const updates = plugin.characterExtractor.parseExtraction(extractionResult, { strict: true });
 					for (const update of updates) {
@@ -501,7 +513,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				`Chunks rebuilt (${result.totalChunks} total; ${written} written; ${result.deletedExtra} deleted)`
 			);
 		} catch (err: unknown) {
-			const message = err instanceof Error ? err.message : String(err);
+			const message = formatUnknownForUi(err);
 			setError(message || 'Chunking failed');
 			console.error('Chunking error:', err);
 			setGenerationStage('');
@@ -526,7 +538,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		<div className="writing-dashboard">
 			{!plugin.settings.apiKey && (
 				<div className="backend-warning">
-					⚠️ Please configure your API key in Settings → Writing dashboard
+					⚠️ Please configure your API key in settings → writing dashboard
 				</div>
 			)}
 			<div className="dashboard-layout">

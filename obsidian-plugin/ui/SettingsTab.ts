@@ -91,7 +91,8 @@ export class SettingsTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		new Setting(containerEl).setName('Writing dashboard settings').setHeading();
+		// Keep heading generic per Obsidian review-bot rules (avoid plugin name and "settings")
+		new Setting(containerEl).setName('Configuration').setHeading();
 
 		new Setting(containerEl)
 			.setName('API key')

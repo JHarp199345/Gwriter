@@ -71,8 +71,18 @@ export class ContextAggregator {
 				return await this.vault.read(file);
 			}
 			return `[File not found: ${path}]`;
-		} catch (error) {
-			return `[Error reading file ${path}: ${error}]`;
+		} catch (error: unknown) {
+			const message =
+				error instanceof Error
+					? error.message
+					: (() => {
+							try {
+								return JSON.stringify(error);
+							} catch {
+								return String(error);
+							}
+						})();
+			return `[Error reading file ${path}: ${message}]`;
 		}
 	}
 

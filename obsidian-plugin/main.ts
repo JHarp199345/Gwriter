@@ -182,7 +182,8 @@ export default class WritingDashboardPlugin extends Plugin {
 		);
 		
 		this.addRibbonIcon('book-open', 'Open dashboard', () => {
-			this.activateView();
+			// Avoid floating promise (activateView is async)
+			void this.activateView();
 		});
 		
 		this.addSettingTab(new SettingsTab(this.app, this));
@@ -191,7 +192,8 @@ export default class WritingDashboardPlugin extends Plugin {
 			id: 'open-dashboard',
 			name: 'Open dashboard',
 			callback: () => {
-				this.activateView();
+				// Avoid floating promise (activateView is async)
+				void this.activateView();
 			}
 		});
 

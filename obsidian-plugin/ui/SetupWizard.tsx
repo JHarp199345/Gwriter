@@ -197,7 +197,16 @@ export const SetupWizardComponent: React.FC<SetupWizardComponentProps> = ({ plug
 			await plugin.saveSettings();
 		} catch (error: unknown) {
 			console.error('Setup error:', error);
-			const message = error instanceof Error ? error.message : String(error);
+			const message =
+				error instanceof Error
+					? error.message
+					: (() => {
+							try {
+								return JSON.stringify(error);
+							} catch {
+								return String(error);
+							}
+						})();
 			new Notice(`Error creating files: ${message}`);
 		} finally {
 			setIsCreating(false);
