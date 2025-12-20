@@ -23996,6 +23996,8 @@ var DashboardComponent = ({ plugin }) => {
   const [directorNotes, setDirectorNotes] = (0, import_react5.useState)("");
   const [minWords, setMinWords] = (0, import_react5.useState)(2e3);
   const [maxWords, setMaxWords] = (0, import_react5.useState)(6e3);
+  const [minWordsInput, setMinWordsInput] = (0, import_react5.useState)("2000");
+  const [maxWordsInput, setMaxWordsInput] = (0, import_react5.useState)("6000");
   const [generatedText, setGeneratedText] = (0, import_react5.useState)("");
   const [isGenerating, setIsGenerating] = (0, import_react5.useState)(false);
   const [generationStage, setGenerationStage] = (0, import_react5.useState)("");
@@ -24090,6 +24092,12 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
   };
   const isGuidedDemoActive = demoStep !== "off" && demoStep !== "done";
   const canUseAiInDemo = apiKeyPresent;
+  const clampWords = (raw, fallback) => {
+    const parsed = parseInt(raw, 10);
+    if (!Number.isFinite(parsed))
+      return fallback;
+    return Math.max(100, Math.min(2e6, parsed));
+  };
   const startGuidedDemo = () => {
     if (!plugin.settings.guidedDemoShownOnce) {
       plugin.settings.guidedDemoShownOnce = true;
@@ -24102,6 +24110,8 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
     setGeneratedText("");
     setMinWords(800);
     setMaxWords(1200);
+    setMinWordsInput("800");
+    setMaxWordsInput("1200");
     setMode("chapter");
     setSelectedText(
       [
@@ -24124,6 +24134,12 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
       plugin.settings.apiKey ? "Guided demo started. This will only generate demo text." : "Guided demo started in offline mode (no API key)."
     );
   };
+  (0, import_react5.useEffect)(() => {
+    setMinWordsInput(String(minWords));
+  }, [minWords]);
+  (0, import_react5.useEffect)(() => {
+    setMaxWordsInput(String(maxWords));
+  }, [maxWords]);
   const exitGuidedDemo = () => {
     setDemoStep("off");
     setDemoStepCompleted({
@@ -24685,13 +24701,24 @@ Continue anyway?`,
     "input",
     {
       type: "number",
-      value: minWords,
-      onChange: (e) => {
-        const v = parseInt(e.target.value) || 0;
-        const nextMin = Math.max(100, Math.min(2e6, v));
+      value: minWordsInput,
+      onChange: (e) => setMinWordsInput(e.target.value),
+      onBlur: () => {
+        const nextMin = clampWords(minWordsInput, minWords);
         setMinWords(nextMin);
         if (nextMin > maxWords)
           setMaxWords(nextMin);
+        setMinWordsInput(String(nextMin));
+      },
+      onKeyDown: (e) => {
+        if (e.key === "Enter") {
+          const nextMin = clampWords(minWordsInput, minWords);
+          setMinWords(nextMin);
+          if (nextMin > maxWords)
+            setMaxWords(nextMin);
+          setMinWordsInput(String(nextMin));
+          e.currentTarget.blur();
+        }
       },
       min: "100",
       max: "2000000"
@@ -24700,13 +24727,24 @@ Continue anyway?`,
     "input",
     {
       type: "number",
-      value: maxWords,
-      onChange: (e) => {
-        const v = parseInt(e.target.value) || 0;
-        const nextMax = Math.max(100, Math.min(2e6, v));
+      value: maxWordsInput,
+      onChange: (e) => setMaxWordsInput(e.target.value),
+      onBlur: () => {
+        const nextMax = clampWords(maxWordsInput, maxWords);
         setMaxWords(nextMax);
         if (nextMax < minWords)
           setMinWords(nextMax);
+        setMaxWordsInput(String(nextMax));
+      },
+      onKeyDown: (e) => {
+        if (e.key === "Enter") {
+          const nextMax = clampWords(maxWordsInput, maxWords);
+          setMaxWords(nextMax);
+          if (nextMax < minWords)
+            setMinWords(nextMax);
+          setMaxWordsInput(String(nextMax));
+          e.currentTarget.blur();
+        }
       },
       min: "100",
       max: "2000000"

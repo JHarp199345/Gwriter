@@ -56,6 +56,10 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [directorNotes, setDirectorNotes] = useState('');
 	const [minWords, setMinWords] = useState(2000);
 	const [maxWords, setMaxWords] = useState(6000);
+	// Keep a string buffer so users can clear/edit the number inputs naturally.
+	// We clamp/commit to numeric state on blur/Enter.
+	const [minWordsInput, setMinWordsInput] = useState<string>('2000');
+	const [maxWordsInput, setMaxWordsInput] = useState<string>('6000');
 	const [generatedText, setGeneratedText] = useState('');
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [generationStage, setGenerationStage] = useState<string>('');
@@ -152,6 +156,12 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const isGuidedDemoActive = demoStep !== 'off' && demoStep !== 'done';
 	const canUseAiInDemo = apiKeyPresent;
 
+	const clampWords = (raw: string, fallback: number): number => {
+		const parsed = parseInt(raw, 10);
+		if (!Number.isFinite(parsed)) return fallback;
+		return Math.max(100, Math.min(2_000_000, parsed));
+	};
+
 	const startGuidedDemo = () => {
 		// Mark as shown so we don't auto-start repeatedly for the same vault.
 		if (!plugin.settings.guidedDemoShownOnce) {
@@ -169,6 +179,8 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		// Smaller range to keep demo fast/cheap
 		setMinWords(800);
 		setMaxWords(1200);
+		setMinWordsInput('800');
+		setMaxWordsInput('1200');
 
 		// Step 1: chapter generate
 		setMode('chapter');
@@ -197,6 +209,15 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				: 'Guided demo started in offline mode (no API key).'
 		);
 	};
+
+	// Keep input buffers in sync when numeric values change (e.g., demo start)
+	useEffect(() => {
+		setMinWordsInput(String(minWords));
+	}, [minWords]);
+
+	useEffect(() => {
+		setMaxWordsInput(String(maxWords));
+	}, [maxWords]);
 
 	const exitGuidedDemo = () => {
 		setDemoStep('off');
@@ -936,12 +957,22 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							<label>Target word range:</label>
 							<input
 								type="number"
-								value={minWords}
-								onChange={(e) => {
-									const v = parseInt(e.target.value) || 0;
-									const nextMin = Math.max(100, Math.min(2000000, v));
+								value={minWordsInput}
+								onChange={(e) => setMinWordsInput(e.target.value)}
+								onBlur={() => {
+									const nextMin = clampWords(minWordsInput, minWords);
 									setMinWords(nextMin);
 									if (nextMin > maxWords) setMaxWords(nextMin);
+									setMinWordsInput(String(nextMin));
+								}}
+								onKeyDown={(e) => {
+									if (e.key === 'Enter') {
+										const nextMin = clampWords(minWordsInput, minWords);
+										setMinWords(nextMin);
+										if (nextMin > maxWords) setMaxWords(nextMin);
+										setMinWordsInput(String(nextMin));
+										(e.currentTarget as HTMLInputElement).blur();
+									}
 								}}
 								min="100"
 								max="2000000"
@@ -949,12 +980,22 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							<span style={{ margin: '0 8px' }}>to</span>
 							<input
 								type="number"
-								value={maxWords}
-								onChange={(e) => {
-									const v = parseInt(e.target.value) || 0;
-									const nextMax = Math.max(100, Math.min(2000000, v));
+								value={maxWordsInput}
+								onChange={(e) => setMaxWordsInput(e.target.value)}
+								onBlur={() => {
+									const nextMax = clampWords(maxWordsInput, maxWords);
 									setMaxWords(nextMax);
 									if (nextMax < minWords) setMinWords(nextMax);
+									setMaxWordsInput(String(nextMax));
+								}}
+								onKeyDown={(e) => {
+									if (e.key === 'Enter') {
+										const nextMax = clampWords(maxWordsInput, maxWords);
+										setMaxWords(nextMax);
+										if (nextMax < minWords) setMinWords(nextMax);
+										setMaxWordsInput(String(nextMax));
+										(e.currentTarget as HTMLInputElement).blur();
+									}
 								}}
 								min="100"
 								max="2000000"
