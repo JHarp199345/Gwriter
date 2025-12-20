@@ -13,6 +13,16 @@ export interface MultiModelResult {
 }
 
 export class AIClient {
+	private _safeJsonPreview(value: unknown, maxLen = 1200): string {
+		try {
+			const text = JSON.stringify(value);
+			if (!text) return '';
+			return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text;
+		} catch {
+			return '';
+		}
+	}
+
 	async generate(
 		prompt: string,
 		settings: DashboardSettings
@@ -180,7 +190,14 @@ export class AIClient {
 		}
 
 		const data = await response.json();
-		return data.choices[0].message.content;
+		const content = data?.choices?.[0]?.message?.content;
+		if (typeof content !== 'string' || content.trim().length === 0) {
+			throw new Error(
+				`OpenRouter response missing message content. ` +
+				`Preview: ${this._safeJsonPreview(data?.error || data)}`
+			);
+		}
+		return content;
 	}
 
 	private async _generateOpenAI(prompt: string, settings: DashboardSettings): Promise<string> {
@@ -207,7 +224,14 @@ export class AIClient {
 		}
 
 		const data = await response.json();
-		return data.choices[0].message.content;
+		const content = data?.choices?.[0]?.message?.content;
+		if (typeof content !== 'string' || content.trim().length === 0) {
+			throw new Error(
+				`OpenAI response missing message content. ` +
+				`Preview: ${this._safeJsonPreview(data?.error || data)}`
+			);
+		}
+		return content;
 	}
 
 	private async _generateAnthropic(prompt: string, settings: DashboardSettings): Promise<string> {
@@ -233,7 +257,14 @@ export class AIClient {
 		}
 
 		const data = await response.json();
-		return data.content[0].text;
+		const text = data?.content?.[0]?.text;
+		if (typeof text !== 'string' || text.trim().length === 0) {
+			throw new Error(
+				`Anthropic response missing content text. ` +
+				`Preview: ${this._safeJsonPreview(data?.error || data)}`
+			);
+		}
+		return text;
 	}
 
 	private async _generateGemini(prompt: string, settings: DashboardSettings): Promise<string> {
@@ -264,7 +295,34 @@ export class AIClient {
 		}
 
 		const data = await response.json();
-		return data.candidates[0].content.parts[0].text;
+
+		const candidates = data?.candidates;
+		if (!Array.isArray(candidates) || candidates.length === 0) {
+			const blockReason = data?.promptFeedback?.blockReason;
+			const details =
+				blockReason ? ` blockReason=${String(blockReason)}` : '';
+			const preview = this._safeJsonPreview(
+				data?.error || data?.promptFeedback || data
+			);
+			throw new Error(
+				`Gemini returned no candidates.${details} Preview: ${preview}`
+			);
+		}
+
+		const parts = candidates?.[0]?.content?.parts;
+		const text = Array.isArray(parts)
+			? parts.map((p: any) => p?.text).filter(Boolean).join('\n')
+			: undefined;
+
+		if (typeof text !== 'string' || text.trim().length === 0) {
+			const finishReason = candidates?.[0]?.finishReason;
+			const preview = this._safeJsonPreview(candidates?.[0] || data);
+			throw new Error(
+				`Gemini candidate missing text. finishReason=${String(finishReason)} Preview: ${preview}`
+			);
+		}
+
+		return text;
 	}
 }
 

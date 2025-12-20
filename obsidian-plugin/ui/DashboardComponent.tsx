@@ -192,6 +192,29 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		setError(null);
 		setGenerationStage('Loading book...');
 		
+		const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+		const getErrorMessage = (err: unknown) =>
+			err instanceof Error ? err.message : String(err);
+
+		const withRetries = async <T,>(
+			label: string,
+			fn: () => Promise<T>,
+			maxRetries = 2
+		): Promise<T> => {
+			let attempt = 0;
+			while (true) {
+				try {
+					return await fn();
+				} catch (err) {
+					attempt++;
+					if (attempt > maxRetries) throw err;
+					setGenerationStage(`${label} (retry ${attempt}/${maxRetries})...`);
+					// backoff: 600ms, 1200ms, ...
+					await sleep(600 * attempt);
+				}
+			}
+		};
+
 		try {
 			// Read the entire book file
 			const bookPath = plugin.settings.characterExtractionSourcePath || plugin.settings.book2Path;
@@ -205,12 +228,6 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			// Skip if unchanged since last processing
 			const hashNow = fnv1a32(bookText);
 			const fileState = plugin.settings.fileState?.[bookPath] || {};
-			if (fileState.lastProcessHash === hashNow) {
-				setError(null);
-				setGenerationStage('');
-				alert('Book unchanged since last processing — skipping.');
-				return;
-			}
 
 			// Split by H1 chapters for better coherence; fallback to word chunks if no headings exist
 			const chapters = TextChunker.splitByH1(bookText);
@@ -226,26 +243,81 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			const characterNotes = await plugin.contextAggregator.getCharacterNotes();
 			const storyBible = await plugin.contextAggregator.readFile(plugin.settings.storyBiblePath);
 
-			// Pass 1: global roster (high recall)
-			const rosterEntries: ReturnType<typeof parseCharacterRoster> = [];
-			for (let i = 0; i < chapters.length; i++) {
-				setGenerationStage(`Pass 1/2: Roster scan ${i + 1} of ${totalChapters}...`);
-				const passage = chapters[i].fullText;
-				const rosterPrompt = plugin.promptEngine.buildCharacterRosterPrompt(passage, storyBible);
-				const singleModeSettings = { ...plugin.settings, generationMode: 'single' as const };
-				const rosterResult = await plugin.aiClient.generate(rosterPrompt, singleModeSettings) as string;
-				rosterEntries.push(...parseCharacterRoster(rosterResult));
+			// Decide whether we're retrying only failed chapters (same hash) or doing a full run.
+			const meta = fileState.bulkProcessMeta;
+			const canRetryFailures =
+				meta &&
+				meta.hash === hashNow &&
+				typeof meta.rosterText === 'string' &&
+				Array.isArray(meta.failedChapterIndices) &&
+				meta.failedChapterIndices.length > 0;
+
+			// Skip only when unchanged AND there are no recorded failures to retry
+			if (fileState.lastProcessHash === hashNow && !canRetryFailures) {
+				setError(null);
+				setGenerationStage('');
+				alert('Book unchanged since last processing — skipping.');
+				return;
 			}
-			// De-dupe roster again after aggregation
-			const mergedRoster = parseCharacterRoster(rosterToBulletList(rosterEntries));
-			const rosterText = rosterToBulletList(mergedRoster);
+
+			let rosterText: string;
+			const failedChapterIndices: number[] = [];
+
+			if (canRetryFailures) {
+				rosterText = meta!.rosterText!;
+				setGenerationStage(
+					`Retrying ${meta!.failedChapterIndices!.length} failed chapter(s) (no restart)...`
+				);
+			} else {
+				setGenerationStage(`Pass 1/2: Building roster from ${totalChapters} chapter(s)...`);
+
+				// Pass 1: global roster (high recall)
+				const rosterEntries: ReturnType<typeof parseCharacterRoster> = [];
+				for (let i = 0; i < chapters.length; i++) {
+					const label = `Pass 1/2: Roster scan ${i + 1} of ${totalChapters}`;
+					setGenerationStage(`${label}...`);
+					const passage = chapters[i].fullText;
+					const rosterPrompt = plugin.promptEngine.buildCharacterRosterPrompt(passage, storyBible);
+					const singleModeSettings = { ...plugin.settings, generationMode: 'single' as const };
+					try {
+						const rosterResult = await withRetries(label, async () => {
+							return (await plugin.aiClient.generate(rosterPrompt, singleModeSettings)) as string;
+						}, 2);
+						rosterEntries.push(...parseCharacterRoster(rosterResult));
+					} catch (err: unknown) {
+						console.error(`Roster scan failed at chapter ${i + 1}:`, err);
+						// Continue; roster is best-effort, failures here shouldn't kill the whole run.
+					}
+				}
+				// De-dupe roster again after aggregation
+				const mergedRoster = parseCharacterRoster(rosterToBulletList(rosterEntries));
+				rosterText = rosterToBulletList(mergedRoster);
+
+				// Persist roster immediately so if extraction fails, rerun can retry without re-roster
+				plugin.settings.fileState = plugin.settings.fileState || {};
+				plugin.settings.fileState[bookPath] = {
+					...(plugin.settings.fileState[bookPath] || {}),
+					bulkProcessMeta: {
+						hash: hashNow,
+						rosterText,
+						failedChapterIndices: []
+					}
+				};
+				await plugin.saveSettings();
+			}
 
 			setGenerationStage(`Pass 2/2: Extracting character updates from ${totalChapters} chapter(s)...`);
 
 			// Pass 2: per-chapter extraction using roster + strict parsing
 			const allUpdates: Map<string, string[]> = new Map();
-			for (let i = 0; i < chapters.length; i++) {
-				setGenerationStage(`Pass 2/2: Chapter ${i + 1} of ${totalChapters}...`);
+			const chapterIndicesToProcess = canRetryFailures
+				? meta!.failedChapterIndices!
+				: chapters.map((_, idx) => idx);
+
+			for (let k = 0; k < chapterIndicesToProcess.length; k++) {
+				const i = chapterIndicesToProcess[k];
+				const label = `Pass 2/2: Chapter ${i + 1} of ${totalChapters}`;
+				setGenerationStage(`${label}...`);
 				const passage = chapters[i].fullText;
 				const prompt = plugin.promptEngine.buildCharacterExtractionPromptWithRoster({
 					passage,
@@ -254,11 +326,18 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					storyBible
 				});
 				const singleModeSettings = { ...plugin.settings, generationMode: 'single' as const };
-				const extractionResult = await plugin.aiClient.generate(prompt, singleModeSettings) as string;
-				const updates = plugin.characterExtractor.parseExtraction(extractionResult, { strict: true });
-				for (const update of updates) {
-					if (!allUpdates.has(update.character)) allUpdates.set(update.character, []);
-					allUpdates.get(update.character)!.push(update.update);
+				try {
+					const extractionResult = await withRetries(label, async () => {
+						return (await plugin.aiClient.generate(prompt, singleModeSettings)) as string;
+					}, 3);
+					const updates = plugin.characterExtractor.parseExtraction(extractionResult, { strict: true });
+					for (const update of updates) {
+						if (!allUpdates.has(update.character)) allUpdates.set(update.character, []);
+						allUpdates.get(update.character)!.push(update.update);
+					}
+				} catch (err: unknown) {
+					console.error(`${label} failed:`, err);
+					failedChapterIndices.push(i);
 				}
 			}
 			
@@ -277,15 +356,28 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			plugin.settings.fileState[bookPath] = {
 				...(plugin.settings.fileState[bookPath] || {}),
 				lastProcessHash: hashNow,
-				lastProcessedAt: new Date().toISOString()
+				lastProcessedAt: new Date().toISOString(),
+				bulkProcessMeta: {
+					hash: hashNow,
+					rosterText,
+					failedChapterIndices
+				}
 			};
 			await plugin.saveSettings();
 			
 			setError(null);
 			setGenerationStage('');
-			alert(`Processed entire book and updated ${aggregatedUpdates.length} character note(s)`);
-		} catch (err: any) {
-			setError(err.message || 'Processing entire book failed');
+			if (failedChapterIndices.length > 0) {
+				alert(
+					`Processed entire book and updated ${aggregatedUpdates.length} character note(s)\n\n` +
+					`Some chapters failed (${failedChapterIndices.length}). Re-run "Process Entire Book" to retry only the failures.\n` +
+					`Failed chapters: ${failedChapterIndices.map((n) => n + 1).join(', ')}`
+				);
+			} else {
+				alert(`Processed entire book and updated ${aggregatedUpdates.length} character note(s)`);
+			}
+		} catch (err: unknown) {
+			setError(getErrorMessage(err) || 'Processing entire book failed');
 			console.error('Process entire book error:', err);
 			setGenerationStage('');
 		} finally {

@@ -51,6 +51,15 @@ export interface DashboardSettings {
 			lastChunkCount?: number;
 			lastProcessHash?: string;
 			lastProcessedAt?: string;
+			/**
+			 * Persisted state for bulk character extraction so we can retry only failed chapters
+			 * (without restarting the whole job) as long as the book hash is unchanged.
+			 */
+			bulkProcessMeta?: {
+				hash: string;
+				rosterText?: string;
+				failedChapterIndices?: number[];
+			};
 		}
 	>;
 }

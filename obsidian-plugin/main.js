@@ -24047,6 +24047,22 @@ Continue anyway?`
     setIsGenerating(true);
     setError(null);
     setGenerationStage("Loading book...");
+    const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+    const getErrorMessage = (err) => err instanceof Error ? err.message : String(err);
+    const withRetries = async (label, fn, maxRetries = 2) => {
+      let attempt = 0;
+      while (true) {
+        try {
+          return await fn();
+        } catch (err) {
+          attempt++;
+          if (attempt > maxRetries)
+            throw err;
+          setGenerationStage(`${label} (retry ${attempt}/${maxRetries})...`);
+          await sleep(600 * attempt);
+        }
+      }
+    };
     try {
       const bookPath = plugin.settings.characterExtractionSourcePath || plugin.settings.book2Path;
       const bookText = await plugin.contextAggregator.readFile(bookPath);
@@ -24056,12 +24072,6 @@ Continue anyway?`
       }
       const hashNow = fnv1a32(bookText);
       const fileState = ((_a = plugin.settings.fileState) == null ? void 0 : _a[bookPath]) || {};
-      if (fileState.lastProcessHash === hashNow) {
-        setError(null);
-        setGenerationStage("");
-        alert("Book unchanged since last processing \u2014 skipping.");
-        return;
-      }
       const chapters = TextChunker.splitByH1(bookText);
       const totalChapters = chapters.length;
       if (totalChapters === 0) {
@@ -24071,21 +24081,59 @@ Continue anyway?`
       setGenerationStage(`Pass 1/2: Building roster from ${totalChapters} chapter(s)...`);
       const characterNotes = await plugin.contextAggregator.getCharacterNotes();
       const storyBible = await plugin.contextAggregator.readFile(plugin.settings.storyBiblePath);
-      const rosterEntries = [];
-      for (let i = 0; i < chapters.length; i++) {
-        setGenerationStage(`Pass 1/2: Roster scan ${i + 1} of ${totalChapters}...`);
-        const passage = chapters[i].fullText;
-        const rosterPrompt = plugin.promptEngine.buildCharacterRosterPrompt(passage, storyBible);
-        const singleModeSettings = { ...plugin.settings, generationMode: "single" };
-        const rosterResult = await plugin.aiClient.generate(rosterPrompt, singleModeSettings);
-        rosterEntries.push(...parseCharacterRoster(rosterResult));
+      const meta = fileState.bulkProcessMeta;
+      const canRetryFailures = meta && meta.hash === hashNow && typeof meta.rosterText === "string" && Array.isArray(meta.failedChapterIndices) && meta.failedChapterIndices.length > 0;
+      if (fileState.lastProcessHash === hashNow && !canRetryFailures) {
+        setError(null);
+        setGenerationStage("");
+        alert("Book unchanged since last processing \u2014 skipping.");
+        return;
       }
-      const mergedRoster = parseCharacterRoster(rosterToBulletList(rosterEntries));
-      const rosterText = rosterToBulletList(mergedRoster);
+      let rosterText;
+      const failedChapterIndices = [];
+      if (canRetryFailures) {
+        rosterText = meta.rosterText;
+        setGenerationStage(
+          `Retrying ${meta.failedChapterIndices.length} failed chapter(s) (no restart)...`
+        );
+      } else {
+        setGenerationStage(`Pass 1/2: Building roster from ${totalChapters} chapter(s)...`);
+        const rosterEntries = [];
+        for (let i = 0; i < chapters.length; i++) {
+          const label = `Pass 1/2: Roster scan ${i + 1} of ${totalChapters}`;
+          setGenerationStage(`${label}...`);
+          const passage = chapters[i].fullText;
+          const rosterPrompt = plugin.promptEngine.buildCharacterRosterPrompt(passage, storyBible);
+          const singleModeSettings = { ...plugin.settings, generationMode: "single" };
+          try {
+            const rosterResult = await withRetries(label, async () => {
+              return await plugin.aiClient.generate(rosterPrompt, singleModeSettings);
+            }, 2);
+            rosterEntries.push(...parseCharacterRoster(rosterResult));
+          } catch (err) {
+            console.error(`Roster scan failed at chapter ${i + 1}:`, err);
+          }
+        }
+        const mergedRoster = parseCharacterRoster(rosterToBulletList(rosterEntries));
+        rosterText = rosterToBulletList(mergedRoster);
+        plugin.settings.fileState = plugin.settings.fileState || {};
+        plugin.settings.fileState[bookPath] = {
+          ...plugin.settings.fileState[bookPath] || {},
+          bulkProcessMeta: {
+            hash: hashNow,
+            rosterText,
+            failedChapterIndices: []
+          }
+        };
+        await plugin.saveSettings();
+      }
       setGenerationStage(`Pass 2/2: Extracting character updates from ${totalChapters} chapter(s)...`);
       const allUpdates = /* @__PURE__ */ new Map();
-      for (let i = 0; i < chapters.length; i++) {
-        setGenerationStage(`Pass 2/2: Chapter ${i + 1} of ${totalChapters}...`);
+      const chapterIndicesToProcess = canRetryFailures ? meta.failedChapterIndices : chapters.map((_, idx) => idx);
+      for (let k = 0; k < chapterIndicesToProcess.length; k++) {
+        const i = chapterIndicesToProcess[k];
+        const label = `Pass 2/2: Chapter ${i + 1} of ${totalChapters}`;
+        setGenerationStage(`${label}...`);
         const passage = chapters[i].fullText;
         const prompt = plugin.promptEngine.buildCharacterExtractionPromptWithRoster({
           passage,
@@ -24094,12 +24142,19 @@ Continue anyway?`
           storyBible
         });
         const singleModeSettings = { ...plugin.settings, generationMode: "single" };
-        const extractionResult = await plugin.aiClient.generate(prompt, singleModeSettings);
-        const updates = plugin.characterExtractor.parseExtraction(extractionResult, { strict: true });
-        for (const update of updates) {
-          if (!allUpdates.has(update.character))
-            allUpdates.set(update.character, []);
-          allUpdates.get(update.character).push(update.update);
+        try {
+          const extractionResult = await withRetries(label, async () => {
+            return await plugin.aiClient.generate(prompt, singleModeSettings);
+          }, 3);
+          const updates = plugin.characterExtractor.parseExtraction(extractionResult, { strict: true });
+          for (const update of updates) {
+            if (!allUpdates.has(update.character))
+              allUpdates.set(update.character, []);
+            allUpdates.get(update.character).push(update.update);
+          }
+        } catch (err) {
+          console.error(`${label} failed:`, err);
+          failedChapterIndices.push(i);
         }
       }
       const aggregatedUpdates = Array.from(allUpdates.entries()).map(([character, updates]) => ({
@@ -24112,14 +24167,28 @@ Continue anyway?`
       plugin.settings.fileState[bookPath] = {
         ...plugin.settings.fileState[bookPath] || {},
         lastProcessHash: hashNow,
-        lastProcessedAt: new Date().toISOString()
+        lastProcessedAt: new Date().toISOString(),
+        bulkProcessMeta: {
+          hash: hashNow,
+          rosterText,
+          failedChapterIndices
+        }
       };
       await plugin.saveSettings();
       setError(null);
       setGenerationStage("");
-      alert(`Processed entire book and updated ${aggregatedUpdates.length} character note(s)`);
+      if (failedChapterIndices.length > 0) {
+        alert(
+          `Processed entire book and updated ${aggregatedUpdates.length} character note(s)
+
+Some chapters failed (${failedChapterIndices.length}). Re-run "Process Entire Book" to retry only the failures.
+Failed chapters: ${failedChapterIndices.map((n) => n + 1).join(", ")}`
+        );
+      } else {
+        alert(`Processed entire book and updated ${aggregatedUpdates.length} character note(s)`);
+      }
     } catch (err) {
-      setError(err.message || "Processing entire book failed");
+      setError(getErrorMessage(err) || "Processing entire book failed");
       console.error("Process entire book error:", err);
       setGenerationStage("");
     } finally {
@@ -25534,6 +25603,16 @@ Do not output any other sections.`;
 
 // services/AIClient.ts
 var AIClient = class {
+  _safeJsonPreview(value, maxLen = 1200) {
+    try {
+      const text = JSON.stringify(value);
+      if (!text)
+        return "";
+      return text.length > maxLen ? `${text.slice(0, maxLen)}\u2026` : text;
+    } catch (e) {
+      return "";
+    }
+  }
   async generate(prompt, settings) {
     if (settings.generationMode === "multi") {
       return await this.generateMulti(prompt, settings);
@@ -25645,7 +25724,7 @@ ${alt}`).join("\n\n---\n\n")}`;
     };
   }
   async _generateOpenRouter(prompt, settings) {
-    var _a;
+    var _a, _b, _c, _d;
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -25669,10 +25748,16 @@ ${alt}`).join("\n\n---\n\n")}`;
       throw new Error(`OpenRouter API error: ${((_a = error.error) == null ? void 0 : _a.message) || response.statusText}`);
     }
     const data = await response.json();
-    return data.choices[0].message.content;
+    const content = (_d = (_c = (_b = data == null ? void 0 : data.choices) == null ? void 0 : _b[0]) == null ? void 0 : _c.message) == null ? void 0 : _d.content;
+    if (typeof content !== "string" || content.trim().length === 0) {
+      throw new Error(
+        `OpenRouter response missing message content. Preview: ${this._safeJsonPreview((data == null ? void 0 : data.error) || data)}`
+      );
+    }
+    return content;
   }
   async _generateOpenAI(prompt, settings) {
-    var _a;
+    var _a, _b, _c, _d;
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -25694,10 +25779,16 @@ ${alt}`).join("\n\n---\n\n")}`;
       throw new Error(`OpenAI API error: ${((_a = error.error) == null ? void 0 : _a.message) || response.statusText}`);
     }
     const data = await response.json();
-    return data.choices[0].message.content;
+    const content = (_d = (_c = (_b = data == null ? void 0 : data.choices) == null ? void 0 : _b[0]) == null ? void 0 : _c.message) == null ? void 0 : _d.content;
+    if (typeof content !== "string" || content.trim().length === 0) {
+      throw new Error(
+        `OpenAI response missing message content. Preview: ${this._safeJsonPreview((data == null ? void 0 : data.error) || data)}`
+      );
+    }
+    return content;
   }
   async _generateAnthropic(prompt, settings) {
-    var _a;
+    var _a, _b, _c;
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -25718,10 +25809,16 @@ ${alt}`).join("\n\n---\n\n")}`;
       throw new Error(`Anthropic API error: ${((_a = error.error) == null ? void 0 : _a.message) || response.statusText}`);
     }
     const data = await response.json();
-    return data.content[0].text;
+    const text = (_c = (_b = data == null ? void 0 : data.content) == null ? void 0 : _b[0]) == null ? void 0 : _c.text;
+    if (typeof text !== "string" || text.trim().length === 0) {
+      throw new Error(
+        `Anthropic response missing content text. Preview: ${this._safeJsonPreview((data == null ? void 0 : data.error) || data)}`
+      );
+    }
+    return text;
   }
   async _generateGemini(prompt, settings) {
-    var _a;
+    var _a, _b, _c, _d, _e;
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
       {
@@ -25747,7 +25844,27 @@ ${alt}`).join("\n\n---\n\n")}`;
       throw new Error(`Gemini API error: ${((_a = error.error) == null ? void 0 : _a.message) || response.statusText}`);
     }
     const data = await response.json();
-    return data.candidates[0].content.parts[0].text;
+    const candidates = data == null ? void 0 : data.candidates;
+    if (!Array.isArray(candidates) || candidates.length === 0) {
+      const blockReason = (_b = data == null ? void 0 : data.promptFeedback) == null ? void 0 : _b.blockReason;
+      const details = blockReason ? ` blockReason=${String(blockReason)}` : "";
+      const preview = this._safeJsonPreview(
+        (data == null ? void 0 : data.error) || (data == null ? void 0 : data.promptFeedback) || data
+      );
+      throw new Error(
+        `Gemini returned no candidates.${details} Preview: ${preview}`
+      );
+    }
+    const parts = (_d = (_c = candidates == null ? void 0 : candidates[0]) == null ? void 0 : _c.content) == null ? void 0 : _d.parts;
+    const text = Array.isArray(parts) ? parts.map((p) => p == null ? void 0 : p.text).filter(Boolean).join("\n") : void 0;
+    if (typeof text !== "string" || text.trim().length === 0) {
+      const finishReason = (_e = candidates == null ? void 0 : candidates[0]) == null ? void 0 : _e.finishReason;
+      const preview = this._safeJsonPreview((candidates == null ? void 0 : candidates[0]) || data);
+      throw new Error(
+        `Gemini candidate missing text. finishReason=${String(finishReason)} Preview: ${preview}`
+      );
+    }
+    return text;
   }
 };
 
