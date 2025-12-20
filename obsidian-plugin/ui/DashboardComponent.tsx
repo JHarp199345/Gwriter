@@ -38,6 +38,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 	const [mode, setMode] = useState<Mode>('chapter');
 	const [demoStep, setDemoStep] = useState<DemoStep>('off');
+	const [demoUsesAi, setDemoUsesAi] = useState<boolean>(Boolean(plugin.settings.apiKey));
 	const [demoStepCompleted, setDemoStepCompleted] = useState<Record<Exclude<DemoStep, 'off'>, boolean>>({
 		chapter: false,
 		'micro-edit': false,
@@ -67,6 +68,86 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 	const DEMO_FOLDER = 'Writing dashboard demo';
 	const DEMO_CHARACTER_FOLDER = `${DEMO_FOLDER}/Characters`;
+	const DEMO_PROVIDER_LINKS: Array<{ name: string; url: string }> = [
+		{ name: 'OpenAI', url: 'https://platform.openai.com/api-keys' },
+		{ name: 'Anthropic', url: 'https://console.anthropic.com/settings/keys' },
+		{ name: 'Google Gemini', url: 'https://aistudio.google.com/app/apikey' },
+		{ name: 'OpenRouter', url: 'https://openrouter.ai/keys' }
+	];
+
+	const DEMO_CHAPTER_OUTPUT =
+		`Ava kept to the seam of shadow where the alley met the service corridor, ` +
+		`the city’s night noise dulled by concrete and distance. The corporate tower rose ` +
+		`above her like a blackened ribcage, windows lit in irregular bands as though the ` +
+		`building itself was breathing.\n\n` +
+		`Marcus slid in beside her with the careless ease of someone who’d never been caught. ` +
+		`He smelled faintly of rain and cheap coffee. “We’re late,” he whispered.\n\n` +
+		`“We’re early,” Ava corrected. She watched the security camera complete its slow pan, ` +
+		`then pause, then pan again. The rhythm mattered. Everything did. “If we rush, we miss the blind spot.”\n\n` +
+		`Marcus’s mouth twitched. “Or we miss the keycard walking right past us. I told you. ` +
+		`We grab it off the intern. Quick, clean.”\n\n` +
+		`Ava flexed her gloved fingers around the thin coil of line in her pocket. She didn’t look at him. ` +
+		`“And then what? You sprint down a hallway with a tower full of sensors tracking your heartbeat?”\n\n` +
+		`“I’ve sprinted through worse.”\n\n` +
+		`“You’ve survived worse,” Ava said, “because you got lucky.”\n\n` +
+		`The corridor door ahead had a keypad and a reader. The stolen card would open it. ` +
+		`Her stolen card. A small rectangle of plastic that held too much: access to archives, ` +
+		`to names, to proof. She could feel it like a phantom weight in her palm.\n\n` +
+		`Footsteps approached—soft, measured. Ava drew Marcus back with two fingers to his sleeve. ` +
+		`They pressed into the alcove as a security guard passed, head tilted toward the earpiece wire ` +
+		`threaded behind his ear.\n\n` +
+		`“Rotation’s off,” Marcus breathed once the guard was gone. “They’re nervous.”\n\n` +
+		`Ava’s gaze snagged on a faint glimmer near the reader: a strip of reflective tape, almost invisible. ` +
+		`A marker. Not theirs. She swallowed. “Someone’s already here.”\n\n` +
+		`Marcus leaned closer. “Or someone was.”\n\n` +
+		`Ava’s heart kicked once, hard. She lifted her hand to the keypad—then froze. ` +
+		`Behind the tinted glass of the corridor door, a phone screen lit for a second and went dark.\n\n` +
+		`A message, no sender, no notification sound.\n\n` +
+		`JUST THIS: “AVA, DON’T.”`;
+
+	const DEMO_MICRO_EDIT_OUTPUT =
+		`Ava kept to the seam of shadow where the alley met the service corridor, ` +
+		`tracking the camera’s sweep like a metronome. Pan. Pause. Pan. The blind spot lived in the pause.\n\n` +
+		`Marcus drifted in beside her, too relaxed for a man who should’ve been afraid. “We’re late,” he whispered.\n\n` +
+		`“We’re early,” Ava said. She didn’t take her eyes off the lens. “Early keeps you alive.”\n\n` +
+		`His breath hitched into something like a laugh. “Or it keeps you standing here while the keycard walks away.”\n\n` +
+		`Ava’s fingers tightened around the coil of line in her pocket. “We do this my way. Quiet. Controlled. ` +
+		`No hero runs.”\n\n` +
+		`“I’m not a hero,” Marcus murmured. “I’m just fast.”\n\n` +
+		`“Fast gets noticed.” Ava waited for the lens to turn, then moved—one step, two—into the thin slice of safety.\n\n` +
+		`The corridor door waited with its keypad and reader, the place her stolen card would’ve belonged. ` +
+		`A small piece of plastic that could unlock a vault of truths.\n\n` +
+		`Footsteps approached. Ava snagged Marcus by his sleeve and pulled him into the alcove. ` +
+		`A security guard passed, eyes forward, earwire gleaming.\n\n` +
+		`When the sound faded, Marcus leaned in. “Rotation’s off,” he said. “They’re spooked.”\n\n` +
+		`Ava stared at the reader and felt cold spread under her ribs. A sliver of reflective tape—too neat, too deliberate—` +
+		`clung near the sensor. Not theirs.\n\n` +
+		`“Someone’s already here,” she whispered.\n\n` +
+		`Marcus’s voice dropped. “Or someone was.”`;
+
+	const DEMO_CHARACTER_EXTRACTION_OUTPUT =
+		`## Ava\n` +
+		`- Highly cautious and methodical; tracks security camera rhythm and uses timing to avoid detection.\n` +
+		`- Motivated by retrieving a stolen keycard tied to access, proof, and high-stakes information.\n` +
+		`- Emotionally controlled under pressure; shows fear as tight focus rather than panic.\n` +
+		`- Prioritizes stealth and control over speed; distrusts “luck” as a strategy.\n\n` +
+		`## Marcus\n` +
+		`- Pushes for riskier, faster action; prefers direct moves over careful planning.\n` +
+		`- Confident and calm in danger; downplays fear and frames risk as survivable.\n` +
+		`- Tension with Ava: he challenges her caution; she asserts leadership and constraints.\n`;
+
+	const openPluginSettings = () => {
+		// Obsidian's settings API isn't strongly typed in the public types; use defensive access.
+		const setting = (plugin.app as unknown as { setting?: unknown }).setting as
+			| { open?: () => void; openTabById?: (id: string) => void }
+			| undefined;
+		try {
+			setting?.open?.();
+			setting?.openTabById?.('writing-dashboard');
+		} catch {
+			new Notice('Open settings → Writing dashboard to configure your API key.');
+		}
+	};
 
 	const startGuidedDemo = () => {
 		// Reset UI state
@@ -79,6 +160,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		// Smaller range to keep demo fast/cheap
 		setMinWords(800);
 		setMaxWords(1200);
+
+		// Default: offline demo if user hasn't configured an API key yet.
+		setDemoUsesAi(Boolean(plugin.settings.apiKey));
 
 		// Step 1: chapter generate
 		setMode('chapter');
@@ -101,7 +185,11 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			done: false
 		});
 
-		new Notice('Guided demo started. This will only generate demo text.');
+		if (!plugin.settings.apiKey) {
+			new Notice('Guided demo started in offline mode (no API key).');
+		} else {
+			new Notice('Guided demo started. This will only generate demo text.');
+		}
 	};
 
 	const exitGuidedDemo = () => {
@@ -204,6 +292,26 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	}, [isVaultPanelCollapsed]);
 
 	const handleGenerate = async () => {
+		// Guided demo can run without an API key (offline canned output).
+		if (!plugin.settings.apiKey && demoStep !== 'off' && !demoUsesAi) {
+			setIsGenerating(true);
+			setError(null);
+			setGenerationStage('Generating (offline demo)...');
+			try {
+				if (mode === 'chapter') {
+					setGeneratedText(DEMO_CHAPTER_OUTPUT);
+					setDemoStepCompleted((prev) => ({ ...prev, chapter: true }));
+				} else {
+					setGeneratedText(DEMO_MICRO_EDIT_OUTPUT);
+					setDemoStepCompleted((prev) => ({ ...prev, 'micro-edit': true }));
+				}
+				setGenerationStage('');
+			} finally {
+				setIsGenerating(false);
+			}
+			return;
+		}
+
 		if (!plugin.settings.apiKey) {
 			setError('Please configure your API key in settings');
 			return;
@@ -294,6 +402,28 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const handleUpdateCharacters = async () => {
 		if (!selectedText) {
 			setError('Please select text to extract character information from');
+			return;
+		}
+
+		// Guided demo can run without an API key (offline canned extraction).
+		if (!plugin.settings.apiKey && demoStep !== 'off' && !demoUsesAi) {
+			setIsGenerating(true);
+			setError(null);
+			setGenerationStage('Extracting character information (offline demo)...');
+			try {
+				const updates = plugin.characterExtractor.parseExtraction(DEMO_CHARACTER_EXTRACTION_OUTPUT);
+				await plugin.vaultService.createFolderIfNotExists(DEMO_FOLDER);
+				await plugin.vaultService.updateCharacterNotes(updates, DEMO_CHARACTER_FOLDER);
+				setDemoStepCompleted((prev) => ({ ...prev, 'character-update': true }));
+				setGenerationStage('');
+				new Notice(`Updated ${updates.length} demo character note(s)`);
+			} catch (err: unknown) {
+				const message = formatUnknownForUi(err);
+				setError(message || 'Character extraction failed');
+				setGenerationStage('');
+			} finally {
+				setIsGenerating(false);
+			}
 			return;
 		}
 
@@ -668,8 +798,24 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							{demoStep === 'character-update' && 'Step 3/3: Update characters (demo folder)'}
 							{demoStep === 'done' && 'Complete'}
 						</span>
+						{(!plugin.settings.apiKey || !demoUsesAi) && (
+							<span className="demo-banner-step">
+								Offline demo: uses sample outputs. Add an API key to run real generation.
+							</span>
+						)}
 					</div>
 					<div className="demo-banner-actions">
+						<button onClick={openPluginSettings} disabled={isGenerating} className="mod-secondary">
+							Open settings
+						</button>
+						<button
+							onClick={() => setDemoUsesAi((v) => !v)}
+							disabled={isGenerating || !plugin.settings.apiKey}
+							className="mod-secondary"
+							title={!plugin.settings.apiKey ? 'Add an API key to enable AI demo' : ''}
+						>
+							{demoUsesAi ? 'Use offline demo' : 'Use AI demo'}
+						</button>
 						{demoStep !== 'done' && (
 							<button
 								onClick={continueGuidedDemo}
