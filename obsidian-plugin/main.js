@@ -23767,7 +23767,14 @@ var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, onCop
 var import_react3 = __toESM(require_react());
 var DirectorNotes = ({ value, onChange, mode, onResetToDefault }) => {
   const textareaRef = (0, import_react3.useRef)(null);
-  const placeholder = mode === "chapter" ? "Enter your rewrite instructions..." : mode === "micro-edit" ? "Enter your grievances, plot disagreements, or desired changes..." : "Enter extraction instructions (optional). If empty, the default in settings is used.";
+  const placeholder = mode === "chapter" ? "Enter your rewrite instructions..." : mode === "micro-edit" ? `[Example: Character 1 has no knowledge of Event 1 yet, so they should not reference it here. Edit accordingly.]
+
+More examples:
+- Fix continuity (injury, timeline, locations)
+- Fix POV leaks
+- Match tone/voice to the surrounding context
+- Tighten pacing / remove repetition
+- Preserve canon; do not add new facts` : "Enter extraction instructions (optional). If empty, the default in settings is used.";
   const wordCount = TextChunker.getWordCount(value || "");
   const charCount = (value || "").length;
   return /* @__PURE__ */ import_react3.default.createElement("div", { className: "director-notes" }, /* @__PURE__ */ import_react3.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 } }, /* @__PURE__ */ import_react3.default.createElement("label", null, mode === "chapter" ? "Rewrite instructions:" : mode === "micro-edit" ? "Grievances and directives:" : "Extraction instructions:"), /* @__PURE__ */ import_react3.default.createElement("div", { style: { display: "flex", gap: 12, alignItems: "center" } }, /* @__PURE__ */ import_react3.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, wordCount.toLocaleString(), " words / ", charCount.toLocaleString(), " chars"), mode === "chapter" && onResetToDefault && /* @__PURE__ */ import_react3.default.createElement(

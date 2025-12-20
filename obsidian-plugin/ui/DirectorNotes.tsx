@@ -14,7 +14,13 @@ export const DirectorNotes: React.FC<{
 	const placeholder = mode === 'chapter' 
 		? 'Enter your rewrite instructions...'
 		: mode === 'micro-edit'
-		? 'Enter your grievances, plot disagreements, or desired changes...'
+		? `[Example: Character 1 has no knowledge of Event 1 yet, so they should not reference it here. Edit accordingly.]\n\n` +
+		  `More examples:\n` +
+		  `- Fix continuity (injury, timeline, locations)\n` +
+		  `- Fix POV leaks\n` +
+		  `- Match tone/voice to the surrounding context\n` +
+		  `- Tighten pacing / remove repetition\n` +
+		  `- Preserve canon; do not add new facts`
 		: 'Enter extraction instructions (optional). If empty, the default in settings is used.';
 
 	const wordCount = TextChunker.getWordCount(value || '');
