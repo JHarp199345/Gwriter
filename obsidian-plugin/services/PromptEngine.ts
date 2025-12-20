@@ -156,21 +156,27 @@ Generate a SINGLE refined alternative to the selected passage that:
 Output ONLY the revised passage, ready to be copy-pasted into the manuscript.`;
 	}
 
-	buildCharacterExtractionPrompt(selectedText: string, characterNotes: Record<string, string>, storyBible: string): string {
+	buildCharacterExtractionPrompt(
+		selectedText: string,
+		characterNotes: Record<string, string>,
+		storyBible: string,
+		instructions: string
+	): string {
 		const characterNotesText = Object.entries(characterNotes)
 			.map(([name, content]) => `## ${name}\n${content}`)
 			.join('\n\n');
 		
 		return `SYSTEM INSTRUCTION FOR AI:
 
-You are extracting character information from a narrative passage.
+-------------------------------------------------------------
+EXTRACTION INSTRUCTIONS
+-------------------------------------------------------------
+${instructions}
 
 -------------------------------------------------------------
 PASSAGE TO ANALYZE
 -------------------------------------------------------------
 ${selectedText}
-
-Extract character-relevant information from this passage.
 
 -------------------------------------------------------------
 EXISTING CHARACTER NOTES (IF ANY)
@@ -187,66 +193,14 @@ ${storyBible}
 Use for world context and relationship structures.
 
 -------------------------------------------------------------
-EXTRACTION TASK
+OUTPUT FORMAT (required)
 -------------------------------------------------------------
-Analyze the passage and extract:
+## Character Name
+- Bullet updates only (no extra headings)
 
-1. **Character Identities**
-   - Names mentioned
-   - New aliases or titles
-   - Role/function in scene
-
-2. **Voice Evidence**
-   - Syntax patterns
-   - Speech cadence
-   - Verbal tells or quirks
-   - Dialogue style
-
-3. **New Traits/Revelations**
-   - Physical descriptions
-   - Personality traits
-   - Skills/abilities shown
-   - Emotional states
-
-4. **Relationship Dynamics**
-   - Interactions with other characters
-   - Relationship changes or revelations
-   - Power dynamics shifts
-
-5. **Arc Progression**
-   - Character development shown
-   - Motivations revealed or changed
-   - Goals/conflicts introduced
-   - Status changes
-
-6. **Spoiler-Sensitive Information**
-   - What must not be revealed yet
-   - Foreshadowing present
-
-Output in the following format for each character found:
-
-## {{CharacterName}}
-
-### {{timestamp}} - Update
-
-**Voice Evidence:**
-[quoted dialogue or narration with page/chapter reference]
-
-**New Traits:**
-- [trait]: [evidence]
-
-**Relationships:**
-- **{{OtherCharacter}}**: [relationship change/evidence]
-
-**Arc Progression:**
-[what changed in this passage]
-
-**Spoiler Notes:**
-[any sensitive information to track]
-
----
-
-This will be appended to the character's note file with timestamp.`;
+Only include characters with meaningful new information supported by the passage.
+Do not invent facts.
+Do not output any other sections.`;
 	}
 
 	buildCharacterRosterPrompt(passage: string, storyBible: string): string {

@@ -50,6 +50,15 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [mode]);
 
+	// Character update default instructions (from settings)
+	useEffect(() => {
+		if (mode === 'character-update' && (!directorNotes || directorNotes.trim().length === 0)) {
+			setDirectorNotes(plugin.settings.defaultCharacterExtractionInstructions || '');
+		}
+		// Only run when mode changes (intentional)
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [mode]);
+
 	// Keep bulk source label in sync when entering character mode (settings changes won't otherwise re-render)
 	useEffect(() => {
 		if (mode === 'character-update') {
@@ -162,9 +171,24 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		setError(null);
 		setGenerationStage('Extracting character information...');
 		try {
+			const getEffectiveCharacterInstructions = (raw: string): string => {
+				const trimmed = (raw || '').trim();
+				const hasLetters = /[A-Za-z]/.test(trimmed);
+				if (trimmed.length < 30 || !hasLetters) {
+					return (plugin.settings.defaultCharacterExtractionInstructions || '').trim();
+				}
+				return trimmed;
+			};
+
 			const characterNotes = await plugin.contextAggregator.getCharacterNotes();
 			const storyBible = await plugin.contextAggregator.readFile(plugin.settings.storyBiblePath);
-			const prompt = plugin.promptEngine.buildCharacterExtractionPrompt(selectedText, characterNotes, storyBible);
+			const instructions = getEffectiveCharacterInstructions(directorNotes);
+			const prompt = plugin.promptEngine.buildCharacterExtractionPrompt(
+				selectedText,
+				characterNotes,
+				storyBible,
+				instructions
+			);
 			
 			// Character extraction always uses single mode
 			const singleModeSettings = { ...plugin.settings, generationMode: 'single' as const };

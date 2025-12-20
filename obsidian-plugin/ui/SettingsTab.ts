@@ -357,6 +357,17 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
+			.setName('Default character extraction instructions')
+			.setDesc('Used by character update (selected text). If the extraction instructions box is empty/invalid, this default is used instead.')
+			.addTextArea(text => text
+				.setPlaceholder('[CHARACTER UPDATE INSTRUCTIONS] ...')
+				.setValue(this.plugin.settings.defaultCharacterExtractionInstructions || '')
+				.onChange(async (value) => {
+					this.plugin.settings.defaultCharacterExtractionInstructions = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
 			.setName('Context token limit (warning)')
 			.setDesc('Shows a warning before generating if the estimated prompt tokens exceed this limit. Default: 128000.')
 			.addText(text => text

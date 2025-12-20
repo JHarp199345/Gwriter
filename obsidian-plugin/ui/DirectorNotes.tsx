@@ -15,7 +15,7 @@ export const DirectorNotes: React.FC<{
 		? 'Enter your rewrite instructions...'
 		: mode === 'micro-edit'
 		? 'Enter your grievances, plot disagreements, or desired changes...'
-		: 'Character extraction will analyze the selected text automatically...';
+		: 'Enter extraction instructions (optional). If empty, the default in settings is used.';
 
 	const wordCount = TextChunker.getWordCount(value || '');
 	const charCount = (value || '').length;
@@ -24,7 +24,11 @@ export const DirectorNotes: React.FC<{
 		<div className="director-notes">
 			<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
 				<label>
-					{mode === 'chapter' ? 'Rewrite Instructions:' : mode === 'micro-edit' ? 'Grievances & Directives:' : 'Notes (optional):'}
+					{mode === 'chapter'
+						? 'Rewrite instructions:'
+						: mode === 'micro-edit'
+						? 'Grievances and directives:'
+						: 'Extraction instructions:'}
 				</label>
 				<div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
 					<span className="generation-status" style={{ margin: 0 }}>
@@ -47,7 +51,7 @@ export const DirectorNotes: React.FC<{
 				onChange={(e) => onChange(e.target.value)}
 				placeholder={placeholder}
 				rows={6}
-				disabled={mode === 'character-update'}
+				disabled={false}
 				className="director-notes-textarea"
 			/>
 		</div>

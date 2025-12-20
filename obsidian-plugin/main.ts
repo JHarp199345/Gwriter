@@ -42,6 +42,11 @@ export interface DashboardSettings {
 	 * Defaults to 128k (common large-context tier).
 	 */
 	contextTokenLimit: number;
+	/**
+	 * Default instructions for Character Update -> "Update characters" (selected text) extraction.
+	 * Used as a fallback if the per-run instructions box is empty/invalid.
+	 */
+	defaultCharacterExtractionInstructions: string;
 	setupCompleted: boolean;
 	fileState: Record<
 		string,
@@ -84,6 +89,23 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 	slidingWindowPath: 'Memory - Sliding Window.md',
 	characterExtractionChunkSize: 2500,
 	contextTokenLimit: 128000,
+	defaultCharacterExtractionInstructions:
+		`[CHARACTER UPDATE INSTRUCTIONS]\n` +
+		`Goal: Update character notes from the provided passage only. Maintain canon from the story bible and existing character notes. Do not invent facts.\n\n` +
+		`Focus on:\n` +
+		`- Psychological/emotional reactions and development\n` +
+		`- Motivations, fears, desires, internal conflicts\n` +
+		`- Relationship dynamics and shifts\n` +
+		`- Voice patterns, verbal tells, coping behaviors\n` +
+		`- Arc progression and status changes\n\n` +
+		`Rules:\n` +
+		`- Evidence-based only: if it is not supported by the passage, omit it\n` +
+		`- If uncertain, omit it\n` +
+		`- Prefer concrete observations over summaries\n` +
+		`- If no meaningful new info exists for a character, omit that character\n\n` +
+		`Output format (required):\n` +
+		`## Character Name\n` +
+		`- Bullet updates only (no extra headings)\n`,
 	setupCompleted: false,
 	fileState: {}
 };

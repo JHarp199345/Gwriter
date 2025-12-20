@@ -23767,10 +23767,10 @@ var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, onCop
 var import_react3 = __toESM(require_react());
 var DirectorNotes = ({ value, onChange, mode, onResetToDefault }) => {
   const textareaRef = (0, import_react3.useRef)(null);
-  const placeholder = mode === "chapter" ? "Enter your rewrite instructions..." : mode === "micro-edit" ? "Enter your grievances, plot disagreements, or desired changes..." : "Character extraction will analyze the selected text automatically...";
+  const placeholder = mode === "chapter" ? "Enter your rewrite instructions..." : mode === "micro-edit" ? "Enter your grievances, plot disagreements, or desired changes..." : "Enter extraction instructions (optional). If empty, the default in settings is used.";
   const wordCount = TextChunker.getWordCount(value || "");
   const charCount = (value || "").length;
-  return /* @__PURE__ */ import_react3.default.createElement("div", { className: "director-notes" }, /* @__PURE__ */ import_react3.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 } }, /* @__PURE__ */ import_react3.default.createElement("label", null, mode === "chapter" ? "Rewrite Instructions:" : mode === "micro-edit" ? "Grievances & Directives:" : "Notes (optional):"), /* @__PURE__ */ import_react3.default.createElement("div", { style: { display: "flex", gap: 12, alignItems: "center" } }, /* @__PURE__ */ import_react3.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, wordCount.toLocaleString(), " words / ", charCount.toLocaleString(), " chars"), mode === "chapter" && onResetToDefault && /* @__PURE__ */ import_react3.default.createElement(
+  return /* @__PURE__ */ import_react3.default.createElement("div", { className: "director-notes" }, /* @__PURE__ */ import_react3.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 } }, /* @__PURE__ */ import_react3.default.createElement("label", null, mode === "chapter" ? "Rewrite instructions:" : mode === "micro-edit" ? "Grievances and directives:" : "Extraction instructions:"), /* @__PURE__ */ import_react3.default.createElement("div", { style: { display: "flex", gap: 12, alignItems: "center" } }, /* @__PURE__ */ import_react3.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, wordCount.toLocaleString(), " words / ", charCount.toLocaleString(), " chars"), mode === "chapter" && onResetToDefault && /* @__PURE__ */ import_react3.default.createElement(
     "button",
     {
       type: "button",
@@ -23786,7 +23786,7 @@ var DirectorNotes = ({ value, onChange, mode, onResetToDefault }) => {
       onChange: (e) => onChange(e.target.value),
       placeholder,
       rows: 6,
-      disabled: mode === "character-update",
+      disabled: false,
       className: "director-notes-textarea"
     }
   ));
@@ -23978,6 +23978,11 @@ var DashboardComponent = ({ plugin }) => {
     }
   }, [mode]);
   (0, import_react5.useEffect)(() => {
+    if (mode === "character-update" && (!directorNotes || directorNotes.trim().length === 0)) {
+      setDirectorNotes(plugin.settings.defaultCharacterExtractionInstructions || "");
+    }
+  }, [mode]);
+  (0, import_react5.useEffect)(() => {
     if (mode === "character-update") {
       setBulkSourcePath(plugin.settings.characterExtractionSourcePath);
     }
@@ -24073,9 +24078,23 @@ Continue anyway?`,
     setError(null);
     setGenerationStage("Extracting character information...");
     try {
+      const getEffectiveCharacterInstructions = (raw) => {
+        const trimmed = (raw || "").trim();
+        const hasLetters = /[A-Za-z]/.test(trimmed);
+        if (trimmed.length < 30 || !hasLetters) {
+          return (plugin.settings.defaultCharacterExtractionInstructions || "").trim();
+        }
+        return trimmed;
+      };
       const characterNotes = await plugin.contextAggregator.getCharacterNotes();
       const storyBible = await plugin.contextAggregator.readFile(plugin.settings.storyBiblePath);
-      const prompt = plugin.promptEngine.buildCharacterExtractionPrompt(selectedText, characterNotes, storyBible);
+      const instructions = getEffectiveCharacterInstructions(directorNotes);
+      const prompt = plugin.promptEngine.buildCharacterExtractionPrompt(
+        selectedText,
+        characterNotes,
+        storyBible,
+        instructions
+      );
       const singleModeSettings = { ...plugin.settings, generationMode: "single" };
       const extractionResult = await plugin.aiClient.generate(prompt, singleModeSettings);
       const updates = plugin.characterExtractor.parseExtraction(extractionResult);
@@ -24900,6 +24919,10 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
+    new import_obsidian6.Setting(containerEl).setName("Default character extraction instructions").setDesc("Used by character update (selected text). If the extraction instructions box is empty/invalid, this default is used instead.").addTextArea((text) => text.setPlaceholder("[CHARACTER UPDATE INSTRUCTIONS] ...").setValue(this.plugin.settings.defaultCharacterExtractionInstructions || "").onChange(async (value) => {
+      this.plugin.settings.defaultCharacterExtractionInstructions = value;
+      await this.plugin.saveSettings();
+    }));
     new import_obsidian6.Setting(containerEl).setName("Context token limit (warning)").setDesc("Shows a warning before generating if the estimated prompt tokens exceed this limit. Default: 128000.").addText((text) => {
       var _a;
       return text.setPlaceholder("128000").setValue(String((_a = this.plugin.settings.contextTokenLimit) != null ? _a : 128e3)).onChange(async (value) => {
@@ -25491,19 +25514,20 @@ Generate a SINGLE refined alternative to the selected passage that:
 
 Output ONLY the revised passage, ready to be copy-pasted into the manuscript.`;
   }
-  buildCharacterExtractionPrompt(selectedText, characterNotes, storyBible) {
+  buildCharacterExtractionPrompt(selectedText, characterNotes, storyBible, instructions) {
     const characterNotesText = Object.entries(characterNotes).map(([name, content]) => `## ${name}
 ${content}`).join("\n\n");
     return `SYSTEM INSTRUCTION FOR AI:
 
-You are extracting character information from a narrative passage.
+-------------------------------------------------------------
+EXTRACTION INSTRUCTIONS
+-------------------------------------------------------------
+${instructions}
 
 -------------------------------------------------------------
 PASSAGE TO ANALYZE
 -------------------------------------------------------------
 ${selectedText}
-
-Extract character-relevant information from this passage.
 
 -------------------------------------------------------------
 EXISTING CHARACTER NOTES (IF ANY)
@@ -25520,66 +25544,14 @@ ${storyBible}
 Use for world context and relationship structures.
 
 -------------------------------------------------------------
-EXTRACTION TASK
+OUTPUT FORMAT (required)
 -------------------------------------------------------------
-Analyze the passage and extract:
+## Character Name
+- Bullet updates only (no extra headings)
 
-1. **Character Identities**
-   - Names mentioned
-   - New aliases or titles
-   - Role/function in scene
-
-2. **Voice Evidence**
-   - Syntax patterns
-   - Speech cadence
-   - Verbal tells or quirks
-   - Dialogue style
-
-3. **New Traits/Revelations**
-   - Physical descriptions
-   - Personality traits
-   - Skills/abilities shown
-   - Emotional states
-
-4. **Relationship Dynamics**
-   - Interactions with other characters
-   - Relationship changes or revelations
-   - Power dynamics shifts
-
-5. **Arc Progression**
-   - Character development shown
-   - Motivations revealed or changed
-   - Goals/conflicts introduced
-   - Status changes
-
-6. **Spoiler-Sensitive Information**
-   - What must not be revealed yet
-   - Foreshadowing present
-
-Output in the following format for each character found:
-
-## {{CharacterName}}
-
-### {{timestamp}} - Update
-
-**Voice Evidence:**
-[quoted dialogue or narration with page/chapter reference]
-
-**New Traits:**
-- [trait]: [evidence]
-
-**Relationships:**
-- **{{OtherCharacter}}**: [relationship change/evidence]
-
-**Arc Progression:**
-[what changed in this passage]
-
-**Spoiler Notes:**
-[any sensitive information to track]
-
----
-
-This will be appended to the character's note file with timestamp.`;
+Only include characters with meaningful new information supported by the passage.
+Do not invent facts.
+Do not output any other sections.`;
   }
   buildCharacterRosterPrompt(passage, storyBible) {
     return `SYSTEM INSTRUCTION FOR AI:
@@ -26128,6 +26100,26 @@ var DEFAULT_SETTINGS = {
   slidingWindowPath: "Memory - Sliding Window.md",
   characterExtractionChunkSize: 2500,
   contextTokenLimit: 128e3,
+  defaultCharacterExtractionInstructions: `[CHARACTER UPDATE INSTRUCTIONS]
+Goal: Update character notes from the provided passage only. Maintain canon from the story bible and existing character notes. Do not invent facts.
+
+Focus on:
+- Psychological/emotional reactions and development
+- Motivations, fears, desires, internal conflicts
+- Relationship dynamics and shifts
+- Voice patterns, verbal tells, coping behaviors
+- Arc progression and status changes
+
+Rules:
+- Evidence-based only: if it is not supported by the passage, omit it
+- If uncertain, omit it
+- Prefer concrete observations over summaries
+- If no meaningful new info exists for a character, omit that character
+
+Output format (required):
+## Character Name
+- Bullet updates only (no extra headings)
+`,
   setupCompleted: false,
   fileState: {}
 };
