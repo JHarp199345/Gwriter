@@ -23964,8 +23964,10 @@ var DashboardComponent = ({ plugin }) => {
       return value;
     if (typeof value === "number" || typeof value === "boolean")
       return value.toString();
-    if (typeof value === "bigint")
-      return value.toString();
+    if (typeof value === "bigint") {
+      const bigintValue = value;
+      return bigintValue.toString();
+    }
     if (value === null)
       return "null";
     if (value === void 0)
@@ -24077,10 +24079,7 @@ Continue anyway?`,
       }
       if (plugin.settings.generationMode === "multi") {
         setGenerationStage("Initializing multi-model generation...");
-        const multiSettings = {
-          ...plugin.settings,
-          generationMode: "multi"
-        };
+        const multiSettings = { ...plugin.settings, generationMode: "multi" };
         const result = await plugin.aiClient.generate(prompt, multiSettings);
         if (result.stages) {
           setGenerationStage(`Finalizing (${Object.keys(result.stages).length} stages completed)...`);
@@ -24088,10 +24087,7 @@ Continue anyway?`,
         setGeneratedText(result.primary);
       } else {
         setGenerationStage("Generating...");
-        const singleSettings = {
-          ...plugin.settings,
-          generationMode: "single"
-        };
+        const singleSettings = { ...plugin.settings, generationMode: "single" };
         const result = await plugin.aiClient.generate(prompt, singleSettings);
         setGeneratedText(result);
       }
@@ -24135,10 +24131,7 @@ Continue anyway?`,
         storyBible,
         instructions
       );
-      const singleModeSettings = {
-        ...plugin.settings,
-        generationMode: "single"
-      };
+      const singleModeSettings = { ...plugin.settings, generationMode: "single" };
       const extractionResult = await plugin.aiClient.generate(prompt, singleModeSettings);
       const updates = plugin.characterExtractor.parseExtraction(extractionResult);
       await plugin.vaultService.updateCharacterNotes(updates);
@@ -24239,10 +24232,7 @@ Continue anyway?`,
           setGenerationStage(`${label}...`);
           const passage = chapters[i].fullText;
           const rosterPrompt = plugin.promptEngine.buildCharacterRosterPrompt(passage, storyBible);
-          const singleModeSettings = {
-            ...plugin.settings,
-            generationMode: "single"
-          };
+          const singleModeSettings = { ...plugin.settings, generationMode: "single" };
           try {
             const rosterResult = await withRetries(label, async () => {
               return await plugin.aiClient.generate(rosterPrompt, singleModeSettings);
@@ -24279,10 +24269,7 @@ Continue anyway?`,
           characterNotes,
           storyBible
         });
-        const singleModeSettings = {
-          ...plugin.settings,
-          generationMode: "single"
-        };
+        const singleModeSettings = { ...plugin.settings, generationMode: "single" };
         try {
           const extractionResult = await withRetries(label, async () => {
             return await plugin.aiClient.generate(prompt, singleModeSettings);
@@ -24945,7 +24932,7 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
       const modal = new SetupWizardModal(this.plugin);
       modal.open();
     }));
-    new import_obsidian6.Setting(containerEl).setName("Character folder").setDesc("Folder name for character notes (default: Characters)").addText((text) => text.setPlaceholder("Characters").setValue(this.plugin.settings.characterFolder).onChange(async (value) => {
+    new import_obsidian6.Setting(containerEl).setName("Character folder").setDesc("Folder name for character notes (default: characters)").addText((text) => text.setPlaceholder("Characters").setValue(this.plugin.settings.characterFolder).onChange(async (value) => {
       this.plugin.settings.characterFolder = value;
       await this.plugin.saveSettings();
     }));
@@ -25381,7 +25368,7 @@ ${content}`);
           }
         }
       }
-    } catch (error) {
+    } catch (e) {
     }
     return notes;
   }
@@ -25725,7 +25712,8 @@ var AIClient = class {
       return value.toString();
     }
     if (typeof value === "bigint") {
-      return value.toString();
+      const bigintValue = value;
+      return bigintValue.toString();
     }
     if (value === null)
       return "null";

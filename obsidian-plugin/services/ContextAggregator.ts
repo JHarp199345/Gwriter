@@ -265,7 +265,7 @@ export class ContextAggregator {
 					}
 				}
 			}
-		} catch (error) {
+		} catch {
 			// Folder doesn't exist yet, that's okay
 		}
 		

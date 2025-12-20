@@ -74,7 +74,7 @@ Recent narrative context for AI generation.
 
 export class SetupWizardModal extends Modal {
 	plugin: WritingDashboardPlugin;
-	reactRoot: ReturnType<typeof createRoot> | null = null;
+	reactRoot: { render: (node: unknown) => void; unmount: () => void } | null = null;
 
 	constructor(plugin: WritingDashboardPlugin) {
 		super(plugin.app);

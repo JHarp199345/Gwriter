@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Notice } from 'obsidian';
-import WritingDashboardPlugin from '../main';
+import WritingDashboardPlugin, { DashboardSettings } from '../main';
 import { VaultBrowser } from './VaultBrowser';
 import { EditorPanel } from './EditorPanel';
 import { DirectorNotes } from './DirectorNotes';
@@ -22,7 +22,10 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		if (value instanceof Error) return value.message;
 		if (typeof value === 'string') return value;
 		if (typeof value === 'number' || typeof value === 'boolean') return value.toString();
-		if (typeof value === 'bigint') return value.toString();
+		if (typeof value === 'bigint') {
+			const bigintValue: bigint = value;
+			return bigintValue.toString();
+		}
 		if (value === null) return 'null';
 		if (value === undefined) return 'undefined';
 		try {
@@ -31,6 +34,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			return '[unserializable value]';
 		}
 	};
+
+	type SingleSettings = Omit<DashboardSettings, 'generationMode'> & { generationMode: 'single' };
+	type MultiSettings = Omit<DashboardSettings, 'generationMode'> & { generationMode: 'multi' };
 
 	const [mode, setMode] = useState<Mode>('chapter');
 	const [isVaultPanelCollapsed, setIsVaultPanelCollapsed] = useState<boolean>(() => {
@@ -112,6 +118,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			let prompt: string;
 			let context;
 
+			type SingleSettings = Omit<DashboardSettings, 'generationMode'> & { generationMode: 'single' };
+			type MultiSettings = Omit<DashboardSettings, 'generationMode'> & { generationMode: 'multi' };
+
 			if (mode === 'chapter') {
 				context = await plugin.contextAggregator.getChapterContext();
 				const min = Math.max(100, Math.min(minWords, maxWords));
@@ -152,10 +161,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 			if (plugin.settings.generationMode === 'multi') {
 				setGenerationStage('Initializing multi-model generation...');
-				const multiSettings: typeof plugin.settings & { generationMode: 'multi' } = {
-					...plugin.settings,
-					generationMode: 'multi'
-				};
+				const multiSettings: MultiSettings = { ...plugin.settings, generationMode: 'multi' };
 				const result = await plugin.aiClient.generate(prompt, multiSettings);
 				
 				// Show stages if available
@@ -166,10 +172,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				setGeneratedText(result.primary);
 			} else {
 				setGenerationStage('Generating...');
-				const singleSettings: typeof plugin.settings & { generationMode: 'single' } = {
-					...plugin.settings,
-					generationMode: 'single'
-				};
+				const singleSettings: SingleSettings = { ...plugin.settings, generationMode: 'single' };
 				const result = await plugin.aiClient.generate(prompt, singleSettings);
 				setGeneratedText(result);
 			}
@@ -220,10 +223,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			);
 			
 			// Character extraction always uses single mode
-			const singleModeSettings: typeof plugin.settings & { generationMode: 'single' } = {
-				...plugin.settings,
-				generationMode: 'single'
-			};
+			const singleModeSettings: SingleSettings = { ...plugin.settings, generationMode: 'single' };
 			const extractionResult = await plugin.aiClient.generate(prompt, singleModeSettings);
 			const updates = plugin.characterExtractor.parseExtraction(extractionResult);
 			
@@ -359,10 +359,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					setGenerationStage(`${label}...`);
 					const passage = chapters[i].fullText;
 					const rosterPrompt = plugin.promptEngine.buildCharacterRosterPrompt(passage, storyBible);
-					const singleModeSettings: typeof plugin.settings & { generationMode: 'single' } = {
-						...plugin.settings,
-						generationMode: 'single'
-					};
+					const singleModeSettings: SingleSettings = { ...plugin.settings, generationMode: 'single' };
 					try {
 						const rosterResult = await withRetries(label, async () => {
 							return await plugin.aiClient.generate(rosterPrompt, singleModeSettings);
@@ -409,10 +406,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					characterNotes,
 					storyBible
 				});
-				const singleModeSettings: typeof plugin.settings & { generationMode: 'single' } = {
-					...plugin.settings,
-					generationMode: 'single'
-				};
+				const singleModeSettings: SingleSettings = { ...plugin.settings, generationMode: 'single' };
 				try {
 					const extractionResult = await withRetries(label, async () => {
 						return await plugin.aiClient.generate(prompt, singleModeSettings);

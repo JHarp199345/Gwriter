@@ -6,9 +6,14 @@ import { DashboardComponent } from './DashboardComponent';
 
 export const VIEW_TYPE_DASHBOARD = 'writing-dashboard';
 
+type ReactRootLike = {
+	render: (node: unknown) => void;
+	unmount: () => void;
+};
+
 export class DashboardView extends ItemView {
 	plugin: WritingDashboardPlugin;
-	reactRoot: ReturnType<typeof createRoot> | null = null;
+	reactRoot: ReactRootLike | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: WritingDashboardPlugin) {
 		super(leaf);

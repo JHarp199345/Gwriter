@@ -290,7 +290,7 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Character folder')
-			.setDesc('Folder name for character notes (default: Characters)')
+			.setDesc('Folder name for character notes (default: characters)')
 			.addText(text => text
 				.setPlaceholder('Characters')
 				.setValue(this.plugin.settings.characterFolder)
