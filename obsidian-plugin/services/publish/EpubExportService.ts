@@ -49,14 +49,24 @@ function escapeXml(value: string): string {
 		.replace(/&/g, '&amp;')
 		.replace(/</g, '&lt;')
 		.replace(/>/g, '&gt;')
-		.replace(/\"/g, '&quot;')
+		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&apos;');
 }
 
 function sanitizeFileName(name: string): string {
 	const trimmed = name.trim();
-	const safe = trimmed.replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_');
-	return safe.length ? safe : 'book';
+	if (!trimmed) return 'book';
+	const forbidden = '<>:"/\\\\|?*';
+	let out = '';
+	for (const ch of trimmed) {
+		const code = ch.charCodeAt(0);
+		if (code < 32) {
+			out += '_';
+			continue;
+		}
+		out += forbidden.includes(ch) ? '_' : ch;
+	}
+	return out.length ? out : 'book';
 }
 
 function normalizeFolder(folder: string): string {

@@ -21,8 +21,18 @@ function currentYear(): string {
 
 function sanitizeFileName(name: string): string {
 	const trimmed = name.trim();
-	const safe = trimmed.replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_');
-	return safe.length ? safe : 'book';
+	if (!trimmed) return 'book';
+	const forbidden = '<>:"/\\\\|?*';
+	let out = '';
+	for (const ch of trimmed) {
+		const code = ch.charCodeAt(0);
+		if (code < 32) {
+			out += '_';
+			continue;
+		}
+		out += forbidden.includes(ch) ? '_' : ch;
+	}
+	return out.length ? out : 'book';
 }
 
 function ensureEpubExt(name: string): string {
@@ -39,7 +49,7 @@ export class PublishWizardModal extends Modal {
 	}
 
 	onOpen() {
-		this.titleEl.setText('Export to EPUB');
+		this.titleEl.setText('Export to epub');
 		this.contentEl.empty();
 		const container = this.contentEl.createDiv();
 		this.reactRoot = createRoot(container);
@@ -239,7 +249,7 @@ export const PublishWizardComponent: React.FC<{ plugin: WritingDashboardPlugin; 
 								<input value={sourcePath} onChange={(e) => setSourcePath(e.target.value)} disabled={isExporting} />
 								<button
 									onClick={() =>
-										pickMarkdownFile('Pick your manuscript note', async (file) => {
+										pickMarkdownFile('Pick your manuscript note', (file) => {
 											setSourcePath(file.path);
 										})
 									}
@@ -258,7 +268,7 @@ export const PublishWizardComponent: React.FC<{ plugin: WritingDashboardPlugin; 
 								<input value={tocPath} onChange={(e) => setTocPath(e.target.value)} disabled={isExporting} />
 								<button
 									onClick={() =>
-										pickMarkdownFile('Pick your TOC note', async (file) => {
+										pickMarkdownFile('Pick your TOC note', (file) => {
 											setTocPath(file.path);
 										})
 									}
@@ -437,7 +447,7 @@ export const PublishWizardComponent: React.FC<{ plugin: WritingDashboardPlugin; 
 					)}
 					{step === 6 && (
 						<button onClick={doExport} disabled={isExporting} className="mod-cta">
-							Export EPUB
+							Export epub
 						</button>
 					)}
 				</div>

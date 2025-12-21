@@ -1127,7 +1127,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					)}
 					<div className="controls">
 						<button onClick={openPublishWizard} disabled={isGenerating} className="update-characters-button">
-							Export to EPUB
+							Export to epub
 						</button>
 						{mode !== 'character-update' && (
 							<button 

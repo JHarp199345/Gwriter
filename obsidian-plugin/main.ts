@@ -347,7 +347,7 @@ export default class WritingDashboardPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'export-to-epub',
-			name: 'Export to EPUB',
+			name: 'Export to epub',
 			callback: () => {
 				this.showPublishWizard();
 			}

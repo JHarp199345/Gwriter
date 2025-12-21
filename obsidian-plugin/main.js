@@ -27538,7 +27538,7 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
       mode,
       onResetToDefault: mode === "chapter" ? () => setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS) : void 0
     }
-  ), promptTokenEstimate !== null && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Estimated prompt size: ~", promptTokenEstimate.toLocaleString(), " tokens", promptCharCount !== null ? ` (${promptCharCount.toLocaleString()} chars)` : "", plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit ? ` \u2014 exceeds warning limit (${plugin.settings.contextTokenLimit.toLocaleString()})` : ""), /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, indexStatusText), retrievedContextStats && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Retrieved context: ", retrievedContextStats.items.toLocaleString(), " item(s) (~", retrievedContextStats.tokens.toLocaleString(), " tokens)"), error2 && /* @__PURE__ */ import_react5.default.createElement("div", { className: "error-message" }, "\u274C ", error2), isGenerating && generationStage && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "\u23F3 ", generationStage), mode === "character-update" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Bulk source: ", bulkSourcePath || plugin.settings.book2Path, bulkSourcePath ? " (custom)" : " (book main path)"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "controls" }, /* @__PURE__ */ import_react5.default.createElement("button", { onClick: openPublishWizard, disabled: isGenerating, className: "update-characters-button" }, "Export to EPUB"), mode !== "character-update" && /* @__PURE__ */ import_react5.default.createElement(
+  ), promptTokenEstimate !== null && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Estimated prompt size: ~", promptTokenEstimate.toLocaleString(), " tokens", promptCharCount !== null ? ` (${promptCharCount.toLocaleString()} chars)` : "", plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit ? ` \u2014 exceeds warning limit (${plugin.settings.contextTokenLimit.toLocaleString()})` : ""), /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, indexStatusText), retrievedContextStats && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Retrieved context: ", retrievedContextStats.items.toLocaleString(), " item(s) (~", retrievedContextStats.tokens.toLocaleString(), " tokens)"), error2 && /* @__PURE__ */ import_react5.default.createElement("div", { className: "error-message" }, "\u274C ", error2), isGenerating && generationStage && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "\u23F3 ", generationStage), mode === "character-update" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Bulk source: ", bulkSourcePath || plugin.settings.book2Path, bulkSourcePath ? " (custom)" : " (book main path)"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "controls" }, /* @__PURE__ */ import_react5.default.createElement("button", { onClick: openPublishWizard, disabled: isGenerating, className: "update-characters-button" }, "Export to epub"), mode !== "character-update" && /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
       onClick: handleGenerate,
@@ -30036,7 +30036,7 @@ function normalizeLinkTarget(raw) {
     return "";
   return noFrag.replace(/^<|>$/g, "").trim();
 }
-async function resolveLinkToFile(app, linkTarget, fromPath) {
+function resolveLinkToFile(app, linkTarget, fromPath) {
   const t = normalizeLinkTarget(linkTarget);
   if (!t)
     return null;
@@ -30078,7 +30078,7 @@ var MarkdownCompile = class {
     }
     const chapters = [];
     for (const target of ordered) {
-      const dest = await resolveLinkToFile(this.app, target, file.path);
+      const dest = resolveLinkToFile(this.app, target, file.path);
       if (!dest)
         continue;
       const md = await this.app.vault.read(dest);
@@ -35538,7 +35538,7 @@ var lib_default = MarkdownIt;
 
 // services/publish/LicenseTemplates.ts
 function escapeXml(value) {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&apos;");
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
 function pageTemplate(title, bodyInner) {
   return `<?xml version="1.0" encoding="utf-8"?>
@@ -35649,12 +35649,23 @@ function getLicenseTemplate(id) {
 
 // services/publish/EpubExportService.ts
 function escapeXml2(value) {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&apos;");
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
 function sanitizeFileName(name) {
   const trimmed = name.trim();
-  const safe = trimmed.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_");
-  return safe.length ? safe : "book";
+  if (!trimmed)
+    return "book";
+  const forbidden = '<>:"/\\\\|?*';
+  let out = "";
+  for (const ch of trimmed) {
+    const code2 = ch.charCodeAt(0);
+    if (code2 < 32) {
+      out += "_";
+      continue;
+    }
+    out += forbidden.includes(ch) ? "_" : ch;
+  }
+  return out.length ? out : "book";
 }
 function normalizeFolder(folder) {
   const f = folder.replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
@@ -35973,8 +35984,19 @@ function currentYear() {
 }
 function sanitizeFileName2(name) {
   const trimmed = name.trim();
-  const safe = trimmed.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_");
-  return safe.length ? safe : "book";
+  if (!trimmed)
+    return "book";
+  const forbidden = '<>:"/\\\\|?*';
+  let out = "";
+  for (const ch of trimmed) {
+    const code2 = ch.charCodeAt(0);
+    if (code2 < 32) {
+      out += "_";
+      continue;
+    }
+    out += forbidden.includes(ch) ? "_" : ch;
+  }
+  return out.length ? out : "book";
 }
 function ensureEpubExt2(name) {
   return name.toLowerCase().endsWith(".epub") ? name : `${name}.epub`;
@@ -35986,7 +36008,7 @@ var PublishWizardModal = class extends import_obsidian14.Modal {
     this.plugin = plugin;
   }
   onOpen() {
-    this.titleEl.setText("Export to EPUB");
+    this.titleEl.setText("Export to epub");
     this.contentEl.empty();
     const container = this.contentEl.createDiv();
     this.reactRoot = (0, import_client3.createRoot)(container);
@@ -36150,7 +36172,7 @@ var PublishWizardComponent = ({
   ), "TOC note")), mode === "book-main" && /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("div", null, "Book main file"), /* @__PURE__ */ import_react8.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react8.default.createElement("input", { value: sourcePath, onChange: (e) => setSourcePath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react8.default.createElement(
     "button",
     {
-      onClick: () => pickMarkdownFile("Pick your manuscript note", async (file) => {
+      onClick: () => pickMarkdownFile("Pick your manuscript note", (file) => {
         setSourcePath(file.path);
       }),
       disabled: isExporting
@@ -36159,7 +36181,7 @@ var PublishWizardComponent = ({
   ))), mode === "toc-note" && /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("div", null, "TOC note"), /* @__PURE__ */ import_react8.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react8.default.createElement("input", { value: tocPath, onChange: (e) => setTocPath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react8.default.createElement(
     "button",
     {
-      onClick: () => pickMarkdownFile("Pick your TOC note", async (file) => {
+      onClick: () => pickMarkdownFile("Pick your TOC note", (file) => {
         setTocPath(file.path);
       }),
       disabled: isExporting
@@ -36180,7 +36202,7 @@ var PublishWizardComponent = ({
       disabled: isExporting
     },
     LICENSE_TEMPLATES.map((t) => /* @__PURE__ */ import_react8.default.createElement("option", { key: t.id, value: t.id }, t.label))
-  )), /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("div", null, "Copyright year"), /* @__PURE__ */ import_react8.default.createElement("input", { value: copyrightYear, onChange: (e) => setCopyrightYear(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("div", null, "Copyright holder"), /* @__PURE__ */ import_react8.default.createElement("input", { value: copyrightHolder, onChange: (e) => setCopyrightHolder(e.target.value), disabled: isExporting }))), step === 4 && /* @__PURE__ */ import_react8.default.createElement("div", null, /* @__PURE__ */ import_react8.default.createElement("h2", null, "Typography"), /* @__PURE__ */ import_react8.default.createElement("p", null, "Default styling uses Literata if available on the reader device. You can embed your own font files to guarantee the look."), /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("label", null, /* @__PURE__ */ import_react8.default.createElement("input", { type: "checkbox", checked: embedFonts, onChange: (e) => setEmbedFonts(e.target.checked), disabled: isExporting }), "Embed custom fonts")), embedFonts && /* @__PURE__ */ import_react8.default.createElement("div", null, /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("div", null, "Regular (required)"), /* @__PURE__ */ import_react8.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react8.default.createElement("input", { value: fontRegular, onChange: (e) => setFontRegular(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: () => pickFontFile((f) => setFontRegular(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("div", null, "Bold"), /* @__PURE__ */ import_react8.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react8.default.createElement("input", { value: fontBold, onChange: (e) => setFontBold(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBold(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("div", null, "Italic"), /* @__PURE__ */ import_react8.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react8.default.createElement("input", { value: fontItalic, onChange: (e) => setFontItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: () => pickFontFile((f) => setFontItalic(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("div", null, "Bold italic"), /* @__PURE__ */ import_react8.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react8.default.createElement("input", { value: fontBoldItalic, onChange: (e) => setFontBoldItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBoldItalic(f.path)), disabled: isExporting }, "Browse"))))), step === 5 && /* @__PURE__ */ import_react8.default.createElement("div", null, /* @__PURE__ */ import_react8.default.createElement("h2", null, "Output"), /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("div", null, "Folder"), /* @__PURE__ */ import_react8.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react8.default.createElement("input", { value: outputFolder, onChange: (e) => setOutputFolder(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: () => pickFolder((f) => setOutputFolder(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("div", null, "File name"), /* @__PURE__ */ import_react8.default.createElement("input", { value: outputFileName, onChange: (e) => setOutputFileName(ensureEpubExt2(e.target.value)), disabled: isExporting }))), step === 6 && /* @__PURE__ */ import_react8.default.createElement("div", null, /* @__PURE__ */ import_react8.default.createElement("h2", null, "Export"), /* @__PURE__ */ import_react8.default.createElement("p", null, "When you click Export, the plugin will compile your notes and write an EPUB into your vault."), progress && /* @__PURE__ */ import_react8.default.createElement("div", { className: "generation-status" }, progress), error2 && /* @__PURE__ */ import_react8.default.createElement("div", { className: "error-message" }, "\u274C ", error2)), /* @__PURE__ */ import_react8.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 16 } }, /* @__PURE__ */ import_react8.default.createElement("div", null, /* @__PURE__ */ import_react8.default.createElement("button", { onClick: onClose, className: "mod-secondary", disabled: isExporting }, "Close")), /* @__PURE__ */ import_react8.default.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ import_react8.default.createElement("button", { onClick: goBack, disabled: isExporting || step === 1 }, "Back"), step < 6 && /* @__PURE__ */ import_react8.default.createElement("button", { onClick: goNext, disabled: isExporting || !canNext, className: "mod-cta" }, "Next"), step === 6 && /* @__PURE__ */ import_react8.default.createElement("button", { onClick: doExport, disabled: isExporting, className: "mod-cta" }, "Export EPUB"))));
+  )), /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("div", null, "Copyright year"), /* @__PURE__ */ import_react8.default.createElement("input", { value: copyrightYear, onChange: (e) => setCopyrightYear(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("div", null, "Copyright holder"), /* @__PURE__ */ import_react8.default.createElement("input", { value: copyrightHolder, onChange: (e) => setCopyrightHolder(e.target.value), disabled: isExporting }))), step === 4 && /* @__PURE__ */ import_react8.default.createElement("div", null, /* @__PURE__ */ import_react8.default.createElement("h2", null, "Typography"), /* @__PURE__ */ import_react8.default.createElement("p", null, "Default styling uses Literata if available on the reader device. You can embed your own font files to guarantee the look."), /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("label", null, /* @__PURE__ */ import_react8.default.createElement("input", { type: "checkbox", checked: embedFonts, onChange: (e) => setEmbedFonts(e.target.checked), disabled: isExporting }), "Embed custom fonts")), embedFonts && /* @__PURE__ */ import_react8.default.createElement("div", null, /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("div", null, "Regular (required)"), /* @__PURE__ */ import_react8.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react8.default.createElement("input", { value: fontRegular, onChange: (e) => setFontRegular(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: () => pickFontFile((f) => setFontRegular(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("div", null, "Bold"), /* @__PURE__ */ import_react8.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react8.default.createElement("input", { value: fontBold, onChange: (e) => setFontBold(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBold(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("div", null, "Italic"), /* @__PURE__ */ import_react8.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react8.default.createElement("input", { value: fontItalic, onChange: (e) => setFontItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: () => pickFontFile((f) => setFontItalic(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("div", null, "Bold italic"), /* @__PURE__ */ import_react8.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react8.default.createElement("input", { value: fontBoldItalic, onChange: (e) => setFontBoldItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBoldItalic(f.path)), disabled: isExporting }, "Browse"))))), step === 5 && /* @__PURE__ */ import_react8.default.createElement("div", null, /* @__PURE__ */ import_react8.default.createElement("h2", null, "Output"), /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("div", null, "Folder"), /* @__PURE__ */ import_react8.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react8.default.createElement("input", { value: outputFolder, onChange: (e) => setOutputFolder(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: () => pickFolder((f) => setOutputFolder(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react8.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react8.default.createElement("div", null, "File name"), /* @__PURE__ */ import_react8.default.createElement("input", { value: outputFileName, onChange: (e) => setOutputFileName(ensureEpubExt2(e.target.value)), disabled: isExporting }))), step === 6 && /* @__PURE__ */ import_react8.default.createElement("div", null, /* @__PURE__ */ import_react8.default.createElement("h2", null, "Export"), /* @__PURE__ */ import_react8.default.createElement("p", null, "When you click Export, the plugin will compile your notes and write an EPUB into your vault."), progress && /* @__PURE__ */ import_react8.default.createElement("div", { className: "generation-status" }, progress), error2 && /* @__PURE__ */ import_react8.default.createElement("div", { className: "error-message" }, "\u274C ", error2)), /* @__PURE__ */ import_react8.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 16 } }, /* @__PURE__ */ import_react8.default.createElement("div", null, /* @__PURE__ */ import_react8.default.createElement("button", { onClick: onClose, className: "mod-secondary", disabled: isExporting }, "Close")), /* @__PURE__ */ import_react8.default.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ import_react8.default.createElement("button", { onClick: goBack, disabled: isExporting || step === 1 }, "Back"), step < 6 && /* @__PURE__ */ import_react8.default.createElement("button", { onClick: goNext, disabled: isExporting || !canNext, className: "mod-cta" }, "Next"), step === 6 && /* @__PURE__ */ import_react8.default.createElement("button", { onClick: doExport, disabled: isExporting, className: "mod-cta" }, "Export epub"))));
 };
 
 // main.ts
@@ -36378,7 +36400,7 @@ var WritingDashboardPlugin = class extends import_obsidian15.Plugin {
     });
     this.addCommand({
       id: "export-to-epub",
-      name: "Export to EPUB",
+      name: "Export to epub",
       callback: () => {
         this.showPublishWizard();
       }

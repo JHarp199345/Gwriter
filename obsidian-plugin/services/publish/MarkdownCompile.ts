@@ -1,4 +1,5 @@
-import { App, TFile } from 'obsidian';
+import type { App } from 'obsidian';
+import { TFile } from 'obsidian';
 
 export interface CompiledChapter {
 	title: string;
@@ -100,7 +101,7 @@ function normalizeLinkTarget(raw: string): string {
 	return noFrag.replace(/^<|>$/g, '').trim();
 }
 
-async function resolveLinkToFile(app: App, linkTarget: string, fromPath: string): Promise<TFile | null> {
+function resolveLinkToFile(app: App, linkTarget: string, fromPath: string): TFile | null {
 	const t = normalizeLinkTarget(linkTarget);
 	if (!t) return null;
 
@@ -151,7 +152,7 @@ export class MarkdownCompile {
 
 		const chapters: CompiledChapter[] = [];
 		for (const target of ordered) {
-			const dest = await resolveLinkToFile(this.app, target, file.path);
+			const dest = resolveLinkToFile(this.app, target, file.path);
 			if (!dest) continue;
 			const md = await this.app.vault.read(dest);
 			const title = (() => {
