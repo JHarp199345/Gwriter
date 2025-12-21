@@ -229,7 +229,8 @@ export class VaultService {
 	 */
 	isExcludedPath(path: string): boolean {
 		const normalized = path.replace(/\\/g, '/');
-		const configDir = this.vault.configDir?.replace(/\\/g, '/') || '.obsidian';
+		// Obsidian's config folder is user-configurable; use vault.configDir.
+		const configDir = this.vault.configDir.replace(/\\/g, '/');
 
 		// Always exclude Obsidian config + plugin data.
 		if (normalized === configDir || normalized.startsWith(`${configDir}/`)) return true;

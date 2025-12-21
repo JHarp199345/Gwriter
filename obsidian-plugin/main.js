@@ -25273,7 +25273,7 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian6.Setting(containerEl).setName("Retrieved items (top K)").setDesc("Maximum number of retrieved snippets to include in prompts.").addText(
+    new import_obsidian6.Setting(containerEl).setName("Retrieved items (limit)").setDesc("Maximum number of retrieved snippets to include in prompts.").addText(
       (text) => {
         var _a;
         return text.setPlaceholder("24").setValue(String((_a = this.plugin.settings.retrievalTopK) != null ? _a : 24)).onChange(async (value) => {
@@ -25319,7 +25319,7 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
     const folders = this.plugin.vaultService.getAllFolderPaths();
     const exclusionsContainer = containerEl.createDiv({ cls: "writing-dashboard-exclusions" });
     new import_obsidian6.Setting(exclusionsContainer).setName("Exclude from retrieval").setDesc("Choose folders to exclude from retrieval and indexing. Obsidian configuration is always excluded.");
-    const configDir = (this.app.vault.configDir || ".obsidian").replace(/\\/g, "/");
+    const configDir = this.app.vault.configDir.replace(/\\/g, "/");
     new import_obsidian6.Setting(exclusionsContainer).setName(configDir).setDesc("Always excluded.").addToggle((toggle) => toggle.setValue(true).setDisabled(true));
     for (const folder of folders) {
       const normalized = folder.replace(/\\/g, "/");
@@ -25673,9 +25673,8 @@ ${update}
    * `.obsidian/` is always excluded from retrieval/indexing.
    */
   isExcludedPath(path) {
-    var _a;
     const normalized = path.replace(/\\/g, "/");
-    const configDir = ((_a = this.vault.configDir) == null ? void 0 : _a.replace(/\\/g, "/")) || ".obsidian";
+    const configDir = this.vault.configDir.replace(/\\/g, "/");
     if (normalized === configDir || normalized.startsWith(`${configDir}/`))
       return true;
     const excluded = this.plugin.settings.retrievalExcludedFolders || [];

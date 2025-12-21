@@ -184,7 +184,7 @@ export class SettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('Retrieved items (top K)')
+			.setName('Retrieved items (limit)')
 			.setDesc('Maximum number of retrieved snippets to include in prompts.')
 			.addText((text) =>
 				text
@@ -251,7 +251,7 @@ export class SettingsTab extends PluginSettingTab {
 			.setDesc('Choose folders to exclude from retrieval and indexing. Obsidian configuration is always excluded.');
 
 		// Always-excluded config folder row (locked)
-		const configDir = (this.app.vault.configDir || '.obsidian').replace(/\\/g, '/');
+		const configDir = this.app.vault.configDir.replace(/\\/g, '/');
 		new Setting(exclusionsContainer)
 			.setName(configDir)
 			.setDesc('Always excluded.')
