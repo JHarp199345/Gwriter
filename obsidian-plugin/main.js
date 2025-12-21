@@ -30036,19 +30036,19 @@ function normalizeLinkTarget(raw) {
     return "";
   return noFrag.replace(/^<|>$/g, "").trim();
 }
-function resolveLinkToFile(app, linkTarget, fromPath) {
+function resolveLinkToFilePath(app, linkTarget, fromPath) {
   const t = normalizeLinkTarget(linkTarget);
   if (!t)
     return null;
   const direct = app.vault.getAbstractFileByPath(t);
   if (direct instanceof import_obsidian13.TFile)
-    return direct;
+    return direct.path;
   const directMd = app.vault.getAbstractFileByPath(`${t}.md`);
   if (directMd instanceof import_obsidian13.TFile)
-    return directMd;
+    return directMd.path;
   const dest = app.metadataCache.getFirstLinkpathDest(t, fromPath);
   if (dest instanceof import_obsidian13.TFile)
-    return dest;
+    return dest.path;
   return null;
 }
 var MarkdownCompile = class {
@@ -30078,8 +30078,11 @@ var MarkdownCompile = class {
     }
     const chapters = [];
     for (const target of ordered) {
-      const dest = resolveLinkToFile(this.app, target, file.path);
-      if (!dest)
+      const destPath = resolveLinkToFilePath(this.app, target, file.path);
+      if (!destPath)
+        continue;
+      const dest = this.app.vault.getAbstractFileByPath(destPath);
+      if (!(dest instanceof import_obsidian13.TFile))
         continue;
       const md = await this.app.vault.read(dest);
       const title = (() => {

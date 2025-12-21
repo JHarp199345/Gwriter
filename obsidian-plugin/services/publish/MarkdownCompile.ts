@@ -101,21 +101,21 @@ function normalizeLinkTarget(raw: string): string {
 	return noFrag.replace(/^<|>$/g, '').trim();
 }
 
-function resolveLinkToFile(app: App, linkTarget: string, fromPath: string): TFile | null {
+function resolveLinkToFilePath(app: App, linkTarget: string, fromPath: string): string | null {
 	const t = normalizeLinkTarget(linkTarget);
 	if (!t) return null;
 
 	// If it's a full path and exists, use it.
 	const direct = app.vault.getAbstractFileByPath(t);
-	if (direct instanceof TFile) return direct;
+	if (direct instanceof TFile) return direct.path;
 
 	// Try adding .md for wikilink-like targets.
 	const directMd = app.vault.getAbstractFileByPath(`${t}.md`);
-	if (directMd instanceof TFile) return directMd;
+	if (directMd instanceof TFile) return directMd.path;
 
 	// Use metadata cache link resolution.
 	const dest = app.metadataCache.getFirstLinkpathDest(t, fromPath);
-	if (dest instanceof TFile) return dest;
+	if (dest instanceof TFile) return dest.path;
 
 	return null;
 }
@@ -152,8 +152,10 @@ export class MarkdownCompile {
 
 		const chapters: CompiledChapter[] = [];
 		for (const target of ordered) {
-			const dest = resolveLinkToFile(this.app, target, file.path);
-			if (!dest) continue;
+			const destPath = resolveLinkToFilePath(this.app, target, file.path);
+			if (!destPath) continue;
+			const dest = this.app.vault.getAbstractFileByPath(destPath);
+			if (!(dest instanceof TFile)) continue;
 			const md = await this.app.vault.read(dest);
 			const title = (() => {
 				const m = /^#\s+(.+?)\s*$/m.exec(md);
