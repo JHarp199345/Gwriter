@@ -1,6 +1,7 @@
 import { Vault, TFile, TFolder } from 'obsidian';
 import WritingDashboardPlugin from '../main';
 import { Context } from './PromptEngine';
+import type { ContextItem, RetrievalQuery } from './retrieval/types';
 
 export class ContextAggregator {
 	private vault: Vault;
@@ -47,7 +48,7 @@ export class ContextAggregator {
 		this.plugin = plugin;
 	}
 
-	async getChapterContext(): Promise<Context> {
+	async getChapterContext(retrievalQuery: RetrievalQuery): Promise<Context> {
 		const settings = this.plugin.settings;
 		
 		// Handle extractionsPath gracefully - it's optional
@@ -65,9 +66,9 @@ export class ContextAggregator {
 		const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
 		const contextBudget = Math.max(1000, limit - reserveForOutput - reserveForNonContext);
 
-		// More available tokens => more Book 1 canon chunks to include.
-		const smartChunkLimit = Math.min(200, Math.max(24, Math.floor(contextBudget / 12000)));
-		const smartConnections = await this.getSmartConnections(smartChunkLimit);
+		// More available tokens => more retrieved chunks to include.
+		const retrievedLimit = Math.min(200, Math.max(24, Math.floor(contextBudget / 12000)));
+		const retrievedContext = await this.getRetrievedContext(retrievalQuery, retrievedLimit);
 		const book2Full = await this.readFile(settings.book2Path);
 		const storyBible = await this.readFile(settings.storyBiblePath);
 		const slidingWindow = await this.readFile(settings.slidingWindowPath);
@@ -82,7 +83,7 @@ export class ContextAggregator {
 		const book2Budget = Math.max(1000, contextBudget - used);
 
 		return {
-			smart_connections: this.trimHeadToBudget(smartConnections, smartBudget, 'Smart connections'),
+			smart_connections: this.trimHeadToBudget(retrievedContext, smartBudget, 'Retrieved context'),
 			// For continuation, the most recent manuscript tail matters most.
 			book2: this.trimTailToBudget(book2Full, book2Budget, 'Book 2'),
 			story_bible: this.trimHeadToBudget(storyBible, bibleBudget, 'Story bible'),
@@ -91,7 +92,7 @@ export class ContextAggregator {
 		};
 	}
 
-	async getMicroEditContext(selectedText: string): Promise<Context> {
+	async getMicroEditContext(selectedText: string, retrievalQuery: RetrievalQuery): Promise<Context> {
 		const settings = this.plugin.settings;
 		const surrounding = await this.getSurroundingContext(selectedText, 500, 500);
 		
@@ -114,9 +115,9 @@ export class ContextAggregator {
 		const slidingWindow = await this.readFile(settings.slidingWindowPath);
 		const characterNotes = this.formatCharacterNotes(await this.getAllCharacterNotes());
 
-		// Smart connections in micro-edit is a style echo; keep it smaller.
-		const smartChunkLimit = Math.min(80, Math.max(12, Math.floor(contextBudget / 20000)));
-		const smartConnections = await this.getSmartConnections(smartChunkLimit);
+		// Retrieved context in micro-edit is a style/continuity echo; keep it smaller.
+		const retrievedLimit = Math.min(80, Math.max(12, Math.floor(contextBudget / 20000)));
+		const retrievedContext = await this.getRetrievedContext(retrievalQuery, retrievedLimit);
 
 		// Allocate budget by priority for micro edits.
 		const slidingBudget = Math.floor(contextBudget * 0.03);
@@ -130,7 +131,7 @@ export class ContextAggregator {
 			story_bible: this.trimHeadToBudget(storyBible, bibleBudget, 'Story bible'),
 			extractions: this.trimHeadToBudget(extractions, extractionsBudget, 'Extractions'),
 			character_notes: this.trimHeadToBudget(characterNotes, characterBudget, 'Character notes'),
-			smart_connections: this.trimHeadToBudget(smartConnections, smartBudget, 'Smart connections'),
+			smart_connections: this.trimHeadToBudget(retrievedContext, smartBudget, 'Retrieved context'),
 			surrounding_before: surrounding.before,
 			surrounding_after: surrounding.after
 		};
@@ -162,169 +163,29 @@ export class ContextAggregator {
 		}
 	}
 
-	private async getSmartConnections(limit: number = 64): Promise<string> {
-		// Try to read Smart Connections data
-		// Obsidian's config folder is user-configurable; use vault.configDir
-		const scDataPath = `${this.vault.configDir}/plugins/smart-connections/data.json`;
-		let smartConnectionsAvailable = false;
-		
+	private formatRetrievedItems(items: ContextItem[]): string {
+		if (!items.length) return '[No retrieved context]';
+		const lines: string[] = [];
+		for (let i = 0; i < items.length; i++) {
+			const item = items[i];
+			lines.push(
+				`[${i + 1}] ${item.path}\n` +
+					`Score: ${item.score.toFixed(3)} (${item.source})\n` +
+					`${item.excerpt}`.trim()
+			);
+		}
+		return lines.join('\n\n---\n\n');
+	}
+
+	private async getRetrievedContext(query: RetrievalQuery, limit: number): Promise<string> {
 		try {
-			const file = this.vault.getAbstractFileByPath(scDataPath);
-			if (file instanceof TFile) {
-				JSON.parse(await this.vault.read(file));
-				smartConnectionsAvailable = true;
-				// Smart Connections data exists - now extract Book 1 content
-			}
+			const results = await this.plugin.retrievalService.search(query, {
+				limit: Math.max(1, Math.min(200, limit))
+			});
+			return this.formatRetrievedItems(results);
 		} catch {
-			// Smart Connections not available, will use fallback
+			return '[Retrieved context unavailable]';
 		}
-		
-		// Extract Book 1 canon content from vault
-		const book1Content = await this.extractBook1Content(limit);
-		
-		if (book1Content.length > 0) {
-			const scStatus = smartConnectionsAvailable 
-				? '[Smart Connections: Active - Book 1 canon loaded]' 
-				: '[Smart Connections: Not installed - Using Book 1 files directly]';
-			return `${scStatus}\n\n${book1Content}`;
-		}
-		
-		if (smartConnectionsAvailable) {
-			return '[Smart Connections: Data found but no Book 1 content detected. Ensure Book 1 files exist in your vault.]';
-		}
-		
-		return '[Smart Connections: Not available. To use Book 1 canon context, either install Smart Connections plugin or ensure Book 1 files are accessible in your vault.]';
-	}
-
-	/**
-	 * Extract Book 1 canon content from vault
-	 * Looks for common Book 1 patterns: chunked folders, Book 1 files, etc.
-	 */
-	private async extractBook1Content(maxChunks: number = 64): Promise<string> {
-		const content: string[] = [];
-		const processedFiles = new Set<string>();
-		
-		// Common Book 1 folder/file patterns
-		const book1Patterns = [
-			'Book 1 - Chunked',
-			'Book-1-Chunked',
-			'Book1-Chunked',
-			'Book 1',
-			'Book-1',
-			'Book1'
-		];
-		
-		// Search for Book 1 chunked folders first (most common)
-		for (const pattern of book1Patterns) {
-			try {
-				const folder = this.vault.getAbstractFileByPath(pattern);
-				if (folder instanceof TFolder) {
-					const chunks = await this.readChunkedFolder(folder, maxChunks);
-					content.push(...chunks);
-					if (content.length >= maxChunks) break;
-				}
-			} catch {
-				// Folder doesn't exist, continue
-			}
-		}
-		
-		// If no chunked folder found, look for Book 1 files directly
-		if (content.length === 0) {
-			for (const pattern of book1Patterns) {
-				try {
-					const file = this.vault.getAbstractFileByPath(`${pattern}.md`);
-					if (file instanceof TFile && !processedFiles.has(file.path)) {
-						const fileContent = await this.vault.read(file);
-						// Extract sample chunks from the file
-						const chunks = this.chunkText(fileContent, Math.min(maxChunks, 10));
-						content.push(...chunks);
-						processedFiles.add(file.path);
-					}
-				} catch {
-					// File doesn't exist, continue
-				}
-			}
-		}
-		
-		// Also search for any files with "Book 1" in the name
-		if (content.length < maxChunks) {
-			const allFiles = this.vault.getMarkdownFiles();
-			for (const file of allFiles) {
-				if (processedFiles.has(file.path)) continue;
-				
-				const fileName = file.basename.toLowerCase();
-				if (fileName.includes('book 1') || fileName.includes('book-1') || fileName.includes('book1')) {
-					try {
-						const fileContent = await this.vault.read(file);
-						const chunks = this.chunkText(fileContent, Math.min(maxChunks - content.length, 5));
-						content.push(...chunks);
-						processedFiles.add(file.path);
-						if (content.length >= maxChunks) break;
-					} catch {
-						// Error reading file, skip
-					}
-				}
-			}
-		}
-		
-		// Format content with file references
-		if (content.length === 0) {
-			return '';
-		}
-		
-		return content.slice(0, maxChunks).join('\n\n---\n\n');
-	}
-
-	/**
-	 * Read all chunk files from a chunked folder
-	 */
-	private async readChunkedFolder(folder: TFolder, maxChunks: number): Promise<string[]> {
-		const chunks: string[] = [];
-		const chunkFiles: TFile[] = [];
-		
-		// Collect all markdown files
-		for (const child of folder.children) {
-			if (child instanceof TFile && child.extension === 'md') {
-				chunkFiles.push(child);
-			}
-		}
-		
-		// Sort by name to maintain order
-		chunkFiles.sort((a, b) => a.name.localeCompare(b.name));
-		
-		// Read up to maxChunks files
-		for (let i = 0; i < Math.min(chunkFiles.length, maxChunks); i++) {
-			try {
-				const content = await this.vault.read(chunkFiles[i]);
-				if (content.trim()) {
-					chunks.push(`[From: ${chunkFiles[i].name}]\n${content}`);
-				}
-			} catch {
-				// Error reading file, skip
-			}
-		}
-		
-		return chunks;
-	}
-
-	/**
-	 * Chunk text into smaller pieces (for large files)
-	 */
-	private chunkText(text: string, maxChunks: number): string[] {
-		const words = text.trim().split(/\s+/);
-		if (words.length === 0) return [];
-		
-		const wordsPerChunk = Math.max(500, Math.ceil(words.length / maxChunks));
-		const chunks: string[] = [];
-		
-		for (let i = 0; i < words.length && chunks.length < maxChunks; i += wordsPerChunk) {
-			const chunk = words.slice(i, i + wordsPerChunk).join(' ');
-			if (chunk.trim()) {
-				chunks.push(chunk);
-			}
-		}
-		
-		return chunks;
 	}
 
 	private async getAllCharacterNotes(): Promise<Record<string, string>> {

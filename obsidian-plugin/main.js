@@ -23567,7 +23567,7 @@ __export(main_exports, {
   default: () => WritingDashboardPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian10 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 
 // ui/DashboardView.ts
 var import_obsidian4 = require("obsidian");
@@ -24004,6 +24004,20 @@ var DashboardComponent = ({ plugin }) => {
   const [error, setError] = (0, import_react5.useState)(null);
   const [promptTokenEstimate, setPromptTokenEstimate] = (0, import_react5.useState)(null);
   const [promptCharCount, setPromptCharCount] = (0, import_react5.useState)(null);
+  const [retrievedContextStats, setRetrievedContextStats] = (0, import_react5.useState)(null);
+  const [indexStatusText, setIndexStatusText] = (0, import_react5.useState)(() => {
+    var _a, _b;
+    if (!plugin.settings.retrievalEnableSemanticIndex)
+      return "Semantic retrieval: Off";
+    const status = (_b = (_a = plugin.embeddingsIndex) == null ? void 0 : _a.getStatus) == null ? void 0 : _b.call(_a);
+    if (!status)
+      return "Semantic retrieval: Starting\u2026";
+    if (status.paused)
+      return `Index: Paused (${status.indexedFiles} file(s), ${status.indexedChunks} chunk(s))`;
+    if (status.queued > 0)
+      return `Index: Building (${status.queued} queued, ${status.indexedChunks} chunk(s))`;
+    return `Index: Up to date (${status.indexedFiles} file(s), ${status.indexedChunks} chunk(s))`;
+  });
   const [bulkSourcePath, setBulkSourcePath] = (0, import_react5.useState)(
     plugin.settings.characterExtractionSourcePath
   );
@@ -24134,6 +24148,36 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
   (0, import_react5.useEffect)(() => {
     setMaxWordsInput(String(maxWords));
   }, [maxWords]);
+  (0, import_react5.useEffect)(() => {
+    const update = () => {
+      var _a, _b;
+      try {
+        if (!plugin.settings.retrievalEnableSemanticIndex) {
+          setIndexStatusText("Semantic retrieval: Off");
+          return;
+        }
+        const status = (_b = (_a = plugin.embeddingsIndex) == null ? void 0 : _a.getStatus) == null ? void 0 : _b.call(_a);
+        if (!status) {
+          setIndexStatusText("Semantic retrieval: Starting\u2026");
+          return;
+        }
+        if (status.paused) {
+          setIndexStatusText(`Index: Paused (${status.indexedFiles} file(s), ${status.indexedChunks} chunk(s))`);
+          return;
+        }
+        if (status.queued > 0) {
+          setIndexStatusText(`Index: Building (${status.queued} queued, ${status.indexedChunks} chunk(s))`);
+          return;
+        }
+        setIndexStatusText(`Index: Up to date (${status.indexedFiles} file(s), ${status.indexedChunks} chunk(s))`);
+      } catch (e) {
+        setIndexStatusText("Semantic retrieval: Unavailable");
+      }
+    };
+    update();
+    const id = window.setInterval(update, 2e3);
+    return () => window.clearInterval(id);
+  }, [plugin]);
   const exitGuidedDemo = () => {
     setDemoStep("off");
     setDemoStepCompleted({
@@ -24233,7 +24277,7 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
     }
   }, [isVaultPanelCollapsed]);
   const handleGenerate = async () => {
-    var _a;
+    var _a, _b, _c;
     if (!plugin.settings.apiKey && isGuidedDemoActive) {
       setIsGenerating(true);
       setError(null);
@@ -24263,7 +24307,20 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
       let prompt;
       let context;
       if (mode === "chapter") {
-        context = await plugin.contextAggregator.getChapterContext();
+        const retrievalQuery = plugin.queryBuilder.build({
+          mode: "chapter",
+          activeFilePath: (_a = plugin.lastOpenedMarkdownPath) != null ? _a : plugin.settings.book2Path,
+          primaryText: selectedText,
+          directorNotes
+        });
+        context = await plugin.contextAggregator.getChapterContext(retrievalQuery);
+        try {
+          const retrievedText = ((context == null ? void 0 : context.smart_connections) || "").toString();
+          const items = (retrievedText.match(/^\[\d+\]/gm) || []).length;
+          setRetrievedContextStats({ items, tokens: estimateTokens(retrievedText) });
+        } catch (e) {
+          setRetrievedContextStats(null);
+        }
         const min = Math.max(100, Math.min(minWords, maxWords));
         const max = Math.max(100, Math.max(minWords, maxWords));
         prompt = plugin.promptEngine.buildChapterPrompt(
@@ -24274,13 +24331,26 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
           max
         );
       } else {
-        context = await plugin.contextAggregator.getMicroEditContext(selectedText);
+        const retrievalQuery = plugin.queryBuilder.build({
+          mode: "micro-edit",
+          activeFilePath: (_b = plugin.lastOpenedMarkdownPath) != null ? _b : plugin.settings.book2Path,
+          primaryText: selectedText,
+          directorNotes
+        });
+        context = await plugin.contextAggregator.getMicroEditContext(selectedText, retrievalQuery);
+        try {
+          const retrievedText = ((context == null ? void 0 : context.smart_connections) || "").toString();
+          const items = (retrievedText.match(/^\[\d+\]/gm) || []).length;
+          setRetrievedContextStats({ items, tokens: estimateTokens(retrievedText) });
+        } catch (e) {
+          setRetrievedContextStats(null);
+        }
         prompt = plugin.promptEngine.buildMicroEditPrompt(selectedText, directorNotes, context);
       }
       const estimatedTokens = estimateTokens(prompt);
       setPromptTokenEstimate(estimatedTokens);
       setPromptCharCount(prompt.length);
-      const limit = (_a = plugin.settings.contextTokenLimit) != null ? _a : 128e3;
+      const limit = (_c = plugin.settings.contextTokenLimit) != null ? _c : 128e3;
       if (estimatedTokens > limit) {
         const proceed = await showConfirmModal(plugin.app, {
           title: "Large prompt warning",
@@ -24346,6 +24416,7 @@ Continue anyway?`,
     }
   };
   const handleUpdateCharacters = async () => {
+    var _a, _b;
     if (!selectedText) {
       setError("Please select text to extract character information from");
       return;
@@ -24389,11 +24460,24 @@ Continue anyway?`,
       const characterNotes = await plugin.contextAggregator.getCharacterNotes();
       const storyBible = await plugin.contextAggregator.readFile(plugin.settings.storyBiblePath);
       const instructions = getEffectiveCharacterInstructions(directorNotes);
+      const retrievalQuery = plugin.queryBuilder.build({
+        mode: "character-update",
+        activeFilePath: (_a = plugin.lastOpenedMarkdownPath) != null ? _a : plugin.settings.book2Path,
+        primaryText: selectedText,
+        directorNotes
+      });
+      const retrievedItems = await plugin.retrievalService.search(retrievalQuery, {
+        limit: (_b = plugin.settings.retrievalTopK) != null ? _b : 24
+      });
+      const retrievedContext = retrievedItems.length === 0 ? "[No retrieved context]" : retrievedItems.map((it, idx) => `[${idx + 1}] ${it.path}
+${it.excerpt}`.trim()).join("\n\n---\n\n");
+      setRetrievedContextStats({ items: retrievedItems.length, tokens: estimateTokens(retrievedContext) });
       const prompt = plugin.promptEngine.buildCharacterExtractionPrompt(
         selectedText,
         characterNotes,
         storyBible,
-        instructions
+        instructions,
+        retrievedContext
       );
       const singleModeSettings = { ...plugin.settings, generationMode: "single" };
       let updates;
@@ -24751,7 +24835,7 @@ Continue anyway?`,
       mode,
       onResetToDefault: mode === "chapter" ? () => setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS) : void 0
     }
-  ), promptTokenEstimate !== null && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Estimated prompt size: ~", promptTokenEstimate.toLocaleString(), " tokens", promptCharCount !== null ? ` (${promptCharCount.toLocaleString()} chars)` : "", plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit ? ` \u2014 exceeds warning limit (${plugin.settings.contextTokenLimit.toLocaleString()})` : ""), error && /* @__PURE__ */ import_react5.default.createElement("div", { className: "error-message" }, "\u274C ", error), isGenerating && generationStage && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "\u23F3 ", generationStage), mode === "character-update" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Bulk source: ", bulkSourcePath || plugin.settings.book2Path, bulkSourcePath ? " (custom)" : " (book main path)"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "controls" }, mode !== "character-update" && /* @__PURE__ */ import_react5.default.createElement(
+  ), promptTokenEstimate !== null && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Estimated prompt size: ~", promptTokenEstimate.toLocaleString(), " tokens", promptCharCount !== null ? ` (${promptCharCount.toLocaleString()} chars)` : "", plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit ? ` \u2014 exceeds warning limit (${plugin.settings.contextTokenLimit.toLocaleString()})` : ""), /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, indexStatusText), retrievedContextStats && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Retrieved context: ", retrievedContextStats.items.toLocaleString(), " item(s) (~", retrievedContextStats.tokens.toLocaleString(), " tokens)"), error && /* @__PURE__ */ import_react5.default.createElement("div", { className: "error-message" }, "\u274C ", error), isGenerating && generationStage && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "\u23F3 ", generationStage), mode === "character-update" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Bulk source: ", bulkSourcePath || plugin.settings.book2Path, bulkSourcePath ? " (custom)" : " (book main path)"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "controls" }, mode !== "character-update" && /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
       onClick: handleGenerate,
@@ -25132,6 +25216,21 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
+    const refreshIfVisible = () => {
+      var _a;
+      try {
+        if ((_a = this.containerEl) == null ? void 0 : _a.isConnected)
+          this.display();
+      } catch (e) {
+      }
+    };
+    this.plugin.registerEvent(this.app.vault.on("create", refreshIfVisible));
+    this.plugin.registerEvent(this.app.vault.on("delete", refreshIfVisible));
+    this.plugin.registerEvent(
+      this.app.vault.on("rename", () => {
+        refreshIfVisible();
+      })
+    );
   }
   display() {
     const { containerEl } = this;
@@ -25167,6 +25266,96 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
+    new import_obsidian6.Setting(containerEl).setName("Retrieval").setHeading();
+    new import_obsidian6.Setting(containerEl).setName("Enable semantic retrieval").setDesc("Build a local index to retrieve relevant notes from the vault. If disabled, retrieval uses heuristic matching only.").addToggle(
+      (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableSemanticIndex)).onChange(async (value) => {
+        this.plugin.settings.retrievalEnableSemanticIndex = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian6.Setting(containerEl).setName("Retrieved items (top K)").setDesc("Maximum number of retrieved snippets to include in prompts.").addText(
+      (text) => {
+        var _a;
+        return text.setPlaceholder("24").setValue(String((_a = this.plugin.settings.retrievalTopK) != null ? _a : 24)).onChange(async (value) => {
+          const parsed = parseInt(value, 10);
+          if (Number.isFinite(parsed)) {
+            this.plugin.settings.retrievalTopK = Math.max(1, Math.min(100, parsed));
+            await this.plugin.saveSettings();
+          }
+        });
+      }
+    );
+    new import_obsidian6.Setting(containerEl).setName("Index chunk size (words)").setDesc("Controls how your notes are chunked for semantic retrieval. Larger chunks add more context but may reduce precision.").addText(
+      (text) => {
+        var _a;
+        return text.setPlaceholder("500").setValue(String((_a = this.plugin.settings.retrievalChunkWords) != null ? _a : 500)).onChange(async (value) => {
+          const parsed = parseInt(value, 10);
+          if (Number.isFinite(parsed)) {
+            this.plugin.settings.retrievalChunkWords = Math.max(200, Math.min(2e3, parsed));
+            await this.plugin.saveSettings();
+          }
+        });
+      }
+    );
+    new import_obsidian6.Setting(containerEl).setName("Index chunk overlap (words)").setDesc("Overlap helps preserve continuity between chunks.").addText(
+      (text) => {
+        var _a;
+        return text.setPlaceholder("100").setValue(String((_a = this.plugin.settings.retrievalChunkOverlapWords) != null ? _a : 100)).onChange(async (value) => {
+          const parsed = parseInt(value, 10);
+          if (Number.isFinite(parsed)) {
+            this.plugin.settings.retrievalChunkOverlapWords = Math.max(0, Math.min(500, parsed));
+            await this.plugin.saveSettings();
+          }
+        });
+      }
+    );
+    new import_obsidian6.Setting(containerEl).setName("Pause indexing").setDesc("Pauses background indexing for semantic retrieval.").addToggle(
+      (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalIndexPaused)).onChange(async (value) => {
+        this.plugin.settings.retrievalIndexPaused = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    const excluded = new Set((this.plugin.settings.retrievalExcludedFolders || []).map((p) => p.replace(/\\/g, "/")));
+    const folders = this.plugin.vaultService.getAllFolderPaths();
+    const exclusionsContainer = containerEl.createDiv({ cls: "writing-dashboard-exclusions" });
+    new import_obsidian6.Setting(exclusionsContainer).setName("Exclude from retrieval").setDesc("Choose folders to exclude from retrieval and indexing. Obsidian configuration is always excluded.");
+    const configDir = (this.app.vault.configDir || ".obsidian").replace(/\\/g, "/");
+    new import_obsidian6.Setting(exclusionsContainer).setName(configDir).setDesc("Always excluded.").addToggle((toggle) => toggle.setValue(true).setDisabled(true));
+    for (const folder of folders) {
+      const normalized = folder.replace(/\\/g, "/");
+      const isChecked = excluded.has(normalized);
+      new import_obsidian6.Setting(exclusionsContainer).setName(normalized).addToggle(
+        (toggle) => toggle.setValue(isChecked).onChange(async (value) => {
+          const next = new Set(
+            (this.plugin.settings.retrievalExcludedFolders || []).map((p) => p.replace(/\\/g, "/"))
+          );
+          if (value)
+            next.add(normalized);
+          else
+            next.delete(normalized);
+          this.plugin.settings.retrievalExcludedFolders = Array.from(next).sort((a, b) => a.localeCompare(b));
+          await this.plugin.saveSettings();
+        })
+      );
+    }
+    const existingSet = new Set(folders.map((f) => f.replace(/\\/g, "/")));
+    const missing = Array.from(excluded).filter((p) => p && !existingSet.has(p));
+    if (missing.length > 0) {
+      new import_obsidian6.Setting(exclusionsContainer).setName("Missing excluded folders").setHeading();
+      for (const missingPath of missing.sort((a, b) => a.localeCompare(b))) {
+        new import_obsidian6.Setting(exclusionsContainer).setName(missingPath).setDesc("This folder does not exist in the vault.").addButton(
+          (btn) => btn.setButtonText("Remove").onClick(async () => {
+            const next = new Set(
+              (this.plugin.settings.retrievalExcludedFolders || []).map((p) => p.replace(/\\/g, "/"))
+            );
+            next.delete(missingPath);
+            this.plugin.settings.retrievalExcludedFolders = Array.from(next).sort((a, b) => a.localeCompare(b));
+            await this.plugin.saveSettings();
+            this.display();
+          })
+        );
+      }
+    }
     if (this.plugin.settings.generationMode === "multi") {
       new import_obsidian6.Setting(containerEl).setName("Multi-mode strategy").setDesc("Draft + revision: fast draft + quality revision. Consensus + multi-stage: maximum quality (slower, more expensive).").addDropdown((dropdown) => dropdown.addOption("draft-revision", "Draft + revision").addOption("consensus-multistage", "Consensus + multi-stage (maximum quality)").setValue(this.plugin.settings.multiStrategy).onChange(async (value) => {
         this.plugin.settings.multiStrategy = value;
@@ -25471,6 +25660,37 @@ ${update}
     this._traverseFolder(root, structure, "");
     return structure;
   }
+  /**
+   * List all folder paths in the vault (relative paths). Sorted for stable UI.
+   */
+  getAllFolderPaths() {
+    const folders = [];
+    const root = this.vault.getRoot();
+    this._collectFolders(root, folders, "");
+    return folders.sort((a, b) => a.localeCompare(b));
+  }
+  /**
+   * `.obsidian/` is always excluded from retrieval/indexing.
+   */
+  isExcludedPath(path) {
+    var _a;
+    const normalized = path.replace(/\\/g, "/");
+    const configDir = ((_a = this.vault.configDir) == null ? void 0 : _a.replace(/\\/g, "/")) || ".obsidian";
+    if (normalized === configDir || normalized.startsWith(`${configDir}/`))
+      return true;
+    const excluded = this.plugin.settings.retrievalExcludedFolders || [];
+    for (const folder of excluded) {
+      const f = folder.replace(/\\/g, "/").replace(/\/+$/, "");
+      if (!f)
+        continue;
+      if (normalized === f || normalized.startsWith(`${f}/`))
+        return true;
+    }
+    return false;
+  }
+  getIncludedMarkdownFiles() {
+    return this.vault.getMarkdownFiles().filter((f) => !this.isExcludedPath(f.path));
+  }
   _traverseFolder(folder, structure, basePath) {
     for (const child of folder.children) {
       const path = basePath ? `${basePath}/${child.name}` : child.name;
@@ -25480,6 +25700,15 @@ ${update}
       } else if (child instanceof import_obsidian7.TFile) {
         structure.push({ name: child.name, path, type: "file" });
       }
+    }
+  }
+  _collectFolders(folder, folders, basePath) {
+    for (const child of folder.children) {
+      if (!(child instanceof import_obsidian7.TFolder))
+        continue;
+      const path = basePath ? `${basePath}/${child.name}` : child.name;
+      folders.push(path);
+      this._collectFolders(child, folders, path);
     }
   }
 };
@@ -25523,7 +25752,7 @@ var ContextAggregator = class {
     this.vault = vault;
     this.plugin = plugin;
   }
-  async getChapterContext() {
+  async getChapterContext(retrievalQuery) {
     const settings = this.plugin.settings;
     let extractions = "";
     if (settings.extractionsPath) {
@@ -25535,8 +25764,8 @@ var ContextAggregator = class {
     }
     const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
     const contextBudget = Math.max(1e3, limit - reserveForOutput - reserveForNonContext);
-    const smartChunkLimit = Math.min(200, Math.max(24, Math.floor(contextBudget / 12e3)));
-    const smartConnections = await this.getSmartConnections(smartChunkLimit);
+    const retrievedLimit = Math.min(200, Math.max(24, Math.floor(contextBudget / 12e3)));
+    const retrievedContext = await this.getRetrievedContext(retrievalQuery, retrievedLimit);
     const book2Full = await this.readFile(settings.book2Path);
     const storyBible = await this.readFile(settings.storyBiblePath);
     const slidingWindow = await this.readFile(settings.slidingWindowPath);
@@ -25547,7 +25776,7 @@ var ContextAggregator = class {
     const used = smartBudget + bibleBudget + extractionsBudget + slidingBudget;
     const book2Budget = Math.max(1e3, contextBudget - used);
     return {
-      smart_connections: this.trimHeadToBudget(smartConnections, smartBudget, "Smart connections"),
+      smart_connections: this.trimHeadToBudget(retrievedContext, smartBudget, "Retrieved context"),
       // For continuation, the most recent manuscript tail matters most.
       book2: this.trimTailToBudget(book2Full, book2Budget, "Book 2"),
       story_bible: this.trimHeadToBudget(storyBible, bibleBudget, "Story bible"),
@@ -25555,7 +25784,7 @@ var ContextAggregator = class {
       sliding_window: this.trimHeadToBudget(slidingWindow, slidingBudget, "Sliding window")
     };
   }
-  async getMicroEditContext(selectedText) {
+  async getMicroEditContext(selectedText, retrievalQuery) {
     const settings = this.plugin.settings;
     const surrounding = await this.getSurroundingContext(selectedText, 500, 500);
     let extractions = "";
@@ -25571,8 +25800,8 @@ var ContextAggregator = class {
     const storyBible = await this.readFile(settings.storyBiblePath);
     const slidingWindow = await this.readFile(settings.slidingWindowPath);
     const characterNotes = this.formatCharacterNotes(await this.getAllCharacterNotes());
-    const smartChunkLimit = Math.min(80, Math.max(12, Math.floor(contextBudget / 2e4)));
-    const smartConnections = await this.getSmartConnections(smartChunkLimit);
+    const retrievedLimit = Math.min(80, Math.max(12, Math.floor(contextBudget / 2e4)));
+    const retrievedContext = await this.getRetrievedContext(retrievalQuery, retrievedLimit);
     const slidingBudget = Math.floor(contextBudget * 0.03);
     const bibleBudget = Math.floor(contextBudget * 0.2);
     const extractionsBudget = Math.floor(contextBudget * 0.1);
@@ -25583,7 +25812,7 @@ var ContextAggregator = class {
       story_bible: this.trimHeadToBudget(storyBible, bibleBudget, "Story bible"),
       extractions: this.trimHeadToBudget(extractions, extractionsBudget, "Extractions"),
       character_notes: this.trimHeadToBudget(characterNotes, characterBudget, "Character notes"),
-      smart_connections: this.trimHeadToBudget(smartConnections, smartBudget, "Smart connections"),
+      smart_connections: this.trimHeadToBudget(retrievedContext, smartBudget, "Retrieved context"),
       surrounding_before: surrounding.before,
       surrounding_after: surrounding.after
     };
@@ -25609,134 +25838,29 @@ var ContextAggregator = class {
       return `[Error reading file ${path}: ${message}]`;
     }
   }
-  async getSmartConnections(limit = 64) {
-    const scDataPath = `${this.vault.configDir}/plugins/smart-connections/data.json`;
-    let smartConnectionsAvailable = false;
+  formatRetrievedItems(items) {
+    if (!items.length)
+      return "[No retrieved context]";
+    const lines = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      lines.push(
+        `[${i + 1}] ${item.path}
+Score: ${item.score.toFixed(3)} (${item.source})
+` + `${item.excerpt}`.trim()
+      );
+    }
+    return lines.join("\n\n---\n\n");
+  }
+  async getRetrievedContext(query, limit) {
     try {
-      const file = this.vault.getAbstractFileByPath(scDataPath);
-      if (file instanceof import_obsidian8.TFile) {
-        JSON.parse(await this.vault.read(file));
-        smartConnectionsAvailable = true;
-      }
+      const results = await this.plugin.retrievalService.search(query, {
+        limit: Math.max(1, Math.min(200, limit))
+      });
+      return this.formatRetrievedItems(results);
     } catch (e) {
+      return "[Retrieved context unavailable]";
     }
-    const book1Content = await this.extractBook1Content(limit);
-    if (book1Content.length > 0) {
-      const scStatus = smartConnectionsAvailable ? "[Smart Connections: Active - Book 1 canon loaded]" : "[Smart Connections: Not installed - Using Book 1 files directly]";
-      return `${scStatus}
-
-${book1Content}`;
-    }
-    if (smartConnectionsAvailable) {
-      return "[Smart Connections: Data found but no Book 1 content detected. Ensure Book 1 files exist in your vault.]";
-    }
-    return "[Smart Connections: Not available. To use Book 1 canon context, either install Smart Connections plugin or ensure Book 1 files are accessible in your vault.]";
-  }
-  /**
-   * Extract Book 1 canon content from vault
-   * Looks for common Book 1 patterns: chunked folders, Book 1 files, etc.
-   */
-  async extractBook1Content(maxChunks = 64) {
-    const content = [];
-    const processedFiles = /* @__PURE__ */ new Set();
-    const book1Patterns = [
-      "Book 1 - Chunked",
-      "Book-1-Chunked",
-      "Book1-Chunked",
-      "Book 1",
-      "Book-1",
-      "Book1"
-    ];
-    for (const pattern of book1Patterns) {
-      try {
-        const folder = this.vault.getAbstractFileByPath(pattern);
-        if (folder instanceof import_obsidian8.TFolder) {
-          const chunks = await this.readChunkedFolder(folder, maxChunks);
-          content.push(...chunks);
-          if (content.length >= maxChunks)
-            break;
-        }
-      } catch (e) {
-      }
-    }
-    if (content.length === 0) {
-      for (const pattern of book1Patterns) {
-        try {
-          const file = this.vault.getAbstractFileByPath(`${pattern}.md`);
-          if (file instanceof import_obsidian8.TFile && !processedFiles.has(file.path)) {
-            const fileContent = await this.vault.read(file);
-            const chunks = this.chunkText(fileContent, Math.min(maxChunks, 10));
-            content.push(...chunks);
-            processedFiles.add(file.path);
-          }
-        } catch (e) {
-        }
-      }
-    }
-    if (content.length < maxChunks) {
-      const allFiles = this.vault.getMarkdownFiles();
-      for (const file of allFiles) {
-        if (processedFiles.has(file.path))
-          continue;
-        const fileName = file.basename.toLowerCase();
-        if (fileName.includes("book 1") || fileName.includes("book-1") || fileName.includes("book1")) {
-          try {
-            const fileContent = await this.vault.read(file);
-            const chunks = this.chunkText(fileContent, Math.min(maxChunks - content.length, 5));
-            content.push(...chunks);
-            processedFiles.add(file.path);
-            if (content.length >= maxChunks)
-              break;
-          } catch (e) {
-          }
-        }
-      }
-    }
-    if (content.length === 0) {
-      return "";
-    }
-    return content.slice(0, maxChunks).join("\n\n---\n\n");
-  }
-  /**
-   * Read all chunk files from a chunked folder
-   */
-  async readChunkedFolder(folder, maxChunks) {
-    const chunks = [];
-    const chunkFiles = [];
-    for (const child of folder.children) {
-      if (child instanceof import_obsidian8.TFile && child.extension === "md") {
-        chunkFiles.push(child);
-      }
-    }
-    chunkFiles.sort((a, b) => a.name.localeCompare(b.name));
-    for (let i = 0; i < Math.min(chunkFiles.length, maxChunks); i++) {
-      try {
-        const content = await this.vault.read(chunkFiles[i]);
-        if (content.trim()) {
-          chunks.push(`[From: ${chunkFiles[i].name}]
-${content}`);
-        }
-      } catch (e) {
-      }
-    }
-    return chunks;
-  }
-  /**
-   * Chunk text into smaller pieces (for large files)
-   */
-  chunkText(text, maxChunks) {
-    const words = text.trim().split(/\s+/);
-    if (words.length === 0)
-      return [];
-    const wordsPerChunk = Math.max(500, Math.ceil(words.length / maxChunks));
-    const chunks = [];
-    for (let i = 0; i < words.length && chunks.length < maxChunks; i += wordsPerChunk) {
-      const chunk = words.slice(i, i + wordsPerChunk).join(" ");
-      if (chunk.trim()) {
-        chunks.push(chunk);
-      }
-    }
-    return chunks;
   }
   async getAllCharacterNotes() {
     const notes = {};
@@ -25814,12 +25938,11 @@ var PromptEngine = class {
 You are working on a multi-book narrative. Interpret the following file contents as directed:
 
 -------------------------------------------------------------
-BOOK 1 \u2014 CANON (LOADED VIA SMART CONNECTIONS)
+RETRIEVED CONTEXT \u2014 RELEVANT NOTES (WHOLE VAULT)
 -------------------------------------------------------------
 ${context.smart_connections || ""}
 
 Use these excerpts to maintain continuity, tone, and world consistency.
-Do NOT contradict Book 1 canon.
 
 -------------------------------------------------------------
 BOOK 2 \u2014 ACTIVE MANUSCRIPT (CONTINUE THIS)
@@ -25862,7 +25985,7 @@ Between ${minWords} and ${maxWords} words (aim for the middle unless the scene r
 -------------------------------------------------------------
 SUMMARY OF YOUR ROLE
 -------------------------------------------------------------
-- Book 1 = immutable canon
+- Retrieved context = continuity references
 - Book 2 = active writing
 - Story Bible + Extractions = world + theme rules
 - Sliding Window = direct lead-in
@@ -25928,7 +26051,7 @@ ${context.character_notes || ""}
 Use these to maintain character voice, relationships, and arc progression.
 
 -------------------------------------------------------------
-SMART CONNECTIONS \u2014 STYLE ECHOES
+RETRIEVED CONTEXT \u2014 STYLE ECHOES
 -------------------------------------------------------------
 ${context.smart_connections || ""}
 
@@ -25946,7 +26069,7 @@ Generate a SINGLE refined alternative to the selected passage that:
 
 Output ONLY the revised passage, ready to be copy-pasted into the manuscript.`;
   }
-  buildCharacterExtractionPrompt(selectedText, characterNotes, storyBible, instructions) {
+  buildCharacterExtractionPrompt(selectedText, characterNotes, storyBible, instructions, retrievedContext) {
     const characterNotesText = Object.entries(characterNotes).map(([name, content]) => `## ${name}
 ${content}`).join("\n\n");
     return `SYSTEM INSTRUCTION FOR AI:
@@ -25967,6 +26090,13 @@ EXISTING CHARACTER NOTES (IF ANY)
 ${characterNotesText || "[No existing character notes]"}
 
 Current state of character files. Update these with new information.
+
+-------------------------------------------------------------
+RETRIEVED CONTEXT \u2014 RELEVANT NOTES (WHOLE VAULT)
+-------------------------------------------------------------
+${retrievedContext || "[No retrieved context]"}
+
+Use this for continuity. Do not invent facts.
 
 -------------------------------------------------------------
 STORY BIBLE \u2014 CONTEXT
@@ -26040,6 +26170,13 @@ ${params.passage}
 EXISTING CHARACTER NOTES (IF ANY)
 -------------------------------------------------------------
 ${characterNotesText || "[No existing character notes]"}
+
+-------------------------------------------------------------
+RETRIEVED CONTEXT \u2014 RELEVANT NOTES (WHOLE VAULT)
+-------------------------------------------------------------
+${params.retrievedContext || "[No retrieved context]"}
+
+Use this for continuity. Do not invent facts.
 
 -------------------------------------------------------------
 STORY BIBLE \u2014 CONTEXT
@@ -26531,6 +26668,528 @@ var CharacterExtractor = class {
   }
 };
 
+// services/RetrievalService.ts
+function mergeReasonTags(a, b) {
+  if (!(a == null ? void 0 : a.length) && !(b == null ? void 0 : b.length))
+    return void 0;
+  const set = /* @__PURE__ */ new Set();
+  a == null ? void 0 : a.forEach((t) => set.add(t));
+  b == null ? void 0 : b.forEach((t) => set.add(t));
+  return Array.from(set);
+}
+function normalizeLimit(limit) {
+  if (!Number.isFinite(limit))
+    return 20;
+  return Math.max(1, Math.min(200, Math.floor(limit)));
+}
+var RetrievalService = class {
+  constructor(providers) {
+    this.providers = providers;
+  }
+  async search(query, opts) {
+    const limit = normalizeLimit(opts.limit);
+    const resultsByKey = /* @__PURE__ */ new Map();
+    const providerResults = await Promise.all(
+      this.providers.map(async (p) => {
+        try {
+          return await p.search(query, { limit });
+        } catch (e) {
+          return [];
+        }
+      })
+    );
+    for (const batch of providerResults) {
+      for (const item of batch) {
+        const key = item.key || `${item.path}${item.anchor ? `#${item.anchor}` : ""}`;
+        const existing = resultsByKey.get(key);
+        if (!existing) {
+          resultsByKey.set(key, { ...item, key });
+          continue;
+        }
+        if (item.score > existing.score) {
+          resultsByKey.set(key, {
+            ...item,
+            key,
+            reasonTags: mergeReasonTags(existing.reasonTags, item.reasonTags)
+          });
+        } else {
+          resultsByKey.set(key, {
+            ...existing,
+            reasonTags: mergeReasonTags(existing.reasonTags, item.reasonTags)
+          });
+        }
+      }
+    }
+    return Array.from(resultsByKey.values()).sort((a, b) => b.score - a.score).slice(0, limit);
+  }
+};
+
+// services/QueryBuilder.ts
+var QueryBuilder = class {
+  build(input) {
+    var _a;
+    const parts = [];
+    const push = (label, value) => {
+      const v = (value != null ? value : "").trim();
+      if (!v)
+        return;
+      parts.push(`${label}:
+${v}`);
+    };
+    push("Primary text", input.primaryText);
+    push("Director notes", input.directorNotes);
+    push("Scene summary", input.sceneSummary);
+    return {
+      text: parts.join("\n\n"),
+      activeFilePath: input.activeFilePath,
+      mode: input.mode,
+      hints: {
+        characters: (_a = input.characterNames) == null ? void 0 : _a.filter((n) => typeof n === "string" && n.trim().length > 0)
+      }
+    };
+  }
+};
+
+// services/retrieval/HeuristicProvider.ts
+var STOPWORDS = /* @__PURE__ */ new Set([
+  "the",
+  "a",
+  "an",
+  "and",
+  "or",
+  "but",
+  "to",
+  "of",
+  "in",
+  "on",
+  "for",
+  "with",
+  "at",
+  "from",
+  "by",
+  "as",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "it",
+  "that",
+  "this",
+  "these",
+  "those"
+]);
+function tokenize(value) {
+  return value.toLowerCase().split(/[^a-z0-9]+/g).map((t) => t.trim()).filter((t) => t.length >= 3 && !STOPWORDS.has(t));
+}
+function findSnippet(content, term, maxLen) {
+  const lower = content.toLowerCase();
+  const idx = lower.indexOf(term.toLowerCase());
+  if (idx < 0)
+    return content.slice(0, maxLen);
+  const start = Math.max(0, idx - Math.floor(maxLen / 3));
+  const end = Math.min(content.length, start + maxLen);
+  const prefix = start > 0 ? "\u2026" : "";
+  const suffix = end < content.length ? "\u2026" : "";
+  return `${prefix}${content.slice(start, end)}${suffix}`.trim();
+}
+var HeuristicProvider = class {
+  constructor(vault, vaultService) {
+    this.id = "heuristic";
+    this.cache = /* @__PURE__ */ new Map();
+    this.cacheTtlMs = 3e4;
+    this.vault = vault;
+    this.vaultService = vaultService;
+  }
+  async search(query, opts) {
+    var _a, _b, _c;
+    const q = ((_a = query.text) != null ? _a : "").trim();
+    if (!q)
+      return [];
+    const cacheKey = fnv1a32(
+      [
+        "q:" + q,
+        "active:" + ((_b = query.activeFilePath) != null ? _b : ""),
+        "mode:" + ((_c = query.mode) != null ? _c : ""),
+        "k:" + String(opts.limit)
+      ].join("\n")
+    );
+    const cached = this.cache.get(cacheKey);
+    if (cached && Date.now() - cached.at <= this.cacheTtlMs) {
+      return cached.results.slice(0, opts.limit);
+    }
+    const terms = tokenize(q).slice(0, 24);
+    if (terms.length === 0)
+      return [];
+    const files = this.vaultService.getIncludedMarkdownFiles();
+    if (files.length === 0)
+      return [];
+    const now = Date.now();
+    const scored = files.map((f) => {
+      var _a2, _b2;
+      const base = `${f.basename} ${f.path}`.toLowerCase();
+      let score = 0;
+      let titleHits = 0;
+      for (const t of terms) {
+        if (base.includes(t)) {
+          score += 1;
+          titleHits++;
+        }
+      }
+      const ageMs = Math.max(0, now - ((_b2 = (_a2 = f.stat) == null ? void 0 : _a2.mtime) != null ? _b2 : now));
+      const recency = 1 / (1 + ageMs / (1e3 * 60 * 60 * 24 * 30));
+      score += recency * 0.5;
+      if (query.activeFilePath && f.path === query.activeFilePath)
+        score += 0.75;
+      if (query.activeFilePath && f.path.startsWith(query.activeFilePath.split("/").slice(0, -1).join("/")))
+        score += 0.15;
+      return { file: f, score, titleHits };
+    }).sort((a, b) => b.score - a.score).slice(0, 200);
+    const results = [];
+    const maxRead = Math.min(scored.length, 120);
+    for (let i = 0; i < maxRead; i++) {
+      const { file, score: baseScore, titleHits } = scored[i];
+      let content = "";
+      try {
+        content = await this.vault.read(file);
+      } catch (e) {
+        continue;
+      }
+      const lower = content.toLowerCase();
+      let tf = 0;
+      let firstTerm = null;
+      for (const t of terms) {
+        const hits = lower.split(t).length - 1;
+        if (hits > 0 && !firstTerm)
+          firstTerm = t;
+        tf += hits;
+      }
+      if (tf === 0 && titleHits === 0)
+        continue;
+      const normalizedTf = Math.min(1, tf / 24);
+      const score = Math.min(1, baseScore / 6 + normalizedTf * 0.7);
+      const reasonTags = [];
+      if (titleHits > 0)
+        reasonTags.push("titleMatch");
+      if (tf > 0)
+        reasonTags.push("textMatch");
+      const excerpt = firstTerm ? findSnippet(content, firstTerm, 600) : content.slice(0, 600);
+      results.push({
+        key: `file:${file.path}`,
+        path: file.path,
+        title: file.basename,
+        excerpt,
+        score,
+        source: this.id,
+        reasonTags
+      });
+    }
+    const finalResults = results.sort((a, b) => b.score - a.score).slice(0, opts.limit);
+    this.cache.set(cacheKey, { at: Date.now(), results: finalResults });
+    return finalResults;
+  }
+};
+
+// services/retrieval/EmbeddingsIndex.ts
+var import_obsidian10 = require("obsidian");
+function clampInt(value, min, max) {
+  if (!Number.isFinite(value))
+    return min;
+  return Math.max(min, Math.min(max, Math.floor(value)));
+}
+function tokenize2(value) {
+  return value.toLowerCase().split(/[^a-z0-9]+/g).map((t) => t.trim()).filter((t) => t.length >= 2);
+}
+function buildVector(text, dim) {
+  const vec = new Array(dim).fill(0);
+  const tokens = tokenize2(text);
+  for (const tok of tokens) {
+    const h = parseInt(fnv1a32(tok), 16);
+    const idx = h % dim;
+    const sign = (h & 1) === 0 ? 1 : -1;
+    vec[idx] += sign;
+  }
+  let sumSq = 0;
+  for (let i = 0; i < dim; i++)
+    sumSq += vec[i] * vec[i];
+  const norm = Math.sqrt(sumSq) || 1;
+  for (let i = 0; i < dim; i++)
+    vec[i] = vec[i] / norm;
+  return vec;
+}
+function chunkWords(text, chunkWordsCount, overlapWordsCount) {
+  const words = text.split(/\s+/g).filter(Boolean);
+  const chunks = [];
+  const size = clampInt(chunkWordsCount, 200, 2e3);
+  const overlap = clampInt(overlapWordsCount, 0, Math.max(0, size - 1));
+  const step = Math.max(1, size - overlap);
+  for (let start = 0; start < words.length; start += step) {
+    const end = Math.min(words.length, start + size);
+    const slice = words.slice(start, end).join(" ");
+    chunks.push({ start, end, text: slice });
+    if (end >= words.length)
+      break;
+  }
+  return chunks;
+}
+function excerptOf(text, maxChars) {
+  const trimmed = text.trim().replace(/\s+/g, " ");
+  if (trimmed.length <= maxChars)
+    return trimmed;
+  return `${trimmed.slice(0, maxChars)}\u2026`;
+}
+var EmbeddingsIndex = class {
+  constructor(vault, plugin, dim = 256) {
+    this.loaded = false;
+    this.chunksByKey = /* @__PURE__ */ new Map();
+    this.chunkKeysByPath = /* @__PURE__ */ new Map();
+    this.queue = /* @__PURE__ */ new Set();
+    this.workerRunning = false;
+    this.persistTimer = null;
+    this.settingsSaveTimer = null;
+    this.vault = vault;
+    this.plugin = plugin;
+    this.dim = dim;
+  }
+  getIndexFilePath() {
+    return `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index/index.json`;
+  }
+  async ensureLoaded() {
+    if (this.loaded)
+      return;
+    this.loaded = true;
+    try {
+      const path = this.getIndexFilePath();
+      if (!await this.vault.adapter.exists(path))
+        return;
+      const raw = await this.vault.adapter.read(path);
+      const parsed = JSON.parse(raw);
+      if ((parsed == null ? void 0 : parsed.version) !== 1 || !Array.isArray(parsed.chunks))
+        return;
+      if (typeof parsed.dim === "number" && parsed.dim !== this.dim) {
+        return;
+      }
+      for (const chunk of parsed.chunks) {
+        if (!(chunk == null ? void 0 : chunk.key) || !(chunk == null ? void 0 : chunk.path) || !Array.isArray(chunk.vector))
+          continue;
+        this._setChunk(chunk);
+      }
+    } catch (e) {
+      this.chunksByKey.clear();
+      this.chunkKeysByPath.clear();
+    }
+  }
+  getStatus() {
+    return {
+      indexedFiles: this.chunkKeysByPath.size,
+      indexedChunks: this.chunksByKey.size,
+      paused: Boolean(this.plugin.settings.retrievalIndexPaused),
+      queued: this.queue.size
+    };
+  }
+  enqueueFullRescan() {
+    const files = this.plugin.vaultService.getIncludedMarkdownFiles();
+    for (const f of files)
+      this.queue.add(f.path);
+    this._kickWorker();
+  }
+  queueUpdateFile(path) {
+    if (!path)
+      return;
+    this.queue.add(path);
+    this._kickWorker();
+  }
+  queueRemoveFile(path) {
+    if (!path)
+      return;
+    this._removePath(path);
+    this._schedulePersist();
+    this._scheduleSettingsSave();
+  }
+  _kickWorker() {
+    if (this.workerRunning)
+      return;
+    this.workerRunning = true;
+    void this._runWorker().catch(() => {
+      this.workerRunning = false;
+    });
+  }
+  async _runWorker() {
+    var _a, _b, _c;
+    await this.ensureLoaded();
+    while (this.queue.size > 0) {
+      if (this.plugin.settings.retrievalIndexPaused)
+        break;
+      const next = this.queue.values().next().value;
+      this.queue.delete(next);
+      if (this.plugin.vaultService.isExcludedPath(next)) {
+        this._removePath(next);
+        this._schedulePersist();
+        this._scheduleSettingsSave();
+        continue;
+      }
+      const file = this.vault.getAbstractFileByPath(next);
+      if (!(file instanceof import_obsidian10.TFile) || file.extension !== "md") {
+        this._removePath(next);
+        this._schedulePersist();
+        this._scheduleSettingsSave();
+        continue;
+      }
+      try {
+        const content = await this.vault.read(file);
+        const fileHash = fnv1a32(content);
+        const prev = (_a = this.plugin.settings.retrievalIndexState) == null ? void 0 : _a[next];
+        if ((prev == null ? void 0 : prev.hash) === fileHash) {
+          continue;
+        }
+        this._reindexFile(next, content);
+        this.plugin.settings.retrievalIndexState = {
+          ...this.plugin.settings.retrievalIndexState || {},
+          [next]: {
+            hash: fileHash,
+            chunkCount: (_c = (_b = this.chunkKeysByPath.get(next)) == null ? void 0 : _b.size) != null ? _c : 0,
+            updatedAt: new Date().toISOString()
+          }
+        };
+        this._schedulePersist();
+        this._scheduleSettingsSave();
+      } catch (e) {
+      }
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    this.workerRunning = false;
+  }
+  _reindexFile(path, content) {
+    var _a, _b;
+    this._removePath(path);
+    const chunkWordsCount = (_a = this.plugin.settings.retrievalChunkWords) != null ? _a : 500;
+    const overlap = (_b = this.plugin.settings.retrievalChunkOverlapWords) != null ? _b : 100;
+    const chunks = chunkWords(content, chunkWordsCount, overlap);
+    for (let i = 0; i < chunks.length; i++) {
+      const ch = chunks[i];
+      const textHash = fnv1a32(ch.text);
+      const key = `chunk:${path}:${i}`;
+      const vector = buildVector(ch.text, this.dim);
+      const excerpt = excerptOf(ch.text, 500);
+      this._setChunk({
+        key,
+        path,
+        chunkIndex: i,
+        startWord: ch.start,
+        endWord: ch.end,
+        textHash,
+        vector,
+        excerpt
+      });
+    }
+  }
+  _setChunk(chunk) {
+    var _a;
+    this.chunksByKey.set(chunk.key, chunk);
+    const set = (_a = this.chunkKeysByPath.get(chunk.path)) != null ? _a : /* @__PURE__ */ new Set();
+    set.add(chunk.key);
+    this.chunkKeysByPath.set(chunk.path, set);
+  }
+  _removePath(path) {
+    var _a;
+    const keys = this.chunkKeysByPath.get(path);
+    if (keys) {
+      for (const k of keys)
+        this.chunksByKey.delete(k);
+    }
+    this.chunkKeysByPath.delete(path);
+    if ((_a = this.plugin.settings.retrievalIndexState) == null ? void 0 : _a[path]) {
+      const next = { ...this.plugin.settings.retrievalIndexState || {} };
+      delete next[path];
+      this.plugin.settings.retrievalIndexState = next;
+    }
+  }
+  getAllChunks() {
+    return Array.from(this.chunksByKey.values());
+  }
+  buildQueryVector(queryText) {
+    return buildVector(queryText, this.dim);
+  }
+  _schedulePersist() {
+    if (this.persistTimer)
+      window.clearTimeout(this.persistTimer);
+    this.persistTimer = window.setTimeout(() => {
+      this.persistTimer = null;
+      void this._persistNow().catch(() => {
+      });
+    }, 1e3);
+  }
+  async _persistNow() {
+    const dir = `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index`;
+    try {
+      if (!await this.vault.adapter.exists(dir)) {
+        await this.vault.adapter.mkdir(dir);
+      }
+    } catch (e) {
+    }
+    const payload = {
+      version: 1,
+      dim: this.dim,
+      chunks: this.getAllChunks()
+    };
+    await this.vault.adapter.write(this.getIndexFilePath(), JSON.stringify(payload));
+  }
+  _scheduleSettingsSave() {
+    if (this.settingsSaveTimer)
+      window.clearTimeout(this.settingsSaveTimer);
+    this.settingsSaveTimer = window.setTimeout(() => {
+      this.settingsSaveTimer = null;
+      void this.plugin.saveSettings().catch(() => {
+      });
+    }, 1e3);
+  }
+};
+
+// services/retrieval/LocalEmbeddingsProvider.ts
+function dot(a, b) {
+  const n = Math.min(a.length, b.length);
+  let s = 0;
+  for (let i = 0; i < n; i++)
+    s += a[i] * b[i];
+  return s;
+}
+var LocalEmbeddingsProvider = class {
+  constructor(index, isEnabled, isAllowedPath) {
+    this.id = "semantic";
+    this.index = index;
+    this.isEnabled = isEnabled;
+    this.isAllowedPath = isAllowedPath;
+  }
+  async search(query, opts) {
+    var _a;
+    if (!this.isEnabled())
+      return [];
+    const q = ((_a = query.text) != null ? _a : "").trim();
+    if (!q)
+      return [];
+    await this.index.ensureLoaded();
+    const qVec = this.index.buildQueryVector(q);
+    const chunks = this.index.getAllChunks().filter((c) => this.isAllowedPath(c.path));
+    if (chunks.length === 0)
+      return [];
+    const scored = chunks.map((c) => ({ chunk: c, score: dot(qVec, c.vector) })).sort((a, b) => b.score - a.score).slice(0, Math.max(1, Math.min(200, opts.limit * 6)));
+    const results = [];
+    for (const { chunk, score } of scored) {
+      results.push({
+        key: chunk.key,
+        path: chunk.path,
+        title: chunk.path.split("/").pop(),
+        excerpt: chunk.excerpt,
+        score: Math.max(0, Math.min(1, (score + 1) / 2)),
+        source: this.id,
+        reasonTags: ["semantic"]
+      });
+    }
+    return results.slice(0, opts.limit);
+  }
+};
+
 // ui/BookMainSelectorModal.ts
 var BookMainSelectorModal = class extends FilePickerModal {
   constructor(plugin, files) {
@@ -26588,12 +27247,19 @@ Output format (required):
 ## Character Name
 - Bullet updates only (no extra headings)
 `,
+  retrievalExcludedFolders: ["Templates"],
+  retrievalEnableSemanticIndex: true,
+  retrievalTopK: 24,
+  retrievalChunkWords: 500,
+  retrievalChunkOverlapWords: 100,
+  retrievalIndexPaused: false,
+  retrievalIndexState: {},
   setupCompleted: false,
   guidedDemoDismissed: false,
   guidedDemoShownOnce: false,
   fileState: {}
 };
-var WritingDashboardPlugin = class extends import_obsidian10.Plugin {
+var WritingDashboardPlugin = class extends import_obsidian11.Plugin {
   constructor() {
     super(...arguments);
     /**
@@ -26625,7 +27291,7 @@ var WritingDashboardPlugin = class extends import_obsidian10.Plugin {
     this.registerEvent(
       this.app.vault.on("rename", async (file, oldPath) => {
         var _a;
-        if (!(file instanceof import_obsidian10.TFile) || file.extension !== "md")
+        if (!(file instanceof import_obsidian11.TFile) || file.extension !== "md")
           return;
         if (this.lastOpenedMarkdownPath === oldPath) {
           this.lastOpenedMarkdownPath = file.path;
@@ -26652,6 +27318,58 @@ var WritingDashboardPlugin = class extends import_obsidian10.Plugin {
     this.promptEngine = new PromptEngine();
     this.aiClient = new AIClient();
     this.characterExtractor = new CharacterExtractor();
+    this.queryBuilder = new QueryBuilder();
+    this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this);
+    const providers = [
+      new HeuristicProvider(this.app.vault, this.vaultService),
+      new LocalEmbeddingsProvider(
+        this.embeddingsIndex,
+        () => Boolean(this.settings.retrievalEnableSemanticIndex),
+        (path) => !this.vaultService.isExcludedPath(path)
+      )
+    ];
+    this.retrievalService = new RetrievalService(providers);
+    const maybeQueueIndex = (path) => {
+      if (!this.settings.retrievalEnableSemanticIndex)
+        return;
+      if (this.settings.retrievalIndexPaused)
+        return;
+      if (this.vaultService.isExcludedPath(path))
+        return;
+      this.embeddingsIndex.queueUpdateFile(path);
+    };
+    this.registerEvent(
+      this.app.vault.on("create", (file) => {
+        if (file instanceof import_obsidian11.TFile && file.extension === "md") {
+          maybeQueueIndex(file.path);
+        }
+      })
+    );
+    this.registerEvent(
+      this.app.vault.on("modify", (file) => {
+        if (file instanceof import_obsidian11.TFile && file.extension === "md") {
+          maybeQueueIndex(file.path);
+        }
+      })
+    );
+    this.registerEvent(
+      this.app.vault.on("delete", (file) => {
+        if (file instanceof import_obsidian11.TFile && file.extension === "md") {
+          this.embeddingsIndex.queueRemoveFile(file.path);
+        }
+      })
+    );
+    this.registerEvent(
+      this.app.vault.on("rename", (file, oldPath) => {
+        if (!(file instanceof import_obsidian11.TFile) || file.extension !== "md")
+          return;
+        this.embeddingsIndex.queueRemoveFile(oldPath);
+        maybeQueueIndex(file.path);
+      })
+    );
+    if (this.settings.retrievalEnableSemanticIndex && !this.settings.retrievalIndexPaused) {
+      this.embeddingsIndex.enqueueFullRescan();
+    }
     this.registerView(
       VIEW_TYPE_DASHBOARD,
       (leaf) => new DashboardView(leaf, this)

@@ -22,12 +22,11 @@ export class PromptEngine {
 You are working on a multi-book narrative. Interpret the following file contents as directed:
 
 -------------------------------------------------------------
-BOOK 1 — CANON (LOADED VIA SMART CONNECTIONS)
+RETRIEVED CONTEXT — RELEVANT NOTES (WHOLE VAULT)
 -------------------------------------------------------------
 ${context.smart_connections || ''}
 
 Use these excerpts to maintain continuity, tone, and world consistency.
-Do NOT contradict Book 1 canon.
 
 -------------------------------------------------------------
 BOOK 2 — ACTIVE MANUSCRIPT (CONTINUE THIS)
@@ -70,7 +69,7 @@ Between ${minWords} and ${maxWords} words (aim for the middle unless the scene r
 -------------------------------------------------------------
 SUMMARY OF YOUR ROLE
 -------------------------------------------------------------
-- Book 1 = immutable canon
+- Retrieved context = continuity references
 - Book 2 = active writing
 - Story Bible + Extractions = world + theme rules
 - Sliding Window = direct lead-in
@@ -137,7 +136,7 @@ ${context.character_notes || ''}
 Use these to maintain character voice, relationships, and arc progression.
 
 -------------------------------------------------------------
-SMART CONNECTIONS — STYLE ECHOES
+RETRIEVED CONTEXT — STYLE ECHOES
 -------------------------------------------------------------
 ${context.smart_connections || ''}
 
@@ -160,7 +159,8 @@ Output ONLY the revised passage, ready to be copy-pasted into the manuscript.`;
 		selectedText: string,
 		characterNotes: Record<string, string>,
 		storyBible: string,
-		instructions: string
+		instructions: string,
+		retrievedContext?: string
 	): string {
 		const characterNotesText = Object.entries(characterNotes)
 			.map(([name, content]) => `## ${name}\n${content}`)
@@ -184,6 +184,13 @@ EXISTING CHARACTER NOTES (IF ANY)
 ${characterNotesText || '[No existing character notes]'}
 
 Current state of character files. Update these with new information.
+
+-------------------------------------------------------------
+RETRIEVED CONTEXT — RELEVANT NOTES (WHOLE VAULT)
+-------------------------------------------------------------
+${retrievedContext || '[No retrieved context]'}
+
+Use this for continuity. Do not invent facts.
 
 -------------------------------------------------------------
 STORY BIBLE — CONTEXT
@@ -241,6 +248,7 @@ Only output the list. No extra commentary.`;
 		roster: string;
 		characterNotes: Record<string, string>;
 		storyBible: string;
+		retrievedContext?: string;
 	}): string {
 		const characterNotesText = Object.entries(params.characterNotes)
 			.map(([name, content]) => `## ${name}\n${content}`)
@@ -266,6 +274,13 @@ ${params.passage}
 EXISTING CHARACTER NOTES (IF ANY)
 -------------------------------------------------------------
 ${characterNotesText || '[No existing character notes]'}
+
+-------------------------------------------------------------
+RETRIEVED CONTEXT — RELEVANT NOTES (WHOLE VAULT)
+-------------------------------------------------------------
+${params.retrievedContext || '[No retrieved context]'}
+
+Use this for continuity. Do not invent facts.
 
 -------------------------------------------------------------
 STORY BIBLE — CONTEXT

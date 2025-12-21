@@ -214,6 +214,39 @@ export class VaultService {
 		return structure;
 	}
 
+	/**
+	 * List all folder paths in the vault (relative paths). Sorted for stable UI.
+	 */
+	getAllFolderPaths(): string[] {
+		const folders: string[] = [];
+		const root = this.vault.getRoot();
+		this._collectFolders(root, folders, '');
+		return folders.sort((a, b) => a.localeCompare(b));
+	}
+
+	/**
+	 * `.obsidian/` is always excluded from retrieval/indexing.
+	 */
+	isExcludedPath(path: string): boolean {
+		const normalized = path.replace(/\\/g, '/');
+		const configDir = this.vault.configDir?.replace(/\\/g, '/') || '.obsidian';
+
+		// Always exclude Obsidian config + plugin data.
+		if (normalized === configDir || normalized.startsWith(`${configDir}/`)) return true;
+
+		const excluded = this.plugin.settings.retrievalExcludedFolders || [];
+		for (const folder of excluded) {
+			const f = folder.replace(/\\/g, '/').replace(/\/+$/, '');
+			if (!f) continue;
+			if (normalized === f || normalized.startsWith(`${f}/`)) return true;
+		}
+		return false;
+	}
+
+	getIncludedMarkdownFiles(): TFile[] {
+		return this.vault.getMarkdownFiles().filter((f) => !this.isExcludedPath(f.path));
+	}
+
 	private _traverseFolder(
 		folder: TFolder,
 		structure: Array<{ name: string; path: string; type: 'file' | 'folder' }>,
@@ -228,6 +261,15 @@ export class VaultService {
 			} else if (child instanceof TFile) {
 				structure.push({ name: child.name, path, type: 'file' });
 			}
+		}
+	}
+
+	private _collectFolders(folder: TFolder, folders: string[], basePath: string): void {
+		for (const child of folder.children) {
+			if (!(child instanceof TFolder)) continue;
+			const path = basePath ? `${basePath}/${child.name}` : child.name;
+			folders.push(path);
+			this._collectFolders(child, folders, path);
 		}
 	}
 }

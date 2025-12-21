@@ -66,6 +66,15 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [error, setError] = useState<string | null>(null);
 	const [promptTokenEstimate, setPromptTokenEstimate] = useState<number | null>(null);
 	const [promptCharCount, setPromptCharCount] = useState<number | null>(null);
+	const [retrievedContextStats, setRetrievedContextStats] = useState<{ items: number; tokens: number } | null>(null);
+	const [indexStatusText, setIndexStatusText] = useState<string>(() => {
+		if (!plugin.settings.retrievalEnableSemanticIndex) return 'Semantic retrieval: Off';
+		const status = plugin.embeddingsIndex?.getStatus?.();
+		if (!status) return 'Semantic retrieval: Starting…';
+		if (status.paused) return `Index: Paused (${status.indexedFiles} file(s), ${status.indexedChunks} chunk(s))`;
+		if (status.queued > 0) return `Index: Building (${status.queued} queued, ${status.indexedChunks} chunk(s))`;
+		return `Index: Up to date (${status.indexedFiles} file(s), ${status.indexedChunks} chunk(s))`;
+	});
 	const [bulkSourcePath, setBulkSourcePath] = useState<string | undefined>(
 		plugin.settings.characterExtractionSourcePath
 	);
@@ -211,6 +220,38 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	useEffect(() => {
 		setMaxWordsInput(String(maxWords));
 	}, [maxWords]);
+
+	// Poll index status while the dashboard is open (cheap + reliable).
+	useEffect(() => {
+		const update = () => {
+			try {
+				if (!plugin.settings.retrievalEnableSemanticIndex) {
+					setIndexStatusText('Semantic retrieval: Off');
+					return;
+				}
+				const status = plugin.embeddingsIndex?.getStatus?.();
+				if (!status) {
+					setIndexStatusText('Semantic retrieval: Starting…');
+					return;
+				}
+				if (status.paused) {
+					setIndexStatusText(`Index: Paused (${status.indexedFiles} file(s), ${status.indexedChunks} chunk(s))`);
+					return;
+				}
+				if (status.queued > 0) {
+					setIndexStatusText(`Index: Building (${status.queued} queued, ${status.indexedChunks} chunk(s))`);
+					return;
+				}
+				setIndexStatusText(`Index: Up to date (${status.indexedFiles} file(s), ${status.indexedChunks} chunk(s))`);
+			} catch {
+				setIndexStatusText('Semantic retrieval: Unavailable');
+			}
+		};
+
+		update();
+		const id = window.setInterval(update, 2000);
+		return () => window.clearInterval(id);
+	}, [plugin]);
 
 	const exitGuidedDemo = () => {
 		setDemoStep('off');
@@ -382,7 +423,20 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			let context;
 
 			if (mode === 'chapter') {
-				context = await plugin.contextAggregator.getChapterContext();
+				const retrievalQuery = plugin.queryBuilder.build({
+					mode: 'chapter',
+					activeFilePath: plugin.lastOpenedMarkdownPath ?? plugin.settings.book2Path,
+					primaryText: selectedText,
+					directorNotes
+				});
+				context = await plugin.contextAggregator.getChapterContext(retrievalQuery);
+				try {
+					const retrievedText = (context?.smart_connections || '').toString();
+					const items = (retrievedText.match(/^\[\d+\]/gm) || []).length;
+					setRetrievedContextStats({ items, tokens: estimateTokens(retrievedText) });
+				} catch {
+					setRetrievedContextStats(null);
+				}
 				const min = Math.max(100, Math.min(minWords, maxWords));
 				const max = Math.max(100, Math.max(minWords, maxWords));
 				prompt = plugin.promptEngine.buildChapterPrompt(
@@ -394,7 +448,20 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				);
 			} else {
 				// micro-edit
-				context = await plugin.contextAggregator.getMicroEditContext(selectedText);
+				const retrievalQuery = plugin.queryBuilder.build({
+					mode: 'micro-edit',
+					activeFilePath: plugin.lastOpenedMarkdownPath ?? plugin.settings.book2Path,
+					primaryText: selectedText,
+					directorNotes
+				});
+				context = await plugin.contextAggregator.getMicroEditContext(selectedText, retrievalQuery);
+				try {
+					const retrievedText = (context?.smart_connections || '').toString();
+					const items = (retrievedText.match(/^\[\d+\]/gm) || []).length;
+					setRetrievedContextStats({ items, tokens: estimateTokens(retrievedText) });
+				} catch {
+					setRetrievedContextStats(null);
+				}
 				prompt = plugin.promptEngine.buildMicroEditPrompt(selectedText, directorNotes, context);
 			}
 
@@ -525,11 +592,28 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			const characterNotes = await plugin.contextAggregator.getCharacterNotes();
 			const storyBible = await plugin.contextAggregator.readFile(plugin.settings.storyBiblePath);
 			const instructions = getEffectiveCharacterInstructions(directorNotes);
+			const retrievalQuery = plugin.queryBuilder.build({
+				mode: 'character-update',
+				activeFilePath: plugin.lastOpenedMarkdownPath ?? plugin.settings.book2Path,
+				primaryText: selectedText,
+				directorNotes
+			});
+			const retrievedItems = await plugin.retrievalService.search(retrievalQuery, {
+				limit: plugin.settings.retrievalTopK ?? 24
+			});
+			const retrievedContext =
+				retrievedItems.length === 0
+					? '[No retrieved context]'
+					: retrievedItems
+							.map((it, idx) => `[${idx + 1}] ${it.path}\n${it.excerpt}`.trim())
+							.join('\n\n---\n\n');
+			setRetrievedContextStats({ items: retrievedItems.length, tokens: estimateTokens(retrievedContext) });
 			const prompt = plugin.promptEngine.buildCharacterExtractionPrompt(
 				selectedText,
 				characterNotes,
 				storyBible,
-				instructions
+				instructions,
+				retrievedContext
 			);
 			
 			// Character extraction always uses single mode
@@ -1008,6 +1092,13 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							{plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit
 								? ` — exceeds warning limit (${plugin.settings.contextTokenLimit.toLocaleString()})`
 								: ''}
+						</div>
+					)}
+					<div className="generation-status">{indexStatusText}</div>
+					{retrievedContextStats && (
+						<div className="generation-status">
+							Retrieved context: {retrievedContextStats.items.toLocaleString()} item(s) (~
+							{retrievedContextStats.tokens.toLocaleString()} tokens)
 						</div>
 					)}
 					{error && (

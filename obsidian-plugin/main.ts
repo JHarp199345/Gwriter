@@ -6,6 +6,11 @@ import { ContextAggregator } from './services/ContextAggregator';
 import { PromptEngine } from './services/PromptEngine';
 import { AIClient } from './services/AIClient';
 import { CharacterExtractor } from './services/CharacterExtractor';
+import { RetrievalService } from './services/RetrievalService';
+import { QueryBuilder } from './services/QueryBuilder';
+import { HeuristicProvider } from './services/retrieval/HeuristicProvider';
+import { EmbeddingsIndex } from './services/retrieval/EmbeddingsIndex';
+import { LocalEmbeddingsProvider } from './services/retrieval/LocalEmbeddingsProvider';
 import { SetupWizardModal } from './ui/SetupWizard';
 import { BookMainSelectorModal } from './ui/BookMainSelectorModal';
 
@@ -47,6 +52,42 @@ export interface DashboardSettings {
 	 * Used as a fallback if the per-run instructions box is empty/invalid.
 	 */
 	defaultCharacterExtractionInstructions: string;
+	/**
+	 * Whole-vault retrieval exclusions (folders). This is a living list: users can change it any time.
+	 * `.obsidian/` is always excluded.
+	 */
+	retrievalExcludedFolders: string[];
+	/**
+	 * Enable the local semantic index used for retrieval. If disabled, retrieval falls back to heuristic only.
+	 */
+	retrievalEnableSemanticIndex: boolean;
+	/**
+	 * Maximum number of retrieved context items injected into prompts.
+	 */
+	retrievalTopK: number;
+	/**
+	 * Chunk size (words) for local semantic indexing.
+	 */
+	retrievalChunkWords: number;
+	/**
+	 * Chunk overlap (words) for local semantic indexing.
+	 */
+	retrievalChunkOverlapWords: number;
+	/**
+	 * If true, background indexing is paused.
+	 */
+	retrievalIndexPaused: boolean;
+	/**
+	 * Incremental semantic index state per file. Used to avoid re-indexing unchanged files.
+	 */
+	retrievalIndexState: Record<
+		string,
+		{
+			hash: string;
+			chunkCount: number;
+			updatedAt: string;
+		}
+	>;
 	setupCompleted: boolean;
 	/**
 	 * If true, do not auto-start the guided demo for first-time users.
@@ -116,6 +157,13 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 		`Output format (required):\n` +
 		`## Character Name\n` +
 		`- Bullet updates only (no extra headings)\n`,
+	retrievalExcludedFolders: ['Templates'],
+	retrievalEnableSemanticIndex: true,
+	retrievalTopK: 24,
+	retrievalChunkWords: 500,
+	retrievalChunkOverlapWords: 100,
+	retrievalIndexPaused: false,
+	retrievalIndexState: {},
 	setupCompleted: false,
 	guidedDemoDismissed: false,
 	guidedDemoShownOnce: false,
@@ -129,6 +177,9 @@ export default class WritingDashboardPlugin extends Plugin {
 	promptEngine: PromptEngine;
 	aiClient: AIClient;
 	characterExtractor: CharacterExtractor;
+	queryBuilder: QueryBuilder;
+	retrievalService: RetrievalService;
+	embeddingsIndex: EmbeddingsIndex;
 	/**
 	 * When true, the next time the dashboard UI mounts it will start the guided demo flow.
 	 * This avoids wiring additional cross-component state management.
@@ -200,6 +251,61 @@ export default class WritingDashboardPlugin extends Plugin {
 		this.promptEngine = new PromptEngine();
 		this.aiClient = new AIClient();
 		this.characterExtractor = new CharacterExtractor();
+
+		// Retrieval / local indexing
+		this.queryBuilder = new QueryBuilder();
+		this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this);
+		const providers = [
+			new HeuristicProvider(this.app.vault, this.vaultService),
+			new LocalEmbeddingsProvider(
+				this.embeddingsIndex,
+				() => Boolean(this.settings.retrievalEnableSemanticIndex),
+				(path) => !this.vaultService.isExcludedPath(path)
+			)
+		];
+		this.retrievalService = new RetrievalService(providers);
+
+		// Background indexing hooks (best-effort; always safe to fail).
+		const maybeQueueIndex = (path: string) => {
+			if (!this.settings.retrievalEnableSemanticIndex) return;
+			if (this.settings.retrievalIndexPaused) return;
+			if (this.vaultService.isExcludedPath(path)) return;
+			this.embeddingsIndex.queueUpdateFile(path);
+		};
+
+		this.registerEvent(
+			this.app.vault.on('create', (file) => {
+				if (file instanceof TFile && file.extension === 'md') {
+					maybeQueueIndex(file.path);
+				}
+			})
+		);
+		this.registerEvent(
+			this.app.vault.on('modify', (file) => {
+				if (file instanceof TFile && file.extension === 'md') {
+					maybeQueueIndex(file.path);
+				}
+			})
+		);
+		this.registerEvent(
+			this.app.vault.on('delete', (file) => {
+				if (file instanceof TFile && file.extension === 'md') {
+					this.embeddingsIndex.queueRemoveFile(file.path);
+				}
+			})
+		);
+		this.registerEvent(
+			this.app.vault.on('rename', (file, oldPath) => {
+				if (!(file instanceof TFile) || file.extension !== 'md') return;
+				this.embeddingsIndex.queueRemoveFile(oldPath);
+				maybeQueueIndex(file.path);
+			})
+		);
+
+		// Initial best-effort scan.
+		if (this.settings.retrievalEnableSemanticIndex && !this.settings.retrievalIndexPaused) {
+			this.embeddingsIndex.enqueueFullRescan();
+		}
 		
 		this.registerView(
 			VIEW_TYPE_DASHBOARD,

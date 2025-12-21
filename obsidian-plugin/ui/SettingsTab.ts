@@ -84,6 +84,22 @@ export class SettingsTab extends PluginSettingTab {
 	constructor(app: App, plugin: WritingDashboardPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+
+		// Keep folder exclusion list "live" while this tab is open.
+		const refreshIfVisible = () => {
+			try {
+				if (this.containerEl?.isConnected) this.display();
+			} catch {
+				// ignore
+			}
+		};
+		this.plugin.registerEvent(this.app.vault.on('create', refreshIfVisible));
+		this.plugin.registerEvent(this.app.vault.on('delete', refreshIfVisible));
+		this.plugin.registerEvent(
+			this.app.vault.on('rename', () => {
+				refreshIfVisible();
+			})
+		);
 	}
 
 	display(): void {
@@ -153,6 +169,134 @@ export class SettingsTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				});
 			});
+
+		// Retrieval / indexing settings
+		new Setting(containerEl).setName('Retrieval').setHeading();
+
+		new Setting(containerEl)
+			.setName('Enable semantic retrieval')
+			.setDesc('Build a local index to retrieve relevant notes from the vault. If disabled, retrieval uses heuristic matching only.')
+			.addToggle((toggle) =>
+				toggle.setValue(Boolean(this.plugin.settings.retrievalEnableSemanticIndex)).onChange(async (value) => {
+					this.plugin.settings.retrievalEnableSemanticIndex = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(containerEl)
+			.setName('Retrieved items (top K)')
+			.setDesc('Maximum number of retrieved snippets to include in prompts.')
+			.addText((text) =>
+				text
+					.setPlaceholder('24')
+					.setValue(String(this.plugin.settings.retrievalTopK ?? 24))
+					.onChange(async (value) => {
+						const parsed = parseInt(value, 10);
+						if (Number.isFinite(parsed)) {
+							this.plugin.settings.retrievalTopK = Math.max(1, Math.min(100, parsed));
+							await this.plugin.saveSettings();
+						}
+					})
+			);
+
+		new Setting(containerEl)
+			.setName('Index chunk size (words)')
+			.setDesc('Controls how your notes are chunked for semantic retrieval. Larger chunks add more context but may reduce precision.')
+			.addText((text) =>
+				text
+					.setPlaceholder('500')
+					.setValue(String(this.plugin.settings.retrievalChunkWords ?? 500))
+					.onChange(async (value) => {
+						const parsed = parseInt(value, 10);
+						if (Number.isFinite(parsed)) {
+							this.plugin.settings.retrievalChunkWords = Math.max(200, Math.min(2000, parsed));
+							await this.plugin.saveSettings();
+						}
+					})
+			);
+
+		new Setting(containerEl)
+			.setName('Index chunk overlap (words)')
+			.setDesc('Overlap helps preserve continuity between chunks.')
+			.addText((text) =>
+				text
+					.setPlaceholder('100')
+					.setValue(String(this.plugin.settings.retrievalChunkOverlapWords ?? 100))
+					.onChange(async (value) => {
+						const parsed = parseInt(value, 10);
+						if (Number.isFinite(parsed)) {
+							this.plugin.settings.retrievalChunkOverlapWords = Math.max(0, Math.min(500, parsed));
+							await this.plugin.saveSettings();
+						}
+					})
+			);
+
+		new Setting(containerEl)
+			.setName('Pause indexing')
+			.setDesc('Pauses background indexing for semantic retrieval.')
+			.addToggle((toggle) =>
+				toggle.setValue(Boolean(this.plugin.settings.retrievalIndexPaused)).onChange(async (value) => {
+					this.plugin.settings.retrievalIndexPaused = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
+		// Folder exclusions (dynamic checkbox list)
+		const excluded = new Set<string>((this.plugin.settings.retrievalExcludedFolders || []).map((p) => p.replace(/\\/g, '/')));
+		const folders = this.plugin.vaultService.getAllFolderPaths();
+
+		const exclusionsContainer = containerEl.createDiv({ cls: 'writing-dashboard-exclusions' });
+		new Setting(exclusionsContainer)
+			.setName('Exclude from retrieval')
+			.setDesc('Choose folders to exclude from retrieval and indexing. Obsidian configuration is always excluded.');
+
+		// Always-excluded config folder row (locked)
+		const configDir = (this.app.vault.configDir || '.obsidian').replace(/\\/g, '/');
+		new Setting(exclusionsContainer)
+			.setName(configDir)
+			.setDesc('Always excluded.')
+			.addToggle((toggle) => toggle.setValue(true).setDisabled(true));
+
+		for (const folder of folders) {
+			const normalized = folder.replace(/\\/g, '/');
+			const isChecked = excluded.has(normalized);
+			new Setting(exclusionsContainer)
+				.setName(normalized)
+				.addToggle((toggle) =>
+					toggle.setValue(isChecked).onChange(async (value) => {
+						const next = new Set<string>(
+							(this.plugin.settings.retrievalExcludedFolders || []).map((p) => p.replace(/\\/g, '/'))
+						);
+						if (value) next.add(normalized);
+						else next.delete(normalized);
+						this.plugin.settings.retrievalExcludedFolders = Array.from(next).sort((a, b) => a.localeCompare(b));
+						await this.plugin.saveSettings();
+					})
+				);
+		}
+
+		// Show excluded folders that no longer exist (e.g., renamed/deleted) so users can clean them up.
+		const existingSet = new Set<string>(folders.map((f) => f.replace(/\\/g, '/')));
+		const missing = Array.from(excluded).filter((p) => p && !existingSet.has(p));
+		if (missing.length > 0) {
+			new Setting(exclusionsContainer).setName('Missing excluded folders').setHeading();
+			for (const missingPath of missing.sort((a, b) => a.localeCompare(b))) {
+				new Setting(exclusionsContainer)
+					.setName(missingPath)
+					.setDesc('This folder does not exist in the vault.')
+					.addButton((btn) =>
+						btn.setButtonText('Remove').onClick(async () => {
+							const next = new Set<string>(
+								(this.plugin.settings.retrievalExcludedFolders || []).map((p) => p.replace(/\\/g, '/'))
+							);
+							next.delete(missingPath);
+							this.plugin.settings.retrievalExcludedFolders = Array.from(next).sort((a, b) => a.localeCompare(b));
+							await this.plugin.saveSettings();
+							this.display();
+						})
+					);
+			}
+		}
 
 		// Multi-mode settings (only shown when MultiMode is selected)
 		if (this.plugin.settings.generationMode === 'multi') {
