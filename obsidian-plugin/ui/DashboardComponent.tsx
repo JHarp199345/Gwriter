@@ -155,6 +155,14 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		}
 	};
 
+	const openPublishWizard = () => {
+		try {
+			plugin.showPublishWizard();
+		} catch {
+			new Notice('Unable to open the publishing wizard.');
+		}
+	};
+
 	const isGuidedDemoActive = demoStep !== 'off' && demoStep !== 'done';
 	const canUseAiInDemo = apiKeyPresent;
 
@@ -1118,6 +1126,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 						</div>
 					)}
 					<div className="controls">
+						<button onClick={openPublishWizard} disabled={isGenerating} className="update-characters-button">
+							Export to EPUB
+						</button>
 						{mode !== 'character-update' && (
 							<button 
 								onClick={handleGenerate}

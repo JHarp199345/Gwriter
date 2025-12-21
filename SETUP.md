@@ -95,8 +95,6 @@ Tip: model names change frequently. Use a current model id from your provider (f
 - Use the Setup Wizard to create default files
 - Check vault path is correct
 
-### Smart Connections Not Working
-- Smart Connections is optional but enhances context
-- If installed, ensure it has indexed your vault
-- Book 1 content can also be loaded from chunked folders or files
-- Look for folders like `Book 1 - Chunked` or files with "Book 1" in the name
+### Retrieval and indexing
+- If retrieval feels noisy, open Settings → Writing dashboard → Retrieval and exclude non-story folders.
+- If semantic retrieval feels slow, let indexing finish (the dashboard shows index status) or pause indexing temporarily.

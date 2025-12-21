@@ -110,6 +110,30 @@
 	background: var(--background-modifier-hover);
 }
 
+/* Publish wizard */
+.publish-wizard {
+	max-width: 720px;
+}
+
+.publish-steps {
+	opacity: 0.85;
+	margin-bottom: 10px;
+}
+
+.publish-row {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	justify-content: space-between;
+	margin: 10px 0;
+}
+
+.publish-row input,
+.publish-row select {
+	flex: 1;
+	min-width: 260px;
+}
+
 .sidebar.collapsed .vault-collapse-btn {
 	width: 30px;
 	height: 30px;

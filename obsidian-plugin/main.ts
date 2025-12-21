@@ -13,6 +13,7 @@ import { EmbeddingsIndex } from './services/retrieval/EmbeddingsIndex';
 import { LocalEmbeddingsProvider } from './services/retrieval/LocalEmbeddingsProvider';
 import { SetupWizardModal } from './ui/SetupWizard';
 import { BookMainSelectorModal } from './ui/BookMainSelectorModal';
+import { PublishWizardModal } from './ui/PublishWizardModal';
 
 export interface DashboardSettings {
 	apiKey: string;
@@ -344,6 +345,14 @@ export default class WritingDashboardPlugin extends Plugin {
 			}
 		});
 
+		this.addCommand({
+			id: 'export-to-epub',
+			name: 'Export to EPUB',
+			callback: () => {
+				this.showPublishWizard();
+			}
+		});
+
 		// Check for first-run setup
 		if (!this.settings.setupCompleted) {
 			// Treat setup as complete if the configured Book Main Path exists
@@ -368,6 +377,11 @@ export default class WritingDashboardPlugin extends Plugin {
 
 	showSetupWizard() {
 		const modal = new SetupWizardModal(this);
+		modal.open();
+	}
+
+	showPublishWizard() {
+		const modal = new PublishWizardModal(this);
 		modal.open();
 	}
 

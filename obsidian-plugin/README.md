@@ -24,7 +24,7 @@ A writing dashboard plugin that integrates AI-powered chapter generation, micro-
 ### 🎯 Three Writing Modes
 
 1. **Chapter Generate** - Generate new chapters using your slate method, pulling from:
-   - Smart Connections (Book 1 canon)
+   - Retrieved context (whole vault)
    - Story Bible + Extractions
    - Sliding Window (immediate context)
    - Your Scene Summary + Rewrite Instructions
@@ -125,6 +125,22 @@ Bulk character backfill:
 2. Click **Select file to process** and choose the manuscript you want to scan
 3. Click **Process Entire Book**
 4. The plugin performs a 2-pass scan (roster + per-chapter extraction) and updates character notes
+
+## Publishing
+
+You can export a professional EPUB directly from the plugin:
+
+1. Open the command palette and run **Export to EPUB**.
+2. Default mode: compile **Book main path** split by H1 (`#`) chapter headings.
+3. Optional: select **TOC note** mode if each chapter is a separate note.
+4. Choose title/author/language, optional front matter, and an optional license template.
+5. Output defaults to `Exports/` in your vault.
+
+Typography:
+- Default styling targets **Literata**.
+- To guarantee the font, enable **Embed custom fonts** and select your font files.
+
+Font licensing note: only embed fonts you have the rights to redistribute.
 
 ## Vault structure (what each folder/file is for)
 

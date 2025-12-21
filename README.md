@@ -25,7 +25,7 @@ A writing dashboard plugin that integrates AI-powered chapter generation, micro-
 ### 🎯 Three Writing Modes
 
 1. **Chapter Generate** - Generate new chapters using your slate method, pulling from:
-   - Smart Connections (Book 1 canon)
+   - Retrieved context (whole vault)
    - Story Bible + Extractions
    - Sliding Window (immediate context)
    - Your Scene Summary + Rewrite Instructions
@@ -227,14 +227,12 @@ Character notes are stored in markdown with timestamped updates:
 **Spoiler Notes:**
 [sensitive information]
 
-## Smart Connections Integration
+## Retrieval (whole vault)
 
-Smart Connections is optional. If installed, the dashboard attempts to read its data from your vault config directory:
-`<vault-config-dir>/plugins/smart-connections/data.json`
+This plugin includes whole-vault retrieval to keep prompts relevant without manual curation.
 
-Note: the config directory is usually `.obsidian/`, but users can change it in Obsidian. The plugin uses the current config dir automatically.
-
-If Smart Connections isn't available, it will use a fallback message. The plugin works without Smart Connections, but having it installed enhances context awareness.
+- You can exclude non-story folders in Settings → Writing dashboard → Retrieval.
+- Semantic retrieval builds a local index in the background (the dashboard shows index status).
 
 ## Vault structure (what each folder/file is for)
 
@@ -251,7 +249,23 @@ These paths are configurable in settings. The names below are recommended defaul
 - **Extractions path** (optional)
   - Any distilled notes/summaries/constraints you want included in prompts.
 - `<Manuscript>-Chunked/` (created automatically)
-  - Chunked copy of a manuscript note for retrieval workflows (e.g., Smart Connections style context).
+  - Chunked copy of a manuscript note (used by the plugin’s chunking and bulk workflows).
+
+## Publishing
+
+You can export a professional EPUB directly from the plugin:
+
+1. Open the command palette and run **Export to EPUB**.
+2. Default mode: compile your **Book main path** split by H1 (`#`) chapter headings.
+3. Optional: select **TOC note** mode if each chapter is a separate note.
+4. Choose title/author/language, optional front matter, and an optional license template.
+5. Output defaults to `Exports/` in your vault.
+
+Typography:
+- Default styling targets **Literata**.
+- To guarantee the font, enable **Embed custom fonts** and select your font files.
+
+Font licensing note: only embed fonts you have the rights to redistribute.
 
 ## Privacy notes
 
