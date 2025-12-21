@@ -28,7 +28,13 @@ export class LocalEmbeddingsProvider implements RetrievalProvider {
 
 		await this.index.ensureLoaded();
 
-		const qVec = this.index.buildQueryVector(q);
+		let qVec: number[];
+		try {
+			qVec = await this.index.embedQueryVector(q);
+		} catch {
+			// If true embeddings fail to load, treat as empty semantic results.
+			return [];
+		}
 		const chunks = this.index.getAllChunks().filter((c) => this.isAllowedPath(c.path));
 		if (chunks.length === 0) return [];
 

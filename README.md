@@ -255,7 +255,7 @@ These paths are configurable in settings. The names below are recommended defaul
 
 You can export a professional EPUB directly from the plugin:
 
-1. Open the command palette and run **Export to EPUB**.
+1. Open the command palette and run **Export to epub**.
 2. Default mode: compile your **Book main path** split by H1 (`#`) chapter headings.
 3. Optional: select **TOC note** mode if each chapter is a separate note.
 4. Choose title/author/language, optional front matter, and an optional license template.

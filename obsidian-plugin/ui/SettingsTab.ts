@@ -184,6 +184,19 @@ export class SettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
+			.setName('Semantic backend')
+			.setDesc('Choose which local semantic retrieval method to use. True embeddings provide higher quality but may be slower.')
+			.addDropdown((dropdown) => {
+				dropdown.addOption('minilm', 'True local embeddings (recommended)');
+				dropdown.addOption('hash', 'Fast lightweight (lower quality)');
+				dropdown.setValue(this.plugin.settings.retrievalEmbeddingBackend ?? 'minilm');
+				dropdown.onChange(async (value) => {
+					this.plugin.settings.retrievalEmbeddingBackend = value as 'hash' | 'minilm';
+					await this.plugin.saveSettings();
+				});
+			});
+
+		new Setting(containerEl)
 			.setName('Retrieved items (limit)')
 			.setDesc('Maximum number of retrieved snippets to include in prompts.')
 			.addText((text) =>

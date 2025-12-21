@@ -7,9 +7,14 @@ import { FolderPickerModal } from './FolderPickerModal';
 import { BinaryFilePickerModal } from './BinaryFilePickerModal';
 import { MarkdownCompile } from '../services/publish/MarkdownCompile';
 import { EpubExportService } from '../services/publish/EpubExportService';
+import { DocxExportService } from '../services/publish/DocxExportService';
+import { RtfExportService } from '../services/publish/RtfExportService';
 import { LICENSE_TEMPLATES, type LicenseTemplateId } from '../services/publish/LicenseTemplates';
+import { countWords, markdownToPlainText, sliceFirstNWords } from '../services/publish/ExportTextUtils';
 
 type SourceMode = 'book-main' | 'toc-note';
+type OutputFormat = 'epub' | 'docx' | 'rtf' | 'copy';
+type SubsetMode = 'all' | 'first-chapters' | 'first-words';
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -90,6 +95,10 @@ export const PublishWizardComponent: React.FC<{ plugin: WritingDashboardPlugin; 
 	const [fontBoldItalic, setFontBoldItalic] = useState<string>('');
 
 	const [outputFolder, setOutputFolder] = useState<string>('Exports');
+	const [outputFormat, setOutputFormat] = useState<OutputFormat>('epub');
+	const [subsetMode, setSubsetMode] = useState<SubsetMode>('all');
+	const [subsetChaptersCount, setSubsetChaptersCount] = useState<string>('3');
+	const [subsetWordsCount, setSubsetWordsCount] = useState<string>('5000');
 	const [outputFileName, setOutputFileName] = useState<string>('Untitled.epub');
 
 	const [isExporting, setIsExporting] = useState<boolean>(false);
@@ -97,8 +106,37 @@ export const PublishWizardComponent: React.FC<{ plugin: WritingDashboardPlugin; 
 	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
-		setOutputFileName(ensureEpubExt(sanitizeFileName(title || 'Untitled')));
-	}, [title]);
+		const base = sanitizeFileName(title || 'Untitled');
+		if (outputFormat === 'epub') setOutputFileName(ensureEpubExt(base));
+		else if (outputFormat === 'docx') setOutputFileName(`${base}.docx`);
+		else if (outputFormat === 'rtf') setOutputFileName(`${base}.rtf`);
+		else setOutputFileName(`${base}.txt`);
+	}, [title, outputFormat]);
+
+	const applySubset = (chapters: Array<{ title: string; markdown: string; sourcePath: string }>) => {
+		if (subsetMode === 'all') return chapters;
+		if (subsetMode === 'first-chapters') {
+			const n = Math.max(1, Math.min(200, parseInt(subsetChaptersCount, 10) || 1));
+			return chapters.slice(0, n);
+		}
+		const limit = Math.max(1, Math.min(2_000_000, parseInt(subsetWordsCount, 10) || 1));
+		const out: Array<{ title: string; markdown: string; sourcePath: string }> = [];
+		let remaining = limit;
+		for (const ch of chapters) {
+			if (remaining <= 0) break;
+			const plain = markdownToPlainText(ch.markdown || '');
+			const words = countWords(plain);
+			if (words <= remaining) {
+				out.push(ch);
+				remaining -= words;
+				continue;
+			}
+			const sliced = sliceFirstNWords(plain, remaining);
+			out.push({ ...ch, markdown: sliced });
+			break;
+		}
+		return out;
+	};
 
 	const canNext = useMemo(() => {
 		if (step === 1) {
@@ -169,35 +207,73 @@ export const PublishWizardComponent: React.FC<{ plugin: WritingDashboardPlugin; 
 				throw new Error('No chapters were found to export.');
 			}
 
-			setProgress(`Building EPUB (${compileResult.chapters.length} chapter(s))…`);
-			const exporter = new EpubExportService(plugin.app.vault);
+			const chapters = applySubset(compileResult.chapters);
 
-			const result = await exporter.exportEpub({
-				bookTitle: title,
-				subtitle,
-				author,
-				language,
-				chapters: compileResult.chapters,
-				includeTitlePage,
-				includeCopyrightPage,
-				licenseTemplateId,
-				copyrightYear,
-				copyrightHolder,
-				embedCustomFonts: embedFonts,
-				customFonts: embedFonts
-					? {
-							regularPath: fontRegular,
-							boldPath: fontBold || undefined,
-							italicPath: fontItalic || undefined,
-							boldItalicPath: fontBoldItalic || undefined
-						}
-					: undefined,
-				outputFolder,
-				outputFileName
-			});
+			let outputPath = '';
+			if (outputFormat === 'epub') {
+				setProgress(`Building epub (${chapters.length} chapter(s))…`);
+				const exporter = new EpubExportService(plugin.app.vault);
+				const result = await exporter.exportEpub({
+					bookTitle: title,
+					subtitle,
+					author,
+					language,
+					chapters,
+					includeTitlePage,
+					includeCopyrightPage,
+					licenseTemplateId,
+					copyrightYear,
+					copyrightHolder,
+					embedCustomFonts: embedFonts,
+					customFonts: embedFonts
+						? {
+								regularPath: fontRegular,
+								boldPath: fontBold || undefined,
+								italicPath: fontItalic || undefined,
+								boldItalicPath: fontBoldItalic || undefined
+						  }
+						: undefined,
+					outputFolder,
+					outputFileName
+				});
+				outputPath = result.outputPath;
+			} else if (outputFormat === 'docx') {
+				setProgress(`Building docx (${chapters.length} chapter(s))…`);
+				const exporter = new DocxExportService(plugin.app.vault);
+				outputPath = await exporter.export({
+					title,
+					author,
+					chapters,
+					outputFolder,
+					outputFileName
+				});
+			} else if (outputFormat === 'rtf') {
+				setProgress(`Building rtf (${chapters.length} chapter(s))…`);
+				const exporter = new RtfExportService(plugin.app.vault);
+				outputPath = await exporter.export({
+					title,
+					author,
+					chapters,
+					outputFolder,
+					outputFileName
+				});
+			} else {
+				setProgress('Writing plain text…');
+				const folder = outputFolder.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '') || 'Exports';
+				const out = `${folder}/${outputFileName.trim() || 'submission.txt'}`.replace(/\/+/g, '/');
+				const text =
+					`${title || 'Untitled'}\n` +
+					`${author ? `${author}\n` : ''}\n` +
+					chapters
+						.map((c) => `\n${c.title}\n\n${markdownToPlainText(c.markdown || '')}\n`)
+						.join('\n');
+				await plugin.app.vault.adapter.mkdir(folder).catch(() => {});
+				await plugin.app.vault.adapter.write(out, text);
+				outputPath = out;
+			}
 
 			setProgress('');
-			new Notice(`Exported EPUB: ${result.outputPath}`);
+			new Notice(`Exported: ${outputPath}`);
 			onClose();
 		} catch (e: unknown) {
 			const message = e instanceof Error ? e.message : (() => {
@@ -406,6 +482,35 @@ export const PublishWizardComponent: React.FC<{ plugin: WritingDashboardPlugin; 
 				<div>
 					<h2>Output</h2>
 					<div className="publish-row">
+						<div>Format</div>
+						<select value={outputFormat} onChange={(e) => setOutputFormat(e.target.value as OutputFormat)} disabled={isExporting}>
+							<option value="epub">Epub</option>
+							<option value="docx">Docx</option>
+							<option value="rtf">Rtf</option>
+							<option value="copy">Plain text</option>
+						</select>
+					</div>
+					<div className="publish-row">
+						<div>Export subset</div>
+						<select value={subsetMode} onChange={(e) => setSubsetMode(e.target.value as SubsetMode)} disabled={isExporting}>
+							<option value="all">All chapters</option>
+							<option value="first-chapters">First N chapters</option>
+							<option value="first-words">First N words</option>
+						</select>
+					</div>
+					{subsetMode === 'first-chapters' && (
+						<div className="publish-row">
+							<div>Chapters</div>
+							<input value={subsetChaptersCount} onChange={(e) => setSubsetChaptersCount(e.target.value)} disabled={isExporting} />
+						</div>
+					)}
+					{subsetMode === 'first-words' && (
+						<div className="publish-row">
+							<div>Words</div>
+							<input value={subsetWordsCount} onChange={(e) => setSubsetWordsCount(e.target.value)} disabled={isExporting} />
+						</div>
+					)}
+					<div className="publish-row">
 						<div>Folder</div>
 						<div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
 							<input value={outputFolder} onChange={(e) => setOutputFolder(e.target.value)} disabled={isExporting} />
@@ -416,7 +521,7 @@ export const PublishWizardComponent: React.FC<{ plugin: WritingDashboardPlugin; 
 					</div>
 					<div className="publish-row">
 						<div>File name</div>
-						<input value={outputFileName} onChange={(e) => setOutputFileName(ensureEpubExt(e.target.value))} disabled={isExporting} />
+						<input value={outputFileName} onChange={(e) => setOutputFileName(e.target.value)} disabled={isExporting} />
 					</div>
 				</div>
 			)}
@@ -424,7 +529,7 @@ export const PublishWizardComponent: React.FC<{ plugin: WritingDashboardPlugin; 
 			{step === 6 && (
 				<div>
 					<h2>Export</h2>
-					<p>When you click Export, the plugin will compile your notes and write an EPUB into your vault.</p>
+					<p>When you click Export, the plugin will compile your notes and write the output into your vault.</p>
 					{progress && <div className="generation-status">{progress}</div>}
 					{error && <div className="error-message">❌ {error}</div>}
 				</div>
@@ -447,7 +552,7 @@ export const PublishWizardComponent: React.FC<{ plugin: WritingDashboardPlugin; 
 					)}
 					{step === 6 && (
 						<button onClick={doExport} disabled={isExporting} className="mod-cta">
-							Export epub
+							Export
 						</button>
 					)}
 				</div>

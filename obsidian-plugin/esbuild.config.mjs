@@ -33,7 +33,9 @@ const buildOptions = {
 		'@lezer/lr',
 		...builtins],
 	format: 'cjs',
-	target: 'es2018',
+	// BigInt literals are used by some optional dependencies (e.g., local embeddings).
+	// Obsidian desktop runs on a modern Electron runtime, so ES2020 is safe here.
+	target: 'es2020',
 	logLevel: "info",
 	sourcemap: isProduction ? false : 'inline',
 	treeShaking: true,

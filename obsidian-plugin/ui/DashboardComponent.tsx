@@ -54,6 +54,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	});
 	const [selectedText, setSelectedText] = useState('');
 	const [directorNotes, setDirectorNotes] = useState('');
+	const [storyBibleDelta, setStoryBibleDelta] = useState<string>('');
 	const [minWords, setMinWords] = useState(2000);
 	const [maxWords, setMaxWords] = useState(6000);
 	// Keep a string buffer so users can clear/edit the number inputs naturally.
@@ -660,6 +661,86 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		}
 	};
 
+	const handleUpdateStoryBible = async () => {
+		if (!selectedText.trim()) {
+			setError('Please provide text to extract story bible updates from');
+			return;
+		}
+		if (!plugin.settings.apiKey) {
+			setError('Please configure your API key in settings');
+			return;
+		}
+
+		setIsGenerating(true);
+		setError(null);
+		setGenerationStage('Updating story bible...');
+		try {
+			const existingBible = await plugin.vaultService.readFile(plugin.settings.storyBiblePath);
+			setGenerationStage('Extracting updates...');
+			const deltaPrompt = plugin.promptEngine.buildStoryBibleDeltaPrompt(selectedText);
+			const singleSettings: SingleSettings = { ...plugin.settings, generationMode: 'single' };
+			const delta = await plugin.aiClient.generate(deltaPrompt, singleSettings);
+			setStoryBibleDelta(delta);
+
+			setGenerationStage('Merging with story bible...');
+			const mergePrompt = plugin.promptEngine.buildStoryBibleMergePrompt({
+				existingStoryBible: existingBible,
+				delta
+			});
+			const merged = await plugin.aiClient.generate(mergePrompt, singleSettings);
+			setGeneratedText(merged);
+			new Notice('Story bible update generated. Review and save when ready.');
+		} catch (err: unknown) {
+			const message = formatUnknownForUi(err);
+			setError(message || 'Story bible update failed');
+			console.error('Story bible update error:', err);
+		} finally {
+			setGenerationStage('');
+			setIsGenerating(false);
+		}
+	};
+
+	const handleSaveStoryBibleAsNew = async () => {
+		const merged = (generatedText || '').trim();
+		if (!merged) {
+			new Notice('Nothing to save');
+			return;
+		}
+		const now = new Date();
+		const yyyy = String(now.getFullYear());
+		const mm = String(now.getMonth() + 1).padStart(2, '0');
+		const dd = String(now.getDate()).padStart(2, '0');
+		const path = `Story bible - merged ${yyyy}-${mm}-${dd}.md`;
+		await plugin.vaultService.writeFile(path, merged + '\n');
+		new Notice(`Saved merged story bible to ${path}`);
+	};
+
+	const handleReplaceStoryBible = async () => {
+		const merged = (generatedText || '').trim();
+		if (!merged) {
+			new Notice('Nothing to save');
+			return;
+		}
+		const ok = await showConfirmModal(plugin.app, {
+			title: 'Replace story bible',
+			message:
+				'This will back up your current story bible and overwrite it with the edited merged version.\n\nContinue?',
+			confirmText: 'Replace',
+			cancelText: 'Cancel'
+		});
+		if (!ok) return;
+
+		const existing = await plugin.vaultService.readFile(plugin.settings.storyBiblePath);
+		const now = new Date();
+		const yyyy = String(now.getFullYear());
+		const mm = String(now.getMonth() + 1).padStart(2, '0');
+		const dd = String(now.getDate()).padStart(2, '0');
+		const backupPath = `Story bible - backup ${yyyy}-${mm}-${dd}.md`;
+		await plugin.vaultService.writeFile(backupPath, existing + '\n');
+		await plugin.vaultService.writeFile(plugin.settings.storyBiblePath, merged + '\n');
+		new Notice('Story bible replaced (backup created).');
+	};
+
 	const handleSelectCharacterExtractionSource = () => {
 		const files = plugin.app.vault.getMarkdownFiles();
 		const modal = new FilePickerModal({
@@ -1035,6 +1116,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 						selectedText={selectedText}
 						onSelectionChange={setSelectedText}
 						generatedText={generatedText}
+						onGeneratedChange={setGeneratedText}
 						onCopy={handleCopyToClipboard}
 					/>
 					{mode === 'chapter' && (
@@ -1129,6 +1211,15 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 						<button onClick={openPublishWizard} disabled={isGenerating} className="update-characters-button">
 							Export to epub
 						</button>
+						{mode === 'chapter' && (
+							<button
+								onClick={handleUpdateStoryBible}
+								disabled={isGenerating || !apiKeyPresent}
+								className="update-characters-button"
+							>
+								Update story bible
+							</button>
+						)}
 						{mode !== 'character-update' && (
 							<button 
 								onClick={handleGenerate}
@@ -1178,6 +1269,16 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							</>
 						)}
 					</div>
+					{mode === 'chapter' && (generatedText || storyBibleDelta) && (
+						<div className="generation-status" style={{ marginTop: 8 }}>
+							<button onClick={handleSaveStoryBibleAsNew} disabled={isGenerating || !generatedText}>
+								Save merged story bible
+							</button>
+							<button onClick={handleReplaceStoryBible} disabled={isGenerating || !generatedText} style={{ marginLeft: 8 }}>
+								Replace story bible
+							</button>
+						</div>
+					)}
 					<ModeSelector mode={mode} onChange={setMode} />
 				</div>
 			</div>

@@ -1,6 +1,8 @@
 import { Vault, TFile, TFolder } from 'obsidian';
 import WritingDashboardPlugin from '../main';
 import { TextChunker } from './TextChunker';
+import { CharacterNameResolver } from './CharacterNameResolver';
+import { showCharacterNameConflictModal } from '../ui/CharacterNameConflictModal';
 
 export class VaultService {
 	private vault: Vault;
@@ -172,12 +174,38 @@ export class VaultService {
 		folderOverride?: string
 	): Promise<void> {
 		const characterFolder = folderOverride || this.plugin.settings.characterFolder;
+		const resolver = new CharacterNameResolver(this.vault, characterFolder);
+		const sessionResolutions = new Map<string, string>(); // proposed -> resolved
 		
 		// Ensure folder exists
 		await this.createFolderIfNotExists(characterFolder);
 		
 		for (const { character, update } of updates) {
-			const characterPath = `${characterFolder}/${character}.md`;
+			const proposed = (character || '').trim();
+			if (!proposed) continue;
+
+			const cached = sessionResolutions.get(proposed);
+			let resolvedName = cached;
+			if (!resolvedName) {
+				const res = await resolver.resolve(proposed);
+				if (res.resolvedName) {
+					resolvedName = res.resolvedName;
+				} else if (res.needsConfirmation) {
+					const choice = await showCharacterNameConflictModal(this.plugin.app, {
+						title: 'Confirm character note',
+						message: 'Choose an existing character note to update, or create a new one.',
+						proposedName: res.needsConfirmation.proposedName,
+						candidates: res.needsConfirmation.candidates
+					});
+					if (!choice) continue;
+					resolvedName = choice.name;
+				} else {
+					resolvedName = proposed;
+				}
+				sessionResolutions.set(proposed, resolvedName);
+			}
+
+			const characterPath = `${characterFolder}/${resolvedName}.md`;
 			let existingContent = '';
 			
 			try {
@@ -199,7 +227,7 @@ export class VaultService {
 			
 			const newContent = existingContent 
 				? `${existingContent}\n\n## ${timestamp} - Update\n\n${update}\n`
-				: `# ${character}\n\n## ${timestamp} - Update\n\n${update}\n`;
+				: `# ${resolvedName}\n\n## ${timestamp} - Update\n\n${update}\n`;
 			
 			await this.writeFile(characterPath, newContent);
 		}

@@ -128,13 +128,14 @@ Bulk character backfill:
 
 ## Publishing
 
-You can export a professional EPUB directly from the plugin:
+You can export a professional ebook or submission document directly from the plugin:
 
-1. Open the command palette and run **Export to EPUB**.
+1. Open the command palette and run **Export to epub**.
 2. Default mode: compile **Book main path** split by H1 (`#`) chapter headings.
 3. Optional: select **TOC note** mode if each chapter is a separate note.
 4. Choose title/author/language, optional front matter, and an optional license template.
-5. Output defaults to `Exports/` in your vault.
+5. Choose an output format (Epub, Docx, Rtf, or plain text) and optional export subset (first N chapters or first N words).
+6. Output defaults to `Exports/` in your vault.
 
 Typography:
 - Default styling targets **Literata**.
@@ -164,6 +165,15 @@ This plugin is **fully self-contained**:
 - **Pure Obsidian Plugin** - TypeScript/React UI
 - **Direct AI API Integration** - Makes API calls directly from the plugin
 - **No Backend Required** - Everything runs within Obsidian
+
+## Retrieval (local RAG)
+
+The dashboard uses retrieval-augmented generation (RAG) to pull relevant context from your vault before asking the model to write.
+
+- **Whole-vault retrieval**: searches your vault (excluding folders you choose in settings) for relevant snippets.
+- **Heuristic + semantic**: combines fast lexical matching with an optional local semantic index.
+- **Local embeddings**: semantic retrieval runs locally (no external vector database).
+- **Token budgeting**: retrieved context is injected with a budget so prompts stay under your configured context limit.
 
 ## Troubleshooting
 

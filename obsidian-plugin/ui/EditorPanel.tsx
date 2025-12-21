@@ -8,8 +8,9 @@ export const EditorPanel: React.FC<{
 	selectedText: string;
 	onSelectionChange: (text: string) => void;
 	generatedText: string;
+	onGeneratedChange?: (text: string) => void;
 	onCopy: () => void;
-}> = ({ mode, selectedText, onSelectionChange, generatedText, onCopy }) => {
+}> = ({ mode, selectedText, onSelectionChange, generatedText, onGeneratedChange, onCopy }) => {
 	const selectedWords = TextChunker.getWordCount(selectedText || '');
 	const selectedChars = (selectedText || '').length;
 	const outputWords = TextChunker.getWordCount(generatedText || '');
@@ -59,7 +60,8 @@ export const EditorPanel: React.FC<{
 					</div>
 					<textarea
 						value={generatedText}
-						readOnly
+						readOnly={!onGeneratedChange}
+						onChange={onGeneratedChange ? (e) => onGeneratedChange(e.target.value) : undefined}
 						rows={12}
 						className="generated-textarea"
 					/>

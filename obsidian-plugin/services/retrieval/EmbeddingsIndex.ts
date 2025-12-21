@@ -2,6 +2,7 @@ import type { Vault } from 'obsidian';
 import { TFile } from 'obsidian';
 import WritingDashboardPlugin from '../../main';
 import { fnv1a32 } from '../ContentHash';
+import { MiniLmLocalEmbeddingModel } from './LocalEmbeddingModel';
 
 export interface IndexedChunk {
 	key: string;
@@ -17,6 +18,7 @@ export interface IndexedChunk {
 interface PersistedIndexV1 {
 	version: 1;
 	dim: number;
+	backend: 'hash' | 'minilm';
 	chunks: IndexedChunk[];
 }
 
@@ -77,6 +79,8 @@ export class EmbeddingsIndex {
 	private readonly vault: Vault;
 	private readonly plugin: WritingDashboardPlugin;
 	private readonly dim: number;
+	private readonly backend: 'hash' | 'minilm';
+	private readonly model: MiniLmLocalEmbeddingModel;
 
 	private loaded = false;
 	private chunksByKey = new Map<string, IndexedChunk>();
@@ -90,7 +94,9 @@ export class EmbeddingsIndex {
 	constructor(vault: Vault, plugin: WritingDashboardPlugin, dim: number = 256) {
 		this.vault = vault;
 		this.plugin = plugin;
-		this.dim = dim;
+		this.backend = (plugin.settings.retrievalEmbeddingBackend ?? 'minilm') as 'hash' | 'minilm';
+		this.dim = this.backend === 'minilm' ? 384 : dim;
+		this.model = new MiniLmLocalEmbeddingModel(vault, plugin);
 	}
 
 	getIndexFilePath(): string {
@@ -107,6 +113,10 @@ export class EmbeddingsIndex {
 			const raw = await this.vault.adapter.read(path);
 			const parsed = JSON.parse(raw) as PersistedIndexV1;
 			if (parsed?.version !== 1 || !Array.isArray(parsed.chunks)) return;
+			if (parsed.backend && parsed.backend !== this.backend) {
+				// Backend mismatch: ignore persisted index and rebuild.
+				return;
+			}
 			if (typeof parsed.dim === 'number' && parsed.dim !== this.dim) {
 				// Dimension mismatch: ignore persisted index and rebuild.
 				return;
@@ -192,7 +202,7 @@ export class EmbeddingsIndex {
 					continue;
 				}
 
-				this._reindexFile(next, content);
+				await this._reindexFile(next, content);
 				this.plugin.settings.retrievalIndexState = {
 					...(this.plugin.settings.retrievalIndexState || {}),
 					[next]: {
@@ -214,7 +224,7 @@ export class EmbeddingsIndex {
 		this.workerRunning = false;
 	}
 
-	private _reindexFile(path: string, content: string): void {
+	private async _reindexFile(path: string, content: string): Promise<void> {
 		this._removePath(path);
 
 		const chunkWordsCount = this.plugin.settings.retrievalChunkWords ?? 500;
@@ -225,7 +235,10 @@ export class EmbeddingsIndex {
 			const ch = chunks[i];
 			const textHash = fnv1a32(ch.text);
 			const key = `chunk:${path}:${i}`;
-			const vector = buildVector(ch.text, this.dim);
+			const vector =
+				this.backend === 'minilm'
+					? await this.model.embed(ch.text)
+					: buildVector(ch.text, this.dim);
 			const excerpt = excerptOf(ch.text, 500);
 			this._setChunk({
 				key,
@@ -266,7 +279,14 @@ export class EmbeddingsIndex {
 	}
 
 	buildQueryVector(queryText: string): number[] {
+		if (this.backend !== 'minilm') return buildVector(queryText, this.dim);
+		// Note: query embedding is async; providers should call embedQueryVector instead.
 		return buildVector(queryText, this.dim);
+	}
+
+	async embedQueryVector(queryText: string): Promise<number[]> {
+		if (this.backend !== 'minilm') return buildVector(queryText, this.dim);
+		return await this.model.embed(queryText);
 	}
 
 	private _schedulePersist(): void {
@@ -292,6 +312,7 @@ export class EmbeddingsIndex {
 		const payload: PersistedIndexV1 = {
 			version: 1,
 			dim: this.dim,
+			backend: this.backend,
 			chunks: this.getAllChunks()
 		};
 		await this.vault.adapter.write(this.getIndexFilePath(), JSON.stringify(payload));

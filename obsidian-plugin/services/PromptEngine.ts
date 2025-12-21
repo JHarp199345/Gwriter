@@ -322,5 +322,66 @@ If no new info is present for a mentioned character, still output the character 
 
 Do not output any other sections.`;
 	}
+
+	buildStoryBibleDeltaPrompt(passage: string): string {
+		return `SYSTEM INSTRUCTION FOR AI:
+
+You are extracting story bible updates from a narrative passage.
+
+Rules:
+- Evidence-based only: do not invent facts.
+- Prefer exact wording from the passage when possible.
+- Only output new/changed information. If nothing new exists, output: [No new story bible updates]
+
+Output format:
+## Section
+- Bullet updates only
+
+Suggested sections:
+- Characters
+- Locations
+- Factions
+- Timeline
+- World rules
+- Technology or magic
+- Terminology
+- Open questions
+
+-------------------------------------------------------------
+PASSAGE
+-------------------------------------------------------------
+${passage}`;
+	}
+
+	buildStoryBibleMergePrompt(params: { existingStoryBible: string; delta: string }): string {
+		return `SYSTEM INSTRUCTION FOR AI:
+
+You are updating a story bible with a set of new evidence-based updates.
+
+Goals:
+- Preserve existing canon.
+- Merge new information cleanly into the appropriate sections.
+- If the delta conflicts with existing canon, do NOT guess. Add a "Conflicts to resolve" section listing the conflict.
+
+Rules:
+- Do not invent facts.
+- Keep the story bible structured and readable.
+- Maintain a consistent heading hierarchy.
+
+-------------------------------------------------------------
+EXISTING STORY BIBLE
+-------------------------------------------------------------
+${params.existingStoryBible}
+
+-------------------------------------------------------------
+NEW UPDATES (DELTA)
+-------------------------------------------------------------
+${params.delta}
+
+-------------------------------------------------------------
+OUTPUT
+-------------------------------------------------------------
+Return the full updated story bible markdown only.`;
+	}
 }
 

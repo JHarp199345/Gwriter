@@ -89,6 +89,12 @@ export interface DashboardSettings {
 			updatedAt: string;
 		}
 	>;
+	/**
+	 * Local embeddings backend for semantic retrieval.
+	 * - hash: lightweight hashed bag-of-words (fast, lower quality)
+	 * - minilm: true local embeddings (higher quality; may be slower)
+	 */
+	retrievalEmbeddingBackend: 'hash' | 'minilm';
 	setupCompleted: boolean;
 	/**
 	 * If true, do not auto-start the guided demo for first-time users.
@@ -165,6 +171,7 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 	retrievalChunkOverlapWords: 100,
 	retrievalIndexPaused: false,
 	retrievalIndexState: {},
+	retrievalEmbeddingBackend: 'minilm',
 	setupCompleted: false,
 	guidedDemoDismissed: false,
 	guidedDemoShownOnce: false,
