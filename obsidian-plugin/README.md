@@ -171,9 +171,15 @@ This plugin is **fully self-contained**:
 The dashboard uses retrieval-augmented generation (RAG) to pull relevant context from your vault before asking the model to write.
 
 - **Whole-vault retrieval**: searches your vault (excluding folders you choose in settings) for relevant snippets.
-- **Heuristic + semantic**: combines fast lexical matching with an optional local semantic index.
+- **Hybrid ranking**: combines heuristic matching, **BM25** (search-engine lexical ranking), and an optional semantic index.
 - **Local embeddings**: semantic retrieval runs locally (no external vector database).
+- **Diversity**: uses MMR-style selection to reduce near-duplicate snippets.
+- **Reranking (optional)**: can use a local CPU reranker to improve ordering at Generate time.
 - **Token budgeting**: retrieved context is injected with a budget so prompts stay under your configured context limit.
+
+## Generation logs
+
+If enabled in settings, the plugin writes a per-run log note to `Generation logs/` containing inputs, retrieved context, and output. This folder is always excluded from retrieval to avoid feedback loops.
 
 ## Troubleshooting
 

@@ -174,6 +174,16 @@ export class SettingsTab extends PluginSettingTab {
 		new Setting(containerEl).setName('Retrieval').setHeading();
 
 		new Setting(containerEl)
+			.setName('Enable BM25 retrieval')
+			.setDesc('Use a search-engine style relevance ranking (BM25). Recommended for names, places, and exact terms.')
+			.addToggle((toggle) =>
+				toggle.setValue(Boolean(this.plugin.settings.retrievalEnableBm25)).onChange(async (value) => {
+					this.plugin.settings.retrievalEnableBm25 = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(containerEl)
 			.setName('Enable semantic retrieval')
 			.setDesc('Build a local index to retrieve relevant notes from the vault. If disabled, retrieval uses heuristic matching only.')
 			.addToggle((toggle) =>
@@ -195,6 +205,16 @@ export class SettingsTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				});
 			});
+
+		new Setting(containerEl)
+			.setName('Enable reranking')
+			.setDesc('Use a local CPU reranker to improve the ordering of retrieved snippets at Generate time. This can add a short delay.')
+			.addToggle((toggle) =>
+				toggle.setValue(Boolean(this.plugin.settings.retrievalEnableReranker)).onChange(async (value) => {
+					this.plugin.settings.retrievalEnableReranker = value;
+					await this.plugin.saveSettings();
+				})
+			);
 
 		new Setting(containerEl)
 			.setName('Retrieved items (limit)')
@@ -310,6 +330,42 @@ export class SettingsTab extends PluginSettingTab {
 					);
 			}
 		}
+
+		// Generation logs
+		new Setting(containerEl).setName('Generation logs').setHeading();
+
+		new Setting(containerEl)
+			.setName('Save generation logs')
+			.setDesc('Writes a log note per generation run with inputs, retrieved context, and output. Logs are excluded from retrieval.')
+			.addToggle((toggle) =>
+				toggle.setValue(Boolean(this.plugin.settings.generationLogsEnabled)).onChange(async (value) => {
+					this.plugin.settings.generationLogsEnabled = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(containerEl)
+			.setName('Generation logs folder')
+			.setDesc('Vault folder used to store generation logs.')
+			.addText((text) =>
+				text
+					.setPlaceholder('Generation logs')
+					.setValue(this.plugin.settings.generationLogsFolder || 'Generation logs')
+					.onChange(async (value) => {
+						this.plugin.settings.generationLogsFolder = value.trim() || 'Generation logs';
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName('Include full prompt in logs')
+			.setDesc('If enabled, logs include the full prompt text that was sent to the model.')
+			.addToggle((toggle) =>
+				toggle.setValue(Boolean(this.plugin.settings.generationLogsIncludePrompt)).onChange(async (value) => {
+					this.plugin.settings.generationLogsIncludePrompt = value;
+					await this.plugin.saveSettings();
+				})
+			);
 
 		// Multi-mode settings (only shown when MultiMode is selected)
 		if (this.plugin.settings.generationMode === 'multi') {

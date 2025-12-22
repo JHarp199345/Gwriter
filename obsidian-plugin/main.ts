@@ -1,4 +1,4 @@
-import { Plugin, TFile } from 'obsidian';
+import { Plugin, TFile, TFolder } from 'obsidian';
 import { DashboardView, VIEW_TYPE_DASHBOARD } from './ui/DashboardView';
 import { SettingsTab } from './ui/SettingsTab';
 import { VaultService } from './services/VaultService';
@@ -11,6 +11,10 @@ import { QueryBuilder } from './services/QueryBuilder';
 import { HeuristicProvider } from './services/retrieval/HeuristicProvider';
 import { EmbeddingsIndex } from './services/retrieval/EmbeddingsIndex';
 import { LocalEmbeddingsProvider } from './services/retrieval/LocalEmbeddingsProvider';
+import { Bm25Index } from './services/retrieval/Bm25Index';
+import { Bm25Provider } from './services/retrieval/Bm25Provider';
+import { CpuReranker } from './services/retrieval/CpuReranker';
+import { GenerationLogService } from './services/GenerationLogService';
 import { SetupWizardModal } from './ui/SetupWizard';
 import { BookMainSelectorModal } from './ui/BookMainSelectorModal';
 import { PublishWizardModal } from './ui/PublishWizardModal';
@@ -95,6 +99,26 @@ export interface DashboardSettings {
 	 * - minilm: true local embeddings (higher quality; may be slower)
 	 */
 	retrievalEmbeddingBackend: 'hash' | 'minilm';
+	/**
+	 * Enable BM25 lexical retrieval (recommended).
+	 */
+	retrievalEnableBm25: boolean;
+	/**
+	 * Enable CPU reranking (local). May add latency at Generate time.
+	 */
+	retrievalEnableReranker: boolean;
+	/**
+	 * Folder for per-run generation logs.
+	 */
+	generationLogsFolder: string;
+	/**
+	 * If true, write per-run generation logs.
+	 */
+	generationLogsEnabled: boolean;
+	/**
+	 * If true, include the full final prompt text in generation logs.
+	 */
+	generationLogsIncludePrompt: boolean;
 	setupCompleted: boolean;
 	/**
 	 * If true, do not auto-start the guided demo for first-time users.
@@ -172,6 +196,11 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 	retrievalIndexPaused: false,
 	retrievalIndexState: {},
 	retrievalEmbeddingBackend: 'minilm',
+	retrievalEnableBm25: true,
+	retrievalEnableReranker: false,
+	generationLogsFolder: 'Generation logs',
+	generationLogsEnabled: false,
+	generationLogsIncludePrompt: false,
 	setupCompleted: false,
 	guidedDemoDismissed: false,
 	guidedDemoShownOnce: false,
@@ -188,6 +217,9 @@ export default class WritingDashboardPlugin extends Plugin {
 	queryBuilder: QueryBuilder;
 	retrievalService: RetrievalService;
 	embeddingsIndex: EmbeddingsIndex;
+	bm25Index: Bm25Index;
+	cpuReranker: CpuReranker;
+	generationLogService: GenerationLogService;
 	/**
 	 * When true, the next time the dashboard UI mounts it will start the guided demo flow.
 	 * This avoids wiring additional cross-component state management.
@@ -222,16 +254,32 @@ export default class WritingDashboardPlugin extends Plugin {
 		// Track renames so settings don't break if the user renames their manuscript
 		this.registerEvent(
 			this.app.vault.on('rename', async (file, oldPath) => {
-				if (!(file instanceof TFile) || file.extension !== 'md') return;
+				const oldNorm = oldPath.replace(/\\/g, '/');
+				const newNorm = file.path.replace(/\\/g, '/');
+				let changed = false;
+
+				// Track managed folder renames (generation logs).
+				const logsFolder = (this.settings.generationLogsFolder || '').replace(/\\/g, '/').replace(/\/+$/, '');
+				if (logsFolder && file instanceof TFolder && oldNorm === logsFolder) {
+					this.settings.generationLogsFolder = newNorm;
+					changed = true;
+				}
+
+				if (!(file instanceof TFile) || file.extension !== 'md') {
+					if (changed) await this.saveSettings();
+					return;
+				}
 
 				// Update current-note tracker
 				if (this.lastOpenedMarkdownPath === oldPath) {
 					this.lastOpenedMarkdownPath = file.path;
+					changed = true;
 				}
 
 				// Update Book Main Path if it was renamed
 				if (this.settings.book2Path === oldPath) {
 					this.settings.book2Path = file.path;
+					changed = true;
 				}
 
 				// Migrate per-file state (hashes/timestamps) if present
@@ -241,9 +289,10 @@ export default class WritingDashboardPlugin extends Plugin {
 						...this.settings.fileState[oldPath]
 					};
 					delete this.settings.fileState[oldPath];
+					changed = true;
 				}
 
-				await this.saveSettings();
+				if (changed) await this.saveSettings();
 			})
 		);
 		
@@ -263,22 +312,31 @@ export default class WritingDashboardPlugin extends Plugin {
 		// Retrieval / local indexing
 		this.queryBuilder = new QueryBuilder();
 		this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this);
+		this.bm25Index = new Bm25Index(this.app.vault, this);
+		this.cpuReranker = new CpuReranker();
+		this.generationLogService = new GenerationLogService(this.app, this);
+		if (this.settings.generationLogsEnabled) {
+			void this.generationLogService.ensureFolder().catch(() => {
+				// ignore
+			});
+		}
 		const providers = [
 			new HeuristicProvider(this.app.vault, this.vaultService),
+			new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path)),
 			new LocalEmbeddingsProvider(
 				this.embeddingsIndex,
 				() => Boolean(this.settings.retrievalEnableSemanticIndex),
 				(path) => !this.vaultService.isExcludedPath(path)
 			)
 		];
-		this.retrievalService = new RetrievalService(providers);
+		this.retrievalService = new RetrievalService(providers, { getVector: (key) => this.embeddingsIndex.getVectorForKey(key) });
 
 		// Background indexing hooks (best-effort; always safe to fail).
 		const maybeQueueIndex = (path: string) => {
-			if (!this.settings.retrievalEnableSemanticIndex) return;
 			if (this.settings.retrievalIndexPaused) return;
 			if (this.vaultService.isExcludedPath(path)) return;
-			this.embeddingsIndex.queueUpdateFile(path);
+			if (this.settings.retrievalEnableSemanticIndex) this.embeddingsIndex.queueUpdateFile(path);
+			if (this.settings.retrievalEnableBm25) this.bm25Index.queueUpdateFile(path);
 		};
 
 		this.registerEvent(
@@ -299,6 +357,7 @@ export default class WritingDashboardPlugin extends Plugin {
 			this.app.vault.on('delete', (file) => {
 				if (file instanceof TFile && file.extension === 'md') {
 					this.embeddingsIndex.queueRemoveFile(file.path);
+					this.bm25Index.queueRemoveFile(file.path);
 				}
 			})
 		);
@@ -306,6 +365,7 @@ export default class WritingDashboardPlugin extends Plugin {
 			this.app.vault.on('rename', (file, oldPath) => {
 				if (!(file instanceof TFile) || file.extension !== 'md') return;
 				this.embeddingsIndex.queueRemoveFile(oldPath);
+				this.bm25Index.queueRemoveFile(oldPath);
 				maybeQueueIndex(file.path);
 			})
 		);
@@ -313,6 +373,9 @@ export default class WritingDashboardPlugin extends Plugin {
 		// Initial best-effort scan.
 		if (this.settings.retrievalEnableSemanticIndex && !this.settings.retrievalIndexPaused) {
 			this.embeddingsIndex.enqueueFullRescan();
+		}
+		if (this.settings.retrievalEnableBm25 && !this.settings.retrievalIndexPaused) {
+			this.bm25Index.enqueueFullRescan();
 		}
 		
 		this.registerView(

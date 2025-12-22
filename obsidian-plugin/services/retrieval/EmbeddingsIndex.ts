@@ -279,6 +279,11 @@ export class EmbeddingsIndex {
 		return Array.from(this.chunksByKey.values());
 	}
 
+	getVectorForKey(key: string): number[] | null {
+		const ch = this.chunksByKey.get(key);
+		return ch?.vector ?? null;
+	}
+
 	buildQueryVector(queryText: string): number[] {
 		if (this.backend !== 'minilm') return buildVector(queryText, this.dim);
 		// Note: query embedding is async; providers should call embedQueryVector instead.

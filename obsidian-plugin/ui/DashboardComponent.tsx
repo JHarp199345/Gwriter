@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Notice } from 'obsidian';
 import WritingDashboardPlugin, { DashboardSettings } from '../main';
 import { VaultBrowser } from './VaultBrowser';
@@ -55,6 +55,10 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [selectedText, setSelectedText] = useState('');
 	const [directorNotes, setDirectorNotes] = useState('');
 	const [storyBibleDelta, setStoryBibleDelta] = useState<string>('');
+
+	// Background warm retrieval while the user types (no UI preview).
+	const warmTimerRef = useRef<number | null>(null);
+	const warmReqIdRef = useRef<number>(0);
 	const [minWords, setMinWords] = useState(2000);
 	const [maxWords, setMaxWords] = useState(6000);
 	// Keep a string buffer so users can clear/edit the number inputs naturally.
@@ -395,6 +399,46 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		}
 	}, [isVaultPanelCollapsed]);
 
+	useEffect(() => {
+		// Warm retrieval only for chapter/micro-edit while typing.
+		if (mode === 'character-update') return;
+		const primaryText = (selectedText || '').trim();
+		const notes = (directorNotes || '').trim();
+		if (!primaryText && !notes) return;
+
+		if (warmTimerRef.current) window.clearTimeout(warmTimerRef.current);
+		const requestId = ++warmReqIdRef.current;
+
+		warmTimerRef.current = window.setTimeout(() => {
+			const retrievalQuery = plugin.queryBuilder.build({
+				mode: mode === 'chapter' ? 'chapter' : 'micro-edit',
+				activeFilePath: plugin.lastOpenedMarkdownPath ?? plugin.settings.book2Path,
+				primaryText,
+				directorNotes: notes
+			});
+
+			void plugin.retrievalService
+				.search(retrievalQuery, { limit: Math.max(12, Math.min(120, plugin.settings.retrievalTopK ?? 24)) })
+				.then((items) => {
+					if (requestId !== warmReqIdRef.current) return;
+					if (plugin.settings.retrievalEnableReranker) {
+						plugin.cpuReranker.warm(retrievalQuery.text || '', items, { shortlist: 40 });
+					}
+				})
+				.catch(() => {
+					// ignore background warm failures
+				});
+		}, 600);
+
+		return () => {
+			if (warmTimerRef.current) {
+				window.clearTimeout(warmTimerRef.current);
+				warmTimerRef.current = null;
+			}
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- deliberate warm-up behavior; plugin is stable
+	}, [mode, selectedText, directorNotes]);
+
 	const handleGenerate = async () => {
 		// Guided demo can run without an API key (offline canned output).
 		// Auto mode:
@@ -427,11 +471,13 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		setIsGenerating(true);
 		setError(null);
 		setGenerationStage('');
+		let logPath: string | null = null;
 		try {
 			let prompt: string;
 			let context;
 
 			if (mode === 'chapter') {
+				setGenerationStage('Retrieving and reranking...');
 				const retrievalQuery = plugin.queryBuilder.build({
 					mode: 'chapter',
 					activeFilePath: plugin.lastOpenedMarkdownPath ?? plugin.settings.book2Path,
@@ -456,6 +502,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					max
 				);
 			} else {
+				setGenerationStage('Retrieving and reranking...');
 				// micro-edit
 				const retrievalQuery = plugin.queryBuilder.build({
 					mode: 'micro-edit',
@@ -472,6 +519,25 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					setRetrievedContextStats(null);
 				}
 				prompt = plugin.promptEngine.buildMicroEditPrompt(selectedText, directorNotes, context);
+			}
+
+			// Log exactly what we are about to send (after retrieval/rerank and prompt build).
+			try {
+				logPath = await plugin.generationLogService.startLog({
+					mode,
+					title: mode === 'chapter' ? 'Chapter generate' : 'Micro edit',
+					model: plugin.settings.model,
+					provider: plugin.settings.apiProvider,
+					queryText: (mode === 'chapter' || mode === 'micro-edit') ? (selectedText || '') : '',
+					userInputs: {
+						selectedText: selectedText || '',
+						directorNotes: directorNotes || ''
+					},
+					retrievedContext: (context?.smart_connections || '').toString(),
+					finalPrompt: plugin.settings.generationLogsIncludePrompt ? prompt : undefined
+				});
+			} catch {
+				// logging must never break generation
 			}
 
 			// Estimate prompt size and warn if it may exceed the model's context window
@@ -506,11 +572,13 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				}
 				
 				setGeneratedText(result.primary);
+				void plugin.generationLogService.finishLog(logPath, { outputText: result.primary }).catch(() => {});
 			} else {
 				setGenerationStage('Generating...');
 				const singleSettings: SingleSettings = { ...plugin.settings, generationMode: 'single' };
 				const result = await plugin.aiClient.generate(prompt, singleSettings);
 				setGeneratedText(result);
+				void plugin.generationLogService.finishLog(logPath, { outputText: result }).catch(() => {});
 			}
 
 			// Guided demo progression: mark step complete after successful generation
@@ -545,6 +613,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				setError(message || 'Generation failed');
 				console.error('Generation error:', err);
 				setGenerationStage('');
+				void plugin.generationLogService.finishLog(logPath, { error: message }).catch(() => {});
 			}
 		} finally {
 			setIsGenerating(false);

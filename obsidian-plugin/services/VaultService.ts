@@ -263,6 +263,12 @@ export class VaultService {
 		// Always exclude Obsidian config + plugin data.
 		if (normalized === configDir || normalized.startsWith(`${configDir}/`)) return true;
 
+		// Always exclude generation logs (to prevent retrieval feedback loops).
+		const logsFolder = (this.plugin.settings.generationLogsFolder || '').replace(/\\/g, '/').replace(/\/+$/, '');
+		if (logsFolder) {
+			if (normalized === logsFolder || normalized.startsWith(`${logsFolder}/`)) return true;
+		}
+
 		const excluded = this.plugin.settings.retrievalExcludedFolders || [];
 		for (const folder of excluded) {
 			const f = folder.replace(/\\/g, '/').replace(/\/+$/, '');

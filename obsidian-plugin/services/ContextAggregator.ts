@@ -179,9 +179,16 @@ export class ContextAggregator {
 
 	private async getRetrievedContext(query: RetrievalQuery, limit: number): Promise<string> {
 		try {
-			const results = await this.plugin.retrievalService.search(query, {
+			let results = await this.plugin.retrievalService.search(query, {
 				limit: Math.max(1, Math.min(200, limit))
 			});
+			if (this.plugin.settings.retrievalEnableReranker) {
+				try {
+					results = await this.plugin.cpuReranker.rerank(query.text || '', results, { limit: Math.max(1, Math.min(200, limit)) });
+				} catch {
+					// If reranker fails, keep pre-rerank results.
+				}
+			}
 			return this.formatRetrievedItems(results);
 		} catch {
 			return '[Retrieved context unavailable]';

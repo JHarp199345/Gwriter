@@ -63,6 +63,7 @@ A writing dashboard plugin that integrates AI-powered chapter generation, micro-
 - **Surrounding Context** - Micro-edit mode includes 500 words before/after selected text for better narrative continuity
 - **Prompt Size Warning** - Estimates prompt size and warns if you exceed your configured context limit
 - **Smarter First-Run Setup** - If your vault already has notes, the plugin can prompt you to select your main manuscript file
+- **Hybrid retrieval (local RAG)** - Combines BM25 lexical ranking, local embeddings, and diversity selection to inject relevant context without a server
 
 ## Architecture
 

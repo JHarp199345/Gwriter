@@ -1,12 +1,6 @@
 import type { ContextItem, RetrievalOptions, RetrievalProvider, RetrievalQuery } from './retrieval/types';
-
-function mergeReasonTags(a: string[] | undefined, b: string[] | undefined): string[] | undefined {
-	if (!a?.length && !b?.length) return undefined;
-	const set = new Set<string>();
-	a?.forEach((t) => set.add(t));
-	b?.forEach((t) => set.add(t));
-	return Array.from(set);
-}
+import { fuseRrf } from './retrieval/Fusion';
+import { mmrSelect } from './retrieval/Mmr';
 
 function normalizeLimit(limit: number): number {
 	if (!Number.isFinite(limit)) return 20;
@@ -15,53 +9,41 @@ function normalizeLimit(limit: number): number {
 
 export class RetrievalService {
 	private readonly providers: RetrievalProvider[];
+	private readonly getVector?: (key: string) => number[] | null;
 
-	constructor(providers: RetrievalProvider[]) {
+	constructor(providers: RetrievalProvider[], opts?: { getVector?: (key: string) => number[] | null }) {
 		this.providers = providers;
+		this.getVector = opts?.getVector;
 	}
 
 	async search(query: RetrievalQuery, opts: RetrievalOptions): Promise<ContextItem[]> {
 		const limit = normalizeLimit(opts.limit);
-		const resultsByKey = new Map<string, ContextItem>();
+		const candidateLimit = Math.max(limit, Math.min(200, limit * 6));
 
 		const providerResults = await Promise.all(
 			this.providers.map(async (p) => {
 				try {
-					return await p.search(query, { limit });
+					return { providerId: p.id, items: await p.search(query, { limit: candidateLimit }) };
 				} catch {
 					// Provider failure must not break generation. Treat as empty.
-					return [];
+					return { providerId: p.id, items: [] as ContextItem[] };
 				}
 			})
 		);
 
-		for (const batch of providerResults) {
-			for (const item of batch) {
-				const key = item.key || `${item.path}${item.anchor ? `#${item.anchor}` : ''}`;
-				const existing = resultsByKey.get(key);
-				if (!existing) {
-					resultsByKey.set(key, { ...item, key });
-					continue;
-				}
-				// Keep best score; merge reason tags.
-				if (item.score > existing.score) {
-					resultsByKey.set(key, {
-						...item,
-						key,
-						reasonTags: mergeReasonTags(existing.reasonTags, item.reasonTags)
-					});
-				} else {
-					resultsByKey.set(key, {
-						...existing,
-						reasonTags: mergeReasonTags(existing.reasonTags, item.reasonTags)
-					});
-				}
-			}
+		const nonEmpty = providerResults.filter((b) => b.items.length > 0);
+		if (nonEmpty.length === 0) return [];
+		if (nonEmpty.length === 1) {
+			return nonEmpty[0].items
+				.slice()
+				.sort((a, b) => b.score - a.score)
+				.slice(0, limit);
 		}
 
-		return Array.from(resultsByKey.values())
-			.sort((a, b) => b.score - a.score)
-			.slice(0, limit);
+		const fused = fuseRrf(nonEmpty, { limit: candidateLimit });
+		const diverse = mmrSelect(fused, { limit, getVector: this.getVector });
+		// Keep final stable ordering by score (MMR selects the set; ordering still matters).
+		return diverse.sort((a, b) => b.score - a.score).slice(0, limit);
 	}
 }
 

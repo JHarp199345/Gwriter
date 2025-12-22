@@ -1109,7 +1109,7 @@ var require_react_development = __commonJS({
           var dispatcher = resolveDispatcher();
           return dispatcher.useReducer(reducer, initialArg, init);
         }
-        function useRef2(initialValue) {
+        function useRef3(initialValue) {
           var dispatcher = resolveDispatcher();
           return dispatcher.useRef(initialValue);
         }
@@ -1903,7 +1903,7 @@ var require_react_development = __commonJS({
         exports2.useLayoutEffect = useLayoutEffect;
         exports2.useMemo = useMemo2;
         exports2.useReducer = useReducer;
-        exports2.useRef = useRef2;
+        exports2.useRef = useRef3;
         exports2.useState = useState5;
         exports2.useSyncExternalStore = useSyncExternalStore;
         exports2.useTransition = useTransition;
@@ -38967,7 +38967,7 @@ function log_softmax(arr) {
     logSoftmaxArr
   );
 }
-function dot(arr1, arr2) {
+function dot2(arr1, arr2) {
   let result = 0;
   for (let i = 0; i < arr1.length; ++i) {
     result += arr1[i] * arr2[i];
@@ -38982,7 +38982,7 @@ function getTopItems(items, top_k = 0) {
   return items;
 }
 function cos_sim(arr1, arr2) {
-  const dotProduct = dot(arr1, arr2);
+  const dotProduct = dot2(arr1, arr2);
   const magnitudeA = magnitude(arr1);
   const magnitudeB = magnitude(arr2);
   const cosineSimilarity = dotProduct / (magnitudeA * magnitudeB);
@@ -44572,7 +44572,7 @@ var init_tokenizers = __esm({
       apply_chat_template(conversation, {
         chat_template = null,
         add_generation_prompt = false,
-        tokenize: tokenize4 = true,
+        tokenize: tokenize5 = true,
         padding = false,
         truncation = false,
         max_length = null,
@@ -44615,7 +44615,7 @@ var init_tokenizers = __esm({
           ...special_tokens_map,
           ...kwargs
         });
-        if (tokenize4) {
+        if (tokenize5) {
           return this._call(rendered, {
             add_special_tokens: false,
             padding,
@@ -54614,7 +54614,7 @@ __export(transformers_exports, {
   bankers_round: () => bankers_round,
   cat: () => cat,
   cos_sim: () => cos_sim,
-  dot: () => dot,
+  dot: () => dot2,
   dynamicTimeWarping: () => dynamicTimeWarping,
   env: () => env,
   getTopItems: () => getTopItems,
@@ -57361,7 +57361,7 @@ __export(main_exports, {
   default: () => WritingDashboardPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian17 = require("obsidian");
+var import_obsidian19 = require("obsidian");
 
 // ui/DashboardView.ts
 var import_obsidian4 = require("obsidian");
@@ -57784,6 +57784,8 @@ var DashboardComponent = ({ plugin }) => {
   const [selectedText, setSelectedText] = (0, import_react5.useState)("");
   const [directorNotes, setDirectorNotes] = (0, import_react5.useState)("");
   const [storyBibleDelta, setStoryBibleDelta] = (0, import_react5.useState)("");
+  const warmTimerRef = (0, import_react5.useRef)(null);
+  const warmReqIdRef = (0, import_react5.useRef)(0);
   const [minWords, setMinWords] = (0, import_react5.useState)(2e3);
   const [maxWords, setMaxWords] = (0, import_react5.useState)(6e3);
   const [minWordsInput, setMinWordsInput] = (0, import_react5.useState)("2000");
@@ -58070,6 +58072,39 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
     } catch {
     }
   }, [isVaultPanelCollapsed]);
+  (0, import_react5.useEffect)(() => {
+    if (mode === "character-update")
+      return;
+    const primaryText = (selectedText || "").trim();
+    const notes = (directorNotes || "").trim();
+    if (!primaryText && !notes)
+      return;
+    if (warmTimerRef.current)
+      window.clearTimeout(warmTimerRef.current);
+    const requestId = ++warmReqIdRef.current;
+    warmTimerRef.current = window.setTimeout(() => {
+      const retrievalQuery = plugin.queryBuilder.build({
+        mode: mode === "chapter" ? "chapter" : "micro-edit",
+        activeFilePath: plugin.lastOpenedMarkdownPath ?? plugin.settings.book2Path,
+        primaryText,
+        directorNotes: notes
+      });
+      void plugin.retrievalService.search(retrievalQuery, { limit: Math.max(12, Math.min(120, plugin.settings.retrievalTopK ?? 24)) }).then((items) => {
+        if (requestId !== warmReqIdRef.current)
+          return;
+        if (plugin.settings.retrievalEnableReranker) {
+          plugin.cpuReranker.warm(retrievalQuery.text || "", items, { shortlist: 40 });
+        }
+      }).catch(() => {
+      });
+    }, 600);
+    return () => {
+      if (warmTimerRef.current) {
+        window.clearTimeout(warmTimerRef.current);
+        warmTimerRef.current = null;
+      }
+    };
+  }, [mode, selectedText, directorNotes]);
   const handleGenerate = async () => {
     if (!plugin.settings.apiKey && isGuidedDemoActive) {
       setIsGenerating(true);
@@ -58096,10 +58131,12 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
     setIsGenerating(true);
     setError(null);
     setGenerationStage("");
+    let logPath = null;
     try {
       let prompt;
       let context;
       if (mode === "chapter") {
+        setGenerationStage("Retrieving and reranking...");
         const retrievalQuery = plugin.queryBuilder.build({
           mode: "chapter",
           activeFilePath: plugin.lastOpenedMarkdownPath ?? plugin.settings.book2Path,
@@ -58124,6 +58161,7 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
           max2
         );
       } else {
+        setGenerationStage("Retrieving and reranking...");
         const retrievalQuery = plugin.queryBuilder.build({
           mode: "micro-edit",
           activeFilePath: plugin.lastOpenedMarkdownPath ?? plugin.settings.book2Path,
@@ -58139,6 +58177,22 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
           setRetrievedContextStats(null);
         }
         prompt = plugin.promptEngine.buildMicroEditPrompt(selectedText, directorNotes, context);
+      }
+      try {
+        logPath = await plugin.generationLogService.startLog({
+          mode,
+          title: mode === "chapter" ? "Chapter generate" : "Micro edit",
+          model: plugin.settings.model,
+          provider: plugin.settings.apiProvider,
+          queryText: mode === "chapter" || mode === "micro-edit" ? selectedText || "" : "",
+          userInputs: {
+            selectedText: selectedText || "",
+            directorNotes: directorNotes || ""
+          },
+          retrievedContext: (context?.smart_connections || "").toString(),
+          finalPrompt: plugin.settings.generationLogsIncludePrompt ? prompt : void 0
+        });
+      } catch {
       }
       const estimatedTokens = estimateTokens(prompt);
       setPromptTokenEstimate(estimatedTokens);
@@ -58168,11 +58222,15 @@ Continue anyway?`,
           setGenerationStage(`Finalizing (${Object.keys(result.stages).length} stages completed)...`);
         }
         setGeneratedText(result.primary);
+        void plugin.generationLogService.finishLog(logPath, { outputText: result.primary }).catch(() => {
+        });
       } else {
         setGenerationStage("Generating...");
         const singleSettings = { ...plugin.settings, generationMode: "single" };
         const result = await plugin.aiClient.generate(prompt, singleSettings);
         setGeneratedText(result);
+        void plugin.generationLogService.finishLog(logPath, { outputText: result }).catch(() => {
+        });
       }
       if (demoStep === "chapter") {
         setDemoStepCompleted((prev) => ({ ...prev, chapter: true }));
@@ -58203,6 +58261,8 @@ Continue anyway?`,
         setError(message || "Generation failed");
         console.error("Generation error:", err);
         setGenerationStage("");
+        void plugin.generationLogService.finishLog(logPath, { error: message }).catch(() => {
+        });
       }
     } finally {
       setIsGenerating(false);
@@ -59139,6 +59199,12 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
       });
     });
     new import_obsidian6.Setting(containerEl).setName("Retrieval").setHeading();
+    new import_obsidian6.Setting(containerEl).setName("Enable BM25 retrieval").setDesc("Use a search-engine style relevance ranking (BM25). Recommended for names, places, and exact terms.").addToggle(
+      (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableBm25)).onChange(async (value) => {
+        this.plugin.settings.retrievalEnableBm25 = value;
+        await this.plugin.saveSettings();
+      })
+    );
     new import_obsidian6.Setting(containerEl).setName("Enable semantic retrieval").setDesc("Build a local index to retrieve relevant notes from the vault. If disabled, retrieval uses heuristic matching only.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableSemanticIndex)).onChange(async (value) => {
         this.plugin.settings.retrievalEnableSemanticIndex = value;
@@ -59154,6 +59220,12 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
+    new import_obsidian6.Setting(containerEl).setName("Enable reranking").setDesc("Use a local CPU reranker to improve the ordering of retrieved snippets at Generate time. This can add a short delay.").addToggle(
+      (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableReranker)).onChange(async (value) => {
+        this.plugin.settings.retrievalEnableReranker = value;
+        await this.plugin.saveSettings();
+      })
+    );
     new import_obsidian6.Setting(containerEl).setName("Retrieved items (limit)").setDesc("Maximum number of retrieved snippets to include in prompts.").addText(
       (text2) => text2.setPlaceholder("24").setValue(String(this.plugin.settings.retrievalTopK ?? 24)).onChange(async (value) => {
         const parsed = parseInt(value, 10);
@@ -59228,6 +59300,25 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
         );
       }
     }
+    new import_obsidian6.Setting(containerEl).setName("Generation logs").setHeading();
+    new import_obsidian6.Setting(containerEl).setName("Save generation logs").setDesc("Writes a log note per generation run with inputs, retrieved context, and output. Logs are excluded from retrieval.").addToggle(
+      (toggle) => toggle.setValue(Boolean(this.plugin.settings.generationLogsEnabled)).onChange(async (value) => {
+        this.plugin.settings.generationLogsEnabled = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian6.Setting(containerEl).setName("Generation logs folder").setDesc("Vault folder used to store generation logs.").addText(
+      (text2) => text2.setPlaceholder("Generation logs").setValue(this.plugin.settings.generationLogsFolder || "Generation logs").onChange(async (value) => {
+        this.plugin.settings.generationLogsFolder = value.trim() || "Generation logs";
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian6.Setting(containerEl).setName("Include full prompt in logs").setDesc("If enabled, logs include the full prompt text that was sent to the model.").addToggle(
+      (toggle) => toggle.setValue(Boolean(this.plugin.settings.generationLogsIncludePrompt)).onChange(async (value) => {
+        this.plugin.settings.generationLogsIncludePrompt = value;
+        await this.plugin.saveSettings();
+      })
+    );
     if (this.plugin.settings.generationMode === "multi") {
       new import_obsidian6.Setting(containerEl).setName("Multi-mode strategy").setDesc("Draft + revision: fast draft + quality revision. Consensus + multi-stage: maximum quality (slower, more expensive).").addDropdown((dropdown) => dropdown.addOption("draft-revision", "Draft + revision").addOption("consensus-multistage", "Consensus + multi-stage (maximum quality)").setValue(this.plugin.settings.multiStrategy).onChange(async (value) => {
         this.plugin.settings.multiStrategy = value;
@@ -59720,6 +59811,11 @@ ${update}
     const configDir = this.vault.configDir.replace(/\\/g, "/");
     if (normalized === configDir || normalized.startsWith(`${configDir}/`))
       return true;
+    const logsFolder = (this.plugin.settings.generationLogsFolder || "").replace(/\\/g, "/").replace(/\/+$/, "");
+    if (logsFolder) {
+      if (normalized === logsFolder || normalized.startsWith(`${logsFolder}/`))
+        return true;
+    }
     const excluded = this.plugin.settings.retrievalExcludedFolders || [];
     for (const folder of excluded) {
       const f = folder.replace(/\\/g, "/").replace(/\/+$/, "");
@@ -59895,9 +59991,15 @@ Score: ${item.score.toFixed(3)} (${item.source})
   }
   async getRetrievedContext(query, limit) {
     try {
-      const results = await this.plugin.retrievalService.search(query, {
+      let results = await this.plugin.retrievalService.search(query, {
         limit: Math.max(1, Math.min(200, limit))
       });
+      if (this.plugin.settings.retrievalEnableReranker) {
+        try {
+          results = await this.plugin.cpuReranker.rerank(query.text || "", results, { limit: Math.max(1, Math.min(200, limit)) });
+        } catch {
+        }
+      }
       return this.formatRetrievedItems(results);
     } catch {
       return "[Retrieved context unavailable]";
@@ -60765,7 +60867,7 @@ var CharacterExtractor = class {
   }
 };
 
-// services/RetrievalService.ts
+// services/retrieval/Fusion.ts
 function mergeReasonTags(a, b) {
   if (!a?.length && !b?.length)
     return void 0;
@@ -60774,50 +60876,147 @@ function mergeReasonTags(a, b) {
   b?.forEach((t) => set2.add(t));
   return Array.from(set2);
 }
+function fuseRrf(batches, opts) {
+  const k = opts?.k ?? 60;
+  const limit = opts?.limit ?? 200;
+  const acc = /* @__PURE__ */ new Map();
+  for (const batch of batches) {
+    const sorted = (batch.items || []).slice().sort((a, b) => b.score - a.score);
+    for (let i = 0; i < sorted.length; i++) {
+      const it = sorted[i];
+      const key = it.key || `${it.path}${it.anchor ? `#${it.anchor}` : ""}`;
+      const add2 = 1 / (k + (i + 1));
+      const existing = acc.get(key);
+      if (!existing) {
+        acc.set(key, { item: { ...it, key }, score: add2 });
+      } else {
+        acc.set(key, {
+          item: {
+            ...existing.item,
+            // keep highest base score among providers but include tags from both
+            score: Math.max(existing.item.score, it.score),
+            reasonTags: mergeReasonTags(existing.item.reasonTags, it.reasonTags)
+          },
+          score: existing.score + add2
+        });
+      }
+    }
+  }
+  const fused = Array.from(acc.values()).sort((a, b) => b.score - a.score).slice(0, Math.max(1, Math.min(1e3, limit)));
+  let max2 = 0;
+  for (const f of fused)
+    if (f.score > max2)
+      max2 = f.score;
+  const denom = max2 || 1;
+  return fused.map((f) => ({
+    ...f.item,
+    score: Math.max(0, Math.min(1, f.score / denom)),
+    source: "fused",
+    reasonTags: mergeReasonTags(f.item.reasonTags, ["fused"])
+  }));
+}
+
+// services/retrieval/Mmr.ts
+function dot(a, b) {
+  const n = Math.min(a.length, b.length);
+  let s = 0;
+  for (let i = 0; i < n; i++)
+    s += a[i] * b[i];
+  return s;
+}
+function tokenizeLoose(value) {
+  const toks = (value || "").toLowerCase().split(/[^\p{L}\p{N}]+/gu).map((t) => t.trim()).filter((t) => t.length >= 3);
+  return new Set(toks);
+}
+function jaccard(a, b) {
+  if (a.size === 0 && b.size === 0)
+    return 0;
+  let inter = 0;
+  for (const t of a)
+    if (b.has(t))
+      inter++;
+  const union = a.size + b.size - inter;
+  return union ? inter / union : 0;
+}
+function mmrSelect(items, opts) {
+  const limit = Math.max(1, Math.min(200, Math.floor(opts.limit)));
+  const lambda = Math.max(0, Math.min(1, opts.lambda ?? 0.72));
+  const candidates = (items || []).slice(0, 400);
+  if (candidates.length <= limit)
+    return candidates.slice(0, limit);
+  const selected = [];
+  const selectedKeys = /* @__PURE__ */ new Set();
+  const lex = /* @__PURE__ */ new Map();
+  for (const it of candidates) {
+    lex.set(it.key, tokenizeLoose(`${it.path} ${it.title ?? ""} ${it.excerpt}`));
+  }
+  const sim = (a, b) => {
+    const va = opts.getVector?.(a.key) ?? null;
+    const vb = opts.getVector?.(b.key) ?? null;
+    if (va && vb) {
+      return Math.max(0, Math.min(1, (dot(va, vb) + 1) / 2));
+    }
+    return jaccard(lex.get(a.key) ?? /* @__PURE__ */ new Set(), lex.get(b.key) ?? /* @__PURE__ */ new Set());
+  };
+  while (selected.length < limit) {
+    let best = null;
+    let bestScore = -Infinity;
+    for (const cand of candidates) {
+      if (selectedKeys.has(cand.key))
+        continue;
+      const relevance = cand.score;
+      let redundancy = 0;
+      for (const s of selected) {
+        redundancy = Math.max(redundancy, sim(cand, s));
+        if (redundancy >= 0.95)
+          break;
+      }
+      const score = lambda * relevance - (1 - lambda) * redundancy;
+      if (score > bestScore) {
+        bestScore = score;
+        best = cand;
+      }
+    }
+    if (!best)
+      break;
+    selected.push(best);
+    selectedKeys.add(best.key);
+  }
+  return selected;
+}
+
+// services/RetrievalService.ts
 function normalizeLimit(limit) {
   if (!Number.isFinite(limit))
     return 20;
   return Math.max(1, Math.min(200, Math.floor(limit)));
 }
 var RetrievalService = class {
-  constructor(providers) {
+  constructor(providers, opts) {
     this.providers = providers;
+    this.getVector = opts?.getVector;
   }
   async search(query, opts) {
     const limit = normalizeLimit(opts.limit);
-    const resultsByKey = /* @__PURE__ */ new Map();
+    const candidateLimit = Math.max(limit, Math.min(200, limit * 6));
     const providerResults = await Promise.all(
       this.providers.map(async (p) => {
         try {
-          return await p.search(query, { limit });
+          return { providerId: p.id, items: await p.search(query, { limit: candidateLimit }) };
         } catch {
-          return [];
+          return { providerId: p.id, items: [] };
         }
       })
     );
-    for (const batch of providerResults) {
-      for (const item of batch) {
-        const key = item.key || `${item.path}${item.anchor ? `#${item.anchor}` : ""}`;
-        const existing = resultsByKey.get(key);
-        if (!existing) {
-          resultsByKey.set(key, { ...item, key });
-          continue;
-        }
-        if (item.score > existing.score) {
-          resultsByKey.set(key, {
-            ...item,
-            key,
-            reasonTags: mergeReasonTags(existing.reasonTags, item.reasonTags)
-          });
-        } else {
-          resultsByKey.set(key, {
-            ...existing,
-            reasonTags: mergeReasonTags(existing.reasonTags, item.reasonTags)
-          });
-        }
-      }
+    const nonEmpty = providerResults.filter((b) => b.items.length > 0);
+    if (nonEmpty.length === 0)
+      return [];
+    if (nonEmpty.length === 1) {
+      return nonEmpty[0].items.slice().sort((a, b) => b.score - a.score).slice(0, limit);
     }
-    return Array.from(resultsByKey.values()).sort((a, b) => b.score - a.score).slice(0, limit);
+    const fused = fuseRrf(nonEmpty, { limit: candidateLimit });
+    const diverse = mmrSelect(fused, { limit, getVector: this.getVector });
+    return diverse.sort((a, b) => b.score - a.score).slice(0, limit);
   }
 };
 
@@ -61269,6 +61468,10 @@ var EmbeddingsIndex = class {
   getAllChunks() {
     return Array.from(this.chunksByKey.values());
   }
+  getVectorForKey(key) {
+    const ch = this.chunksByKey.get(key);
+    return ch?.vector ?? null;
+  }
   buildQueryVector(queryText) {
     if (this.backend !== "minilm")
       return buildVector(queryText, this.dim);
@@ -61316,7 +61519,7 @@ var EmbeddingsIndex = class {
 };
 
 // services/retrieval/LocalEmbeddingsProvider.ts
-function dot2(a, b) {
+function dot3(a, b) {
   const n = Math.min(a.length, b.length);
   let s = 0;
   for (let i = 0; i < n; i++)
@@ -61346,7 +61549,7 @@ var LocalEmbeddingsProvider = class {
     const chunks = this.index.getAllChunks().filter((c) => this.isAllowedPath(c.path));
     if (chunks.length === 0)
       return [];
-    const scored = chunks.map((c) => ({ chunk: c, score: dot2(qVec, c.vector) })).sort((a, b) => b.score - a.score).slice(0, Math.max(1, Math.min(200, opts.limit * 6)));
+    const scored = chunks.map((c) => ({ chunk: c, score: dot3(qVec, c.vector) })).sort((a, b) => b.score - a.score).slice(0, Math.max(1, Math.min(200, opts.limit * 6)));
     const results = [];
     for (const { chunk, score } of scored) {
       results.push({
@@ -61360,6 +61563,594 @@ var LocalEmbeddingsProvider = class {
       });
     }
     return results.slice(0, opts.limit);
+  }
+};
+
+// services/retrieval/Bm25Index.ts
+var import_obsidian13 = require("obsidian");
+function clampInt2(value, min2, max2) {
+  if (!Number.isFinite(value))
+    return min2;
+  return Math.max(min2, Math.min(max2, Math.floor(value)));
+}
+function excerptOf2(text2, maxChars) {
+  const trimmed = text2.trim().replace(/\s+/g, " ");
+  if (trimmed.length <= maxChars)
+    return trimmed;
+  return `${trimmed.slice(0, maxChars)}\u2026`;
+}
+function chunkWords2(text2, chunkWordsCount, overlapWordsCount) {
+  const words = text2.split(/\s+/g).filter(Boolean);
+  const chunks = [];
+  const size = clampInt2(chunkWordsCount, 200, 2e3);
+  const overlap = clampInt2(overlapWordsCount, 0, Math.max(0, size - 1));
+  const step = Math.max(1, size - overlap);
+  for (let start = 0; start < words.length; start += step) {
+    const end = Math.min(words.length, start + size);
+    const slice2 = words.slice(start, end).join(" ");
+    chunks.push({ start, end, text: slice2 });
+    if (end >= words.length)
+      break;
+  }
+  return chunks;
+}
+var STOPWORDS2 = /* @__PURE__ */ new Set([
+  "the",
+  "a",
+  "an",
+  "and",
+  "or",
+  "but",
+  "to",
+  "of",
+  "in",
+  "on",
+  "for",
+  "with",
+  "at",
+  "from",
+  "by",
+  "as",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "it",
+  "that",
+  "this",
+  "these",
+  "those"
+]);
+function tokenize4(value) {
+  return (value || "").toLowerCase().split(/[^\p{L}\p{N}]+/gu).map((t) => t.trim()).filter((t) => t.length >= 3 && !STOPWORDS2.has(t));
+}
+function tfMap(tokens) {
+  const m = /* @__PURE__ */ new Map();
+  for (const t of tokens)
+    m.set(t, (m.get(t) ?? 0) + 1);
+  return m;
+}
+var Bm25Index = class {
+  constructor(vault, plugin) {
+    this.loaded = false;
+    this.chunksByKey = /* @__PURE__ */ new Map();
+    this.chunkKeysByPath = /* @__PURE__ */ new Map();
+    this.postings = /* @__PURE__ */ new Map();
+    this.fileState = {};
+    this.sumLen = 0;
+    this.queue = /* @__PURE__ */ new Set();
+    this.workerRunning = false;
+    this.persistTimer = null;
+    this.vault = vault;
+    this.plugin = plugin;
+  }
+  getIndexFilePath() {
+    return `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index/bm25.json`;
+  }
+  getStatus() {
+    return {
+      indexedFiles: this.chunkKeysByPath.size,
+      indexedChunks: this.chunksByKey.size,
+      queued: this.queue.size
+    };
+  }
+  async ensureLoaded() {
+    if (this.loaded)
+      return;
+    this.loaded = true;
+    try {
+      const path3 = this.getIndexFilePath();
+      if (!await this.vault.adapter.exists(path3))
+        return;
+      const raw = await this.vault.adapter.read(path3);
+      const parsed = JSON.parse(raw);
+      if (parsed?.version !== 1)
+        return;
+      this.fileState = parsed.fileState || {};
+      this.sumLen = 0;
+      this.chunksByKey.clear();
+      this.chunkKeysByPath.clear();
+      this.postings.clear();
+      const chunks = parsed.chunks || {};
+      for (const [key, ch] of Object.entries(chunks)) {
+        if (!ch?.key || !ch?.path)
+          continue;
+        this.chunksByKey.set(key, ch);
+        this.sumLen += ch.len || 0;
+        const set2 = this.chunkKeysByPath.get(ch.path) ?? /* @__PURE__ */ new Set();
+        set2.add(key);
+        this.chunkKeysByPath.set(ch.path, set2);
+      }
+      const postings = parsed.postings || {};
+      for (const [term, list2] of Object.entries(postings)) {
+        if (!Array.isArray(list2))
+          continue;
+        this.postings.set(term, list2.filter((e) => Array.isArray(e) && typeof e[0] === "string" && typeof e[1] === "number"));
+      }
+    } catch {
+      this.chunksByKey.clear();
+      this.chunkKeysByPath.clear();
+      this.postings.clear();
+      this.fileState = {};
+      this.sumLen = 0;
+    }
+  }
+  enqueueFullRescan() {
+    const files = this.plugin.vaultService.getIncludedMarkdownFiles();
+    for (const f of files)
+      this.queue.add(f.path);
+    this._kickWorker();
+  }
+  queueUpdateFile(path3) {
+    if (!path3)
+      return;
+    this.queue.add(path3);
+    this._kickWorker();
+  }
+  queueRemoveFile(path3) {
+    if (!path3)
+      return;
+    this._removePath(path3);
+    this._schedulePersist();
+  }
+  _kickWorker() {
+    if (this.workerRunning)
+      return;
+    this.workerRunning = true;
+    void this._runWorker().catch(() => {
+      this.workerRunning = false;
+    });
+  }
+  async _runWorker() {
+    await this.ensureLoaded();
+    while (this.queue.size > 0) {
+      if (this.plugin.settings.retrievalIndexPaused)
+        break;
+      const next = this.queue.values().next().value;
+      this.queue.delete(next);
+      if (this.plugin.vaultService.isExcludedPath(next)) {
+        this._removePath(next);
+        this._schedulePersist();
+        continue;
+      }
+      const file = this.vault.getAbstractFileByPath(next);
+      if (!(file instanceof import_obsidian13.TFile) || file.extension !== "md") {
+        this._removePath(next);
+        this._schedulePersist();
+        continue;
+      }
+      try {
+        const content = await this.vault.read(file);
+        const fileHash = fnv1a32(content);
+        const prev = this.fileState[next];
+        if (prev?.hash === fileHash)
+          continue;
+        this._reindexFile(next, content);
+        this.fileState[next] = {
+          hash: fileHash,
+          chunkCount: this.chunkKeysByPath.get(next)?.size ?? 0,
+          updatedAt: new Date().toISOString()
+        };
+        this._schedulePersist();
+      } catch {
+      }
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    this.workerRunning = false;
+  }
+  _removePath(path3) {
+    const keys = this.chunkKeysByPath.get(path3);
+    if (keys) {
+      for (const k of keys) {
+        const ch = this.chunksByKey.get(k);
+        if (ch)
+          this.sumLen -= ch.len || 0;
+        this.chunksByKey.delete(k);
+      }
+    }
+    this.chunkKeysByPath.delete(path3);
+    delete this.fileState[path3];
+  }
+  _reindexFile(path3, content) {
+    this._removePath(path3);
+    const chunkWordsCount = this.plugin.settings.retrievalChunkWords ?? 500;
+    const overlap = this.plugin.settings.retrievalChunkOverlapWords ?? 100;
+    const chunks = chunkWords2(content, chunkWordsCount, overlap);
+    for (let i = 0; i < chunks.length; i++) {
+      const ch = chunks[i];
+      const toks = tokenize4(ch.text);
+      if (toks.length === 0)
+        continue;
+      const key = `chunk:${path3}:${i}`;
+      const tf = tfMap(toks);
+      this.sumLen += toks.length;
+      const meta = {
+        key,
+        path: path3,
+        chunkIndex: i,
+        startWord: ch.start,
+        endWord: ch.end,
+        excerpt: excerptOf2(ch.text, 500),
+        len: toks.length
+      };
+      this.chunksByKey.set(key, meta);
+      const set2 = this.chunkKeysByPath.get(path3) ?? /* @__PURE__ */ new Set();
+      set2.add(key);
+      this.chunkKeysByPath.set(path3, set2);
+      for (const [term, count] of tf.entries()) {
+        const list2 = this.postings.get(term) ?? [];
+        list2.push([key, count]);
+        this.postings.set(term, list2);
+      }
+    }
+  }
+  _schedulePersist() {
+    if (this.persistTimer)
+      window.clearTimeout(this.persistTimer);
+    this.persistTimer = window.setTimeout(() => {
+      this.persistTimer = null;
+      void this._persistNow().catch(() => {
+      });
+    }, 1e3);
+  }
+  async _persistNow() {
+    const dir = `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index`;
+    try {
+      if (!await this.vault.adapter.exists(dir)) {
+        await this.vault.adapter.mkdir(dir);
+      }
+    } catch {
+    }
+    const postingsObj = {};
+    for (const [term, list2] of this.postings.entries())
+      postingsObj[term] = list2;
+    const chunksObj = {};
+    for (const [key, ch] of this.chunksByKey.entries())
+      chunksObj[key] = ch;
+    const avgdl = this.chunksByKey.size ? this.sumLen / this.chunksByKey.size : 0;
+    const payload = {
+      version: 1,
+      avgdl,
+      totalChunks: this.chunksByKey.size,
+      fileState: this.fileState,
+      chunks: chunksObj,
+      postings: postingsObj
+    };
+    await this.vault.adapter.write(this.getIndexFilePath(), JSON.stringify(payload));
+  }
+  search(queryText, limit) {
+    const qTokens = tokenize4(queryText).slice(0, 24);
+    const terms = Array.from(new Set(qTokens));
+    if (terms.length === 0)
+      return [];
+    const N = this.chunksByKey.size;
+    if (N === 0)
+      return [];
+    const avgdl = N ? this.sumLen / N : 0;
+    const k1 = 1.2;
+    const b = 0.75;
+    const scores = /* @__PURE__ */ new Map();
+    for (const term of terms) {
+      const posting = this.postings.get(term);
+      if (!posting || posting.length === 0)
+        continue;
+      let df = 0;
+      for (const [key] of posting) {
+        if (this.chunksByKey.has(key))
+          df++;
+      }
+      if (df === 0)
+        continue;
+      const idf = Math.log(1 + (N - df + 0.5) / (df + 0.5));
+      for (const [key, tf] of posting) {
+        const ch = this.chunksByKey.get(key);
+        if (!ch)
+          continue;
+        const dl = ch.len || 0;
+        const denom = tf + k1 * (1 - b + b * dl / (avgdl || 1));
+        const s = idf * (tf * (k1 + 1)) / (denom || 1);
+        scores.set(key, (scores.get(key) ?? 0) + s);
+      }
+    }
+    const ranked = Array.from(scores.entries()).map(([key, rawScore]) => {
+      const ch = this.chunksByKey.get(key);
+      if (!ch)
+        return null;
+      return { chunk: ch, rawScore, terms };
+    }).filter((x) => Boolean(x)).sort((a, b2) => b2.rawScore - a.rawScore).slice(0, Math.max(1, Math.min(400, limit)));
+    return ranked;
+  }
+};
+
+// services/retrieval/Bm25Provider.ts
+var Bm25Provider = class {
+  constructor(index, isEnabled, isAllowedPath) {
+    this.id = "bm25";
+    this.index = index;
+    this.isEnabled = isEnabled;
+    this.isAllowedPath = isAllowedPath;
+  }
+  async search(query, opts) {
+    if (!this.isEnabled())
+      return [];
+    const q = (query.text ?? "").trim();
+    if (!q)
+      return [];
+    await this.index.ensureLoaded();
+    const ranked = this.index.search(q, Math.max(1, Math.min(400, opts.limit * 8)));
+    if (ranked.length === 0)
+      return [];
+    let max2 = 0;
+    for (const r of ranked)
+      if (r.rawScore > max2)
+        max2 = r.rawScore;
+    const denom = max2 || 1;
+    const results = [];
+    for (const r of ranked) {
+      if (!this.isAllowedPath(r.chunk.path))
+        continue;
+      results.push({
+        key: r.chunk.key,
+        path: r.chunk.path,
+        title: r.chunk.path.split("/").pop(),
+        excerpt: r.chunk.excerpt,
+        score: Math.max(0, Math.min(1, r.rawScore / denom)),
+        source: this.id,
+        reasonTags: ["bm25"]
+      });
+      if (results.length >= opts.limit)
+        break;
+    }
+    return results;
+  }
+};
+
+// services/retrieval/CpuReranker.ts
+function clamp01(x) {
+  if (!Number.isFinite(x))
+    return 0;
+  return Math.max(0, Math.min(1, x));
+}
+function normalizeText(s) {
+  return (s || "").replace(/\s+/g, " ").trim();
+}
+var TransformersCrossEncoder = class {
+  constructor() {
+    this.id = "cross-encoder-msmarco-minilm";
+    this.pipeline = null;
+    this.loading = null;
+  }
+  async ensureLoaded() {
+    if (this.pipeline)
+      return;
+    if (this.loading !== null)
+      return this.loading;
+    this.loading = (async () => {
+      const transformersUnknown = await Promise.resolve().then(() => (init_transformers(), transformers_exports));
+      const transformers = transformersUnknown;
+      if (!transformers.pipeline)
+        throw new Error("Transformers pipeline is unavailable");
+      const pipeUnknown = await transformers.pipeline(
+        "text-classification",
+        "Xenova/cross-encoder-ms-marco-MiniLM-L-6-v2",
+        { quantized: true }
+      );
+      const pipe = pipeUnknown;
+      this.pipeline = async (input) => await pipe(input);
+    })().finally(() => {
+      this.loading = null;
+    });
+    return this.loading;
+  }
+  async rerankPair(query, document2) {
+    const q = normalizeText(query);
+    const d = normalizeText(document2);
+    if (!q || !d)
+      return { score: 0 };
+    await this.ensureLoaded();
+    if (!this.pipeline)
+      throw new Error("Reranker pipeline unavailable");
+    let out;
+    try {
+      out = await this.pipeline([{ text: q, text_pair: d }]);
+    } catch {
+      out = await this.pipeline(`${q}
+
+${d}`);
+    }
+    const first = Array.isArray(out) ? out[0] : out;
+    const obj = first;
+    const score = typeof obj?.score === "number" ? obj.score : 0;
+    return { score: clamp01(score) };
+  }
+};
+var CpuReranker = class {
+  constructor(model) {
+    // queryHash -> itemKey -> score
+    this.cache = /* @__PURE__ */ new Map();
+    this.model = model ?? new TransformersCrossEncoder();
+  }
+  hashQuery(q) {
+    return fnv1a32(normalizeText(q));
+  }
+  warm(query, items, opts) {
+    const shortlist = Math.max(1, Math.min(120, Math.floor(opts?.shortlist ?? 40)));
+    const qh = this.hashQuery(query);
+    const map2 = this.cache.get(qh) ?? /* @__PURE__ */ new Map();
+    this.cache.set(qh, map2);
+    const toScore = items.slice(0, shortlist).filter((it) => !map2.has(it.key));
+    if (toScore.length === 0)
+      return;
+    void (async () => {
+      for (const it of toScore) {
+        try {
+          const doc = `${it.path}
+${it.excerpt}`;
+          const res = await this.model.rerankPair(query, doc);
+          map2.set(it.key, res.score);
+        } catch {
+          break;
+        }
+      }
+    })().catch(() => {
+    });
+  }
+  async rerank(query, items, opts) {
+    const limit = Math.max(1, Math.min(200, Math.floor(opts.limit)));
+    const shortlist = Math.max(limit, Math.min(120, Math.floor(opts.shortlist ?? 60)));
+    const qh = this.hashQuery(query);
+    const map2 = this.cache.get(qh) ?? /* @__PURE__ */ new Map();
+    this.cache.set(qh, map2);
+    const scored = [];
+    const slice2 = items.slice(0, shortlist);
+    for (const it of slice2) {
+      const cached = map2.get(it.key);
+      if (typeof cached === "number") {
+        scored.push({ item: it, score: cached });
+        continue;
+      }
+      const doc = `${it.path}
+${it.excerpt}`;
+      const res = await this.model.rerankPair(query, doc);
+      map2.set(it.key, res.score);
+      scored.push({ item: it, score: res.score });
+    }
+    const out = scored.sort((a, b) => b.score - a.score || b.item.score - a.item.score).slice(0, limit).map((s) => ({
+      ...s.item,
+      // Keep the score field as the rerank score so formatting reflects true order.
+      score: s.score,
+      source: "rerank",
+      reasonTags: Array.from(/* @__PURE__ */ new Set([...s.item.reasonTags ?? [], "rerank"]))
+    }));
+    return out;
+  }
+};
+
+// services/GenerationLogService.ts
+var import_obsidian14 = require("obsidian");
+function normalizeFolder(folder) {
+  const f = (folder || "").replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
+  return f.length ? f : "Generation logs";
+}
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+function timestampForFile(d) {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}-${pad2(d.getMinutes())}-${pad2(d.getSeconds())}`;
+}
+function escapeFenceContent(s) {
+  return (s || "").replace(/```/g, "``\\`");
+}
+var GenerationLogService = class {
+  constructor(app, plugin) {
+    this.app = app;
+    this.plugin = plugin;
+  }
+  getFolderPath() {
+    return normalizeFolder(this.plugin.settings.generationLogsFolder);
+  }
+  async ensureFolder() {
+    const folderPath = this.getFolderPath();
+    const existing = this.app.vault.getAbstractFileByPath(folderPath);
+    if (existing instanceof import_obsidian14.TFolder)
+      return;
+    try {
+      await this.app.vault.createFolder(folderPath);
+    } catch {
+    }
+  }
+  async startLog(params) {
+    if (!this.plugin.settings.generationLogsEnabled)
+      return null;
+    await this.ensureFolder();
+    const now = new Date();
+    const folder = this.getFolderPath();
+    const stamp = timestampForFile(now);
+    const safeTitle = (params.title || "Run").trim().slice(0, 80) || "Run";
+    const fileName = `${stamp} ${safeTitle}.md`;
+    const path3 = `${folder}/${fileName}`.replace(/\/+/g, "/");
+    const inputsLines = Object.entries(params.userInputs).map(([k, v]) => `- ${k}: ${v ? `${v.length} chars` : "0 chars"}`).join("\n");
+    const body = `# Generation log
+
+- Mode: ${params.mode}
+- Provider: ${params.provider}
+- Model: ${params.model}
+- Time: ${now.toISOString()}
+- Query hash: ${fnv1a32(params.queryText || "")}
+
+## Inputs
+
+${inputsLines}
+
+## Query
+
+\`\`\`text
+${escapeFenceContent(params.queryText || "")}
+\`\`\`
+
+## Retrieved context
+
+\`\`\`text
+${escapeFenceContent(params.retrievedContext || "")}
+\`\`\`
+
+` + (params.finalPrompt ? `## Final prompt
+
+\`\`\`text
+${escapeFenceContent(params.finalPrompt)}
+\`\`\`
+
+` : "");
+    try {
+      await this.app.vault.create(path3, body);
+      return path3;
+    } catch {
+      new import_obsidian14.Notice("Failed to write generation log.");
+      return null;
+    }
+  }
+  async finishLog(path3, params) {
+    if (!path3)
+      return;
+    const file = this.app.vault.getAbstractFileByPath(path3);
+    if (!(file instanceof import_obsidian14.TFile))
+      return;
+    const appendix = `## Result
+
+` + (params.error ? `Error: ${params.error}
+
+` : "Status: Success\n\n") + (params.outputText ? `\`\`\`text
+${escapeFenceContent(params.outputText)}
+\`\`\`
+` : "");
+    try {
+      const existing = await this.app.vault.read(file);
+      await this.app.vault.modify(file, `${existing}
+${appendix}`);
+    } catch {
+    }
   }
 };
 
@@ -61382,11 +62173,11 @@ var BookMainSelectorModal = class extends FilePickerModal {
 // ui/PublishWizardModal.tsx
 var import_react8 = __toESM(require_react());
 var import_client3 = __toESM(require_client());
-var import_obsidian16 = require("obsidian");
+var import_obsidian18 = require("obsidian");
 
 // ui/FolderPickerModal.ts
-var import_obsidian13 = require("obsidian");
-var FolderPickerModal = class extends import_obsidian13.FuzzySuggestModal {
+var import_obsidian15 = require("obsidian");
+var FolderPickerModal = class extends import_obsidian15.FuzzySuggestModal {
   constructor(opts) {
     super(opts.app);
     this.folders = opts.folders;
@@ -61406,8 +62197,8 @@ var FolderPickerModal = class extends import_obsidian13.FuzzySuggestModal {
 };
 
 // ui/BinaryFilePickerModal.ts
-var import_obsidian14 = require("obsidian");
-var BinaryFilePickerModal = class extends import_obsidian14.FuzzySuggestModal {
+var import_obsidian16 = require("obsidian");
+var BinaryFilePickerModal = class extends import_obsidian16.FuzzySuggestModal {
   constructor(opts) {
     super(opts.app);
     this.files = opts.files;
@@ -61427,7 +62218,7 @@ var BinaryFilePickerModal = class extends import_obsidian14.FuzzySuggestModal {
 };
 
 // services/publish/MarkdownCompile.ts
-var import_obsidian15 = require("obsidian");
+var import_obsidian17 = require("obsidian");
 function trimBom(s) {
   return s.charCodeAt(0) === 65279 ? s.slice(1) : s;
 }
@@ -61512,13 +62303,13 @@ function resolveLinkToFilePath(app, linkTarget, fromPath) {
   if (!t)
     return null;
   const direct = app.vault.getAbstractFileByPath(t);
-  if (direct instanceof import_obsidian15.TFile)
+  if (direct instanceof import_obsidian17.TFile)
     return direct.path;
   const directMd = app.vault.getAbstractFileByPath(`${t}.md`);
-  if (directMd instanceof import_obsidian15.TFile)
+  if (directMd instanceof import_obsidian17.TFile)
     return directMd.path;
   const dest = app.metadataCache.getFirstLinkpathDest(t, fromPath);
-  if (dest instanceof import_obsidian15.TFile)
+  if (dest instanceof import_obsidian17.TFile)
     return dest.path;
   return null;
 }
@@ -61528,7 +62319,7 @@ var MarkdownCompile = class {
   }
   async compileFromBookMain(sourcePath) {
     const file = this.app.vault.getAbstractFileByPath(sourcePath);
-    if (!(file instanceof import_obsidian15.TFile)) {
+    if (!(file instanceof import_obsidian17.TFile)) {
       throw new Error(`Book main file not found: ${sourcePath}`);
     }
     const text2 = await this.app.vault.read(file);
@@ -61537,7 +62328,7 @@ var MarkdownCompile = class {
   }
   async compileFromTocNote(tocPath) {
     const file = this.app.vault.getAbstractFileByPath(tocPath);
-    if (!(file instanceof import_obsidian15.TFile))
+    if (!(file instanceof import_obsidian17.TFile))
       throw new Error(`TOC note not found: ${tocPath}`);
     const text2 = await this.app.vault.read(file);
     const lines = trimBom(text2).split(/\r?\n/);
@@ -61553,7 +62344,7 @@ var MarkdownCompile = class {
       if (!destPath)
         continue;
       const dest = this.app.vault.getAbstractFileByPath(destPath);
-      if (!(dest instanceof import_obsidian15.TFile))
+      if (!(dest instanceof import_obsidian17.TFile))
         continue;
       const md2 = await this.app.vault.read(dest);
       const title = (() => {
@@ -67140,7 +67931,7 @@ function sanitizeFileName(name2) {
   }
   return out.length ? out : "book";
 }
-function normalizeFolder(folder) {
+function normalizeFolder2(folder) {
   const f = folder.replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
   return f.length ? f : "Exports";
 }
@@ -67283,7 +68074,7 @@ var EpubExportService = class {
     const author = params.author.trim();
     const language = params.language.trim() || "en";
     const subtitle = (params.subtitle || "").trim();
-    const folder = normalizeFolder(params.outputFolder);
+    const folder = normalizeFolder2(params.outputFolder);
     const fileName = ensureEpubExt(sanitizeFileName(params.outputFileName || bookTitle));
     const outputPath = `${folder}/${fileName}`.replace(/\\/g, "/");
     await this.ensureFolder(folder);
@@ -67432,7 +68223,7 @@ var EpubExportService = class {
     return normalized.split("/").pop() || normalized;
   }
   async ensureFolder(folder) {
-    const parts = normalizeFolder(folder).split("/");
+    const parts = normalizeFolder2(folder).split("/");
     let current = "";
     for (const part of parts) {
       current = current ? `${current}/${part}` : part;
@@ -67479,7 +68270,7 @@ function countWords(text2) {
 function escapeXml3(value) {
   return (value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
-function normalizeFolder2(folder) {
+function normalizeFolder3(folder) {
   const f = folder.replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
   return f.length ? f : "Exports";
 }
@@ -67507,7 +68298,7 @@ var DocxExportService = class {
     this.vault = vault;
   }
   async export(params) {
-    const folder = normalizeFolder2(params.outputFolder);
+    const folder = normalizeFolder3(params.outputFolder);
     const fileName = ensureDocxExt(params.outputFileName);
     const outPath = `${folder}/${fileName}`.replace(/\/+/g, "/");
     const zip = new import_jszip2.default();
@@ -67590,7 +68381,7 @@ var DocxExportService = class {
 };
 
 // services/publish/RtfExportService.ts
-function normalizeFolder3(folder) {
+function normalizeFolder4(folder) {
   const f = folder.replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
   return f.length ? f : "Exports";
 }
@@ -67605,7 +68396,7 @@ var RtfExportService = class {
     this.vault = vault;
   }
   async export(params) {
-    const folder = normalizeFolder3(params.outputFolder);
+    const folder = normalizeFolder4(params.outputFolder);
     const fileName = ensureRtfExt(params.outputFileName);
     const outPath = `${folder}/${fileName}`.replace(/\/+/g, "/");
     const parts = [];
@@ -67660,7 +68451,7 @@ function sanitizeFileName2(name2) {
 function ensureEpubExt2(name2) {
   return name2.toLowerCase().endsWith(".epub") ? name2 : `${name2}.epub`;
 }
-var PublishWizardModal = class extends import_obsidian16.Modal {
+var PublishWizardModal = class extends import_obsidian18.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.reactRoot = null;
@@ -67772,7 +68563,7 @@ var PublishWizardComponent = ({
     modal.open();
   };
   const pickFolder = (onPick) => {
-    const folders = plugin.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian16.TFolder);
+    const folders = plugin.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian18.TFolder);
     const modal = new FolderPickerModal({
       app: plugin.app,
       folders,
@@ -67874,7 +68665,7 @@ ${markdownToPlainText(c.markdown || "")}
         outputPath = out;
       }
       setProgress("");
-      new import_obsidian16.Notice(`Exported: ${outputPath}`);
+      new import_obsidian18.Notice(`Exported: ${outputPath}`);
       onClose();
     } catch (e) {
       const message = e instanceof Error ? e.message : (() => {
@@ -67991,12 +68782,17 @@ Output format (required):
   retrievalIndexPaused: false,
   retrievalIndexState: {},
   retrievalEmbeddingBackend: "minilm",
+  retrievalEnableBm25: true,
+  retrievalEnableReranker: false,
+  generationLogsFolder: "Generation logs",
+  generationLogsEnabled: false,
+  generationLogsIncludePrompt: false,
   setupCompleted: false,
   guidedDemoDismissed: false,
   guidedDemoShownOnce: false,
   fileState: {}
 };
-var WritingDashboardPlugin = class extends import_obsidian17.Plugin {
+var WritingDashboardPlugin = class extends import_obsidian19.Plugin {
   constructor() {
     super(...arguments);
     /**
@@ -68027,13 +68823,26 @@ var WritingDashboardPlugin = class extends import_obsidian17.Plugin {
     );
     this.registerEvent(
       this.app.vault.on("rename", async (file, oldPath) => {
-        if (!(file instanceof import_obsidian17.TFile) || file.extension !== "md")
+        const oldNorm = oldPath.replace(/\\/g, "/");
+        const newNorm = file.path.replace(/\\/g, "/");
+        let changed = false;
+        const logsFolder = (this.settings.generationLogsFolder || "").replace(/\\/g, "/").replace(/\/+$/, "");
+        if (logsFolder && file instanceof import_obsidian19.TFolder && oldNorm === logsFolder) {
+          this.settings.generationLogsFolder = newNorm;
+          changed = true;
+        }
+        if (!(file instanceof import_obsidian19.TFile) || file.extension !== "md") {
+          if (changed)
+            await this.saveSettings();
           return;
+        }
         if (this.lastOpenedMarkdownPath === oldPath) {
           this.lastOpenedMarkdownPath = file.path;
+          changed = true;
         }
         if (this.settings.book2Path === oldPath) {
           this.settings.book2Path = file.path;
+          changed = true;
         }
         if (this.settings.fileState?.[oldPath]) {
           this.settings.fileState[file.path] = {
@@ -68041,8 +68850,10 @@ var WritingDashboardPlugin = class extends import_obsidian17.Plugin {
             ...this.settings.fileState[oldPath]
           };
           delete this.settings.fileState[oldPath];
+          changed = true;
         }
-        await this.saveSettings();
+        if (changed)
+          await this.saveSettings();
       })
     );
     if (!this.settings.vaultPath) {
@@ -68056,55 +68867,69 @@ var WritingDashboardPlugin = class extends import_obsidian17.Plugin {
     this.characterExtractor = new CharacterExtractor();
     this.queryBuilder = new QueryBuilder();
     this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this);
+    this.bm25Index = new Bm25Index(this.app.vault, this);
+    this.cpuReranker = new CpuReranker();
+    this.generationLogService = new GenerationLogService(this.app, this);
+    if (this.settings.generationLogsEnabled) {
+      void this.generationLogService.ensureFolder().catch(() => {
+      });
+    }
     const providers = [
       new HeuristicProvider(this.app.vault, this.vaultService),
+      new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path3) => !this.vaultService.isExcludedPath(path3)),
       new LocalEmbeddingsProvider(
         this.embeddingsIndex,
         () => Boolean(this.settings.retrievalEnableSemanticIndex),
         (path3) => !this.vaultService.isExcludedPath(path3)
       )
     ];
-    this.retrievalService = new RetrievalService(providers);
+    this.retrievalService = new RetrievalService(providers, { getVector: (key) => this.embeddingsIndex.getVectorForKey(key) });
     const maybeQueueIndex = (path3) => {
-      if (!this.settings.retrievalEnableSemanticIndex)
-        return;
       if (this.settings.retrievalIndexPaused)
         return;
       if (this.vaultService.isExcludedPath(path3))
         return;
-      this.embeddingsIndex.queueUpdateFile(path3);
+      if (this.settings.retrievalEnableSemanticIndex)
+        this.embeddingsIndex.queueUpdateFile(path3);
+      if (this.settings.retrievalEnableBm25)
+        this.bm25Index.queueUpdateFile(path3);
     };
     this.registerEvent(
       this.app.vault.on("create", (file) => {
-        if (file instanceof import_obsidian17.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian19.TFile && file.extension === "md") {
           maybeQueueIndex(file.path);
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
-        if (file instanceof import_obsidian17.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian19.TFile && file.extension === "md") {
           maybeQueueIndex(file.path);
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
-        if (file instanceof import_obsidian17.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian19.TFile && file.extension === "md") {
           this.embeddingsIndex.queueRemoveFile(file.path);
+          this.bm25Index.queueRemoveFile(file.path);
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
-        if (!(file instanceof import_obsidian17.TFile) || file.extension !== "md")
+        if (!(file instanceof import_obsidian19.TFile) || file.extension !== "md")
           return;
         this.embeddingsIndex.queueRemoveFile(oldPath);
+        this.bm25Index.queueRemoveFile(oldPath);
         maybeQueueIndex(file.path);
       })
     );
     if (this.settings.retrievalEnableSemanticIndex && !this.settings.retrievalIndexPaused) {
       this.embeddingsIndex.enqueueFullRescan();
+    }
+    if (this.settings.retrievalEnableBm25 && !this.settings.retrievalIndexPaused) {
+      this.bm25Index.enqueueFullRescan();
     }
     this.registerView(
       VIEW_TYPE_DASHBOARD,
