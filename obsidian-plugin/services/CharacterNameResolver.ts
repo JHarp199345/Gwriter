@@ -20,7 +20,7 @@ function normalizeForMatch(name: string): string {
 	return (name || '')
 		.toLowerCase()
 		.trim()
-		.replace(/[_\-]+/g, ' ')
+		.replace(/[-_]+/g, ' ')
 		.replace(/[^\p{L}\p{N}\s]/gu, '') // remove punctuation, keep unicode letters/numbers
 		.replace(/\s+/g, ' ')
 		.trim();
@@ -63,7 +63,7 @@ function similarityScore(a: string, b: string): number {
 	return 1 - dist / maxLen;
 }
 
-async function listCharacterBasenames(vault: Vault, folderPath: string): Promise<string[]> {
+function listCharacterBasenames(vault: Vault, folderPath: string): string[] {
 	const folder = vault.getAbstractFileByPath(folderPath);
 	if (!(folder instanceof TFolder)) return [];
 	const names: string[] = [];
@@ -91,7 +91,7 @@ export class CharacterNameResolver {
 		const proposed = (proposedName || '').trim();
 		if (!proposed) return { needsConfirmation: { proposedName: proposedName, candidates: [] } };
 
-		const existing = await listCharacterBasenames(this.vault, this.characterFolder);
+		const existing = listCharacterBasenames(this.vault, this.characterFolder);
 		if (existing.length === 0) {
 			return { needsConfirmation: { proposedName: proposed, candidates: [] } };
 		}

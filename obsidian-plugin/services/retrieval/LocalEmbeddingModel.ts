@@ -34,23 +34,26 @@ export class MiniLmLocalEmbeddingModel implements LocalEmbeddingModel {
 
 	private async ensureLoaded(): Promise<void> {
 		if (this.pipeline) return;
-		if (this.loading) return this.loading;
+		if (this.loading !== null) return this.loading;
 
 		this.loading = (async () => {
 			// Dynamic import to avoid bundling weight unless enabled.
-			const transformers = (await import('@xenova/transformers')) as unknown as {
-				pipeline: (task: string, model: string, opts?: Record<string, unknown>) => Promise<unknown>;
+			const transformersUnknown: unknown = await import('@xenova/transformers');
+			const transformers = transformersUnknown as {
+				pipeline?: (task: string, model: string, opts?: Record<string, unknown>) => Promise<unknown>;
 			};
+			if (!transformers.pipeline) throw new Error('Transformers pipeline is unavailable');
 
 			// Cache models inside plugin data to avoid re-downloading if possible.
 			// Note: transformers uses its own caching strategy; this is a hint.
 			const cacheDir = `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index/models`;
 
-			const pipe = (await transformers.pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
+			const pipeUnknown = await transformers.pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
 				quantized: true,
 				progress_callback: undefined,
 				cache_dir: cacheDir
-			})) as unknown as (input: string, opts?: Record<string, unknown>) => Promise<unknown>;
+			});
+			const pipe = pipeUnknown as (input: string, opts?: Record<string, unknown>) => Promise<unknown>;
 
 			this.pipeline = async (text: string) => {
 				const out = (await pipe(text, { pooling: 'mean', normalize: true })) as unknown;

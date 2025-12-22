@@ -94,7 +94,8 @@ export class EmbeddingsIndex {
 	constructor(vault: Vault, plugin: WritingDashboardPlugin, dim: number = 256) {
 		this.vault = vault;
 		this.plugin = plugin;
-		this.backend = (plugin.settings.retrievalEmbeddingBackend ?? 'minilm') as 'hash' | 'minilm';
+		const backend = plugin.settings.retrievalEmbeddingBackend;
+		this.backend = backend === 'hash' ? 'hash' : 'minilm';
 		this.dim = this.backend === 'minilm' ? 384 : dim;
 		this.model = new MiniLmLocalEmbeddingModel(vault, plugin);
 	}

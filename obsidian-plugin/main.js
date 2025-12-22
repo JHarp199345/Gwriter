@@ -59363,7 +59363,7 @@ var import_obsidian9 = require("obsidian");
 // services/CharacterNameResolver.ts
 var import_obsidian7 = require("obsidian");
 function normalizeForMatch(name2) {
-  return (name2 || "").toLowerCase().trim().replace(/[_\-]+/g, " ").replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
+  return (name2 || "").toLowerCase().trim().replace(/[-_]+/g, " ").replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
 }
 function levenshtein(a, b) {
   if (a === b)
@@ -59407,7 +59407,7 @@ function similarityScore(a, b) {
   const maxLen = Math.max(na.length, nb.length) || 1;
   return 1 - dist / maxLen;
 }
-async function listCharacterBasenames(vault, folderPath) {
+function listCharacterBasenames(vault, folderPath) {
   const folder = vault.getAbstractFileByPath(folderPath);
   if (!(folder instanceof import_obsidian7.TFolder))
     return [];
@@ -59428,7 +59428,7 @@ var CharacterNameResolver = class {
     const proposed = (proposedName || "").trim();
     if (!proposed)
       return { needsConfirmation: { proposedName, candidates: [] } };
-    const existing = await listCharacterBasenames(this.vault, this.characterFolder);
+    const existing = listCharacterBasenames(this.vault, this.characterFolder);
     if (existing.length === 0) {
       return { needsConfirmation: { proposedName: proposed, candidates: [] } };
     }
@@ -61008,16 +61008,20 @@ var MiniLmLocalEmbeddingModel = class {
   async ensureLoaded() {
     if (this.pipeline)
       return;
-    if (this.loading)
+    if (this.loading !== null)
       return this.loading;
     this.loading = (async () => {
-      const transformers = await Promise.resolve().then(() => (init_transformers(), transformers_exports));
+      const transformersUnknown = await Promise.resolve().then(() => (init_transformers(), transformers_exports));
+      const transformers = transformersUnknown;
+      if (!transformers.pipeline)
+        throw new Error("Transformers pipeline is unavailable");
       const cacheDir = `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index/models`;
-      const pipe = await transformers.pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
+      const pipeUnknown = await transformers.pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
         quantized: true,
         progress_callback: void 0,
         cache_dir: cacheDir
       });
+      const pipe = pipeUnknown;
       this.pipeline = async (text2) => {
         const out = await pipe(text2, { pooling: "mean", normalize: true });
         if (Array.isArray(out) && Array.isArray(out[0])) {
@@ -61105,7 +61109,8 @@ var EmbeddingsIndex = class {
     this.settingsSaveTimer = null;
     this.vault = vault;
     this.plugin = plugin;
-    this.backend = plugin.settings.retrievalEmbeddingBackend ?? "minilm";
+    const backend = plugin.settings.retrievalEmbeddingBackend;
+    this.backend = backend === "hash" ? "hash" : "minilm";
     this.dim = this.backend === "minilm" ? 384 : dim;
     this.model = new MiniLmLocalEmbeddingModel(vault, plugin);
   }
