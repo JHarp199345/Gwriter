@@ -2,6 +2,7 @@ import type { Vault } from 'obsidian';
 import { TFile } from 'obsidian';
 import type WritingDashboardPlugin from '../../main';
 import { fnv1a32 } from '../ContentHash';
+import { buildIndexChunks } from './Chunking';
 
 export interface Bm25Chunk {
 	key: string;
@@ -18,6 +19,7 @@ interface PersistedBm25V1 {
 	avgdl: number;
 	totalChunks: number;
 	fileState: Record<string, { hash: string; chunkCount: number; updatedAt: string }>;
+	chunking?: { headingLevel: 'h1' | 'h2' | 'h3' | 'none'; targetWords: number; overlapWords: number };
 	// Chunk metadata by key
 	chunks: Record<string, Bm25Chunk>;
 	// term -> list of [chunkKey, tf]
@@ -35,24 +37,12 @@ function excerptOf(text: string, maxChars: number): string {
 	return `${trimmed.slice(0, maxChars)}…`;
 }
 
-function chunkWords(
-	text: string,
-	chunkWordsCount: number,
-	overlapWordsCount: number
-): Array<{ start: number; end: number; text: string }> {
-	const words = text.split(/\s+/g).filter(Boolean);
-	const chunks: Array<{ start: number; end: number; text: string }> = [];
-	const size = clampInt(chunkWordsCount, 200, 2000);
-	const overlap = clampInt(overlapWordsCount, 0, Math.max(0, size - 1));
-	const step = Math.max(1, size - overlap);
-
-	for (let start = 0; start < words.length; start += step) {
-		const end = Math.min(words.length, start + size);
-		const slice = words.slice(start, end).join(' ');
-		chunks.push({ start, end, text: slice });
-		if (end >= words.length) break;
-	}
-	return chunks;
+function chunkingKey(plugin: WritingDashboardPlugin): { headingLevel: 'h1' | 'h2' | 'h3' | 'none'; targetWords: number; overlapWords: number } {
+	return {
+		headingLevel: plugin.settings.retrievalChunkHeadingLevel ?? 'h1',
+		targetWords: clampInt(plugin.settings.retrievalChunkWords ?? 500, 200, 2000),
+		overlapWords: clampInt(plugin.settings.retrievalChunkOverlapWords ?? 100, 0, 500)
+	};
 }
 
 const STOPWORDS = new Set<string>([
@@ -141,6 +131,17 @@ export class Bm25Index {
 			const raw = await this.vault.adapter.read(path);
 			const parsed = JSON.parse(raw) as PersistedBm25V1;
 			if (parsed?.version !== 1) return;
+			const expectedChunking = chunkingKey(this.plugin);
+			if (
+				parsed.chunking &&
+				(parsed.chunking.headingLevel !== expectedChunking.headingLevel ||
+					parsed.chunking.targetWords !== expectedChunking.targetWords ||
+					parsed.chunking.overlapWords !== expectedChunking.overlapWords)
+			) {
+				// Chunking config changed; rebuild index.
+				this.enqueueFullRescan();
+				return;
+			}
 
 			this.fileState = parsed.fileState || {};
 			this.sumLen = 0;
@@ -261,9 +262,13 @@ export class Bm25Index {
 	private _reindexFile(path: string, content: string): void {
 		this._removePath(path);
 
-		const chunkWordsCount = this.plugin.settings.retrievalChunkWords ?? 500;
-		const overlap = this.plugin.settings.retrievalChunkOverlapWords ?? 100;
-		const chunks = chunkWords(content, chunkWordsCount, overlap);
+		const cfg = chunkingKey(this.plugin);
+		const chunks = buildIndexChunks({
+			text: content,
+			headingLevel: cfg.headingLevel,
+			targetWords: cfg.targetWords,
+			overlapWords: cfg.overlapWords
+		});
 
 		for (let i = 0; i < chunks.length; i++) {
 			const ch = chunks[i];
@@ -278,8 +283,8 @@ export class Bm25Index {
 				key,
 				path,
 				chunkIndex: i,
-				startWord: ch.start,
-				endWord: ch.end,
+				startWord: ch.startWord,
+				endWord: ch.endWord,
 				excerpt: excerptOf(ch.text, 500),
 				len: toks.length
 			};
@@ -328,6 +333,7 @@ export class Bm25Index {
 			avgdl,
 			totalChunks: this.chunksByKey.size,
 			fileState: this.fileState,
+			chunking: chunkingKey(this.plugin),
 			chunks: chunksObj,
 			postings: postingsObj
 		};

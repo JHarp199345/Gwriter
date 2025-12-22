@@ -177,6 +177,10 @@ The dashboard uses retrieval-augmented generation (RAG) to pull relevant context
 - **Reranking (optional)**: can use a local CPU reranker to improve ordering at Generate time.
 - **Token budgeting**: retrieved context is injected with a budget so prompts stay under your configured context limit.
 
+Indexing quality:
+- Retrieval indexing can prefer a heading level (H1/H2/H3) when chunking notes. Default is H1.
+- If headings are missing (or set to None), indexing falls back to word-window chunking with overlap.
+
 ## Generation logs
 
 If enabled in settings, the plugin writes a per-run log note to `Generation logs/` containing inputs, retrieved context, and output. This folder is always excluded from retrieval to avoid feedback loops.

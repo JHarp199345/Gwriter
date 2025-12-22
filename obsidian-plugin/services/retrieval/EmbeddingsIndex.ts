@@ -3,6 +3,7 @@ import { TFile } from 'obsidian';
 import WritingDashboardPlugin from '../../main';
 import { fnv1a32 } from '../ContentHash';
 import { MiniLmLocalEmbeddingModel } from './LocalEmbeddingModel';
+import { buildIndexChunks } from './Chunking';
 
 export interface IndexedChunk {
 	key: string;
@@ -19,6 +20,7 @@ interface PersistedIndexV1 {
 	version: 1;
 	dim: number;
 	backend: 'hash' | 'minilm';
+	chunking?: { headingLevel: 'h1' | 'h2' | 'h3' | 'none'; targetWords: number; overlapWords: number };
 	chunks: IndexedChunk[];
 }
 
@@ -53,20 +55,12 @@ function buildVector(text: string, dim: number): number[] {
 	return vec;
 }
 
-function chunkWords(text: string, chunkWordsCount: number, overlapWordsCount: number): Array<{ start: number; end: number; text: string }> {
-	const words = text.split(/\s+/g).filter(Boolean);
-	const chunks: Array<{ start: number; end: number; text: string }> = [];
-	const size = clampInt(chunkWordsCount, 200, 2000);
-	const overlap = clampInt(overlapWordsCount, 0, Math.max(0, size - 1));
-	const step = Math.max(1, size - overlap);
-
-	for (let start = 0; start < words.length; start += step) {
-		const end = Math.min(words.length, start + size);
-		const slice = words.slice(start, end).join(' ');
-		chunks.push({ start, end, text: slice });
-		if (end >= words.length) break;
-	}
-	return chunks;
+function chunkingKey(plugin: WritingDashboardPlugin): { headingLevel: 'h1' | 'h2' | 'h3' | 'none'; targetWords: number; overlapWords: number } {
+	return {
+		headingLevel: plugin.settings.retrievalChunkHeadingLevel ?? 'h1',
+		targetWords: clampInt(plugin.settings.retrievalChunkWords ?? 500, 200, 2000),
+		overlapWords: clampInt(plugin.settings.retrievalChunkOverlapWords ?? 100, 0, 500)
+	};
 }
 
 function excerptOf(text: string, maxChars: number): string {
@@ -116,10 +110,23 @@ export class EmbeddingsIndex {
 			if (parsed?.version !== 1 || !Array.isArray(parsed.chunks)) return;
 			if (parsed.backend && parsed.backend !== this.backend) {
 				// Backend mismatch: ignore persisted index and rebuild.
+				this.enqueueFullRescan();
 				return;
 			}
 			if (typeof parsed.dim === 'number' && parsed.dim !== this.dim) {
 				// Dimension mismatch: ignore persisted index and rebuild.
+				this.enqueueFullRescan();
+				return;
+			}
+			const expectedChunking = chunkingKey(this.plugin);
+			if (
+				parsed.chunking &&
+				(parsed.chunking.headingLevel !== expectedChunking.headingLevel ||
+					parsed.chunking.targetWords !== expectedChunking.targetWords ||
+					parsed.chunking.overlapWords !== expectedChunking.overlapWords)
+			) {
+				// Chunking config changed; rebuild index.
+				this.enqueueFullRescan();
 				return;
 			}
 			for (const chunk of parsed.chunks) {
@@ -228,10 +235,13 @@ export class EmbeddingsIndex {
 	private async _reindexFile(path: string, content: string): Promise<void> {
 		this._removePath(path);
 
-		const chunkWordsCount = this.plugin.settings.retrievalChunkWords ?? 500;
-		const overlap = this.plugin.settings.retrievalChunkOverlapWords ?? 100;
-
-		const chunks = chunkWords(content, chunkWordsCount, overlap);
+		const cfg = chunkingKey(this.plugin);
+		const chunks = buildIndexChunks({
+			text: content,
+			headingLevel: cfg.headingLevel,
+			targetWords: cfg.targetWords,
+			overlapWords: cfg.overlapWords
+		});
 		for (let i = 0; i < chunks.length; i++) {
 			const ch = chunks[i];
 			const textHash = fnv1a32(ch.text);
@@ -245,8 +255,8 @@ export class EmbeddingsIndex {
 				key,
 				path,
 				chunkIndex: i,
-				startWord: ch.start,
-				endWord: ch.end,
+				startWord: ch.startWord,
+				endWord: ch.endWord,
 				textHash,
 				vector,
 				excerpt
@@ -319,6 +329,7 @@ export class EmbeddingsIndex {
 			version: 1,
 			dim: this.dim,
 			backend: this.backend,
+			chunking: chunkingKey(this.plugin),
 			chunks: this.getAllChunks()
 		};
 		await this.vault.adapter.write(this.getIndexFilePath(), JSON.stringify(payload));

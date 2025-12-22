@@ -79,6 +79,11 @@ export interface DashboardSettings {
 	 */
 	retrievalChunkOverlapWords: number;
 	/**
+	 * Preferred markdown heading level used to chunk notes for retrieval indexing.
+	 * Default is H1 to match common chapter-style notes.
+	 */
+	retrievalChunkHeadingLevel: 'h1' | 'h2' | 'h3' | 'none';
+	/**
 	 * If true, background indexing is paused.
 	 */
 	retrievalIndexPaused: boolean;
@@ -193,6 +198,7 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 	retrievalTopK: 24,
 	retrievalChunkWords: 500,
 	retrievalChunkOverlapWords: 100,
+	retrievalChunkHeadingLevel: 'h1',
 	retrievalIndexPaused: false,
 	retrievalIndexState: {},
 	retrievalEmbeddingBackend: 'minilm',

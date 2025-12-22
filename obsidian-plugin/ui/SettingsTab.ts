@@ -265,6 +265,21 @@ export class SettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
+			.setName('Indexing heading level')
+			.setDesc('Preferred heading level used to split notes into coherent chunks for retrieval indexing. Falls back to word-window chunking if headings are missing.')
+			.addDropdown((dropdown) => {
+				dropdown.addOption('h1', 'H1 (#)');
+				dropdown.addOption('h2', 'H2 (##)');
+				dropdown.addOption('h3', 'H3 (###)');
+				dropdown.addOption('none', 'None (word chunks only)');
+				dropdown.setValue(this.plugin.settings.retrievalChunkHeadingLevel ?? 'h1');
+				dropdown.onChange(async (value) => {
+					this.plugin.settings.retrievalChunkHeadingLevel = value as 'h1' | 'h2' | 'h3' | 'none';
+					await this.plugin.saveSettings();
+				});
+			});
+
+		new Setting(containerEl)
 			.setName('Pause indexing')
 			.setDesc('Pauses background indexing for semantic retrieval.')
 			.addToggle((toggle) =>

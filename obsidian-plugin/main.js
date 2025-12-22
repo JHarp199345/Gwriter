@@ -59253,6 +59253,17 @@ var SettingsTab = class extends import_obsidian6.PluginSettingTab {
         }
       })
     );
+    new import_obsidian6.Setting(containerEl).setName("Indexing heading level").setDesc("Preferred heading level used to split notes into coherent chunks for retrieval indexing. Falls back to word-window chunking if headings are missing.").addDropdown((dropdown) => {
+      dropdown.addOption("h1", "H1 (#)");
+      dropdown.addOption("h2", "H2 (##)");
+      dropdown.addOption("h3", "H3 (###)");
+      dropdown.addOption("none", "None (word chunks only)");
+      dropdown.setValue(this.plugin.settings.retrievalChunkHeadingLevel ?? "h1");
+      dropdown.onChange(async (value) => {
+        this.plugin.settings.retrievalChunkHeadingLevel = value;
+        await this.plugin.saveSettings();
+      });
+    });
     new import_obsidian6.Setting(containerEl).setName("Pause indexing").setDesc("Pauses background indexing for semantic retrieval.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalIndexPaused)).onChange(async (value) => {
         this.plugin.settings.retrievalIndexPaused = value;
@@ -61250,8 +61261,132 @@ var MiniLmLocalEmbeddingModel = class {
   }
 };
 
-// services/retrieval/EmbeddingsIndex.ts
+// services/retrieval/Chunking.ts
 function clampInt(value, min2, max2) {
+  if (!Number.isFinite(value))
+    return min2;
+  return Math.max(min2, Math.min(max2, Math.floor(value)));
+}
+function splitWords(text2) {
+  return (text2 || "").split(/\s+/g).filter(Boolean);
+}
+function isHeadingLine(line, level) {
+  const t = (line || "").trimStart();
+  if (level === "h1")
+    return /^#(?!#)\s+/.test(t);
+  if (level === "h2")
+    return /^##(?!#)\s+/.test(t);
+  if (level === "h3")
+    return /^###(?!#)\s+/.test(t);
+  return false;
+}
+function splitByHeadingLevel(text2, level) {
+  if (level === "none")
+    return [];
+  const normalized = (text2 || "").replace(/\r\n/g, "\n");
+  const lines = normalized.split("\n");
+  const sections = [];
+  let current = [];
+  let seenHeading = false;
+  const flush = () => {
+    const body = current.join("\n").trim();
+    if (body)
+      sections.push(body);
+  };
+  for (const line of lines) {
+    if (isHeadingLine(line, level)) {
+      if (seenHeading)
+        flush();
+      seenHeading = true;
+      current = [line.trimEnd()];
+      continue;
+    }
+    current.push(line);
+  }
+  if (seenHeading) {
+    flush();
+    return sections;
+  }
+  return [];
+}
+function chunkWordsWindow(text2, globalStartWord, targetWords, overlapWords) {
+  const words = splitWords(text2);
+  if (words.length === 0)
+    return [];
+  const size = clampInt(targetWords, 200, 2e3);
+  const overlap = clampInt(overlapWords, 0, Math.max(0, size - 1));
+  const step = Math.max(1, size - overlap);
+  const out = [];
+  for (let start = 0; start < words.length; start += step) {
+    const end = Math.min(words.length, start + size);
+    out.push({
+      startWord: globalStartWord + start,
+      endWord: globalStartWord + end,
+      text: words.slice(start, end).join(" ")
+    });
+    if (end >= words.length)
+      break;
+  }
+  return out;
+}
+function mergeSmallSections(sections, minWords) {
+  const min2 = Math.max(1, Math.floor(minWords));
+  const out = [];
+  let buf = [];
+  let bufWords = 0;
+  const flush = () => {
+    const merged = buf.join("\n\n").trim();
+    if (merged)
+      out.push(merged);
+    buf = [];
+    bufWords = 0;
+  };
+  for (const s of sections) {
+    const words = splitWords(s).length;
+    if (bufWords === 0) {
+      buf = [s];
+      bufWords = words;
+    } else if (bufWords < min2) {
+      buf.push(s);
+      bufWords += words;
+    } else {
+      flush();
+      buf = [s];
+      bufWords = words;
+    }
+  }
+  if (bufWords > 0)
+    flush();
+  return out;
+}
+function buildIndexChunks(params) {
+  const level = params.headingLevel;
+  const target = clampInt(params.targetWords, 200, 2e3);
+  const overlap = clampInt(params.overlapWords, 0, 500);
+  const sections = splitByHeadingLevel(params.text, level);
+  if (sections.length > 0) {
+    const minWords = Math.max(200, Math.floor(target * 0.5));
+    const merged = mergeSmallSections(sections, minWords);
+    const out = [];
+    let cursor = 0;
+    for (const sec of merged) {
+      const words = splitWords(sec).length;
+      if (words <= target) {
+        out.push({ startWord: cursor, endWord: cursor + words, text: sec });
+        cursor += words;
+        continue;
+      }
+      const sub = chunkWordsWindow(sec, cursor, target, overlap);
+      out.push(...sub);
+      cursor += words;
+    }
+    return out;
+  }
+  return chunkWordsWindow(params.text, 0, target, overlap);
+}
+
+// services/retrieval/EmbeddingsIndex.ts
+function clampInt2(value, min2, max2) {
   if (!Number.isFinite(value))
     return min2;
   return Math.max(min2, Math.min(max2, Math.floor(value)));
@@ -61276,20 +61411,12 @@ function buildVector(text2, dim) {
     vec[i] = vec[i] / norm;
   return vec;
 }
-function chunkWords(text2, chunkWordsCount, overlapWordsCount) {
-  const words = text2.split(/\s+/g).filter(Boolean);
-  const chunks = [];
-  const size = clampInt(chunkWordsCount, 200, 2e3);
-  const overlap = clampInt(overlapWordsCount, 0, Math.max(0, size - 1));
-  const step = Math.max(1, size - overlap);
-  for (let start = 0; start < words.length; start += step) {
-    const end = Math.min(words.length, start + size);
-    const slice2 = words.slice(start, end).join(" ");
-    chunks.push({ start, end, text: slice2 });
-    if (end >= words.length)
-      break;
-  }
-  return chunks;
+function chunkingKey(plugin) {
+  return {
+    headingLevel: plugin.settings.retrievalChunkHeadingLevel ?? "h1",
+    targetWords: clampInt2(plugin.settings.retrievalChunkWords ?? 500, 200, 2e3),
+    overlapWords: clampInt2(plugin.settings.retrievalChunkOverlapWords ?? 100, 0, 500)
+  };
 }
 function excerptOf(text2, maxChars) {
   const trimmed = text2.trim().replace(/\s+/g, " ");
@@ -61329,9 +61456,16 @@ var EmbeddingsIndex = class {
       if (parsed?.version !== 1 || !Array.isArray(parsed.chunks))
         return;
       if (parsed.backend && parsed.backend !== this.backend) {
+        this.enqueueFullRescan();
         return;
       }
       if (typeof parsed.dim === "number" && parsed.dim !== this.dim) {
+        this.enqueueFullRescan();
+        return;
+      }
+      const expectedChunking = chunkingKey(this.plugin);
+      if (parsed.chunking && (parsed.chunking.headingLevel !== expectedChunking.headingLevel || parsed.chunking.targetWords !== expectedChunking.targetWords || parsed.chunking.overlapWords !== expectedChunking.overlapWords)) {
+        this.enqueueFullRescan();
         return;
       }
       for (const chunk of parsed.chunks) {
@@ -61425,9 +61559,13 @@ var EmbeddingsIndex = class {
   }
   async _reindexFile(path3, content) {
     this._removePath(path3);
-    const chunkWordsCount = this.plugin.settings.retrievalChunkWords ?? 500;
-    const overlap = this.plugin.settings.retrievalChunkOverlapWords ?? 100;
-    const chunks = chunkWords(content, chunkWordsCount, overlap);
+    const cfg = chunkingKey(this.plugin);
+    const chunks = buildIndexChunks({
+      text: content,
+      headingLevel: cfg.headingLevel,
+      targetWords: cfg.targetWords,
+      overlapWords: cfg.overlapWords
+    });
     for (let i = 0; i < chunks.length; i++) {
       const ch = chunks[i];
       const textHash = fnv1a32(ch.text);
@@ -61438,8 +61576,8 @@ var EmbeddingsIndex = class {
         key,
         path: path3,
         chunkIndex: i,
-        startWord: ch.start,
-        endWord: ch.end,
+        startWord: ch.startWord,
+        endWord: ch.endWord,
         textHash,
         vector,
         excerpt
@@ -61503,6 +61641,7 @@ var EmbeddingsIndex = class {
       version: 1,
       dim: this.dim,
       backend: this.backend,
+      chunking: chunkingKey(this.plugin),
       chunks: this.getAllChunks()
     };
     await this.vault.adapter.write(this.getIndexFilePath(), JSON.stringify(payload));
@@ -61568,7 +61707,7 @@ var LocalEmbeddingsProvider = class {
 
 // services/retrieval/Bm25Index.ts
 var import_obsidian13 = require("obsidian");
-function clampInt2(value, min2, max2) {
+function clampInt3(value, min2, max2) {
   if (!Number.isFinite(value))
     return min2;
   return Math.max(min2, Math.min(max2, Math.floor(value)));
@@ -61579,20 +61718,12 @@ function excerptOf2(text2, maxChars) {
     return trimmed;
   return `${trimmed.slice(0, maxChars)}\u2026`;
 }
-function chunkWords2(text2, chunkWordsCount, overlapWordsCount) {
-  const words = text2.split(/\s+/g).filter(Boolean);
-  const chunks = [];
-  const size = clampInt2(chunkWordsCount, 200, 2e3);
-  const overlap = clampInt2(overlapWordsCount, 0, Math.max(0, size - 1));
-  const step = Math.max(1, size - overlap);
-  for (let start = 0; start < words.length; start += step) {
-    const end = Math.min(words.length, start + size);
-    const slice2 = words.slice(start, end).join(" ");
-    chunks.push({ start, end, text: slice2 });
-    if (end >= words.length)
-      break;
-  }
-  return chunks;
+function chunkingKey2(plugin) {
+  return {
+    headingLevel: plugin.settings.retrievalChunkHeadingLevel ?? "h1",
+    targetWords: clampInt3(plugin.settings.retrievalChunkWords ?? 500, 200, 2e3),
+    overlapWords: clampInt3(plugin.settings.retrievalChunkOverlapWords ?? 100, 0, 500)
+  };
 }
 var STOPWORDS2 = /* @__PURE__ */ new Set([
   "the",
@@ -61668,6 +61799,11 @@ var Bm25Index = class {
       const parsed = JSON.parse(raw);
       if (parsed?.version !== 1)
         return;
+      const expectedChunking = chunkingKey2(this.plugin);
+      if (parsed.chunking && (parsed.chunking.headingLevel !== expectedChunking.headingLevel || parsed.chunking.targetWords !== expectedChunking.targetWords || parsed.chunking.overlapWords !== expectedChunking.overlapWords)) {
+        this.enqueueFullRescan();
+        return;
+      }
       this.fileState = parsed.fileState || {};
       this.sumLen = 0;
       this.chunksByKey.clear();
@@ -61775,9 +61911,13 @@ var Bm25Index = class {
   }
   _reindexFile(path3, content) {
     this._removePath(path3);
-    const chunkWordsCount = this.plugin.settings.retrievalChunkWords ?? 500;
-    const overlap = this.plugin.settings.retrievalChunkOverlapWords ?? 100;
-    const chunks = chunkWords2(content, chunkWordsCount, overlap);
+    const cfg = chunkingKey2(this.plugin);
+    const chunks = buildIndexChunks({
+      text: content,
+      headingLevel: cfg.headingLevel,
+      targetWords: cfg.targetWords,
+      overlapWords: cfg.overlapWords
+    });
     for (let i = 0; i < chunks.length; i++) {
       const ch = chunks[i];
       const toks = tokenize4(ch.text);
@@ -61790,8 +61930,8 @@ var Bm25Index = class {
         key,
         path: path3,
         chunkIndex: i,
-        startWord: ch.start,
-        endWord: ch.end,
+        startWord: ch.startWord,
+        endWord: ch.endWord,
         excerpt: excerptOf2(ch.text, 500),
         len: toks.length
       };
@@ -61835,6 +61975,7 @@ var Bm25Index = class {
       avgdl,
       totalChunks: this.chunksByKey.size,
       fileState: this.fileState,
+      chunking: chunkingKey2(this.plugin),
       chunks: chunksObj,
       postings: postingsObj
     };
@@ -68779,6 +68920,7 @@ Output format (required):
   retrievalTopK: 24,
   retrievalChunkWords: 500,
   retrievalChunkOverlapWords: 100,
+  retrievalChunkHeadingLevel: "h1",
   retrievalIndexPaused: false,
   retrievalIndexState: {},
   retrievalEmbeddingBackend: "minilm",
