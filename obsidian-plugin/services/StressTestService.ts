@@ -63,8 +63,20 @@ export class StressTestService {
 			}
 
 		} catch (error) {
-			this.logEntry(`FATAL ERROR: ${error instanceof Error ? error.message : String(error)}`);
-			this.logEntry(`Stack: ${error instanceof Error ? error.stack : 'N/A'}`);
+			this.logEntry(`=== FATAL ERROR IN STRESS TEST ===`);
+			this.logEntry(`  WHERE: runFullStressTest (top-level catch)`);
+			this.logEntry(`  WHAT: ${error instanceof Error ? error.message : String(error)}`);
+			this.logEntry(`  TYPE: ${error instanceof Error ? error.constructor.name : typeof error}`);
+			if (error instanceof Error && error.stack) {
+				this.logEntry(`  STACK (first 10 lines):`);
+				error.stack.split('\n').slice(0, 10).forEach(line => {
+					this.logEntry(`    ${line.trim()}`);
+				});
+			}
+			if (error instanceof Error && 'cause' in error) {
+				this.logEntry(`  CAUSE: ${error.cause}`);
+			}
+			this.logEntry(`=== END FATAL ERROR ===`);
 		} finally {
 			// Always cleanup
 			await this.phase6_Cleanup();
@@ -117,7 +129,20 @@ export class StressTestService {
 			this.logEntry('');
 
 		} catch (error) {
-			this.logEntry(`✗ Phase 1 failed: ${error instanceof Error ? error.message : String(error)}`);
+			this.logEntry(`✗ Phase 1 failed`);
+			this.logEntry(`  WHERE: phase1_Setup`);
+			this.logEntry(`  CONTEXT: Test folder: ${this.testFolder}`);
+			this.logEntry(`  WHAT: ${error instanceof Error ? error.message : String(error)}`);
+			this.logEntry(`  TYPE: ${error instanceof Error ? error.constructor.name : typeof error}`);
+			if (error instanceof Error && error.stack) {
+				this.logEntry(`  STACK (first 5 lines):`);
+				error.stack.split('\n').slice(0, 5).forEach(line => {
+					this.logEntry(`    ${line.trim()}`);
+				});
+			}
+			if (error instanceof Error && 'cause' in error) {
+				this.logEntry(`  CAUSE: ${error.cause}`);
+			}
 			throw error;
 		}
 	}
@@ -192,16 +217,55 @@ export class StressTestService {
 					try {
 						const model = (this.plugin.embeddingsIndex as any)?.model;
 						if (model && typeof model.isReady === 'function') {
+							const loadAttempts = model.getLoadAttempts?.() || 0;
+							this.logEntry(`  Load attempts: ${loadAttempts}`);
+							
 							const isReady = await model.isReady();
 							this.logEntry(`  Model ready: ${isReady}`);
 							if (!isReady) {
 								this.logEntry(`  ⚠ Model not ready - attempting to load (this may take time on first run)...`);
+								
+								// Check for previous load errors
+								const lastError = model.getLastLoadError?.();
+								if (lastError) {
+									this.logEntry(`  Previous load error detected:`);
+									this.logEntry(`    Location: ${lastError.location}`);
+									this.logEntry(`    Context: ${lastError.context}`);
+									this.logEntry(`    Message: ${lastError.message}`);
+									if (lastError.stack) {
+										this.logEntry(`    Stack (first 3 lines):`);
+										lastError.stack.split('\n').slice(0, 3).forEach(line => {
+											this.logEntry(`      ${line.trim()}`);
+										});
+									}
+								}
+								
+								// Wait a bit and check again to see if loading completes
+								this.logEntry(`  Waiting 3 seconds for model load to complete...`);
+								await new Promise(resolve => setTimeout(resolve, 3000));
+								const isReadyAfterWait = await model.isReady();
+								this.logEntry(`  Model ready after wait: ${isReadyAfterWait}`);
+								
+								if (!isReadyAfterWait) {
+									const errorAfterWait = model.getLastLoadError?.();
+									if (errorAfterWait) {
+										this.logEntry(`  Load error after wait:`);
+										this.logEntry(`    ${errorAfterWait.message}`);
+									} else {
+										this.logEntry(`  ⚠ Model still not ready but no error captured - may be loading slowly`);
+									}
+								}
+							} else {
+								this.logEntry(`  ✓ Model is ready`);
 							}
 						} else {
 							this.logEntry(`  ⚠ Cannot check model readiness (isReady method not available)`);
 						}
 					} catch (modelErr) {
 						this.logEntry(`  ✗ Model readiness check failed: ${modelErr instanceof Error ? modelErr.message : String(modelErr)}`);
+						if (modelErr instanceof Error && modelErr.stack) {
+							this.logEntry(`    Stack: ${modelErr.stack.split('\n').slice(0, 3).join('\n    ')}`);
+						}
 					}
 				}
 				
@@ -268,12 +332,83 @@ export class StressTestService {
 						
 						if (indexedPaths.length === 0 && allChunks.length === 0) {
 							this.logEntry(`  - CONFIRMED: No chunks exist in memory - embedding generation likely failing`);
-							this.logEntry(`  - Check browser console (F12) for detailed [EmbeddingsIndex] and [LocalEmbeddingModel] logs`);
-							this.logEntry(`  - Common causes:`);
-							this.logEntry(`    * Model loading failure (check network/disk space for model download)`);
-							this.logEntry(`    * Transformers library not available (@xenova/transformers)`);
-							this.logEntry(`    * WASM/Web Worker issues in browser`);
-							this.logEntry(`    * Memory constraints (large model)`);
+							
+							// Get detailed error information from EmbeddingsIndex
+							const embeddingErrors = this.plugin.embeddingsIndex?.getRecentErrors?.(20) || [];
+							const embeddingErrorSummary = this.plugin.embeddingsIndex?.getErrorSummary?.();
+							
+							// Get model errors
+							const model = (this.plugin.embeddingsIndex as any)?.model;
+							const modelErrors = model?.getRecentErrors?.(20) || [];
+							const lastLoadError = model?.getLastLoadError?.();
+							const loadAttempts = model?.getLoadAttempts?.() || 0;
+							
+							this.logEntry(`  === EMBEDDING ERROR DIAGNOSTICS ===`);
+							this.logEntry(`  Model load attempts: ${loadAttempts}`);
+							
+							if (lastLoadError) {
+								this.logEntry(`  Last model load error:`);
+								this.logEntry(`    Location: ${lastLoadError.location}`);
+								this.logEntry(`    Context: ${lastLoadError.context}`);
+								this.logEntry(`    Message: ${lastLoadError.message}`);
+								this.logEntry(`    Error Type: ${lastLoadError.errorType || 'Unknown'}`);
+								if (lastLoadError.stack) {
+									this.logEntry(`    Stack (first 5 lines):`);
+									lastLoadError.stack.split('\n').slice(0, 5).forEach(line => {
+										this.logEntry(`      ${line.trim()}`);
+									});
+								}
+							}
+							
+							if (modelErrors.length > 0) {
+								this.logEntry(`  Model errors (${modelErrors.length} total):`);
+								modelErrors.slice(-10).forEach((err, idx) => {
+									this.logEntry(`    [${idx + 1}] ${err.timestamp} - ${err.location}: ${err.message}`);
+									this.logEntry(`        Context: ${err.context}`);
+									if (err.stack) {
+										const stackLines = err.stack.split('\n').slice(0, 2);
+										this.logEntry(`        Stack: ${stackLines.join(' | ')}`);
+									}
+								});
+							}
+							
+							if (embeddingErrorSummary) {
+								this.logEntry(`  Embedding index errors:`);
+								this.logEntry(`    Total errors: ${embeddingErrorSummary.total}`);
+								if (Object.keys(embeddingErrorSummary.byLocation).length > 0) {
+									this.logEntry(`    Errors by location:`);
+									Object.entries(embeddingErrorSummary.byLocation).forEach(([loc, count]) => {
+										this.logEntry(`      ${loc}: ${count}`);
+									});
+								}
+							}
+							
+							if (embeddingErrors.length > 0) {
+								this.logEntry(`  Recent embedding errors (${embeddingErrors.length}):`);
+								embeddingErrors.slice(-10).forEach((err, idx) => {
+									this.logEntry(`    [${idx + 1}] ${err.timestamp}`);
+									this.logEntry(`        WHERE: ${err.location}`);
+									this.logEntry(`        CONTEXT: ${err.context}`);
+									this.logEntry(`        WHAT: ${err.message}`);
+									this.logEntry(`        TYPE: ${err.errorType || 'Unknown'}`);
+									if (err.stack) {
+										this.logEntry(`        STACK (first 3 lines):`);
+										err.stack.split('\n').slice(0, 3).forEach(line => {
+											this.logEntry(`          ${line.trim()}`);
+										});
+									}
+								});
+							}
+							
+							if (embeddingErrors.length === 0 && modelErrors.length === 0 && !lastLoadError) {
+								this.logEntry(`  ⚠ No errors captured - this suggests:`);
+								this.logEntry(`    * Worker may not be running`);
+								this.logEntry(`    * Files may be excluded from indexing`);
+								this.logEntry(`    * Queue may be emptying before processing`);
+								this.logEntry(`    * Errors may be occurring but not being caught`);
+							}
+							
+							this.logEntry(`  === END ERROR DIAGNOSTICS ===`);
 						} else if (indexedPaths.length > 0 || allChunks.length > 0) {
 							this.logEntry(`  - CONFIRMED: Chunks DO exist but status is wrong - bug in getStatus()`);
 						}
@@ -290,7 +425,19 @@ export class StressTestService {
 			this.logEntry('');
 
 		} catch (error) {
-			this.logEntry(`✗ Phase 2 failed: ${error instanceof Error ? error.message : String(error)}`);
+			this.logEntry(`✗ Phase 2 failed`);
+			this.logEntry(`  WHERE: phase2_Indexing`);
+			this.logEntry(`  WHAT: ${error instanceof Error ? error.message : String(error)}`);
+			this.logEntry(`  TYPE: ${error instanceof Error ? error.constructor.name : typeof error}`);
+			if (error instanceof Error && error.stack) {
+				this.logEntry(`  STACK (first 5 lines):`);
+				error.stack.split('\n').slice(0, 5).forEach(line => {
+					this.logEntry(`    ${line.trim()}`);
+				});
+			}
+			if (error instanceof Error && 'cause' in error) {
+				this.logEntry(`  CAUSE: ${error.cause}`);
+			}
 		}
 	}
 
@@ -328,7 +475,19 @@ export class StressTestService {
 			this.logEntry('');
 
 		} catch (error) {
-			this.logEntry(`✗ Phase 3 failed: ${error instanceof Error ? error.message : String(error)}`);
+			this.logEntry(`✗ Phase 3 failed`);
+			this.logEntry(`  WHERE: phase3_FileOperations`);
+			this.logEntry(`  WHAT: ${error instanceof Error ? error.message : String(error)}`);
+			this.logEntry(`  TYPE: ${error instanceof Error ? error.constructor.name : typeof error}`);
+			if (error instanceof Error && error.stack) {
+				this.logEntry(`  STACK (first 5 lines):`);
+				error.stack.split('\n').slice(0, 5).forEach(line => {
+					this.logEntry(`    ${line.trim()}`);
+				});
+			}
+			if (error instanceof Error && 'cause' in error) {
+				this.logEntry(`  CAUSE: ${error.cause}`);
+			}
 		}
 	}
 
@@ -378,17 +537,27 @@ export class StressTestService {
 				this.logEntry(`✓ Chapter generated in ${chapterDuration}s: ${chapterText.length} chars, ${wordCount} words`);
 				this.logEntry(`  Preview: ${chapterText.substring(0, 150).replace(/\n/g, ' ')}...`);
 			} catch (error) {
-				this.logEntry(`✗ Chapter generation failed: ${error instanceof Error ? error.message : String(error)}`);
+				this.logEntry(`✗ Chapter generation failed`);
+				this.logEntry(`  WHERE: phase4_WritingModes - Chapter Generation`);
+				this.logEntry(`  CONTEXT: API Provider: ${this.plugin.settings.apiProvider}, Model: ${this.plugin.settings.model}`);
+				this.logEntry(`  WHAT: ${error instanceof Error ? error.message : String(error)}`);
+				this.logEntry(`  TYPE: ${error instanceof Error ? error.constructor.name : typeof error}`);
 				if (error instanceof Error && error.stack) {
-					this.logEntry(`  Stack: ${error.stack.split('\n').slice(0, 3).join('\n  ')}`);
+					this.logEntry(`  STACK (first 5 lines):`);
+					error.stack.split('\n').slice(0, 5).forEach(line => {
+						this.logEntry(`    ${line.trim()}`);
+					});
+				}
+				if (error instanceof Error && 'cause' in error) {
+					this.logEntry(`  CAUSE: ${error.cause}`);
 				}
 			}
 
 			// Test 2: Micro-Edit
 			this.logEntry('');
 			this.logEntry('=== Test 2: Micro-Edit ===');
+			const testPassage = 'The protagonist walked through the door. They were nervous. The room was dark.';
 			try {
-				const testPassage = 'The protagonist walked through the door. They were nervous. The room was dark.';
 				this.logEntry(`Selected passage: "${testPassage}"`);
 				
 				this.logEntry('Building context for micro-edit...');
@@ -428,17 +597,27 @@ export class StressTestService {
 				this.logEntry(`  Original: "${testPassage}"`);
 				this.logEntry(`  Edited: "${microEditText.substring(0, 150).replace(/\n/g, ' ')}..."`);
 			} catch (error) {
-				this.logEntry(`✗ Micro-edit failed: ${error instanceof Error ? error.message : String(error)}`);
+				this.logEntry(`✗ Micro-edit failed`);
+				this.logEntry(`  WHERE: phase4_WritingModes - Micro-Edit`);
+				this.logEntry(`  CONTEXT: Selected passage: "${testPassage.substring(0, 50)}...", API Provider: ${this.plugin.settings.apiProvider}`);
+				this.logEntry(`  WHAT: ${error instanceof Error ? error.message : String(error)}`);
+				this.logEntry(`  TYPE: ${error instanceof Error ? error.constructor.name : typeof error}`);
 				if (error instanceof Error && error.stack) {
-					this.logEntry(`  Stack: ${error.stack.split('\n').slice(0, 3).join('\n  ')}`);
+					this.logEntry(`  STACK (first 5 lines):`);
+					error.stack.split('\n').slice(0, 5).forEach(line => {
+						this.logEntry(`    ${line.trim()}`);
+					});
+				}
+				if (error instanceof Error && 'cause' in error) {
+					this.logEntry(`  CAUSE: ${error.cause}`);
 				}
 			}
 
 			// Test 3: Continuity Check
 			this.logEntry('');
 			this.logEntry('=== Test 3: Continuity Check ===');
+			const testDraft = 'The protagonist entered the library. They found a book about ancient magic. The book was written in an unknown language.';
 			try {
-				const testDraft = 'The protagonist entered the library. They found a book about ancient magic. The book was written in an unknown language.';
 				this.logEntry(`Test draft: "${testDraft}"`);
 				
 				this.logEntry('Building context for continuity check...');
@@ -476,9 +655,19 @@ export class StressTestService {
 				this.logEntry(`✓ Continuity check completed in ${continuityDuration}s: ${continuityText.length} chars`);
 				this.logEntry(`  Result preview: ${continuityText.substring(0, 200).replace(/\n/g, ' ')}...`);
 			} catch (error) {
-				this.logEntry(`✗ Continuity check failed: ${error instanceof Error ? error.message : String(error)}`);
+				this.logEntry(`✗ Continuity check failed`);
+				this.logEntry(`  WHERE: phase4_WritingModes - Continuity Check`);
+				this.logEntry(`  CONTEXT: Test draft: "${testDraft.substring(0, 50)}...", API Provider: ${this.plugin.settings.apiProvider}`);
+				this.logEntry(`  WHAT: ${error instanceof Error ? error.message : String(error)}`);
+				this.logEntry(`  TYPE: ${error instanceof Error ? error.constructor.name : typeof error}`);
 				if (error instanceof Error && error.stack) {
-					this.logEntry(`  Stack: ${error.stack.split('\n').slice(0, 3).join('\n  ')}`);
+					this.logEntry(`  STACK (first 5 lines):`);
+					error.stack.split('\n').slice(0, 5).forEach(line => {
+						this.logEntry(`    ${line.trim()}`);
+					});
+				}
+				if (error instanceof Error && 'cause' in error) {
+					this.logEntry(`  CAUSE: ${error.cause}`);
 				}
 			}
 
@@ -488,9 +677,18 @@ export class StressTestService {
 			this.logEntry('');
 
 		} catch (error) {
-			this.logEntry(`✗ Phase 4 failed: ${error instanceof Error ? error.message : String(error)}`);
+			this.logEntry(`✗ Phase 4 failed`);
+			this.logEntry(`  WHERE: phase4_WritingModes`);
+			this.logEntry(`  WHAT: ${error instanceof Error ? error.message : String(error)}`);
+			this.logEntry(`  TYPE: ${error instanceof Error ? error.constructor.name : typeof error}`);
 			if (error instanceof Error && error.stack) {
-				this.logEntry(`  Stack: ${error.stack.split('\n').slice(0, 5).join('\n  ')}`);
+				this.logEntry(`  STACK (first 5 lines):`);
+				error.stack.split('\n').slice(0, 5).forEach(line => {
+					this.logEntry(`    ${line.trim()}`);
+				});
+			}
+			if (error instanceof Error && 'cause' in error) {
+				this.logEntry(`  CAUSE: ${error.cause}`);
 			}
 		}
 	}
@@ -535,7 +733,20 @@ export class StressTestService {
 			this.logEntry('');
 
 		} catch (error) {
-			this.logEntry(`✗ Phase 5 failed: ${error instanceof Error ? error.message : String(error)}`);
+			this.logEntry(`✗ Phase 5 failed`);
+			this.logEntry(`  WHERE: phase5_Retrieval`);
+			this.logEntry(`  CONTEXT: Semantic retrieval: ${this.plugin.settings.retrievalEnableSemanticIndex}, BM25: ${this.plugin.settings.retrievalEnableBm25}`);
+			this.logEntry(`  WHAT: ${error instanceof Error ? error.message : String(error)}`);
+			this.logEntry(`  TYPE: ${error instanceof Error ? error.constructor.name : typeof error}`);
+			if (error instanceof Error && error.stack) {
+				this.logEntry(`  STACK (first 5 lines):`);
+				error.stack.split('\n').slice(0, 5).forEach(line => {
+					this.logEntry(`    ${line.trim()}`);
+				});
+			}
+			if (error instanceof Error && 'cause' in error) {
+				this.logEntry(`  CAUSE: ${error.cause}`);
+			}
 		}
 	}
 
@@ -543,11 +754,14 @@ export class StressTestService {
 		this.logEntry('--- Phase 7: Character Operations ---');
 		const phaseStart = Date.now();
 
+		// Auto-create character folder if not configured (use default "Characters")
+		let characterFolder = this.plugin.settings.characterFolder;
+		if (!characterFolder) {
+			characterFolder = 'Characters'; // Default folder name
+		}
+
 		try {
-			// Auto-create character folder if not configured (use default "Characters")
-			let characterFolder = this.plugin.settings.characterFolder;
-			if (!characterFolder) {
-				characterFolder = 'Characters'; // Default folder name
+			if (!characterFolder || characterFolder === 'Characters' && !this.plugin.settings.characterFolder) {
 				this.logEntry(`⚠ Character folder not configured, using default: ${characterFolder}`);
 				this.logEntry(`  Note: This is a test-only folder. Configure in settings for production use.`);
 			} else {
@@ -565,8 +779,8 @@ export class StressTestService {
 			// Test 1: Character Extraction from Selected Text
 			this.logEntry('');
 			this.logEntry('=== Test 1: Character Extraction (Selected Text) ===');
+			const characterTestText = this.generateCharacterScene();
 			try {
-				const characterTestText = this.generateCharacterScene();
 				this.logEntry(`Test text: ${characterTestText.split(/\s+/).length} words`);
 				this.logEntry(`  Preview: ${characterTestText.substring(0, 100)}...`);
 				
@@ -641,9 +855,19 @@ export class StressTestService {
 					this.logEntry(`  Extraction preview: ${extractionText.substring(0, 300)}...`);
 				}
 			} catch (error) {
-				this.logEntry(`✗ Character extraction failed: ${error instanceof Error ? error.message : String(error)}`);
+				this.logEntry(`✗ Character extraction failed`);
+				this.logEntry(`  WHERE: phase7_CharacterOperations - Character Extraction`);
+				this.logEntry(`  CONTEXT: Character folder: ${characterFolder}, Test text: ${characterTestText.split(/\s+/).length} words, API Provider: ${this.plugin.settings.apiProvider}`);
+				this.logEntry(`  WHAT: ${error instanceof Error ? error.message : String(error)}`);
+				this.logEntry(`  TYPE: ${error instanceof Error ? error.constructor.name : typeof error}`);
 				if (error instanceof Error && error.stack) {
-					this.logEntry(`  Stack: ${error.stack.split('\n').slice(0, 3).join('\n  ')}`);
+					this.logEntry(`  STACK (first 5 lines):`);
+					error.stack.split('\n').slice(0, 5).forEach(line => {
+						this.logEntry(`    ${line.trim()}`);
+					});
+				}
+				if (error instanceof Error && 'cause' in error) {
+					this.logEntry(`  CAUSE: ${error.cause}`);
 				}
 			}
 
@@ -653,9 +877,19 @@ export class StressTestService {
 			this.logEntry('');
 
 		} catch (error) {
-			this.logEntry(`✗ Phase 7 failed: ${error instanceof Error ? error.message : String(error)}`);
+			this.logEntry(`✗ Phase 7 failed`);
+			this.logEntry(`  WHERE: phase7_CharacterOperations`);
+			this.logEntry(`  CONTEXT: Character folder: ${characterFolder || 'Not configured'}`);
+			this.logEntry(`  WHAT: ${error instanceof Error ? error.message : String(error)}`);
+			this.logEntry(`  TYPE: ${error instanceof Error ? error.constructor.name : typeof error}`);
 			if (error instanceof Error && error.stack) {
-				this.logEntry(`  Stack: ${error.stack.split('\n').slice(0, 5).join('\n  ')}`);
+				this.logEntry(`  STACK (first 5 lines):`);
+				error.stack.split('\n').slice(0, 5).forEach(line => {
+					this.logEntry(`    ${line.trim()}`);
+				});
+			}
+			if (error instanceof Error && 'cause' in error) {
+				this.logEntry(`  CAUSE: ${error.cause}`);
 			}
 		}
 	}

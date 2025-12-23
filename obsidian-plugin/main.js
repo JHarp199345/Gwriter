@@ -59863,8 +59863,20 @@ var StressTestService = class {
         this.logEntry("Phase 7: Skipped (no API key configured)");
       }
     } catch (error2) {
-      this.logEntry(`FATAL ERROR: ${error2 instanceof Error ? error2.message : String(error2)}`);
-      this.logEntry(`Stack: ${error2 instanceof Error ? error2.stack : "N/A"}`);
+      this.logEntry(`=== FATAL ERROR IN STRESS TEST ===`);
+      this.logEntry(`  WHERE: runFullStressTest (top-level catch)`);
+      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
+      if (error2 instanceof Error && error2.stack) {
+        this.logEntry(`  STACK (first 10 lines):`);
+        error2.stack.split("\n").slice(0, 10).forEach((line) => {
+          this.logEntry(`    ${line.trim()}`);
+        });
+      }
+      if (error2 instanceof Error && "cause" in error2) {
+        this.logEntry(`  CAUSE: ${error2.cause}`);
+      }
+      this.logEntry(`=== END FATAL ERROR ===`);
     } finally {
       await this.phase6_Cleanup();
     }
@@ -59905,7 +59917,20 @@ var StressTestService = class {
       this.logEntry(`Phase 1 completed in ${phaseDuration}s`);
       this.logEntry("");
     } catch (error2) {
-      this.logEntry(`\u2717 Phase 1 failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      this.logEntry(`\u2717 Phase 1 failed`);
+      this.logEntry(`  WHERE: phase1_Setup`);
+      this.logEntry(`  CONTEXT: Test folder: ${this.testFolder}`);
+      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
+      if (error2 instanceof Error && error2.stack) {
+        this.logEntry(`  STACK (first 5 lines):`);
+        error2.stack.split("\n").slice(0, 5).forEach((line) => {
+          this.logEntry(`    ${line.trim()}`);
+        });
+      }
+      if (error2 instanceof Error && "cause" in error2) {
+        this.logEntry(`  CAUSE: ${error2.cause}`);
+      }
       throw error2;
     }
   }
@@ -59965,16 +59990,49 @@ var StressTestService = class {
           try {
             const model = this.plugin.embeddingsIndex?.model;
             if (model && typeof model.isReady === "function") {
+              const loadAttempts = model.getLoadAttempts?.() || 0;
+              this.logEntry(`  Load attempts: ${loadAttempts}`);
               const isReady = await model.isReady();
               this.logEntry(`  Model ready: ${isReady}`);
               if (!isReady) {
                 this.logEntry(`  \u26A0 Model not ready - attempting to load (this may take time on first run)...`);
+                const lastError = model.getLastLoadError?.();
+                if (lastError) {
+                  this.logEntry(`  Previous load error detected:`);
+                  this.logEntry(`    Location: ${lastError.location}`);
+                  this.logEntry(`    Context: ${lastError.context}`);
+                  this.logEntry(`    Message: ${lastError.message}`);
+                  if (lastError.stack) {
+                    this.logEntry(`    Stack (first 3 lines):`);
+                    lastError.stack.split("\n").slice(0, 3).forEach((line) => {
+                      this.logEntry(`      ${line.trim()}`);
+                    });
+                  }
+                }
+                this.logEntry(`  Waiting 3 seconds for model load to complete...`);
+                await new Promise((resolve) => setTimeout(resolve, 3e3));
+                const isReadyAfterWait = await model.isReady();
+                this.logEntry(`  Model ready after wait: ${isReadyAfterWait}`);
+                if (!isReadyAfterWait) {
+                  const errorAfterWait = model.getLastLoadError?.();
+                  if (errorAfterWait) {
+                    this.logEntry(`  Load error after wait:`);
+                    this.logEntry(`    ${errorAfterWait.message}`);
+                  } else {
+                    this.logEntry(`  \u26A0 Model still not ready but no error captured - may be loading slowly`);
+                  }
+                }
+              } else {
+                this.logEntry(`  \u2713 Model is ready`);
               }
             } else {
               this.logEntry(`  \u26A0 Cannot check model readiness (isReady method not available)`);
             }
           } catch (modelErr) {
             this.logEntry(`  \u2717 Model readiness check failed: ${modelErr instanceof Error ? modelErr.message : String(modelErr)}`);
+            if (modelErr instanceof Error && modelErr.stack) {
+              this.logEntry(`    Stack: ${modelErr.stack.split("\n").slice(0, 3).join("\n    ")}`);
+            }
           }
         }
         this.plugin.embeddingsIndex.enqueueFullRescan();
@@ -60025,12 +60083,72 @@ var StressTestService = class {
             this.logEntry(`  - Check browser console (F12) for detailed worker logs`);
             if (indexedPaths.length === 0 && allChunks.length === 0) {
               this.logEntry(`  - CONFIRMED: No chunks exist in memory - embedding generation likely failing`);
-              this.logEntry(`  - Check browser console (F12) for detailed [EmbeddingsIndex] and [LocalEmbeddingModel] logs`);
-              this.logEntry(`  - Common causes:`);
-              this.logEntry(`    * Model loading failure (check network/disk space for model download)`);
-              this.logEntry(`    * Transformers library not available (@xenova/transformers)`);
-              this.logEntry(`    * WASM/Web Worker issues in browser`);
-              this.logEntry(`    * Memory constraints (large model)`);
+              const embeddingErrors = this.plugin.embeddingsIndex?.getRecentErrors?.(20) || [];
+              const embeddingErrorSummary = this.plugin.embeddingsIndex?.getErrorSummary?.();
+              const model = this.plugin.embeddingsIndex?.model;
+              const modelErrors = model?.getRecentErrors?.(20) || [];
+              const lastLoadError = model?.getLastLoadError?.();
+              const loadAttempts = model?.getLoadAttempts?.() || 0;
+              this.logEntry(`  === EMBEDDING ERROR DIAGNOSTICS ===`);
+              this.logEntry(`  Model load attempts: ${loadAttempts}`);
+              if (lastLoadError) {
+                this.logEntry(`  Last model load error:`);
+                this.logEntry(`    Location: ${lastLoadError.location}`);
+                this.logEntry(`    Context: ${lastLoadError.context}`);
+                this.logEntry(`    Message: ${lastLoadError.message}`);
+                this.logEntry(`    Error Type: ${lastLoadError.errorType || "Unknown"}`);
+                if (lastLoadError.stack) {
+                  this.logEntry(`    Stack (first 5 lines):`);
+                  lastLoadError.stack.split("\n").slice(0, 5).forEach((line) => {
+                    this.logEntry(`      ${line.trim()}`);
+                  });
+                }
+              }
+              if (modelErrors.length > 0) {
+                this.logEntry(`  Model errors (${modelErrors.length} total):`);
+                modelErrors.slice(-10).forEach((err, idx) => {
+                  this.logEntry(`    [${idx + 1}] ${err.timestamp} - ${err.location}: ${err.message}`);
+                  this.logEntry(`        Context: ${err.context}`);
+                  if (err.stack) {
+                    const stackLines = err.stack.split("\n").slice(0, 2);
+                    this.logEntry(`        Stack: ${stackLines.join(" | ")}`);
+                  }
+                });
+              }
+              if (embeddingErrorSummary) {
+                this.logEntry(`  Embedding index errors:`);
+                this.logEntry(`    Total errors: ${embeddingErrorSummary.total}`);
+                if (Object.keys(embeddingErrorSummary.byLocation).length > 0) {
+                  this.logEntry(`    Errors by location:`);
+                  Object.entries(embeddingErrorSummary.byLocation).forEach(([loc, count]) => {
+                    this.logEntry(`      ${loc}: ${count}`);
+                  });
+                }
+              }
+              if (embeddingErrors.length > 0) {
+                this.logEntry(`  Recent embedding errors (${embeddingErrors.length}):`);
+                embeddingErrors.slice(-10).forEach((err, idx) => {
+                  this.logEntry(`    [${idx + 1}] ${err.timestamp}`);
+                  this.logEntry(`        WHERE: ${err.location}`);
+                  this.logEntry(`        CONTEXT: ${err.context}`);
+                  this.logEntry(`        WHAT: ${err.message}`);
+                  this.logEntry(`        TYPE: ${err.errorType || "Unknown"}`);
+                  if (err.stack) {
+                    this.logEntry(`        STACK (first 3 lines):`);
+                    err.stack.split("\n").slice(0, 3).forEach((line) => {
+                      this.logEntry(`          ${line.trim()}`);
+                    });
+                  }
+                });
+              }
+              if (embeddingErrors.length === 0 && modelErrors.length === 0 && !lastLoadError) {
+                this.logEntry(`  \u26A0 No errors captured - this suggests:`);
+                this.logEntry(`    * Worker may not be running`);
+                this.logEntry(`    * Files may be excluded from indexing`);
+                this.logEntry(`    * Queue may be emptying before processing`);
+                this.logEntry(`    * Errors may be occurring but not being caught`);
+              }
+              this.logEntry(`  === END ERROR DIAGNOSTICS ===`);
             } else if (indexedPaths.length > 0 || allChunks.length > 0) {
               this.logEntry(`  - CONFIRMED: Chunks DO exist but status is wrong - bug in getStatus()`);
             }
@@ -60045,7 +60163,19 @@ var StressTestService = class {
       this.logEntry(`Phase 2 completed in ${phaseDuration}s`);
       this.logEntry("");
     } catch (error2) {
-      this.logEntry(`\u2717 Phase 2 failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      this.logEntry(`\u2717 Phase 2 failed`);
+      this.logEntry(`  WHERE: phase2_Indexing`);
+      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
+      if (error2 instanceof Error && error2.stack) {
+        this.logEntry(`  STACK (first 5 lines):`);
+        error2.stack.split("\n").slice(0, 5).forEach((line) => {
+          this.logEntry(`    ${line.trim()}`);
+        });
+      }
+      if (error2 instanceof Error && "cause" in error2) {
+        this.logEntry(`  CAUSE: ${error2.cause}`);
+      }
     }
   }
   async phase3_FileOperations() {
@@ -60072,7 +60202,19 @@ var StressTestService = class {
       this.logEntry(`Phase 3 completed in ${phaseDuration}s`);
       this.logEntry("");
     } catch (error2) {
-      this.logEntry(`\u2717 Phase 3 failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      this.logEntry(`\u2717 Phase 3 failed`);
+      this.logEntry(`  WHERE: phase3_FileOperations`);
+      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
+      if (error2 instanceof Error && error2.stack) {
+        this.logEntry(`  STACK (first 5 lines):`);
+        error2.stack.split("\n").slice(0, 5).forEach((line) => {
+          this.logEntry(`    ${line.trim()}`);
+        });
+      }
+      if (error2 instanceof Error && "cause" in error2) {
+        this.logEntry(`  CAUSE: ${error2.cause}`);
+      }
     }
   }
   async phase4_WritingModes() {
@@ -60116,15 +60258,25 @@ var StressTestService = class {
         this.logEntry(`\u2713 Chapter generated in ${chapterDuration}s: ${chapterText.length} chars, ${wordCount} words`);
         this.logEntry(`  Preview: ${chapterText.substring(0, 150).replace(/\n/g, " ")}...`);
       } catch (error2) {
-        this.logEntry(`\u2717 Chapter generation failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+        this.logEntry(`\u2717 Chapter generation failed`);
+        this.logEntry(`  WHERE: phase4_WritingModes - Chapter Generation`);
+        this.logEntry(`  CONTEXT: API Provider: ${this.plugin.settings.apiProvider}, Model: ${this.plugin.settings.model}`);
+        this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
+        this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
         if (error2 instanceof Error && error2.stack) {
-          this.logEntry(`  Stack: ${error2.stack.split("\n").slice(0, 3).join("\n  ")}`);
+          this.logEntry(`  STACK (first 5 lines):`);
+          error2.stack.split("\n").slice(0, 5).forEach((line) => {
+            this.logEntry(`    ${line.trim()}`);
+          });
+        }
+        if (error2 instanceof Error && "cause" in error2) {
+          this.logEntry(`  CAUSE: ${error2.cause}`);
         }
       }
       this.logEntry("");
       this.logEntry("=== Test 2: Micro-Edit ===");
+      const testPassage = "The protagonist walked through the door. They were nervous. The room was dark.";
       try {
-        const testPassage = "The protagonist walked through the door. They were nervous. The room was dark.";
         this.logEntry(`Selected passage: "${testPassage}"`);
         this.logEntry("Building context for micro-edit...");
         const microEditQuery = this.plugin.queryBuilder.build({
@@ -60161,15 +60313,25 @@ var StressTestService = class {
         this.logEntry(`  Original: "${testPassage}"`);
         this.logEntry(`  Edited: "${microEditText.substring(0, 150).replace(/\n/g, " ")}..."`);
       } catch (error2) {
-        this.logEntry(`\u2717 Micro-edit failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+        this.logEntry(`\u2717 Micro-edit failed`);
+        this.logEntry(`  WHERE: phase4_WritingModes - Micro-Edit`);
+        this.logEntry(`  CONTEXT: Selected passage: "${testPassage.substring(0, 50)}...", API Provider: ${this.plugin.settings.apiProvider}`);
+        this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
+        this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
         if (error2 instanceof Error && error2.stack) {
-          this.logEntry(`  Stack: ${error2.stack.split("\n").slice(0, 3).join("\n  ")}`);
+          this.logEntry(`  STACK (first 5 lines):`);
+          error2.stack.split("\n").slice(0, 5).forEach((line) => {
+            this.logEntry(`    ${line.trim()}`);
+          });
+        }
+        if (error2 instanceof Error && "cause" in error2) {
+          this.logEntry(`  CAUSE: ${error2.cause}`);
         }
       }
       this.logEntry("");
       this.logEntry("=== Test 3: Continuity Check ===");
+      const testDraft = "The protagonist entered the library. They found a book about ancient magic. The book was written in an unknown language.";
       try {
-        const testDraft = "The protagonist entered the library. They found a book about ancient magic. The book was written in an unknown language.";
         this.logEntry(`Test draft: "${testDraft}"`);
         this.logEntry("Building context for continuity check...");
         const continuityQuery = this.plugin.queryBuilder.build({
@@ -60203,9 +60365,19 @@ var StressTestService = class {
         this.logEntry(`\u2713 Continuity check completed in ${continuityDuration}s: ${continuityText.length} chars`);
         this.logEntry(`  Result preview: ${continuityText.substring(0, 200).replace(/\n/g, " ")}...`);
       } catch (error2) {
-        this.logEntry(`\u2717 Continuity check failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+        this.logEntry(`\u2717 Continuity check failed`);
+        this.logEntry(`  WHERE: phase4_WritingModes - Continuity Check`);
+        this.logEntry(`  CONTEXT: Test draft: "${testDraft.substring(0, 50)}...", API Provider: ${this.plugin.settings.apiProvider}`);
+        this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
+        this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
         if (error2 instanceof Error && error2.stack) {
-          this.logEntry(`  Stack: ${error2.stack.split("\n").slice(0, 3).join("\n  ")}`);
+          this.logEntry(`  STACK (first 5 lines):`);
+          error2.stack.split("\n").slice(0, 5).forEach((line) => {
+            this.logEntry(`    ${line.trim()}`);
+          });
+        }
+        if (error2 instanceof Error && "cause" in error2) {
+          this.logEntry(`  CAUSE: ${error2.cause}`);
         }
       }
       const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
@@ -60213,9 +60385,18 @@ var StressTestService = class {
       this.logEntry(`Phase 4 completed in ${phaseDuration}s`);
       this.logEntry("");
     } catch (error2) {
-      this.logEntry(`\u2717 Phase 4 failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      this.logEntry(`\u2717 Phase 4 failed`);
+      this.logEntry(`  WHERE: phase4_WritingModes`);
+      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
       if (error2 instanceof Error && error2.stack) {
-        this.logEntry(`  Stack: ${error2.stack.split("\n").slice(0, 5).join("\n  ")}`);
+        this.logEntry(`  STACK (first 5 lines):`);
+        error2.stack.split("\n").slice(0, 5).forEach((line) => {
+          this.logEntry(`    ${line.trim()}`);
+        });
+      }
+      if (error2 instanceof Error && "cause" in error2) {
+        this.logEntry(`  CAUSE: ${error2.cause}`);
       }
     }
   }
@@ -60251,16 +60432,31 @@ var StressTestService = class {
       this.logEntry(`Phase 5 completed in ${phaseDuration}s`);
       this.logEntry("");
     } catch (error2) {
-      this.logEntry(`\u2717 Phase 5 failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      this.logEntry(`\u2717 Phase 5 failed`);
+      this.logEntry(`  WHERE: phase5_Retrieval`);
+      this.logEntry(`  CONTEXT: Semantic retrieval: ${this.plugin.settings.retrievalEnableSemanticIndex}, BM25: ${this.plugin.settings.retrievalEnableBm25}`);
+      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
+      if (error2 instanceof Error && error2.stack) {
+        this.logEntry(`  STACK (first 5 lines):`);
+        error2.stack.split("\n").slice(0, 5).forEach((line) => {
+          this.logEntry(`    ${line.trim()}`);
+        });
+      }
+      if (error2 instanceof Error && "cause" in error2) {
+        this.logEntry(`  CAUSE: ${error2.cause}`);
+      }
     }
   }
   async phase7_CharacterOperations() {
     this.logEntry("--- Phase 7: Character Operations ---");
     const phaseStart = Date.now();
+    let characterFolder = this.plugin.settings.characterFolder;
+    if (!characterFolder) {
+      characterFolder = "Characters";
+    }
     try {
-      let characterFolder = this.plugin.settings.characterFolder;
-      if (!characterFolder) {
-        characterFolder = "Characters";
+      if (!characterFolder || characterFolder === "Characters" && !this.plugin.settings.characterFolder) {
         this.logEntry(`\u26A0 Character folder not configured, using default: ${characterFolder}`);
         this.logEntry(`  Note: This is a test-only folder. Configure in settings for production use.`);
       } else {
@@ -60274,8 +60470,8 @@ var StressTestService = class {
       }
       this.logEntry("");
       this.logEntry("=== Test 1: Character Extraction (Selected Text) ===");
+      const characterTestText = this.generateCharacterScene();
       try {
-        const characterTestText = this.generateCharacterScene();
         this.logEntry(`Test text: ${characterTestText.split(/\s+/).length} words`);
         this.logEntry(`  Preview: ${characterTestText.substring(0, 100)}...`);
         this.logEntry("Building character extraction prompt...");
@@ -60339,9 +60535,19 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
           this.logEntry(`  Extraction preview: ${extractionText.substring(0, 300)}...`);
         }
       } catch (error2) {
-        this.logEntry(`\u2717 Character extraction failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+        this.logEntry(`\u2717 Character extraction failed`);
+        this.logEntry(`  WHERE: phase7_CharacterOperations - Character Extraction`);
+        this.logEntry(`  CONTEXT: Character folder: ${characterFolder}, Test text: ${characterTestText.split(/\s+/).length} words, API Provider: ${this.plugin.settings.apiProvider}`);
+        this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
+        this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
         if (error2 instanceof Error && error2.stack) {
-          this.logEntry(`  Stack: ${error2.stack.split("\n").slice(0, 3).join("\n  ")}`);
+          this.logEntry(`  STACK (first 5 lines):`);
+          error2.stack.split("\n").slice(0, 5).forEach((line) => {
+            this.logEntry(`    ${line.trim()}`);
+          });
+        }
+        if (error2 instanceof Error && "cause" in error2) {
+          this.logEntry(`  CAUSE: ${error2.cause}`);
         }
       }
       const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
@@ -60349,9 +60555,19 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
       this.logEntry(`Phase 7 completed in ${phaseDuration}s`);
       this.logEntry("");
     } catch (error2) {
-      this.logEntry(`\u2717 Phase 7 failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      this.logEntry(`\u2717 Phase 7 failed`);
+      this.logEntry(`  WHERE: phase7_CharacterOperations`);
+      this.logEntry(`  CONTEXT: Character folder: ${characterFolder || "Not configured"}`);
+      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
       if (error2 instanceof Error && error2.stack) {
-        this.logEntry(`  Stack: ${error2.stack.split("\n").slice(0, 5).join("\n  ")}`);
+        this.logEntry(`  STACK (first 5 lines):`);
+        error2.stack.split("\n").slice(0, 5).forEach((line) => {
+          this.logEntry(`    ${line.trim()}`);
+        });
+      }
+      if (error2 instanceof Error && "cause" in error2) {
+        this.logEntry(`  CAUSE: ${error2.cause}`);
       }
     }
   }
@@ -62814,6 +63030,10 @@ var MiniLmLocalEmbeddingModel = class {
     this.dim = 384;
     this.pipeline = null;
     this.loading = null;
+    this.loadAttempts = 0;
+    this.lastLoadError = null;
+    this.errorLog = [];
+    this.maxStoredErrors = 50;
     this.vault = vault;
     this.plugin = plugin;
   }
@@ -62827,24 +63047,39 @@ var MiniLmLocalEmbeddingModel = class {
       return this.loading;
     }
     console.log(`[LocalEmbeddingModel] Starting model load...`);
+    this.loadAttempts++;
     const loadStart = Date.now();
     this.loading = (async () => {
       try {
         console.log(`[LocalEmbeddingModel] Importing @xenova/transformers...`);
-        const transformersUnknown = await Promise.resolve().then(() => (init_transformers(), transformers_exports));
+        let transformersUnknown;
+        try {
+          transformersUnknown = await Promise.resolve().then(() => (init_transformers(), transformers_exports));
+        } catch (importErr) {
+          this.logError("ensureLoaded.import", "Dynamic import of @xenova/transformers", importErr);
+          throw new Error(`Failed to import @xenova/transformers: ${importErr instanceof Error ? importErr.message : String(importErr)}`);
+        }
         const transformers = transformersUnknown;
         if (!transformers.pipeline) {
-          throw new Error("Transformers pipeline is unavailable - @xenova/transformers may not be installed or compatible");
+          const err = new Error("Transformers pipeline is unavailable - @xenova/transformers may not be installed or compatible");
+          this.logError("ensureLoaded.checkPipeline", "Checking if pipeline function exists", err);
+          throw err;
         }
         console.log(`[LocalEmbeddingModel] \u2713 Transformers library loaded`);
         const cacheDir = `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index/models`;
         console.log(`[LocalEmbeddingModel] Cache directory: ${cacheDir}`);
         console.log(`[LocalEmbeddingModel] Loading model: Xenova/all-MiniLM-L6-v2 (quantized)...`);
-        const pipeUnknown = await transformers.pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
-          quantized: true,
-          progress_callback: void 0,
-          cache_dir: cacheDir
-        });
+        let pipeUnknown;
+        try {
+          pipeUnknown = await transformers.pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
+            quantized: true,
+            progress_callback: void 0,
+            cache_dir: cacheDir
+          });
+        } catch (pipelineErr) {
+          this.logError("ensureLoaded.createPipeline", `Creating pipeline with model Xenova/all-MiniLM-L6-v2, cache: ${cacheDir}`, pipelineErr);
+          throw pipelineErr;
+        }
         const pipe = pipeUnknown;
         console.log(`[LocalEmbeddingModel] \u2713 Model pipeline created`);
         this.pipeline = async (text2) => {
@@ -62859,9 +63094,12 @@ var MiniLmLocalEmbeddingModel = class {
             const maybe = out;
             if (Array.isArray(maybe?.data))
               return l2Normalize(maybe.data);
+            const err = new Error(`Unexpected embeddings output format: ${typeof out}, isArray: ${Array.isArray(out)}`);
+            this.logError("pipeline.embed", `Processing text (${text2.length} chars)`, err);
             console.error(`[LocalEmbeddingModel] Unexpected output format:`, typeof out, Array.isArray(out), out);
-            throw new Error("Unexpected embeddings output");
+            throw err;
           } catch (err) {
+            this.logError("pipeline.embed", `Generating embedding for text (${text2.length} chars, ${text2.split(/\s+/).length} words)`, err);
             console.error(`[LocalEmbeddingModel] Error during embedding generation:`, err);
             throw err;
           }
@@ -62869,6 +63107,7 @@ var MiniLmLocalEmbeddingModel = class {
         const loadDuration = Date.now() - loadStart;
         console.log(`[LocalEmbeddingModel] \u2713 Model fully loaded in ${loadDuration}ms`);
       } catch (err) {
+        this.logError("ensureLoaded", `Model loading attempt #${this.loadAttempts}`, err);
         const errorMsg = err instanceof Error ? err.message : String(err);
         const errorStack = err instanceof Error ? err.stack : void 0;
         console.error(`[LocalEmbeddingModel] \u2717 Model loading failed:`, errorMsg);
@@ -62886,8 +63125,42 @@ var MiniLmLocalEmbeddingModel = class {
     try {
       await this.ensureLoaded();
       return this.pipeline !== null;
-    } catch {
+    } catch (err) {
+      this.logError("isReady", "Checking model readiness", err);
       return false;
+    }
+  }
+  getRecentErrors(limit = 20) {
+    return this.errorLog.slice(-limit);
+  }
+  getLastLoadError() {
+    return this.lastLoadError;
+  }
+  getLoadAttempts() {
+    return this.loadAttempts;
+  }
+  logError(location, context, error2) {
+    const errorMsg = error2 instanceof Error ? error2.message : String(error2);
+    const errorStack = error2 instanceof Error ? error2.stack : void 0;
+    const errorType = error2 instanceof Error ? error2.constructor.name : typeof error2;
+    const entry = {
+      timestamp: new Date().toISOString(),
+      location,
+      context,
+      message: errorMsg,
+      stack: errorStack,
+      errorType
+    };
+    this.errorLog.push(entry);
+    if (this.errorLog.length > this.maxStoredErrors) {
+      this.errorLog.shift();
+    }
+    if (location === "ensureLoaded" || location === "isReady") {
+      this.lastLoadError = entry;
+    }
+    console.error(`[LocalEmbeddingModel] ERROR [${location}] ${context}:`, errorMsg);
+    if (errorStack) {
+      console.error(`[LocalEmbeddingModel] Stack:`, errorStack.split("\n").slice(0, 3).join("\n"));
     }
   }
   async embed(text2) {
@@ -62907,6 +63180,7 @@ var MiniLmLocalEmbeddingModel = class {
       console.log(`[LocalEmbeddingModel] Generated embedding in ${embedDuration}ms for text (${t.length} chars, ${t.split(/\s+/).length} words)`);
       return result;
     } catch (err) {
+      this.logError("embed", `Embedding text (${t.length} chars, ${t.split(/\s+/).length} words)`, err);
       console.error(`[LocalEmbeddingModel] Embedding generation failed:`, err);
       throw err;
     }
@@ -63085,6 +63359,9 @@ var EmbeddingsIndex = class {
     this.workerRunning = false;
     this.persistTimer = null;
     this.settingsSaveTimer = null;
+    // Error tracking
+    this.errorLog = [];
+    this.maxStoredErrors = 100;
     this.vault = vault;
     this.plugin = plugin;
     const backend = plugin.settings.retrievalEmbeddingBackend;
@@ -63137,6 +63414,41 @@ var EmbeddingsIndex = class {
       paused: Boolean(this.plugin.settings.retrievalIndexPaused),
       queued: this.queue.size
     };
+  }
+  getRecentErrors(limit = 20) {
+    return this.errorLog.slice(-limit);
+  }
+  getErrorSummary() {
+    const byLocation = {};
+    for (const err of this.errorLog) {
+      byLocation[err.location] = (byLocation[err.location] || 0) + 1;
+    }
+    return {
+      total: this.errorLog.length,
+      byLocation,
+      recent: this.errorLog.slice(-10)
+    };
+  }
+  logError(location, context, error2) {
+    const errorMsg = error2 instanceof Error ? error2.message : String(error2);
+    const errorStack = error2 instanceof Error ? error2.stack : void 0;
+    const errorType = error2 instanceof Error ? error2.constructor.name : typeof error2;
+    const entry = {
+      timestamp: new Date().toISOString(),
+      location,
+      context,
+      message: errorMsg,
+      stack: errorStack,
+      errorType
+    };
+    this.errorLog.push(entry);
+    if (this.errorLog.length > this.maxStoredErrors) {
+      this.errorLog.shift();
+    }
+    console.error(`[EmbeddingsIndex] ERROR [${location}] ${context}:`, errorMsg);
+    if (errorStack) {
+      console.error(`[EmbeddingsIndex] Stack:`, errorStack.split("\n").slice(0, 3).join("\n"));
+    }
   }
   enqueueFullRescan() {
     const files = this.plugin.vaultService.getIncludedMarkdownFiles();
@@ -63215,7 +63527,7 @@ var EmbeddingsIndex = class {
         this._schedulePersist();
         this._scheduleSettingsSave();
       } catch (err) {
-        console.warn(`Failed to index file ${next}:`, err);
+        this.logError("_runWorker", `Processing file: ${next}`, err);
       }
       await new Promise((r) => setTimeout(r, 10));
     }
@@ -63288,6 +63600,8 @@ var EmbeddingsIndex = class {
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         const errorStack = err instanceof Error ? err.stack : void 0;
+        const context = `File: ${path3}, Chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words, ${ch.text.length} chars)`;
+        this.logError("_reindexFile.embedChunk", context, err);
         console.error(`  - \u2717 Embedding generation failed for chunk ${i + 1}/${chunks.length}:`, errorMsg);
         if (errorStack) {
           console.error(`    Stack: ${errorStack.split("\n").slice(0, 3).join("\n    ")}`);
@@ -63318,9 +63632,13 @@ var EmbeddingsIndex = class {
       successfulChunks++;
     }
     if (successfulChunks === 0 && chunks.length > 0) {
-      console.error(`[EmbeddingsIndex] CRITICAL: All ${chunks.length} chunks failed for ${path3} - file not indexed`);
+      const criticalContext = `File: ${path3}, All ${chunks.length} chunks failed`;
       if (firstError) {
+        this.logError("_reindexFile.allChunksFailed", criticalContext, firstError);
+        console.error(`[EmbeddingsIndex] CRITICAL: All ${chunks.length} chunks failed for ${path3} - file not indexed`);
         console.error(`  Root cause: ${firstError.message}`);
+      } else {
+        this.logError("_reindexFile.allChunksFailed", criticalContext, new Error("All chunks failed but no first error captured"));
       }
     } else if (successfulChunks < chunks.length) {
       console.warn(`[EmbeddingsIndex] Partial success for ${path3}: ${successfulChunks}/${chunks.length} chunks indexed`);

@@ -69,6 +69,15 @@ function excerptOf(text: string, maxChars: number): string {
 	return `${trimmed.slice(0, maxChars)}…`;
 }
 
+interface ErrorLogEntry {
+	timestamp: string;
+	location: string; // Where the error occurred (method/function name)
+	context: string; // What was happening (file path, chunk index, etc.)
+	message: string;
+	stack?: string;
+	errorType?: string;
+}
+
 export class EmbeddingsIndex {
 	private readonly vault: Vault;
 	private readonly plugin: WritingDashboardPlugin;
@@ -84,6 +93,10 @@ export class EmbeddingsIndex {
 	private workerRunning = false;
 	private persistTimer: number | null = null;
 	private settingsSaveTimer: number | null = null;
+
+	// Error tracking
+	private readonly errorLog: ErrorLogEntry[] = [];
+	private readonly maxStoredErrors = 100;
 
 	constructor(vault: Vault, plugin: WritingDashboardPlugin, dim: number = 256) {
 		this.vault = vault;
@@ -147,6 +160,48 @@ export class EmbeddingsIndex {
 			paused: Boolean(this.plugin.settings.retrievalIndexPaused),
 			queued: this.queue.size
 		};
+	}
+
+	getRecentErrors(limit: number = 20): ErrorLogEntry[] {
+		return this.errorLog.slice(-limit);
+	}
+
+	getErrorSummary(): { total: number; byLocation: Record<string, number>; recent: ErrorLogEntry[] } {
+		const byLocation: Record<string, number> = {};
+		for (const err of this.errorLog) {
+			byLocation[err.location] = (byLocation[err.location] || 0) + 1;
+		}
+		return {
+			total: this.errorLog.length,
+			byLocation,
+			recent: this.errorLog.slice(-10)
+		};
+	}
+
+	private logError(location: string, context: string, error: unknown): void {
+		const errorMsg = error instanceof Error ? error.message : String(error);
+		const errorStack = error instanceof Error ? error.stack : undefined;
+		const errorType = error instanceof Error ? error.constructor.name : typeof error;
+		
+		const entry: ErrorLogEntry = {
+			timestamp: new Date().toISOString(),
+			location,
+			context,
+			message: errorMsg,
+			stack: errorStack,
+			errorType
+		};
+		
+		this.errorLog.push(entry);
+		if (this.errorLog.length > this.maxStoredErrors) {
+			this.errorLog.shift();
+		}
+		
+		// Also log to console for debugging
+		console.error(`[EmbeddingsIndex] ERROR [${location}] ${context}:`, errorMsg);
+		if (errorStack) {
+			console.error(`[EmbeddingsIndex] Stack:`, errorStack.split('\n').slice(0, 3).join('\n'));
+		}
 	}
 
 	enqueueFullRescan(): void {
@@ -238,7 +293,7 @@ export class EmbeddingsIndex {
 				this._scheduleSettingsSave();
 			} catch (err) {
 				// Skip unreadable files, but log for debugging
-				console.warn(`Failed to index file ${next}:`, err);
+				this.logError('_runWorker', `Processing file: ${next}`, err);
 			}
 
 			// Yield to keep UI responsive.
@@ -330,6 +385,9 @@ export class EmbeddingsIndex {
 			} catch (err) {
 				const errorMsg = err instanceof Error ? err.message : String(err);
 				const errorStack = err instanceof Error ? err.stack : undefined;
+				const context = `File: ${path}, Chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words, ${ch.text.length} chars)`;
+				this.logError('_reindexFile.embedChunk', context, err);
+				
 				console.error(`  - ✗ Embedding generation failed for chunk ${i + 1}/${chunks.length}:`, errorMsg);
 				if (errorStack) {
 					console.error(`    Stack: ${errorStack.split('\n').slice(0, 3).join('\n    ')}`);
@@ -364,9 +422,13 @@ export class EmbeddingsIndex {
 		}
 		
 		if (successfulChunks === 0 && chunks.length > 0) {
-			console.error(`[EmbeddingsIndex] CRITICAL: All ${chunks.length} chunks failed for ${path} - file not indexed`);
+			const criticalContext = `File: ${path}, All ${chunks.length} chunks failed`;
 			if (firstError) {
+				this.logError('_reindexFile.allChunksFailed', criticalContext, firstError);
+				console.error(`[EmbeddingsIndex] CRITICAL: All ${chunks.length} chunks failed for ${path} - file not indexed`);
 				console.error(`  Root cause: ${firstError.message}`);
+			} else {
+				this.logError('_reindexFile.allChunksFailed', criticalContext, new Error('All chunks failed but no first error captured'));
 			}
 		} else if (successfulChunks < chunks.length) {
 			console.warn(`[EmbeddingsIndex] Partial success for ${path}: ${successfulChunks}/${chunks.length} chunks indexed`);
