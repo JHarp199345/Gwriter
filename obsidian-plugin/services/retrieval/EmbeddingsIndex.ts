@@ -263,6 +263,11 @@ export class EmbeddingsIndex {
 		}
 
 		const cfg = chunkingKey(this.plugin);
+		console.log(`[EmbeddingsIndex] Processing file: ${path}`);
+		console.log(`  - Backend: ${this.backend}`);
+		console.log(`  - Content length: ${content.length} chars, ${content.split(/\s+/).length} words`);
+		console.log(`  - Chunking config: headingLevel=${cfg.headingLevel}, targetWords=${cfg.targetWords}, overlapWords=${cfg.overlapWords}`);
+		
 		const chunks = buildIndexChunks({
 			text: content,
 			headingLevel: cfg.headingLevel,
@@ -270,31 +275,76 @@ export class EmbeddingsIndex {
 			overlapWords: cfg.overlapWords
 		});
 		
+		console.log(`  - Chunks created: ${chunks.length}`);
+		if (chunks.length > 0) {
+			console.log(`  - First chunk preview: ${chunks[0].text.substring(0, 100)}...`);
+		}
+		
 		// If no chunks created, skip this file (might be too short or have no headings)
 		if (chunks.length === 0) {
 			console.warn(`[EmbeddingsIndex] No chunks created for ${path} - file too short or no headings match chunking config`);
 			return;
 		}
+
+		// Check if model is ready (for minilm backend)
+		if (this.backend === 'minilm') {
+			try {
+				const isReady = await this.model.isReady();
+				console.log(`  - Model ready: ${isReady}`);
+				if (!isReady) {
+					console.warn(`  - Model not ready, attempting to load...`);
+				}
+			} catch (modelCheckErr) {
+				console.error(`  - Model readiness check failed:`, modelCheckErr);
+			}
+		}
 		
 		let successfulChunks = 0;
+		let firstError: Error | null = null;
 		for (let i = 0; i < chunks.length; i++) {
 			const ch = chunks[i];
 			const textHash = fnv1a32(ch.text);
 			const key = `chunk:${path}:${i}`;
 			let vector: number[];
 			try {
+				console.log(`  - Generating embedding for chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words)...`);
+				const embedStart = Date.now();
 				if (this.backend === 'minilm') {
 					// Minilm requires async model loading - this might fail silently
 					vector = await this.model.embed(ch.text);
+					const embedDuration = Date.now() - embedStart;
+					console.log(`  - ✓ Embedding generated in ${embedDuration}ms: ${vector.length} dimensions`);
+					// Verify vector is valid
+					if (!vector || vector.length !== this.dim) {
+						throw new Error(`Invalid vector dimensions: expected ${this.dim}, got ${vector?.length || 0}`);
+					}
+					// Check if vector is all zeros (indicates failure)
+					const sum = vector.reduce((a, b) => a + Math.abs(b), 0);
+					if (sum < 0.001) {
+						console.warn(`  - ⚠ Warning: Vector appears to be all zeros (sum=${sum})`);
+					}
 				} else {
 					vector = buildVector(ch.text, this.dim);
+					console.log(`  - ✓ Hash-based vector generated: ${vector.length} dimensions`);
 				}
 			} catch (err) {
-				console.error(`[EmbeddingsIndex] Failed to generate embedding for chunk ${i} of ${path}:`, err);
+				const errorMsg = err instanceof Error ? err.message : String(err);
+				const errorStack = err instanceof Error ? err.stack : undefined;
+				console.error(`  - ✗ Embedding generation failed for chunk ${i + 1}/${chunks.length}:`, errorMsg);
+				if (errorStack) {
+					console.error(`    Stack: ${errorStack.split('\n').slice(0, 3).join('\n    ')}`);
+				}
+				if (err instanceof Error) {
+					console.error(`    Error type: ${err.constructor.name}`);
+					if ('cause' in err) {
+						console.error(`    Cause: ${err.cause}`);
+					}
+				}
 				// If ALL chunks fail for a file, the file won't be indexed
 				// This is a critical failure that should be logged
 				if (i === 0) {
-					console.error(`[EmbeddingsIndex] CRITICAL: First chunk failed for ${path} - file will not be indexed`);
+					console.error(`  - CRITICAL: First chunk failed for ${path} - file will not be indexed`);
+					firstError = err instanceof Error ? err : new Error(String(err));
 				}
 				// Skip this chunk if embedding fails, but continue with others
 				continue;
@@ -315,8 +365,13 @@ export class EmbeddingsIndex {
 		
 		if (successfulChunks === 0 && chunks.length > 0) {
 			console.error(`[EmbeddingsIndex] CRITICAL: All ${chunks.length} chunks failed for ${path} - file not indexed`);
+			if (firstError) {
+				console.error(`  Root cause: ${firstError.message}`);
+			}
 		} else if (successfulChunks < chunks.length) {
 			console.warn(`[EmbeddingsIndex] Partial success for ${path}: ${successfulChunks}/${chunks.length} chunks indexed`);
+		} else {
+			console.log(`[EmbeddingsIndex] ✓ Successfully indexed ${path}: ${successfulChunks} chunks`);
 		}
 	}
 

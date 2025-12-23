@@ -59833,6 +59833,20 @@ var StressTestService = class {
     this.logEntry(`Started: ${new Date().toISOString()}`);
     this.logEntry(`Vault: ${this.plugin.app.vault.getName()}`);
     this.logEntry("");
+    this.logEntry("=== PLUGIN CONFIGURATION ===");
+    this.logEntry(`API Key: ${this.plugin.settings.apiKey ? "\u2713 Configured" : "\u2717 Missing"}`);
+    this.logEntry(`API Provider: ${this.plugin.settings.apiProvider || "Not set"}`);
+    this.logEntry(`Model: ${this.plugin.settings.model || "Not set"}`);
+    this.logEntry(`Generation Mode: ${this.plugin.settings.generationMode || "single"}`);
+    this.logEntry(`Book Main Path: ${this.plugin.settings.book2Path || "Not configured"}`);
+    this.logEntry(`Story Bible Path: ${this.plugin.settings.storyBiblePath || "Not configured"}`);
+    this.logEntry(`Character Folder: ${this.plugin.settings.characterFolder || "Not configured (will use default: Characters)"}`);
+    this.logEntry(`Semantic Retrieval: ${this.plugin.settings.retrievalEnableSemanticIndex ? "Enabled" : "Disabled"}`);
+    this.logEntry(`Embedding Backend: ${this.plugin.settings.retrievalEmbeddingBackend || "minilm"}`);
+    this.logEntry(`BM25 Retrieval: ${this.plugin.settings.retrievalEnableBm25 ? "Enabled" : "Disabled"}`);
+    this.logEntry(`Index Paused: ${this.plugin.settings.retrievalIndexPaused ? "Yes" : "No"}`);
+    this.logEntry(`Retrieval Top K: ${this.plugin.settings.retrievalTopK || 24}`);
+    this.logEntry("");
     try {
       await this.phase1_Setup();
       await this.phase2_Indexing();
@@ -59899,6 +59913,14 @@ var StressTestService = class {
     this.logEntry("--- Phase 2: Indexing Tests ---");
     const phaseStart = Date.now();
     try {
+      this.logEntry("=== Indexing Configuration ===");
+      this.logEntry(`Semantic retrieval enabled: ${this.plugin.settings.retrievalEnableSemanticIndex}`);
+      this.logEntry(`Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || "minilm"}`);
+      this.logEntry(`Index paused: ${this.plugin.settings.retrievalIndexPaused}`);
+      this.logEntry(`Chunk size: ${this.plugin.settings.retrievalChunkWords || 500} words`);
+      this.logEntry(`Chunk overlap: ${this.plugin.settings.retrievalChunkOverlapWords || 100} words`);
+      this.logEntry(`Chunk heading level: ${this.plugin.settings.retrievalChunkHeadingLevel || "h1"}`);
+      this.logEntry("");
       const statusBefore = this.plugin.embeddingsIndex?.getStatus?.();
       this.logEntry(`Index status before: ${statusBefore ? `${statusBefore.indexedFiles} files, ${statusBefore.indexedChunks} chunks, ${statusBefore.queued} queued` : "N/A"}`);
       const allFiles = this.plugin.vaultService.getIncludedMarkdownFiles();
@@ -59938,6 +59960,23 @@ var StressTestService = class {
       if (this.plugin.settings.retrievalEnableSemanticIndex && !this.plugin.settings.retrievalIndexPaused) {
         this.logEntry("Triggering full index rescan...");
         this.logEntry(`Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || "minilm"}`);
+        if (this.plugin.settings.retrievalEmbeddingBackend === "minilm") {
+          this.logEntry("Checking embedding model readiness...");
+          try {
+            const model = this.plugin.embeddingsIndex?.model;
+            if (model && typeof model.isReady === "function") {
+              const isReady = await model.isReady();
+              this.logEntry(`  Model ready: ${isReady}`);
+              if (!isReady) {
+                this.logEntry(`  \u26A0 Model not ready - attempting to load (this may take time on first run)...`);
+              }
+            } else {
+              this.logEntry(`  \u26A0 Cannot check model readiness (isReady method not available)`);
+            }
+          } catch (modelErr) {
+            this.logEntry(`  \u2717 Model readiness check failed: ${modelErr instanceof Error ? modelErr.message : String(modelErr)}`);
+          }
+        }
         this.plugin.embeddingsIndex.enqueueFullRescan();
         this.plugin.bm25Index.enqueueFullRescan();
         for (let i = 0; i < 10; i++) {
@@ -59986,6 +60025,12 @@ var StressTestService = class {
             this.logEntry(`  - Check browser console (F12) for detailed worker logs`);
             if (indexedPaths.length === 0 && allChunks.length === 0) {
               this.logEntry(`  - CONFIRMED: No chunks exist in memory - embedding generation likely failing`);
+              this.logEntry(`  - Check browser console (F12) for detailed [EmbeddingsIndex] and [LocalEmbeddingModel] logs`);
+              this.logEntry(`  - Common causes:`);
+              this.logEntry(`    * Model loading failure (check network/disk space for model download)`);
+              this.logEntry(`    * Transformers library not available (@xenova/transformers)`);
+              this.logEntry(`    * WASM/Web Worker issues in browser`);
+              this.logEntry(`    * Memory constraints (large model)`);
             } else if (indexedPaths.length > 0 || allChunks.length > 0) {
               this.logEntry(`  - CONFIRMED: Chunks DO exist but status is wrong - bug in getStatus()`);
             }
@@ -60213,12 +60258,20 @@ var StressTestService = class {
     this.logEntry("--- Phase 7: Character Operations ---");
     const phaseStart = Date.now();
     try {
-      if (!this.plugin.settings.characterFolder) {
-        this.logEntry("\u26A0 Character folder not configured - skipping character operations");
-        return;
+      let characterFolder = this.plugin.settings.characterFolder;
+      if (!characterFolder) {
+        characterFolder = "Characters";
+        this.logEntry(`\u26A0 Character folder not configured, using default: ${characterFolder}`);
+        this.logEntry(`  Note: This is a test-only folder. Configure in settings for production use.`);
+      } else {
+        this.logEntry(`Using configured character folder: ${characterFolder}`);
       }
-      await this.plugin.vaultService.createFolderIfNotExists(this.plugin.settings.characterFolder);
-      this.logEntry(`\u2713 Character folder ready: ${this.plugin.settings.characterFolder}`);
+      const folderCreated = await this.plugin.vaultService.createFolderIfNotExists(characterFolder);
+      if (folderCreated) {
+        this.logEntry(`\u2713 Created character folder: ${characterFolder}`);
+      } else {
+        this.logEntry(`\u2713 Character folder already exists: ${characterFolder}`);
+      }
       this.logEntry("");
       this.logEntry("=== Test 1: Character Extraction (Selected Text) ===");
       try {
@@ -60266,18 +60319,24 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
         });
         if (updates.length > 0) {
           this.logEntry("Updating character notes...");
-          await this.plugin.vaultService.updateCharacterNotes(updates);
-          this.logEntry(`\u2713 Updated ${updates.length} character note(s) in ${this.plugin.settings.characterFolder}`);
+          await this.plugin.vaultService.updateCharacterNotes(updates, characterFolder);
+          this.logEntry(`\u2713 Updated ${updates.length} character note(s) in ${characterFolder}`);
           for (const update of updates) {
-            const characterPath = `${this.plugin.settings.characterFolder}/${update.character}.md`;
+            const characterPath = `${characterFolder}/${update.character}.md`;
             const file = this.plugin.app.vault.getAbstractFileByPath(characterPath);
             if (file instanceof import_obsidian9.TFile) {
               const content = await this.plugin.vaultService.readFile(characterPath);
               this.logEntry(`  \u2713 Verified: ${characterPath} (${content.length} chars)`);
+              const preview = content.substring(0, 150).replace(/\n/g, " ");
+              this.logEntry(`    Preview: ${preview}...`);
+            } else {
+              this.logEntry(`  \u2717 Character note not found: ${characterPath}`);
             }
           }
         } else {
           this.logEntry("\u26A0 No character updates parsed from extraction result");
+          this.logEntry(`  Extraction text length: ${extractionText.length} chars`);
+          this.logEntry(`  Extraction preview: ${extractionText.substring(0, 300)}...`);
         }
       } catch (error2) {
         this.logEntry(`\u2717 Character extraction failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
@@ -62759,48 +62818,98 @@ var MiniLmLocalEmbeddingModel = class {
     this.plugin = plugin;
   }
   async ensureLoaded() {
-    if (this.pipeline)
+    if (this.pipeline) {
+      console.log(`[LocalEmbeddingModel] Pipeline already loaded`);
       return;
-    if (this.loading !== null)
+    }
+    if (this.loading !== null) {
+      console.log(`[LocalEmbeddingModel] Pipeline loading in progress, waiting...`);
       return this.loading;
+    }
+    console.log(`[LocalEmbeddingModel] Starting model load...`);
+    const loadStart = Date.now();
     this.loading = (async () => {
-      const transformersUnknown = await Promise.resolve().then(() => (init_transformers(), transformers_exports));
-      const transformers = transformersUnknown;
-      if (!transformers.pipeline)
-        throw new Error("Transformers pipeline is unavailable");
-      const cacheDir = `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index/models`;
-      const pipeUnknown = await transformers.pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
-        quantized: true,
-        progress_callback: void 0,
-        cache_dir: cacheDir
-      });
-      const pipe = pipeUnknown;
-      this.pipeline = async (text2) => {
-        const out = await pipe(text2, { pooling: "mean", normalize: true });
-        if (Array.isArray(out) && Array.isArray(out[0])) {
-          return l2Normalize(out[0]);
+      try {
+        console.log(`[LocalEmbeddingModel] Importing @xenova/transformers...`);
+        const transformersUnknown = await Promise.resolve().then(() => (init_transformers(), transformers_exports));
+        const transformers = transformersUnknown;
+        if (!transformers.pipeline) {
+          throw new Error("Transformers pipeline is unavailable - @xenova/transformers may not be installed or compatible");
         }
-        if (Array.isArray(out)) {
-          return l2Normalize(out);
+        console.log(`[LocalEmbeddingModel] \u2713 Transformers library loaded`);
+        const cacheDir = `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index/models`;
+        console.log(`[LocalEmbeddingModel] Cache directory: ${cacheDir}`);
+        console.log(`[LocalEmbeddingModel] Loading model: Xenova/all-MiniLM-L6-v2 (quantized)...`);
+        const pipeUnknown = await transformers.pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
+          quantized: true,
+          progress_callback: void 0,
+          cache_dir: cacheDir
+        });
+        const pipe = pipeUnknown;
+        console.log(`[LocalEmbeddingModel] \u2713 Model pipeline created`);
+        this.pipeline = async (text2) => {
+          try {
+            const out = await pipe(text2, { pooling: "mean", normalize: true });
+            if (Array.isArray(out) && Array.isArray(out[0])) {
+              return l2Normalize(out[0]);
+            }
+            if (Array.isArray(out)) {
+              return l2Normalize(out);
+            }
+            const maybe = out;
+            if (Array.isArray(maybe?.data))
+              return l2Normalize(maybe.data);
+            console.error(`[LocalEmbeddingModel] Unexpected output format:`, typeof out, Array.isArray(out), out);
+            throw new Error("Unexpected embeddings output");
+          } catch (err) {
+            console.error(`[LocalEmbeddingModel] Error during embedding generation:`, err);
+            throw err;
+          }
+        };
+        const loadDuration = Date.now() - loadStart;
+        console.log(`[LocalEmbeddingModel] \u2713 Model fully loaded in ${loadDuration}ms`);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        const errorStack = err instanceof Error ? err.stack : void 0;
+        console.error(`[LocalEmbeddingModel] \u2717 Model loading failed:`, errorMsg);
+        if (errorStack) {
+          console.error(`[LocalEmbeddingModel] Stack:`, errorStack.split("\n").slice(0, 5).join("\n"));
         }
-        const maybe = out;
-        if (Array.isArray(maybe?.data))
-          return l2Normalize(maybe.data);
-        throw new Error("Unexpected embeddings output");
-      };
+        throw err;
+      }
     })().finally(() => {
       this.loading = null;
     });
     return this.loading;
   }
+  async isReady() {
+    try {
+      await this.ensureLoaded();
+      return this.pipeline !== null;
+    } catch {
+      return false;
+    }
+  }
   async embed(text2) {
     const t = (text2 || "").trim();
-    if (!t)
+    if (!t) {
+      console.warn(`[LocalEmbeddingModel] Empty text provided, returning zero vector`);
       return new Array(this.dim).fill(0);
-    await this.ensureLoaded();
-    if (!this.pipeline)
-      throw new Error("Embeddings pipeline unavailable");
-    return await this.pipeline(t);
+    }
+    try {
+      await this.ensureLoaded();
+      if (!this.pipeline) {
+        throw new Error("Embeddings pipeline unavailable after loading attempt");
+      }
+      const embedStart = Date.now();
+      const result = await this.pipeline(t);
+      const embedDuration = Date.now() - embedStart;
+      console.log(`[LocalEmbeddingModel] Generated embedding in ${embedDuration}ms for text (${t.length} chars, ${t.split(/\s+/).length} words)`);
+      return result;
+    } catch (err) {
+      console.error(`[LocalEmbeddingModel] Embedding generation failed:`, err);
+      throw err;
+    }
   }
 };
 
@@ -63122,32 +63231,76 @@ var EmbeddingsIndex = class {
       return;
     }
     const cfg = chunkingKey(this.plugin);
+    console.log(`[EmbeddingsIndex] Processing file: ${path3}`);
+    console.log(`  - Backend: ${this.backend}`);
+    console.log(`  - Content length: ${content.length} chars, ${content.split(/\s+/).length} words`);
+    console.log(`  - Chunking config: headingLevel=${cfg.headingLevel}, targetWords=${cfg.targetWords}, overlapWords=${cfg.overlapWords}`);
     const chunks = buildIndexChunks({
       text: content,
       headingLevel: cfg.headingLevel,
       targetWords: cfg.targetWords,
       overlapWords: cfg.overlapWords
     });
+    console.log(`  - Chunks created: ${chunks.length}`);
+    if (chunks.length > 0) {
+      console.log(`  - First chunk preview: ${chunks[0].text.substring(0, 100)}...`);
+    }
     if (chunks.length === 0) {
       console.warn(`[EmbeddingsIndex] No chunks created for ${path3} - file too short or no headings match chunking config`);
       return;
     }
+    if (this.backend === "minilm") {
+      try {
+        const isReady = await this.model.isReady();
+        console.log(`  - Model ready: ${isReady}`);
+        if (!isReady) {
+          console.warn(`  - Model not ready, attempting to load...`);
+        }
+      } catch (modelCheckErr) {
+        console.error(`  - Model readiness check failed:`, modelCheckErr);
+      }
+    }
     let successfulChunks = 0;
+    let firstError = null;
     for (let i = 0; i < chunks.length; i++) {
       const ch = chunks[i];
       const textHash = fnv1a32(ch.text);
       const key = `chunk:${path3}:${i}`;
       let vector;
       try {
+        console.log(`  - Generating embedding for chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words)...`);
+        const embedStart = Date.now();
         if (this.backend === "minilm") {
           vector = await this.model.embed(ch.text);
+          const embedDuration = Date.now() - embedStart;
+          console.log(`  - \u2713 Embedding generated in ${embedDuration}ms: ${vector.length} dimensions`);
+          if (!vector || vector.length !== this.dim) {
+            throw new Error(`Invalid vector dimensions: expected ${this.dim}, got ${vector?.length || 0}`);
+          }
+          const sum = vector.reduce((a, b) => a + Math.abs(b), 0);
+          if (sum < 1e-3) {
+            console.warn(`  - \u26A0 Warning: Vector appears to be all zeros (sum=${sum})`);
+          }
         } else {
           vector = buildVector(ch.text, this.dim);
+          console.log(`  - \u2713 Hash-based vector generated: ${vector.length} dimensions`);
         }
       } catch (err) {
-        console.error(`[EmbeddingsIndex] Failed to generate embedding for chunk ${i} of ${path3}:`, err);
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        const errorStack = err instanceof Error ? err.stack : void 0;
+        console.error(`  - \u2717 Embedding generation failed for chunk ${i + 1}/${chunks.length}:`, errorMsg);
+        if (errorStack) {
+          console.error(`    Stack: ${errorStack.split("\n").slice(0, 3).join("\n    ")}`);
+        }
+        if (err instanceof Error) {
+          console.error(`    Error type: ${err.constructor.name}`);
+          if ("cause" in err) {
+            console.error(`    Cause: ${err.cause}`);
+          }
+        }
         if (i === 0) {
-          console.error(`[EmbeddingsIndex] CRITICAL: First chunk failed for ${path3} - file will not be indexed`);
+          console.error(`  - CRITICAL: First chunk failed for ${path3} - file will not be indexed`);
+          firstError = err instanceof Error ? err : new Error(String(err));
         }
         continue;
       }
@@ -63166,8 +63319,13 @@ var EmbeddingsIndex = class {
     }
     if (successfulChunks === 0 && chunks.length > 0) {
       console.error(`[EmbeddingsIndex] CRITICAL: All ${chunks.length} chunks failed for ${path3} - file not indexed`);
+      if (firstError) {
+        console.error(`  Root cause: ${firstError.message}`);
+      }
     } else if (successfulChunks < chunks.length) {
       console.warn(`[EmbeddingsIndex] Partial success for ${path3}: ${successfulChunks}/${chunks.length} chunks indexed`);
+    } else {
+      console.log(`[EmbeddingsIndex] \u2713 Successfully indexed ${path3}: ${successfulChunks} chunks`);
     }
   }
   _setChunk(chunk) {

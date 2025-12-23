@@ -20,6 +20,20 @@ export class StressTestService {
 		this.logEntry(`Started: ${new Date().toISOString()}`);
 		this.logEntry(`Vault: ${this.plugin.app.vault.getName()}`);
 		this.logEntry('');
+		this.logEntry('=== PLUGIN CONFIGURATION ===');
+		this.logEntry(`API Key: ${this.plugin.settings.apiKey ? '✓ Configured' : '✗ Missing'}`);
+		this.logEntry(`API Provider: ${this.plugin.settings.apiProvider || 'Not set'}`);
+		this.logEntry(`Model: ${this.plugin.settings.model || 'Not set'}`);
+		this.logEntry(`Generation Mode: ${this.plugin.settings.generationMode || 'single'}`);
+		this.logEntry(`Book Main Path: ${this.plugin.settings.book2Path || 'Not configured'}`);
+		this.logEntry(`Story Bible Path: ${this.plugin.settings.storyBiblePath || 'Not configured'}`);
+		this.logEntry(`Character Folder: ${this.plugin.settings.characterFolder || 'Not configured (will use default: Characters)'}`);
+		this.logEntry(`Semantic Retrieval: ${this.plugin.settings.retrievalEnableSemanticIndex ? 'Enabled' : 'Disabled'}`);
+		this.logEntry(`Embedding Backend: ${this.plugin.settings.retrievalEmbeddingBackend || 'minilm'}`);
+		this.logEntry(`BM25 Retrieval: ${this.plugin.settings.retrievalEnableBm25 ? 'Enabled' : 'Disabled'}`);
+		this.logEntry(`Index Paused: ${this.plugin.settings.retrievalIndexPaused ? 'Yes' : 'No'}`);
+		this.logEntry(`Retrieval Top K: ${this.plugin.settings.retrievalTopK || 24}`);
+		this.logEntry('');
 
 		try {
 			// Phase 1: Setup
@@ -113,6 +127,15 @@ export class StressTestService {
 		const phaseStart = Date.now();
 
 		try {
+			this.logEntry('=== Indexing Configuration ===');
+			this.logEntry(`Semantic retrieval enabled: ${this.plugin.settings.retrievalEnableSemanticIndex}`);
+			this.logEntry(`Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || 'minilm'}`);
+			this.logEntry(`Index paused: ${this.plugin.settings.retrievalIndexPaused}`);
+			this.logEntry(`Chunk size: ${this.plugin.settings.retrievalChunkWords || 500} words`);
+			this.logEntry(`Chunk overlap: ${this.plugin.settings.retrievalChunkOverlapWords || 100} words`);
+			this.logEntry(`Chunk heading level: ${this.plugin.settings.retrievalChunkHeadingLevel || 'h1'}`);
+			this.logEntry('');
+
 			// Check current index status
 			const statusBefore = this.plugin.embeddingsIndex?.getStatus?.();
 			this.logEntry(`Index status before: ${statusBefore ? `${statusBefore.indexedFiles} files, ${statusBefore.indexedChunks} chunks, ${statusBefore.queued} queued` : 'N/A'}`);
@@ -162,6 +185,26 @@ export class StressTestService {
 			if (this.plugin.settings.retrievalEnableSemanticIndex && !this.plugin.settings.retrievalIndexPaused) {
 				this.logEntry('Triggering full index rescan...');
 				this.logEntry(`Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || 'minilm'}`);
+				
+				// Check model readiness for minilm backend
+				if (this.plugin.settings.retrievalEmbeddingBackend === 'minilm') {
+					this.logEntry('Checking embedding model readiness...');
+					try {
+						const model = (this.plugin.embeddingsIndex as any)?.model;
+						if (model && typeof model.isReady === 'function') {
+							const isReady = await model.isReady();
+							this.logEntry(`  Model ready: ${isReady}`);
+							if (!isReady) {
+								this.logEntry(`  ⚠ Model not ready - attempting to load (this may take time on first run)...`);
+							}
+						} else {
+							this.logEntry(`  ⚠ Cannot check model readiness (isReady method not available)`);
+						}
+					} catch (modelErr) {
+						this.logEntry(`  ✗ Model readiness check failed: ${modelErr instanceof Error ? modelErr.message : String(modelErr)}`);
+					}
+				}
+				
 				this.plugin.embeddingsIndex.enqueueFullRescan();
 				this.plugin.bm25Index.enqueueFullRescan();
 
@@ -225,6 +268,12 @@ export class StressTestService {
 						
 						if (indexedPaths.length === 0 && allChunks.length === 0) {
 							this.logEntry(`  - CONFIRMED: No chunks exist in memory - embedding generation likely failing`);
+							this.logEntry(`  - Check browser console (F12) for detailed [EmbeddingsIndex] and [LocalEmbeddingModel] logs`);
+							this.logEntry(`  - Common causes:`);
+							this.logEntry(`    * Model loading failure (check network/disk space for model download)`);
+							this.logEntry(`    * Transformers library not available (@xenova/transformers)`);
+							this.logEntry(`    * WASM/Web Worker issues in browser`);
+							this.logEntry(`    * Memory constraints (large model)`);
 						} else if (indexedPaths.length > 0 || allChunks.length > 0) {
 							this.logEntry(`  - CONFIRMED: Chunks DO exist but status is wrong - bug in getStatus()`);
 						}
@@ -495,14 +544,23 @@ export class StressTestService {
 		const phaseStart = Date.now();
 
 		try {
-			if (!this.plugin.settings.characterFolder) {
-				this.logEntry('⚠ Character folder not configured - skipping character operations');
-				return;
+			// Auto-create character folder if not configured (use default "Characters")
+			let characterFolder = this.plugin.settings.characterFolder;
+			if (!characterFolder) {
+				characterFolder = 'Characters'; // Default folder name
+				this.logEntry(`⚠ Character folder not configured, using default: ${characterFolder}`);
+				this.logEntry(`  Note: This is a test-only folder. Configure in settings for production use.`);
+			} else {
+				this.logEntry(`Using configured character folder: ${characterFolder}`);
 			}
 
 			// Ensure character folder exists
-			await this.plugin.vaultService.createFolderIfNotExists(this.plugin.settings.characterFolder);
-			this.logEntry(`✓ Character folder ready: ${this.plugin.settings.characterFolder}`);
+			const folderCreated = await this.plugin.vaultService.createFolderIfNotExists(characterFolder);
+			if (folderCreated) {
+				this.logEntry(`✓ Created character folder: ${characterFolder}`);
+			} else {
+				this.logEntry(`✓ Character folder already exists: ${characterFolder}`);
+			}
 
 			// Test 1: Character Extraction from Selected Text
 			this.logEntry('');
@@ -559,20 +617,28 @@ export class StressTestService {
 				
 				if (updates.length > 0) {
 					this.logEntry('Updating character notes...');
-					await this.plugin.vaultService.updateCharacterNotes(updates);
-					this.logEntry(`✓ Updated ${updates.length} character note(s) in ${this.plugin.settings.characterFolder}`);
+					// Use the characterFolder variable (may be default "Characters" if not configured)
+					await this.plugin.vaultService.updateCharacterNotes(updates, characterFolder);
+					this.logEntry(`✓ Updated ${updates.length} character note(s) in ${characterFolder}`);
 					
 					// Verify files were created/updated
 					for (const update of updates) {
-						const characterPath = `${this.plugin.settings.characterFolder}/${update.character}.md`;
+						const characterPath = `${characterFolder}/${update.character}.md`;
 						const file = this.plugin.app.vault.getAbstractFileByPath(characterPath);
 						if (file instanceof TFile) {
 							const content = await this.plugin.vaultService.readFile(characterPath);
 							this.logEntry(`  ✓ Verified: ${characterPath} (${content.length} chars)`);
+							// Log a preview of the character note
+							const preview = content.substring(0, 150).replace(/\n/g, ' ');
+							this.logEntry(`    Preview: ${preview}...`);
+						} else {
+							this.logEntry(`  ✗ Character note not found: ${characterPath}`);
 						}
 					}
 				} else {
 					this.logEntry('⚠ No character updates parsed from extraction result');
+					this.logEntry(`  Extraction text length: ${extractionText.length} chars`);
+					this.logEntry(`  Extraction preview: ${extractionText.substring(0, 300)}...`);
 				}
 			} catch (error) {
 				this.logEntry(`✗ Character extraction failed: ${error instanceof Error ? error.message : String(error)}`);
