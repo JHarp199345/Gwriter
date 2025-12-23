@@ -321,15 +321,21 @@ export class VaultService {
 		}
 
 		// Retrieval profile include-set: if set, exclude anything not under included folders.
+		// If includedFolders is empty, include everything (whole vault).
 		const profiles = this.plugin.settings.retrievalProfiles || [];
 		const activeId = this.plugin.settings.retrievalActiveProfileId;
 		const active = profiles.find((p) => p.id === activeId);
 		const includes = (active?.includedFolders || [])
 			.map((p) => (p || '').replace(/\\/g, '/').replace(/\/+$/, ''))
 			.filter((p) => p.length > 0);
+		// Only apply inclusion filter if folders are explicitly specified
+		// Empty array means "include whole vault" (skip this check)
 		if (includes.length > 0) {
-			const allowed = includes.some((inc) => normalized === inc || normalized.startsWith(`${inc}/`));
-			if (!allowed) return true;
+			const allowed = includes.some((inc) => {
+				// Match exact folder or files/subfolders within it
+				return normalized === inc || normalized.startsWith(`${inc}/`);
+			});
+			if (!allowed) return true; // Excluded because not in any included folder
 		}
 
 		const excluded = this.plugin.settings.retrievalExcludedFolders || [];

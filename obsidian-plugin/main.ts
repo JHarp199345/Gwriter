@@ -547,23 +547,28 @@ export default class WritingDashboardPlugin extends Plugin {
 
 		// Retrieval profiles: ensure prebuilt profiles exist.
 		if (!Array.isArray(this.settings.retrievalProfiles) || this.settings.retrievalProfiles.length === 0) {
-			const storyFolders = new Set<string>();
-			storyFolders.add(this.settings.characterFolder);
 			const parentOf = (p: string) => {
 				const norm = (p || '').replace(/\\/g, '/');
 				const idx = norm.lastIndexOf('/');
 				return idx >= 0 ? norm.slice(0, idx) : '';
 			};
-			// include the folders containing key story files when possible
-			storyFolders.add(parentOf(this.settings.book2Path));
-			storyFolders.add(parentOf(this.settings.storyBiblePath));
-			// remove empty entries (root is ambiguous; keep only if explicit)
+			
+			// Build storyIncluded from existing folders, but default to empty array (whole vault)
+			const storyFolders = new Set<string>();
+			if (this.settings.characterFolder) storyFolders.add(this.settings.characterFolder);
+			const bookParent = parentOf(this.settings.book2Path);
+			if (bookParent) storyFolders.add(bookParent);
+			const bibleParent = parentOf(this.settings.storyBiblePath);
+			if (bibleParent) storyFolders.add(bibleParent);
+			// Remove empty entries
 			const storyIncluded = Array.from(storyFolders).map((s) => (s || '').replace(/\/+$/, '')).filter((s) => s.length > 0);
 
+			// Default "Story" profile: empty array means "include whole vault"
+			// Users can selectively include folders if they want to limit scope
 			this.settings.retrievalProfiles = [
-				{ id: 'story', name: 'Story', includedFolders: storyIncluded },
+				{ id: 'story', name: 'Story', includedFolders: storyIncluded.length > 0 ? storyIncluded : [] },
 				{ id: 'research', name: 'Research', includedFolders: ['Research', 'Worldbuilding'] },
-				{ id: 'manuscript', name: 'Manuscript only', includedFolders: parentOf(this.settings.book2Path) ? [parentOf(this.settings.book2Path)] : [] }
+				{ id: 'manuscript', name: 'Manuscript only', includedFolders: bookParent ? [bookParent] : [] }
 			];
 			this.settings.retrievalActiveProfileId = 'story';
 		}

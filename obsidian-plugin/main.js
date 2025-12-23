@@ -60734,7 +60734,9 @@ ${update}
     const active = profiles.find((p) => p.id === activeId);
     const includes = (active?.includedFolders || []).map((p) => (p || "").replace(/\\/g, "/").replace(/\/+$/, "")).filter((p) => p.length > 0);
     if (includes.length > 0) {
-      const allowed = includes.some((inc) => normalized === inc || normalized.startsWith(`${inc}/`));
+      const allowed = includes.some((inc) => {
+        return normalized === inc || normalized.startsWith(`${inc}/`);
+      });
       if (!allowed)
         return true;
     }
@@ -70145,20 +70147,25 @@ var WritingDashboardPlugin = class extends import_obsidian22.Plugin {
       };
     }
     if (!Array.isArray(this.settings.retrievalProfiles) || this.settings.retrievalProfiles.length === 0) {
-      const storyFolders = /* @__PURE__ */ new Set();
-      storyFolders.add(this.settings.characterFolder);
       const parentOf = (p) => {
         const norm = (p || "").replace(/\\/g, "/");
         const idx = norm.lastIndexOf("/");
         return idx >= 0 ? norm.slice(0, idx) : "";
       };
-      storyFolders.add(parentOf(this.settings.book2Path));
-      storyFolders.add(parentOf(this.settings.storyBiblePath));
+      const storyFolders = /* @__PURE__ */ new Set();
+      if (this.settings.characterFolder)
+        storyFolders.add(this.settings.characterFolder);
+      const bookParent = parentOf(this.settings.book2Path);
+      if (bookParent)
+        storyFolders.add(bookParent);
+      const bibleParent = parentOf(this.settings.storyBiblePath);
+      if (bibleParent)
+        storyFolders.add(bibleParent);
       const storyIncluded = Array.from(storyFolders).map((s) => (s || "").replace(/\/+$/, "")).filter((s) => s.length > 0);
       this.settings.retrievalProfiles = [
-        { id: "story", name: "Story", includedFolders: storyIncluded },
+        { id: "story", name: "Story", includedFolders: storyIncluded.length > 0 ? storyIncluded : [] },
         { id: "research", name: "Research", includedFolders: ["Research", "Worldbuilding"] },
-        { id: "manuscript", name: "Manuscript only", includedFolders: parentOf(this.settings.book2Path) ? [parentOf(this.settings.book2Path)] : [] }
+        { id: "manuscript", name: "Manuscript only", includedFolders: bookParent ? [bookParent] : [] }
       ];
       this.settings.retrievalActiveProfileId = "story";
     }
