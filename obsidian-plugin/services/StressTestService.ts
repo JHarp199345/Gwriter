@@ -182,24 +182,44 @@ export class StressTestService {
 				const statusFinal = this.plugin.embeddingsIndex?.getStatus?.();
 				this.logEntry(`Final index status: ${statusFinal ? `${statusFinal.indexedFiles} files, ${statusFinal.indexedChunks} chunks, ${statusFinal.queued} queued` : 'N/A'}`);
 
+				// Check what's actually in the index
+				const indexedPaths = this.plugin.embeddingsIndex?.getIndexedPaths?.() || [];
+				const allChunks = this.plugin.embeddingsIndex?.getAllChunks?.() || [];
+				this.logEntry(`Actual indexed paths (getIndexedPaths): ${indexedPaths.length}`);
+				this.logEntry(`Actual chunks (getAllChunks): ${allChunks.length}`);
+				
+				if (indexedPaths.length > 0) {
+					this.logEntry(`Indexed files:`);
+					indexedPaths.slice(0, 10).forEach(path => {
+						this.logEntry(`  - ${path}`);
+					});
+					if (indexedPaths.length > 10) {
+						this.logEntry(`  ... and ${indexedPaths.length - 10} more`);
+					}
+				}
+
+				// Check BM25 index status
+				const bm25Status = this.plugin.bm25Index?.getStatus?.();
+				if (bm25Status) {
+					this.logEntry(`BM25 index status: ${bm25Status.indexedFiles} files, ${bm25Status.indexedChunks} chunks, ${bm25Status.queued} queued`);
+				}
+
 				if (statusFinal) {
 					if (statusFinal.queued > 0) {
 						this.logEntry(`⚠ WARNING: ${statusFinal.queued} files still queued - indexing may be slow or stuck`);
 					}
 					if (statusFinal.indexedFiles === 0 && allFiles.length > 0) {
-						this.logEntry(`⚠ ERROR: No files indexed despite ${allFiles.length} files available`);
+						this.logEntry(`⚠ ERROR: Status shows 0 files but getIndexedPaths() shows ${indexedPaths.length} files`);
+						this.logEntry(`  - This suggests a bug in status reporting OR chunks are being created then removed`);
 						this.logEntry(`  - Index paused: ${statusFinal.paused}`);
 						this.logEntry(`  - Semantic retrieval enabled: ${this.plugin.settings.retrievalEnableSemanticIndex}`);
 						this.logEntry(`  - Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || 'minilm'}`);
 						this.logEntry(`  - Check browser console (F12) for detailed worker logs`);
 						
-						// Try to get more info about what's happening
-						const indexedPaths = this.plugin.embeddingsIndex?.getIndexedPaths?.() || [];
-						this.logEntry(`  - Actually indexed paths: ${indexedPaths.length}`);
-						if (indexedPaths.length > 0) {
-							indexedPaths.slice(0, 5).forEach(path => {
-								this.logEntry(`    - ${path}`);
-							});
+						if (indexedPaths.length === 0 && allChunks.length === 0) {
+							this.logEntry(`  - CONFIRMED: No chunks exist in memory - embedding generation likely failing`);
+						} else if (indexedPaths.length > 0 || allChunks.length > 0) {
+							this.logEntry(`  - CONFIRMED: Chunks DO exist but status is wrong - bug in getStatus()`);
 						}
 					}
 				}
