@@ -45,6 +45,57 @@ export class VaultService {
 		return true; // Folder was created
 	}
 
+	/**
+	 * Ensure the parent folder of a file path exists. Creates it if missing.
+	 * Handles root-level files (no parent folder needed).
+	 */
+	async ensureParentFolder(filePath: string): Promise<void> {
+		const normalized = filePath.replace(/\\/g, '/');
+		const lastSlash = normalized.lastIndexOf('/');
+		if (lastSlash === -1) {
+			// Root-level file, no parent folder needed
+			return;
+		}
+		const parentPath = normalized.substring(0, lastSlash);
+		if (parentPath) {
+			await this.createFolderIfNotExists(parentPath);
+		}
+	}
+
+	/**
+	 * Find the latest story bible file in a folder matching the pattern "Story bible - *.md"
+	 * Returns the path of the latest file by modification time, or null if none found.
+	 */
+	findLatestStoryBible(folderPath: string): string | null {
+		const folder = this.vault.getAbstractFileByPath(folderPath);
+		if (!(folder instanceof TFolder)) {
+			return null;
+		}
+
+		const storyBibleFiles: TFile[] = [];
+		for (const child of folder.children) {
+			if (child instanceof TFile && child.extension === 'md') {
+				// Match pattern like "Story bible - YYYY-MM-DD.md" or "Story bible - merged YYYY-MM-DD.md"
+				if (child.basename.match(/^Story bible/i)) {
+					storyBibleFiles.push(child);
+				}
+			}
+		}
+
+		if (storyBibleFiles.length === 0) {
+			return null;
+		}
+
+		// Sort by modification time (newest first)
+		storyBibleFiles.sort((a, b) => {
+			const aTime = a.stat?.mtime || 0;
+			const bTime = b.stat?.mtime || 0;
+			return bTime - aTime;
+		});
+
+		return storyBibleFiles[0].path;
+	}
+
 	async setupDefaultStructure(items: Array<{type: 'file' | 'folder', path: string, content?: string}>): Promise<{created: string[], skipped: string[]}> {
 		const created: string[] = [];
 		const skipped: string[] = [];
@@ -267,6 +318,18 @@ export class VaultService {
 		const logsFolder = (this.plugin.settings.generationLogsFolder || '').replace(/\\/g, '/').replace(/\/+$/, '');
 		if (logsFolder) {
 			if (normalized === logsFolder || normalized.startsWith(`${logsFolder}/`)) return true;
+		}
+
+		// Retrieval profile include-set: if set, exclude anything not under included folders.
+		const profiles = this.plugin.settings.retrievalProfiles || [];
+		const activeId = this.plugin.settings.retrievalActiveProfileId;
+		const active = profiles.find((p) => p.id === activeId);
+		const includes = (active?.includedFolders || [])
+			.map((p) => (p || '').replace(/\\/g, '/').replace(/\/+$/, ''))
+			.filter((p) => p.length > 0);
+		if (includes.length > 0) {
+			const allowed = includes.some((inc) => normalized === inc || normalized.startsWith(`${inc}/`));
+			if (!allowed) return true;
 		}
 
 		const excluded = this.plugin.settings.retrievalExcludedFolders || [];

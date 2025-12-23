@@ -289,6 +289,18 @@ export class EmbeddingsIndex {
 		return Array.from(this.chunksByKey.values());
 	}
 
+	getIndexedPaths(): string[] {
+		return Array.from(this.chunkKeysByPath.keys());
+	}
+
+	/**
+	 * Queue all currently indexed paths for re-checking. This is useful when exclusions/profiles change.
+	 */
+	queueRecheckAllIndexed(): void {
+		for (const p of this.getIndexedPaths()) this.queue.add(p);
+		this._kickWorker();
+	}
+
 	getVectorForKey(key: string): number[] | null {
 		const ch = this.chunksByKey.get(key);
 		return ch?.vector ?? null;

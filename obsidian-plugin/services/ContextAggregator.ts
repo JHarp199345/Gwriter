@@ -69,23 +69,21 @@ export class ContextAggregator {
 		// More available tokens => more retrieved chunks to include.
 		const retrievedLimit = Math.min(200, Math.max(24, Math.floor(contextBudget / 12000)));
 		const retrievedContext = await this.getRetrievedContext(retrievalQuery, retrievedLimit);
+		
+		// Read book file only to extract sliding window (last 20k words), not full context
 		const book2Full = await this.readFile(settings.book2Path);
+		const slidingWindow = this.extractWordsFromEnd(book2Full, 20000);
+		
 		const storyBible = await this.readFile(settings.storyBiblePath);
-		const slidingWindow = await this.readFile(settings.slidingWindowPath);
 
-		// Allocate context budget by priority. Book 2 gets the remainder (tail).
-		const smartBudget = Math.floor(contextBudget * 0.30);
-		const bibleBudget = Math.floor(contextBudget * 0.18);
-		const extractionsBudget = Math.floor(contextBudget * 0.08);
-		const slidingBudget = Math.floor(contextBudget * 0.04);
-		const used =
-			smartBudget + bibleBudget + extractionsBudget + slidingBudget;
-		const book2Budget = Math.max(1000, contextBudget - used);
+		// Allocate context budget by priority. No book2 full context - only sliding window.
+		const smartBudget = Math.floor(contextBudget * 0.40);
+		const bibleBudget = Math.floor(contextBudget * 0.20);
+		const extractionsBudget = Math.floor(contextBudget * 0.10);
+		const slidingBudget = Math.floor(contextBudget * 0.08);
 
 		return {
 			smart_connections: this.trimHeadToBudget(retrievedContext, smartBudget, 'Retrieved context'),
-			// For continuation, the most recent manuscript tail matters most.
-			book2: this.trimTailToBudget(book2Full, book2Budget, 'Book 2'),
 			story_bible: this.trimHeadToBudget(storyBible, bibleBudget, 'Story bible'),
 			extractions: this.trimHeadToBudget(extractions, extractionsBudget, 'Extractions'),
 			sliding_window: this.trimHeadToBudget(slidingWindow, slidingBudget, 'Sliding window')
@@ -111,8 +109,11 @@ export class ContextAggregator {
 		const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
 		const contextBudget = Math.max(1000, limit - reserveForOutput - reserveForNonContext);
 
+		// Read book file only to extract sliding window (last 20k words), not full context
+		const book2Full = await this.readFile(settings.book2Path);
+		const slidingWindow = this.extractWordsFromEnd(book2Full, 20000);
+		
 		const storyBible = await this.readFile(settings.storyBiblePath);
-		const slidingWindow = await this.readFile(settings.slidingWindowPath);
 		const characterNotes = this.formatCharacterNotes(await this.getAllCharacterNotes());
 
 		// Retrieved context in micro-edit is a style/continuity echo; keep it smaller.

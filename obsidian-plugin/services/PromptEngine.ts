@@ -1,6 +1,5 @@
 export interface Context {
 	smart_connections?: string;
-	book2?: string;
 	story_bible?: string;
 	extractions?: string;
 	sliding_window?: string;
@@ -29,27 +28,19 @@ ${context.smart_connections || ''}
 Use these excerpts to maintain continuity, tone, and world consistency.
 
 -------------------------------------------------------------
-BOOK 2 — ACTIVE MANUSCRIPT (CONTINUE THIS)
--------------------------------------------------------------
-${context.book2 || ''}
-
-Continue this manuscript.
-
--------------------------------------------------------------
 STORY BIBLE + EXTRACTIONS — WORLD + RULESET
 -------------------------------------------------------------
 ${context.story_bible || ''}
 ${context.extractions || ''}
 
 These define rules of the world, character arcs, faction details, timelines, technology, tone, themes, motifs, and relationship structure.
-These override Book 2 in cases of conflict.
 
 -------------------------------------------------------------
-SLIDING WINDOW — IMMEDIATE CONTEXT
+SLIDING WINDOW — IMMEDIATE CONTEXT (LAST 20K WORDS)
 -------------------------------------------------------------
 ${context.sliding_window || ''}
 
-Continue directly from this.
+Continue directly from this. This is the most recent portion of your active manuscript.
 
 -------------------------------------------------------------
 REWRITE INSTRUCTIONS
@@ -69,14 +60,13 @@ Between ${minWords} and ${maxWords} words (aim for the middle unless the scene r
 -------------------------------------------------------------
 SUMMARY OF YOUR ROLE
 -------------------------------------------------------------
-- Retrieved context = continuity references
-- Book 2 = active writing
+- Retrieved context = continuity references from whole vault (including previous books)
+- Sliding Window = direct lead-in (last 20k words of active manuscript)
 - Story Bible + Extractions = world + theme rules
-- Sliding Window = direct lead-in
 - Rewrite Instructions = style and constraints
 - Scene Summary = outline to be rewritten into full prose
 
-Continue writing Book 2 using all provided context.
+Continue writing using the sliding window context and retrieved references for continuity.
 Maintain perfect continuity and match the author's voice.`;
 	}
 
@@ -153,6 +143,72 @@ Generate a SINGLE refined alternative to the selected passage that:
 5. Flows seamlessly when inserted into the manuscript, creating smooth transitions with the text before and after
 
 Output ONLY the revised passage, ready to be copy-pasted into the manuscript.`;
+	}
+
+	buildContinuityCheckPrompt(params: {
+		draft: string;
+		context: Context;
+		focus: { knowledge: boolean; timeline: boolean; pov: boolean; naming: boolean };
+	}): string {
+		const focusLines: string[] = [];
+		if (params.focus.knowledge) focusLines.push('- Character knowledge state');
+		if (params.focus.timeline) focusLines.push('- Timeline / injuries / locations');
+		if (params.focus.pov) focusLines.push('- POV drift and voice consistency');
+		if (params.focus.naming) focusLines.push('- Naming consistency / aliases');
+
+		return `SYSTEM INSTRUCTION FOR AI:
+
+You are a continuity QA editor for a long-form fiction project.
+
+You will audit the provided draft against canon and context, then produce a concise report of continuity issues and suggested patches.
+
+Focus areas:
+${focusLines.length ? focusLines.join('\n') : '- General continuity'}
+
+Rules:
+- Evidence-based only: cite exact quotes from the draft and from context when possible.
+- Do not invent canon. If something is unknown, mark it as \"Needs confirmation\".
+- Keep the report short and actionable.
+
+-------------------------------------------------------------
+STORY BIBLE + EXTRACTIONS (CANON)
+-------------------------------------------------------------
+${params.context.story_bible || ''}
+${params.context.extractions || ''}
+
+-------------------------------------------------------------
+CHARACTER NOTES (VOICE + STATE)
+-------------------------------------------------------------
+${params.context.character_notes || ''}
+
+-------------------------------------------------------------
+RETRIEVED CONTEXT (WHOLE VAULT)
+-------------------------------------------------------------
+${params.context.smart_connections || ''}
+
+-------------------------------------------------------------
+SLIDING WINDOW — IMMEDIATE CONTEXT (LAST 20K WORDS)
+-------------------------------------------------------------
+${params.context.sliding_window || ''}
+
+-------------------------------------------------------------
+DRAFT TO CHECK
+-------------------------------------------------------------
+${params.draft}
+
+-------------------------------------------------------------
+OUTPUT FORMAT (required)
+-------------------------------------------------------------
+## Continuity report
+- Severity: Low | Medium | High
+- Issue: ...
+- Evidence (draft): \"...\"
+- Evidence (canon/context): \"...\" (or [none found])
+- Suggested fix: ...
+
+## Suggested patches (optional)
+- Provide small replacement blocks only when you are confident.
+- If a patch is risky, do not provide it; keep it as a suggested fix instead.`;
 	}
 
 	buildCharacterExtractionPrompt(

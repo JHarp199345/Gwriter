@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import WritingDashboardPlugin from '../main';
 import { SetupWizardModal } from './SetupWizard';
+import { FileTreePickerModal } from './FileTreePickerModal';
 
 // Model lists for each provider
 const OPENAI_MODELS = [
@@ -172,6 +173,114 @@ export class SettingsTab extends PluginSettingTab {
 
 		// Retrieval / indexing settings
 		new Setting(containerEl).setName('Retrieval').setHeading();
+
+		// Retrieval profile (folder include-set)
+		const profiles = Array.isArray(this.plugin.settings.retrievalProfiles) ? this.plugin.settings.retrievalProfiles : [];
+		const activeProfileId = this.plugin.settings.retrievalActiveProfileId;
+
+		new Setting(containerEl)
+			.setName('Retrieval profile')
+			.setDesc('Controls which folders are included for retrieval and indexing. Use this to avoid pulling irrelevant vault content.')
+			.addDropdown((dropdown) => {
+				for (const p of profiles) dropdown.addOption(p.id, p.name);
+				dropdown.setValue(activeProfileId || (profiles[0]?.id ?? 'story'));
+				dropdown.onChange(async (value) => {
+					this.plugin.settings.retrievalActiveProfileId = value;
+					await this.plugin.saveSettings();
+					this.plugin.embeddingsIndex.queueRecheckAllIndexed();
+					this.plugin.bm25Index.queueRecheckAllIndexed();
+					this.plugin.embeddingsIndex.enqueueFullRescan();
+					this.plugin.bm25Index.enqueueFullRescan();
+					this.display();
+				});
+			});
+
+		const activeProfile = profiles.find((p) => p.id === activeProfileId) ?? profiles[0];
+		if (activeProfile) {
+			new Setting(containerEl)
+				.setName('Profile name')
+				.setDesc('Rename the active profile.')
+				.addText((text) =>
+					text.setValue(activeProfile.name).onChange(async (value) => {
+						const nextName = value.trim() || activeProfile.name;
+						activeProfile.name = nextName;
+						this.plugin.settings.retrievalProfiles = profiles;
+						await this.plugin.saveSettings();
+					})
+				);
+
+			// Create/delete profiles
+			let newProfileName = '';
+			new Setting(containerEl)
+				.setName('Create profile')
+				.setDesc('Create a new retrieval profile.')
+				.addText((text) =>
+					text.setPlaceholder('New profile name').onChange((value) => {
+						newProfileName = value;
+					})
+				)
+				.addButton((btn) =>
+					btn.setButtonText('Create').setCta().onClick(async () => {
+						const name = (newProfileName || '').trim();
+						if (!name) return;
+						const id = `custom-${Date.now()}`;
+						this.plugin.settings.retrievalProfiles = [...profiles, { id, name, includedFolders: [] }];
+						this.plugin.settings.retrievalActiveProfileId = id;
+						await this.plugin.saveSettings();
+						this.display();
+					})
+				);
+
+			if (!['story', 'research', 'manuscript'].includes(activeProfile.id)) {
+				new Setting(containerEl)
+					.setName('Delete profile')
+					.setDesc('Deletes the active profile.')
+					.addButton((btn) =>
+						btn.setButtonText('Delete').onClick(async () => {
+							this.plugin.settings.retrievalProfiles = profiles.filter((p) => p.id !== activeProfile.id);
+							this.plugin.settings.retrievalActiveProfileId = this.plugin.settings.retrievalProfiles[0]?.id || 'story';
+							await this.plugin.saveSettings();
+							this.plugin.embeddingsIndex.enqueueFullRescan();
+							this.plugin.bm25Index.enqueueFullRescan();
+							this.display();
+						})
+					);
+			}
+
+			// Live folder roster for includes
+			const folderRoster = this.plugin.vaultService.getAllFolderPaths();
+			const configDir = this.plugin.app.vault.configDir.replace(/\\/g, '/').replace(/\/+$/, '');
+			const logsFolder = (this.plugin.settings.generationLogsFolder || '').replace(/\\/g, '/').replace(/\/+$/, '');
+			const includes = new Set<string>((activeProfile.includedFolders || []).map((p) => p.replace(/\\/g, '/')));
+			const profileContainer = containerEl.createDiv({ cls: 'writing-dashboard-exclusions' });
+			new Setting(profileContainer)
+				.setName('Included folders')
+				.setDesc('Only these folders are searched and indexed. Leave empty to include the whole vault (minus exclusions).');
+
+			for (const folder of folderRoster) {
+				const normalized = folder.replace(/\\/g, '/');
+				const isProtected =
+					(normalized === configDir || normalized.startsWith(`${configDir}/`)) ||
+					(logsFolder && (normalized === logsFolder || normalized.startsWith(`${logsFolder}/`)));
+				const isChecked = includes.has(normalized);
+				new Setting(profileContainer)
+					.setName(normalized)
+					.addToggle((toggle) =>
+						toggle.setValue(isChecked).setDisabled(isProtected).onChange(async (value) => {
+							const next = new Set<string>((activeProfile.includedFolders || []).map((p) => p.replace(/\\/g, '/')));
+							if (value) next.add(normalized);
+							else next.delete(normalized);
+							activeProfile.includedFolders = Array.from(next).sort((a, b) => a.localeCompare(b));
+							this.plugin.settings.retrievalProfiles = profiles;
+							await this.plugin.saveSettings();
+							this.plugin.embeddingsIndex.queueRecheckAllIndexed();
+							this.plugin.bm25Index.queueRecheckAllIndexed();
+							this.plugin.embeddingsIndex.enqueueFullRescan();
+							this.plugin.bm25Index.enqueueFullRescan();
+						})
+					);
+			}
+		}
 
 		new Setting(containerEl)
 			.setName('Enable BM25 retrieval')
@@ -536,15 +645,22 @@ export class SettingsTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		new Setting(containerEl)
-			.setName('Book main path')
-			.setDesc('Path to your active manuscript')
-			.addText(text => text
-				.setPlaceholder('Book-main.md')
-				.setValue(this.plugin.settings.book2Path)
-				.onChange(async (value) => {
-					this.plugin.settings.book2Path = value;
-					await this.plugin.saveSettings();
+		const bookFileSetting = new Setting(containerEl)
+			.setName('Book main file')
+			.setDesc(`Current: ${this.plugin.settings.book2Path || '(none selected)'}`)
+			.addButton(button => button
+				.setButtonText(this.plugin.settings.book2Path ? this.plugin.settings.book2Path.split('/').pop() || 'Select book file' : 'Select book file')
+				.onClick(() => {
+					const modal = new FileTreePickerModal(this.plugin, {
+						currentPath: this.plugin.settings.book2Path,
+						onPick: async (filePath) => {
+							this.plugin.settings.book2Path = filePath;
+							await this.plugin.saveSettings();
+							// Refresh the setting to update the button text and desc
+							this.display();
+						}
+					});
+					modal.open();
 				}));
 
 		new Setting(containerEl)

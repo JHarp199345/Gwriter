@@ -4,7 +4,7 @@ import type WritingDashboardPlugin from '../main';
 import { fnv1a32 } from './ContentHash';
 
 export interface GenerationLogStart {
-	mode: 'chapter' | 'micro-edit' | 'character-update' | 'story-bible' | 'publish';
+	mode: 'chapter' | 'micro-edit' | 'character-update' | 'continuity-check' | 'story-bible' | 'publish';
 	title: string;
 	model: string;
 	provider: string;

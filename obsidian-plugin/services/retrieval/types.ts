@@ -1,4 +1,4 @@
-export type RetrievalMode = 'chapter' | 'micro-edit' | 'character-update';
+export type RetrievalMode = 'chapter' | 'micro-edit' | 'character-update' | 'continuity-check';
 
 export interface RetrievalQuery {
 	/**

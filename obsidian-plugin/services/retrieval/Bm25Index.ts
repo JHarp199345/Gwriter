@@ -121,6 +121,18 @@ export class Bm25Index {
 		};
 	}
 
+	getIndexedPaths(): string[] {
+		return Array.from(this.chunkKeysByPath.keys());
+	}
+
+	/**
+	 * Queue all currently indexed paths for re-checking. This is useful when exclusions/profiles change.
+	 */
+	queueRecheckAllIndexed(): void {
+		for (const p of this.getIndexedPaths()) this.queue.add(p);
+		this._kickWorker();
+	}
+
 	async ensureLoaded(): Promise<void> {
 		if (this.loaded) return;
 		this.loaded = true;

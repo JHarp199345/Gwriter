@@ -7,8 +7,9 @@ A writing dashboard plugin that integrates AI-powered chapter generation, micro-
 1. Install and enable **Writing dashboard**.
 2. Open **Settings → Writing dashboard**.
 3. Choose an **API provider**, paste your **API key**, and select a **model**.
-4. Set **Book main path** to your active manuscript note.
-5. Open the dashboard:
+4. Set **Book main file** using the file tree picker in settings (select your active manuscript note from the dropdown).
+5. Optional but recommended: set **Story bible path**.
+6. Open the dashboard:
    - Ribbon icon: **Open dashboard**
    - Command palette: **Open dashboard**
 
@@ -21,14 +22,16 @@ A writing dashboard plugin that integrates AI-powered chapter generation, micro-
 
 ## Features
 
-### 🎯 Three Writing Modes
+### 🎯 Writing modes
 
-1. **Chapter Generate** - Generate new chapters using your slate method, pulling from:
-   - Retrieved context (whole vault)
+1. **Generate chapter** - Generate new chapters using your slate method, pulling from:
+   - Retrieved context (whole vault) - RAG retrieval from all indexed files
    - Story Bible + Extractions
-   - Sliding Window (immediate context)
+   - Sliding Window - Last 20,000 words of your active manuscript (extracted automatically)
    - Your Scene Summary + Rewrite Instructions
    - Target word **range** (Min/Max)
+
+   **Important**: The plugin only sends the last 20,000 words of your active manuscript (sliding window) to the AI, not full book files. Continuity is maintained through RAG retrieval from your whole vault.
 
 2. **Micro Edit** - Refine specific passages with:
    - Selected text analysis
@@ -45,6 +48,10 @@ A writing dashboard plugin that integrates AI-powered chapter generation, micro-
      - Pick which file to process (Book 1 / Book 2 / any note)
      - Splits by H1 chapter headings (`# `)
      - 2-pass pipeline (roster pass + per-chapter extraction)
+
+4. **Continuity check** - Scan a draft against canon and context:
+   - Flags violations with evidence
+   - Provides suggested patches (copy/paste)
 
 ### 📁 Vault Integration
 
@@ -85,9 +92,10 @@ A writing dashboard plugin that integrates AI-powered chapter generation, micro-
    - **Model**: examples: `gpt-4o`, `claude-3-5-sonnet`, `gemini-2.5-pro`
    - **Vault Path**: Auto-detected, but can be overridden
    - **Character Folder**: Default is `Characters`
-   - **File Paths**: Configure paths to your Story Bible, Extractions, Sliding Window, etc.
+   - **Book main file**: Use the file tree picker to select your active manuscript (supports files at root or in folders)
+   - **File Paths**: Configure paths to your Story Bible, Extractions, etc.
 
-Note: model names change frequently. The plugin sends the model id you enter to your chosen provider.
+Note: The sliding window is automatically extracted from your book main file (last 20,000 words), so no separate sliding window path is needed. Model names change frequently. The plugin sends the model id you enter to your chosen provider.
 
 ## Usage
 
@@ -110,21 +118,36 @@ Note: model names change frequently. The plugin sends the model id you enter to 
 1. Select **Micro Edit** mode
 2. Paste the problematic passage in "Selected Text"
 3. Enter your grievances/directives in "Grievances and directives"
-4. Click **Generate Edit**
-5. Copy the refined alternative and paste into your manuscript
+4. Optional: click **Preview prompt** to see the exact prompt that will be sent.
+5. Click **Generate Edit**
+6. The plugin automatically includes 500 words before and after your selection for context
+7. Copy the refined alternative and paste into your manuscript
 
 ### Character Updates
 
 1. Select **Character Update** mode
 2. Paste character-relevant text in "Selected Text"
-3. Click **Update Characters**
-4. Character notes will be updated with timestamped entries
+3. Optional: click **Preview prompt** to see the extraction prompt.
+4. Click **Update Characters**
+5. Character notes will be updated with timestamped entries in the `Characters/` folder
 
 Bulk character backfill:
 1. Select **Character Update** mode
 2. Click **Select file to process** and choose the manuscript you want to scan
 3. Click **Process Entire Book**
 4. The plugin performs a 2-pass scan (roster + per-chapter extraction) and updates character notes
+
+### Story Bible Updates
+
+1. Select **Chapter Generate** mode
+2. Enter text in "Selected Text" field (the new content to extract story bible updates from)
+3. Click **Update story bible**
+4. The plugin extracts deltas and merges them with your existing story bible
+5. Review the merged output and choose:
+   - **Save merged story bible** - Saves to `Story bibles/Story bible - YYYY-MM-DD.md` and auto-updates the active story bible path in settings
+   - **Replace story bible** - Saves new versioned file and updates the path
+
+The dashboard displays your current book file path at the top of the main workspace for quick reference.
 
 ## Publishing
 
@@ -149,14 +172,19 @@ These paths are configurable in settings. The names below are recommended defaul
 
 - `Characters/`
   - One note per character (auto-updated by Character update).
-- **Book main path** (your manuscript note)
-  - The active manuscript the dashboard reads for context and chunking.
+- **Book main file** (your manuscript note)
+  - The active manuscript you're currently writing.
+  - Used to extract the sliding window (last 20,000 words) for immediate context.
+  - Continuity with previous books/chapters comes from RAG retrieval, not full file loads.
 - **Story bible path**
   - Canon rules, arcs, timelines, constraints.
-- **Sliding window path**
-  - Short “what just happened” context for better continuity.
+  - When you save updated story bibles, they're automatically saved to `Story bibles/` folder with timestamps.
+  - The plugin auto-updates the active story bible path when you save new versions.
 - **Extractions path** (optional)
   - Any distilled notes/summaries/constraints you want included in prompts.
+- `Story bibles/` (created automatically when saving story bible updates)
+  - Versioned story bible files (e.g., `Story bible - 2024-12-20.md`)
+  - The plugin automatically uses the latest version when configured.
 
 ## Architecture
 
@@ -168,9 +196,12 @@ This plugin is **fully self-contained**:
 
 ## Retrieval (local RAG)
 
-The dashboard uses retrieval-augmented generation (RAG) to pull relevant context from your vault before asking the model to write.
+The dashboard uses retrieval-augmented generation (RAG) to pull relevant context from your vault before asking the model to write. **This is how the plugin maintains continuity across large manuscripts** - instead of sending full book files to the AI, it retrieves relevant chunks from your entire vault.
+
+**Context efficiency**: The plugin only sends the last 20,000 words of your active manuscript (sliding window) to the AI, not full book files. Full continuity with previous books and chapters comes from RAG retrieval.
 
 - **Whole-vault retrieval**: searches your vault (excluding folders you choose in settings) for relevant snippets.
+- **Retrieval profiles**: optionally restrict retrieval/indexing to a folder include list (story-only, research-heavy, manuscript-only, or your own custom profiles).
 - **Hybrid ranking**: combines heuristic matching, **BM25** (search-engine lexical ranking), and an optional semantic index.
 - **Local embeddings**: semantic retrieval runs locally (no external vector database).
 - **Diversity**: uses MMR-style selection to reduce near-duplicate snippets.

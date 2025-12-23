@@ -1,6 +1,6 @@
 import React from 'react';
 
-type Mode = 'chapter' | 'micro-edit' | 'character-update';
+type Mode = 'chapter' | 'micro-edit' | 'character-update' | 'continuity-check';
 
 export const ModeSelector: React.FC<{
 	mode: Mode;
@@ -14,9 +14,10 @@ export const ModeSelector: React.FC<{
 				onChange={(e) => onChange(e.target.value as Mode)}
 				className="mode-dropdown"
 			>
-				<option value="chapter">Chapter generate</option>
+				<option value="chapter">Generate chapter</option>
 				<option value="micro-edit">Micro edit</option>
 				<option value="character-update">Character update</option>
+				<option value="continuity-check">Continuity check</option>
 			</select>
 		</div>
 	);

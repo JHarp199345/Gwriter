@@ -11,8 +11,9 @@ import { estimateTokens } from '../services/TokenEstimate';
 import { FilePickerModal } from './FilePickerModal';
 import { parseCharacterRoster, rosterToBulletList } from '../services/CharacterRoster';
 import { showConfirmModal } from './ConfirmModal';
+import { PromptPreviewModal } from './PromptPreviewModal';
 
-type Mode = 'chapter' | 'micro-edit' | 'character-update';
+type Mode = 'chapter' | 'micro-edit' | 'character-update' | 'continuity-check';
 type DemoStep = 'off' | 'chapter' | 'micro-edit' | 'character-update' | 'done';
 
 const DEFAULT_REWRITE_INSTRUCTIONS =
@@ -52,19 +53,15 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			return false;
 		}
 	});
-	const [selectedText, setSelectedText] = useState('');
-	const [directorNotes, setDirectorNotes] = useState('');
+	const [modeState, setModeState] = useState(() => plugin.settings.modeState);
 	const [storyBibleDelta, setStoryBibleDelta] = useState<string>('');
 
 	// Background warm retrieval while the user types (no UI preview).
 	const warmTimerRef = useRef<number | null>(null);
 	const warmReqIdRef = useRef<number>(0);
-	const [minWords, setMinWords] = useState(2000);
-	const [maxWords, setMaxWords] = useState(6000);
-	// Keep a string buffer so users can clear/edit the number inputs naturally.
-	// We clamp/commit to numeric state on blur/Enter.
-	const [minWordsInput, setMinWordsInput] = useState<string>('2000');
-	const [maxWordsInput, setMaxWordsInput] = useState<string>('6000');
+	const modeStateSaveTimerRef = useRef<number | null>(null);
+	const [minWordsInput, setMinWordsInput] = useState<string>(String(plugin.settings.modeState.chapter.minWords ?? 2000));
+	const [maxWordsInput, setMaxWordsInput] = useState<string>(String(plugin.settings.modeState.chapter.maxWords ?? 6000));
 	const [generatedText, setGeneratedText] = useState('');
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [generationStage, setGenerationStage] = useState<string>('');
@@ -83,6 +80,59 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [bulkSourcePath, setBulkSourcePath] = useState<string | undefined>(
 		plugin.settings.characterExtractionSourcePath
 	);
+
+	const getMainInputValue = (): string => {
+		if (mode === 'chapter') return modeState.chapter.sceneSummary || '';
+		if (mode === 'micro-edit') return modeState.microEdit.selectedPassage || '';
+		if (mode === 'character-update') return modeState.characterUpdate.selectedText || '';
+		return modeState.continuityCheck.draftText || '';
+	};
+
+	const getNotesValue = (): string => {
+		if (mode === 'chapter') return modeState.chapter.rewriteInstructions || '';
+		if (mode === 'micro-edit') return modeState.microEdit.grievances || '';
+		if (mode === 'character-update') return modeState.characterUpdate.extractionInstructions || '';
+		return '';
+	};
+
+	const scheduleModeStateSave = (next: typeof modeState) => {
+		if (modeStateSaveTimerRef.current) window.clearTimeout(modeStateSaveTimerRef.current);
+		modeStateSaveTimerRef.current = window.setTimeout(() => {
+			modeStateSaveTimerRef.current = null;
+			plugin.settings.modeState = next;
+			void plugin.saveSettings().catch(() => {
+				// ignore
+			});
+		}, 350);
+	};
+
+	const updateMainInput = (value: string) => {
+		setModeState((prev) => {
+			const next =
+				mode === 'chapter'
+					? { ...prev, chapter: { ...prev.chapter, sceneSummary: value } }
+					: mode === 'micro-edit'
+					? { ...prev, microEdit: { ...prev.microEdit, selectedPassage: value } }
+					: mode === 'character-update'
+					? { ...prev, characterUpdate: { ...prev.characterUpdate, selectedText: value } }
+					: { ...prev, continuityCheck: { ...prev.continuityCheck, draftText: value } };
+			scheduleModeStateSave(next);
+			return next;
+		});
+	};
+
+	const updateNotes = (value: string) => {
+		setModeState((prev) => {
+			const next =
+				mode === 'chapter'
+					? { ...prev, chapter: { ...prev.chapter, rewriteInstructions: value } }
+					: mode === 'micro-edit'
+					? { ...prev, microEdit: { ...prev.microEdit, grievances: value } }
+					: { ...prev, characterUpdate: { ...prev.characterUpdate, extractionInstructions: value } };
+			scheduleModeStateSave(next);
+			return next;
+		});
+	};
 
 	const DEMO_FOLDER = 'Writing dashboard demo';
 	const DEMO_CHARACTER_FOLDER = `${DEMO_FOLDER}/Characters`;
@@ -136,6 +186,16 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		`“Someone’s already here,” she whispered.\n\n` +
 		`Marcus’s voice dropped. “Or someone was.”`;
 
+	const DEMO_CONTINUITY_OUTPUT =
+		`## Continuity report\n` +
+		`- Severity: Medium\n` +
+		`- Issue: Naming consistency\n` +
+		`- Evidence (draft): \"Dr. Priya Armintastani\"\n` +
+		`- Evidence (canon/context): \"Priya Armintastani\" (character note)\n` +
+		`- Suggested fix: Use one canonical name consistently.\n\n` +
+		`## Suggested patches (optional)\n` +
+		`- Replace \"Dr. Priya Armintastani\" with \"Priya Armintastani\" if that matches canon.\n`;
+
 	const DEMO_CHARACTER_EXTRACTION_OUTPUT =
 		`## Ava\n` +
 		`- Highly cautious and methodical; tracks security camera rhythm and uses timing to avoid detection.\n` +
@@ -160,6 +220,87 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		}
 	};
 
+	const handlePreviewPrompt = async () => {
+		if (!plugin.settings.apiKey && !isGuidedDemoActive) {
+			// Preview is still useful without a key, but retrieval/context building is the same.
+		}
+
+		setIsGenerating(true);
+		setError(null);
+		setGenerationStage('Building prompt preview...');
+		try {
+			let prompt = '';
+			let context;
+			const mainInput = getMainInputValue();
+			const notes = getNotesValue();
+
+			if (mode === 'chapter') {
+				const retrievalQuery = plugin.queryBuilder.build({
+					mode: 'chapter',
+					activeFilePath: plugin.lastOpenedMarkdownPath ?? plugin.settings.book2Path,
+					primaryText: mainInput,
+					directorNotes: notes
+				});
+				context = await plugin.contextAggregator.getChapterContext(retrievalQuery);
+				const minCfg = modeState.chapter.minWords ?? 2000;
+				const maxCfg = modeState.chapter.maxWords ?? 6000;
+				const min = Math.max(100, Math.min(minCfg, maxCfg));
+				const max = Math.max(100, Math.max(minCfg, maxCfg));
+				prompt = plugin.promptEngine.buildChapterPrompt(context, notes, mainInput, min, max);
+			} else if (mode === 'micro-edit') {
+				const retrievalQuery = plugin.queryBuilder.build({
+					mode: 'micro-edit',
+					activeFilePath: plugin.lastOpenedMarkdownPath ?? plugin.settings.book2Path,
+					primaryText: mainInput,
+					directorNotes: notes
+				});
+				context = await plugin.contextAggregator.getMicroEditContext(mainInput, retrievalQuery);
+				prompt = plugin.promptEngine.buildMicroEditPrompt(mainInput, notes, context);
+			} else if (mode === 'continuity-check') {
+				const retrievalQuery = plugin.queryBuilder.build({
+					mode: 'continuity-check',
+					activeFilePath: plugin.lastOpenedMarkdownPath ?? plugin.settings.book2Path,
+					primaryText: mainInput,
+					directorNotes: ''
+				});
+				context = await plugin.contextAggregator.getMicroEditContext(mainInput, retrievalQuery);
+				prompt = plugin.promptEngine.buildContinuityCheckPrompt({
+					draft: mainInput,
+					context,
+					focus: modeState.continuityCheck.focus
+				});
+			} else {
+				// character update prompt preview
+				const characterNotes = await plugin.contextAggregator.getCharacterNotes();
+				const storyBible = await plugin.contextAggregator.readFile(plugin.settings.storyBiblePath);
+				const instructions = (modeState.characterUpdate.extractionInstructions || '').trim();
+				prompt = plugin.promptEngine.buildCharacterExtractionPrompt(
+					mainInput,
+					characterNotes,
+					storyBible,
+					instructions,
+					''
+				);
+			}
+
+			const tokens = estimateTokens(prompt);
+			new PromptPreviewModal(plugin.app, {
+				title: 'Prompt preview',
+				prompt,
+				stats: [
+					{ label: 'Estimated tokens', value: tokens.toLocaleString() },
+					{ label: 'Characters', value: prompt.length.toLocaleString() }
+				]
+			}).open();
+		} catch (err: unknown) {
+			const message = formatUnknownForUi(err);
+			setError(message || 'Prompt preview failed');
+		} finally {
+			setGenerationStage('');
+			setIsGenerating(false);
+		}
+	};
+
 	const openPublishWizard = () => {
 		try {
 			plugin.showPublishWizard();
@@ -177,6 +318,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		return Math.max(100, Math.min(2_000_000, parsed));
 	};
 
+	const selectedText = getMainInputValue();
+	const directorNotes = getNotesValue();
+
 	const startGuidedDemo = () => {
 		// Mark as shown so we don't auto-start repeatedly for the same vault.
 		if (!plugin.settings.guidedDemoShownOnce) {
@@ -192,23 +336,37 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		setGeneratedText('');
 
 		// Smaller range to keep demo fast/cheap
-		setMinWords(800);
-		setMaxWords(1200);
+		setModeState((prev) => {
+			const next = {
+				...prev,
+				chapter: { ...prev.chapter, minWords: 800, maxWords: 1200 }
+			};
+			scheduleModeStateSave(next);
+			return next;
+		});
 		setMinWordsInput('800');
 		setMaxWordsInput('1200');
 
 		// Step 1: chapter generate
 		setMode('chapter');
-		setSelectedText(
-			[
-				'Write a tense, character-driven scene set at night in a quiet city.',
-				'Include two named characters: Ava (the protagonist) and Marcus (an uneasy ally).',
-				'Ava is trying to recover a stolen keycard without alerting security.',
-				'Marcus pushes for a riskier plan; Ava stays cautious.',
-				'End with a cliffhanger discovery (a hidden message or unexpected witness).'
-			].join('\n')
-		);
-		setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS);
+		setModeState((prev) => {
+			const next = {
+				...prev,
+				chapter: {
+					...prev.chapter,
+					sceneSummary: [
+						'Write a tense, character-driven scene set at night in a quiet city.',
+						'Include two named characters: Ava (the protagonist) and Marcus (an uneasy ally).',
+						'Ava is trying to recover a stolen keycard without alerting security.',
+						'Marcus pushes for a riskier plan; Ava stays cautious.',
+						'End with a cliffhanger discovery (a hidden message or unexpected witness).'
+					].join('\n'),
+					rewriteInstructions: DEFAULT_REWRITE_INSTRUCTIONS
+				}
+			};
+			scheduleModeStateSave(next);
+			return next;
+		});
 
 		setDemoStep('chapter');
 		setDemoStepCompleted({
@@ -225,14 +383,14 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		);
 	};
 
-	// Keep input buffers in sync when numeric values change (e.g., demo start)
+	// Keep word-range input buffers in sync with persisted chapter values.
 	useEffect(() => {
-		setMinWordsInput(String(minWords));
-	}, [minWords]);
+		setMinWordsInput(String(modeState.chapter.minWords ?? 2000));
+	}, [modeState.chapter.minWords]);
 
 	useEffect(() => {
-		setMaxWordsInput(String(maxWords));
-	}, [maxWords]);
+		setMaxWordsInput(String(modeState.chapter.maxWords ?? 6000));
+	}, [modeState.chapter.maxWords]);
 
 	// Poll index status while the dashboard is open (cheap + reliable).
 	useEffect(() => {
@@ -290,11 +448,17 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			// Step 2: micro edit (uses generated output excerpt)
 			const excerpt = (generatedText || '').slice(0, 1200).trim();
 			setMode('micro-edit');
-			setSelectedText(
-				excerpt.length > 0
-					? excerpt
-					: 'Paste a paragraph here, then click Generate edit.'
-			);
+			setModeState((prev) => {
+				const next = {
+					...prev,
+					microEdit: {
+						...prev.microEdit,
+						selectedPassage: excerpt.length > 0 ? excerpt : 'Paste a paragraph here, then click Generate edit.'
+					}
+				};
+				scheduleModeStateSave(next);
+				return next;
+			});
 			setDemoStep('micro-edit');
 			return;
 		}
@@ -303,11 +467,18 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			// Step 3: character update (uses latest output excerpt)
 			const excerpt = (generatedText || '').slice(0, 1500).trim();
 			setMode('character-update');
-			setSelectedText(
-				excerpt.length > 0
-					? excerpt
-					: 'Paste character-relevant text here, then click Update characters.'
-			);
+			setModeState((prev) => {
+				const next = {
+					...prev,
+					characterUpdate: {
+						...prev.characterUpdate,
+						selectedText:
+							excerpt.length > 0 ? excerpt : 'Paste character-relevant text here, then click Update characters.'
+					}
+				};
+				scheduleModeStateSave(next);
+				return next;
+			});
 			setDemoStep('character-update');
 			return;
 		}
@@ -325,30 +496,19 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		}
 	};
 
-	// Chapter mode default instructions
+	// Chapter default instructions: if blank, seed once.
 	useEffect(() => {
-		const trimmed = (directorNotes || '').trim();
-		const isBlank = trimmed.length === 0;
-		const chapterDefault = DEFAULT_REWRITE_INSTRUCTIONS.trim();
-		const characterDefault = (plugin.settings.defaultCharacterExtractionInstructions || '').trim();
-
-		// Two-way overwrite between the two defaults:
-		// - entering chapter: if blank OR still the character-update default, set chapter default
-		// - entering character-update: if blank OR still the chapter default, set character default
-		if (mode === 'chapter') {
-			if (isBlank || (characterDefault && trimmed === characterDefault)) {
-				setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS);
-			}
-		} else if (mode === 'character-update') {
-			if (isBlank || trimmed === chapterDefault) {
-				setDirectorNotes(plugin.settings.defaultCharacterExtractionInstructions || '');
-			}
-		} else if (mode === 'micro-edit') {
-			// Always clear so the placeholder guidance is visible.
-			setDirectorNotes('');
-		}
-		// Only run when mode changes (intentional)
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: defaults apply only on mode switch
+		if (mode !== 'chapter') return;
+		if ((modeState.chapter.rewriteInstructions || '').trim()) return;
+		setModeState((prev) => {
+			const next = {
+				...prev,
+				chapter: { ...prev.chapter, rewriteInstructions: DEFAULT_REWRITE_INSTRUCTIONS }
+			};
+			scheduleModeStateSave(next);
+			return next;
+		});
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: apply only on mode enter
 	}, [mode]);
 
 	// Start guided demo if requested by plugin command/settings/wizard
@@ -388,6 +548,22 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: sync label only on mode switch
 	}, [mode]);
 
+	// If user enters continuity check and draft is empty, seed it from the last generated output.
+	useEffect(() => {
+		if (mode !== 'continuity-check') return;
+		if ((modeState.continuityCheck.draftText || '').trim()) return;
+		if (!generatedText.trim()) return;
+		setModeState((prev) => {
+			const next = {
+				...prev,
+				continuityCheck: { ...prev.continuityCheck, draftText: generatedText }
+			};
+			scheduleModeStateSave(next);
+			return next;
+		});
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: seed only on mode enter
+	}, [mode]);
+
 	useEffect(() => {
 		try {
 			window.localStorage.setItem(
@@ -402,8 +578,8 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	useEffect(() => {
 		// Warm retrieval only for chapter/micro-edit while typing.
 		if (mode === 'character-update') return;
-		const primaryText = (selectedText || '').trim();
-		const notes = (directorNotes || '').trim();
+		const primaryText = getMainInputValue().trim();
+		const notes = getNotesValue().trim();
 		if (!primaryText && !notes) return;
 
 		if (warmTimerRef.current) window.clearTimeout(warmTimerRef.current);
@@ -411,7 +587,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 		warmTimerRef.current = window.setTimeout(() => {
 			const retrievalQuery = plugin.queryBuilder.build({
-				mode: mode === 'chapter' ? 'chapter' : 'micro-edit',
+				mode: mode === 'chapter' ? 'chapter' : mode === 'micro-edit' ? 'micro-edit' : 'continuity-check',
 				activeFilePath: plugin.lastOpenedMarkdownPath ?? plugin.settings.book2Path,
 				primaryText,
 				directorNotes: notes
@@ -437,7 +613,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			}
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- deliberate warm-up behavior; plugin is stable
-	}, [mode, selectedText, directorNotes]);
+	}, [mode, modeState]);
 
 	const handleGenerate = async () => {
 		// Guided demo can run without an API key (offline canned output).
@@ -452,9 +628,13 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				if (mode === 'chapter') {
 					setGeneratedText(DEMO_CHAPTER_OUTPUT);
 					setDemoStepCompleted((prev) => ({ ...prev, chapter: true }));
-				} else {
+				} else if (mode === 'micro-edit') {
 					setGeneratedText(DEMO_MICRO_EDIT_OUTPUT);
 					setDemoStepCompleted((prev) => ({ ...prev, 'micro-edit': true }));
+				} else if (mode === 'continuity-check') {
+					setGeneratedText(DEMO_CONTINUITY_OUTPUT);
+				} else {
+					// character update uses its own handler
 				}
 				setGenerationStage('');
 			} finally {
@@ -476,13 +656,16 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			let prompt: string;
 			let context;
 
+			const mainInput = getMainInputValue();
+			const notes = getNotesValue();
+
 			if (mode === 'chapter') {
 				setGenerationStage('Retrieving and reranking...');
 				const retrievalQuery = plugin.queryBuilder.build({
 					mode: 'chapter',
 					activeFilePath: plugin.lastOpenedMarkdownPath ?? plugin.settings.book2Path,
-					primaryText: selectedText,
-					directorNotes
+					primaryText: mainInput,
+					directorNotes: notes
 				});
 				context = await plugin.contextAggregator.getChapterContext(retrievalQuery);
 				try {
@@ -492,25 +675,27 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				} catch {
 					setRetrievedContextStats(null);
 				}
-				const min = Math.max(100, Math.min(minWords, maxWords));
-				const max = Math.max(100, Math.max(minWords, maxWords));
+				const minCfg = modeState.chapter.minWords ?? 2000;
+				const maxCfg = modeState.chapter.maxWords ?? 6000;
+				const min = Math.max(100, Math.min(minCfg, maxCfg));
+				const max = Math.max(100, Math.max(minCfg, maxCfg));
 				prompt = plugin.promptEngine.buildChapterPrompt(
 					context,
-					directorNotes,
-					selectedText,
+					notes,
+					mainInput,
 					min,
 					max
 				);
-			} else {
+			} else if (mode === 'micro-edit') {
 				setGenerationStage('Retrieving and reranking...');
 				// micro-edit
 				const retrievalQuery = plugin.queryBuilder.build({
 					mode: 'micro-edit',
 					activeFilePath: plugin.lastOpenedMarkdownPath ?? plugin.settings.book2Path,
-					primaryText: selectedText,
-					directorNotes
+					primaryText: mainInput,
+					directorNotes: notes
 				});
-				context = await plugin.contextAggregator.getMicroEditContext(selectedText, retrievalQuery);
+				context = await plugin.contextAggregator.getMicroEditContext(mainInput, retrievalQuery);
 				try {
 					const retrievedText = (context?.smart_connections || '').toString();
 					const items = (retrievedText.match(/^\[\d+\]/gm) || []).length;
@@ -518,20 +703,41 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				} catch {
 					setRetrievedContextStats(null);
 				}
-				prompt = plugin.promptEngine.buildMicroEditPrompt(selectedText, directorNotes, context);
+				prompt = plugin.promptEngine.buildMicroEditPrompt(mainInput, notes, context);
+			} else {
+				// continuity check
+				setGenerationStage('Retrieving and reranking...');
+				const retrievalQuery = plugin.queryBuilder.build({
+					mode: 'continuity-check',
+					activeFilePath: plugin.lastOpenedMarkdownPath ?? plugin.settings.book2Path,
+					primaryText: mainInput,
+					directorNotes: ''
+				});
+				// Use micro-edit context loader to include character notes + story bible + retrieved context.
+				context = await plugin.contextAggregator.getMicroEditContext(mainInput, retrievalQuery);
+				prompt = plugin.promptEngine.buildContinuityCheckPrompt({
+					draft: mainInput,
+					context,
+					focus: modeState.continuityCheck.focus
+				});
 			}
 
 			// Log exactly what we are about to send (after retrieval/rerank and prompt build).
 			try {
 				logPath = await plugin.generationLogService.startLog({
 					mode,
-					title: mode === 'chapter' ? 'Chapter generate' : 'Micro edit',
+					title:
+						mode === 'chapter'
+							? 'Chapter generate'
+							: mode === 'micro-edit'
+							? 'Micro edit'
+							: 'Continuity check',
 					model: plugin.settings.model,
 					provider: plugin.settings.apiProvider,
-					queryText: (mode === 'chapter' || mode === 'micro-edit') ? (selectedText || '') : '',
+					queryText: mainInput || '',
 					userInputs: {
-						selectedText: selectedText || '',
-						directorNotes: directorNotes || ''
+						mainInput: mainInput || '',
+						notes: notes || ''
 					},
 					retrievedContext: (context?.smart_connections || '').toString(),
 					finalPrompt: plugin.settings.generationLogsIncludePrompt ? prompt : undefined
@@ -779,8 +985,11 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		const yyyy = String(now.getFullYear());
 		const mm = String(now.getMonth() + 1).padStart(2, '0');
 		const dd = String(now.getDate()).padStart(2, '0');
-		const path = `Story bible - merged ${yyyy}-${mm}-${dd}.md`;
+		const path = `Story bibles/Story bible - ${yyyy}-${mm}-${dd}.md`;
+		await plugin.vaultService.ensureParentFolder(path);
 		await plugin.vaultService.writeFile(path, merged + '\n');
+		plugin.settings.storyBiblePath = path;
+		await plugin.saveSettings();
 		new Notice(`Saved merged story bible to ${path}`);
 	};
 
@@ -793,21 +1002,35 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		const ok = await showConfirmModal(plugin.app, {
 			title: 'Replace story bible',
 			message:
-				'This will back up your current story bible and overwrite it with the edited merged version.\n\nContinue?',
-			confirmText: 'Replace',
+				'This will save a new versioned story bible and update the active story bible path.\n\nContinue?',
+			confirmText: 'Save new version',
 			cancelText: 'Cancel'
 		});
 		if (!ok) return;
 
-		const existing = await plugin.vaultService.readFile(plugin.settings.storyBiblePath);
+		try {
+			const existing = await plugin.vaultService.readFile(plugin.settings.storyBiblePath);
+			const now = new Date();
+			const yyyy = String(now.getFullYear());
+			const mm = String(now.getMonth() + 1).padStart(2, '0');
+			const dd = String(now.getDate()).padStart(2, '0');
+			const backupPath = `Story bibles/Story bible - backup ${yyyy}-${mm}-${dd}.md`;
+			await plugin.vaultService.ensureParentFolder(backupPath);
+			await plugin.vaultService.writeFile(backupPath, existing + '\n');
+		} catch {
+			// If old story bible doesn't exist or can't be read, continue without backup
+		}
+
 		const now = new Date();
 		const yyyy = String(now.getFullYear());
 		const mm = String(now.getMonth() + 1).padStart(2, '0');
 		const dd = String(now.getDate()).padStart(2, '0');
-		const backupPath = `Story bible - backup ${yyyy}-${mm}-${dd}.md`;
-		await plugin.vaultService.writeFile(backupPath, existing + '\n');
-		await plugin.vaultService.writeFile(plugin.settings.storyBiblePath, merged + '\n');
-		new Notice('Story bible replaced (backup created).');
+		const newPath = `Story bibles/Story bible - ${yyyy}-${mm}-${dd}.md`;
+		await plugin.vaultService.ensureParentFolder(newPath);
+		await plugin.vaultService.writeFile(newPath, merged + '\n');
+		plugin.settings.storyBiblePath = newPath;
+		await plugin.saveSettings();
+		new Notice('Story bible saved as new version and updated.');
 	};
 
 	const handleSelectCharacterExtractionSource = () => {
@@ -1179,11 +1402,21 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					/>
 				</div>
 				<div className="main-workspace">
+					<div className="generation-status" style={{ marginBottom: '8px', fontSize: '0.9em', color: 'var(--text-muted)' }}>
+						📖 Book: {plugin.settings.book2Path || '(not set)'}
+						{(() => {
+							const file = plugin.app.vault.getAbstractFileByPath(plugin.settings.book2Path);
+							if (plugin.settings.book2Path && !file) {
+								return ' (file not found)';
+							}
+							return '';
+						})()}
+					</div>
 					<EditorPanel 
 						plugin={plugin}
 						mode={mode}
 						selectedText={selectedText}
-						onSelectionChange={setSelectedText}
+						onSelectionChange={updateMainInput}
 						generatedText={generatedText}
 						onGeneratedChange={setGeneratedText}
 						onCopy={handleCopyToClipboard}
@@ -1196,16 +1429,28 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 								value={minWordsInput}
 								onChange={(e) => setMinWordsInput(e.target.value)}
 								onBlur={() => {
-									const nextMin = clampWords(minWordsInput, minWords);
-									setMinWords(nextMin);
-									if (nextMin > maxWords) setMaxWords(nextMin);
+									const currentMin = modeState.chapter.minWords ?? 2000;
+									const currentMax = modeState.chapter.maxWords ?? 6000;
+									const nextMin = clampWords(minWordsInput, currentMin);
+									const nextMax = Math.max(nextMin, currentMax);
+									setModeState((prev) => {
+										const next = { ...prev, chapter: { ...prev.chapter, minWords: nextMin, maxWords: nextMax } };
+										scheduleModeStateSave(next);
+										return next;
+									});
 									setMinWordsInput(String(nextMin));
 								}}
 								onKeyDown={(e) => {
 									if (e.key === 'Enter') {
-										const nextMin = clampWords(minWordsInput, minWords);
-										setMinWords(nextMin);
-										if (nextMin > maxWords) setMaxWords(nextMin);
+										const currentMin = modeState.chapter.minWords ?? 2000;
+										const currentMax = modeState.chapter.maxWords ?? 6000;
+										const nextMin = clampWords(minWordsInput, currentMin);
+										const nextMax = Math.max(nextMin, currentMax);
+										setModeState((prev) => {
+											const next = { ...prev, chapter: { ...prev.chapter, minWords: nextMin, maxWords: nextMax } };
+											scheduleModeStateSave(next);
+											return next;
+										});
 										setMinWordsInput(String(nextMin));
 										(e.currentTarget as HTMLInputElement).blur();
 									}
@@ -1219,16 +1464,28 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 								value={maxWordsInput}
 								onChange={(e) => setMaxWordsInput(e.target.value)}
 								onBlur={() => {
-									const nextMax = clampWords(maxWordsInput, maxWords);
-									setMaxWords(nextMax);
-									if (nextMax < minWords) setMinWords(nextMax);
+									const currentMin = modeState.chapter.minWords ?? 2000;
+									const currentMax = modeState.chapter.maxWords ?? 6000;
+									const nextMax = clampWords(maxWordsInput, currentMax);
+									const nextMin = Math.min(currentMin, nextMax);
+									setModeState((prev) => {
+										const next = { ...prev, chapter: { ...prev.chapter, minWords: nextMin, maxWords: nextMax } };
+										scheduleModeStateSave(next);
+										return next;
+									});
 									setMaxWordsInput(String(nextMax));
 								}}
 								onKeyDown={(e) => {
 									if (e.key === 'Enter') {
-										const nextMax = clampWords(maxWordsInput, maxWords);
-										setMaxWords(nextMax);
-										if (nextMax < minWords) setMinWords(nextMax);
+										const currentMin = modeState.chapter.minWords ?? 2000;
+										const currentMax = modeState.chapter.maxWords ?? 6000;
+										const nextMax = clampWords(maxWordsInput, currentMax);
+										const nextMin = Math.min(currentMin, nextMax);
+										setModeState((prev) => {
+											const next = { ...prev, chapter: { ...prev.chapter, minWords: nextMin, maxWords: nextMax } };
+											scheduleModeStateSave(next);
+											return next;
+										});
 										setMaxWordsInput(String(nextMax));
 										(e.currentTarget as HTMLInputElement).blur();
 									}
@@ -1238,12 +1495,99 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							/>
 						</div>
 					)}
-					<DirectorNotes 
-						value={directorNotes}
-						onChange={setDirectorNotes}
-						mode={mode}
-						onResetToDefault={mode === 'chapter' ? () => setDirectorNotes(DEFAULT_REWRITE_INSTRUCTIONS) : undefined}
-					/>
+					{mode === 'continuity-check' && (
+						<div className="generation-status">
+							<div style={{ marginBottom: 6 }}>Continuity focus:</div>
+							<label style={{ marginRight: 12 }}>
+								<input
+									type="checkbox"
+									checked={Boolean(modeState.continuityCheck.focus.knowledge)}
+									onChange={(e) =>
+										setModeState((prev) => {
+											const next = {
+												...prev,
+												continuityCheck: {
+													...prev.continuityCheck,
+													focus: { ...prev.continuityCheck.focus, knowledge: e.target.checked }
+												}
+											};
+											scheduleModeStateSave(next);
+											return next;
+										})
+									}
+								/>
+								Knowledge
+							</label>
+							<label style={{ marginRight: 12 }}>
+								<input
+									type="checkbox"
+									checked={Boolean(modeState.continuityCheck.focus.timeline)}
+									onChange={(e) =>
+										setModeState((prev) => {
+											const next = {
+												...prev,
+												continuityCheck: {
+													...prev.continuityCheck,
+													focus: { ...prev.continuityCheck.focus, timeline: e.target.checked }
+												}
+											};
+											scheduleModeStateSave(next);
+											return next;
+										})
+									}
+								/>
+								Timeline
+							</label>
+							<label style={{ marginRight: 12 }}>
+								<input
+									type="checkbox"
+									checked={Boolean(modeState.continuityCheck.focus.pov)}
+									onChange={(e) =>
+										setModeState((prev) => {
+											const next = {
+												...prev,
+												continuityCheck: {
+													...prev.continuityCheck,
+													focus: { ...prev.continuityCheck.focus, pov: e.target.checked }
+												}
+											};
+											scheduleModeStateSave(next);
+											return next;
+										})
+									}
+								/>
+								POV
+							</label>
+							<label>
+								<input
+									type="checkbox"
+									checked={Boolean(modeState.continuityCheck.focus.naming)}
+									onChange={(e) =>
+										setModeState((prev) => {
+											const next = {
+												...prev,
+												continuityCheck: {
+													...prev.continuityCheck,
+													focus: { ...prev.continuityCheck.focus, naming: e.target.checked }
+												}
+											};
+											scheduleModeStateSave(next);
+											return next;
+										})
+									}
+								/>
+								Naming
+							</label>
+						</div>
+					)}
+					{mode !== 'continuity-check' && (
+						<DirectorNotes 
+							value={directorNotes}
+							onChange={updateNotes}
+							mode={mode}
+							onResetToDefault={mode === 'chapter' ? () => updateNotes(DEFAULT_REWRITE_INSTRUCTIONS) : undefined}
+						/>
+					)}
 					{promptTokenEstimate !== null && (
 						<div className="generation-status">
 							Estimated prompt size: ~{promptTokenEstimate.toLocaleString()} tokens
@@ -1280,6 +1624,13 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 						<button onClick={openPublishWizard} disabled={isGenerating} className="update-characters-button">
 							Export to epub
 						</button>
+						<button
+							onClick={handlePreviewPrompt}
+							disabled={isGenerating}
+							className="update-characters-button"
+						>
+							Preview prompt
+						</button>
 						{mode === 'chapter' && (
 							<button
 								onClick={handleUpdateStoryBible}
@@ -1295,7 +1646,13 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 								disabled={isGenerating || (!apiKeyPresent && !isGuidedDemoActive)}
 								className="generate-button"
 							>
-								{isGenerating ? 'Generating...' : mode === 'chapter' ? 'Generate chapter' : 'Generate edit'}
+								{isGenerating
+									? 'Generating...'
+									: mode === 'chapter'
+									? 'Generate chapter'
+									: mode === 'micro-edit'
+									? 'Generate edit'
+									: 'Run continuity check'}
 							</button>
 						)}
 						{mode === 'character-update' && (

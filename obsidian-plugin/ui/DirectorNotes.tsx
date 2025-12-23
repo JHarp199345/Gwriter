@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { TextChunker } from '../services/TextChunker';
 
-type Mode = 'chapter' | 'micro-edit' | 'character-update';
+type Mode = 'chapter' | 'micro-edit' | 'character-update' | 'continuity-check';
 
 export const DirectorNotes: React.FC<{
 	value: string;

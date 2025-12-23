@@ -124,6 +124,40 @@ export interface DashboardSettings {
 	 * If true, include the full final prompt text in generation logs.
 	 */
 	generationLogsIncludePrompt: boolean;
+	/**
+	 * Per-mode persisted form state so inputs do not bleed between modes.
+	 */
+	modeState: {
+		chapter: {
+			sceneSummary: string;
+			rewriteInstructions: string;
+			minWords: number;
+			maxWords: number;
+		};
+		microEdit: {
+			selectedPassage: string;
+			grievances: string;
+		};
+		characterUpdate: {
+			selectedText: string;
+			extractionInstructions: string;
+		};
+		continuityCheck: {
+			draftText: string;
+			focus: {
+				knowledge: boolean;
+				timeline: boolean;
+				pov: boolean;
+				naming: boolean;
+			};
+		};
+	};
+	/**
+	 * Folder-based retrieval profiles (safety rails).
+	 * The active profile controls which folders are included for retrieval/indexing.
+	 */
+	retrievalProfiles: Array<{ id: string; name: string; includedFolders: string[] }>;
+	retrievalActiveProfileId: string;
 	setupCompleted: boolean;
 	/**
 	 * If true, do not auto-start the guided demo for first-time users.
@@ -207,6 +241,28 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 	generationLogsFolder: 'Generation logs',
 	generationLogsEnabled: false,
 	generationLogsIncludePrompt: false,
+	modeState: {
+		chapter: {
+			sceneSummary: '',
+			rewriteInstructions: '',
+			minWords: 2000,
+			maxWords: 6000
+		},
+		microEdit: {
+			selectedPassage: '',
+			grievances: ''
+		},
+		characterUpdate: {
+			selectedText: '',
+			extractionInstructions: ''
+		},
+		continuityCheck: {
+			draftText: '',
+			focus: { knowledge: true, timeline: true, pov: true, naming: true }
+		}
+	},
+	retrievalProfiles: [],
+	retrievalActiveProfileId: 'story',
 	setupCompleted: false,
 	guidedDemoDismissed: false,
 	guidedDemoShownOnce: false,
@@ -472,7 +528,58 @@ export default class WritingDashboardPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const loaded = (await this.loadData()) as Partial<DashboardSettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded || {});
+
+		// Migrations / defaults for new settings
+		if (!this.settings.modeState) {
+			this.settings.modeState = DEFAULT_SETTINGS.modeState;
+		} else {
+			// Fill missing subkeys (non-destructive)
+			this.settings.modeState = {
+				...DEFAULT_SETTINGS.modeState,
+				...this.settings.modeState,
+				chapter: { ...DEFAULT_SETTINGS.modeState.chapter, ...(this.settings.modeState.chapter || {}) },
+				microEdit: { ...DEFAULT_SETTINGS.modeState.microEdit, ...(this.settings.modeState.microEdit || {}) },
+				characterUpdate: { ...DEFAULT_SETTINGS.modeState.characterUpdate, ...(this.settings.modeState.characterUpdate || {}) },
+				continuityCheck: {
+					...DEFAULT_SETTINGS.modeState.continuityCheck,
+					...(this.settings.modeState.continuityCheck || {}),
+					focus: {
+						...DEFAULT_SETTINGS.modeState.continuityCheck.focus,
+						...((this.settings.modeState.continuityCheck || {}).focus || {})
+					}
+				}
+			};
+		}
+
+		// Retrieval profiles: ensure prebuilt profiles exist.
+		if (!Array.isArray(this.settings.retrievalProfiles) || this.settings.retrievalProfiles.length === 0) {
+			const storyFolders = new Set<string>();
+			storyFolders.add(this.settings.characterFolder);
+			const parentOf = (p: string) => {
+				const norm = (p || '').replace(/\\/g, '/');
+				const idx = norm.lastIndexOf('/');
+				return idx >= 0 ? norm.slice(0, idx) : '';
+			};
+			// include the folders containing key story files when possible
+			storyFolders.add(parentOf(this.settings.book2Path));
+			storyFolders.add(parentOf(this.settings.storyBiblePath));
+			storyFolders.add(parentOf(this.settings.slidingWindowPath));
+			if (this.settings.extractionsPath) storyFolders.add(parentOf(this.settings.extractionsPath));
+			// remove empty entries (root is ambiguous; keep only if explicit)
+			const storyIncluded = Array.from(storyFolders).map((s) => (s || '').replace(/\/+$/, '')).filter((s) => s.length > 0);
+
+			this.settings.retrievalProfiles = [
+				{ id: 'story', name: 'Story', includedFolders: storyIncluded },
+				{ id: 'research', name: 'Research', includedFolders: ['Research', 'Worldbuilding'] },
+				{ id: 'manuscript', name: 'Manuscript only', includedFolders: parentOf(this.settings.book2Path) ? [parentOf(this.settings.book2Path)] : [] }
+			];
+			this.settings.retrievalActiveProfileId = 'story';
+		}
+
+		const hasActive = this.settings.retrievalProfiles.some((p) => p.id === this.settings.retrievalActiveProfileId);
+		if (!hasActive) this.settings.retrievalActiveProfileId = this.settings.retrievalProfiles[0]?.id || 'story';
 	}
 
 	async saveSettings() {

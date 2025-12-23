@@ -4,7 +4,7 @@ import { TextChunker } from '../services/TextChunker';
 
 export const EditorPanel: React.FC<{
 	plugin: WritingDashboardPlugin;
-	mode: 'chapter' | 'micro-edit' | 'character-update';
+	mode: 'chapter' | 'micro-edit' | 'character-update' | 'continuity-check';
 	selectedText: string;
 	onSelectionChange: (text: string) => void;
 	generatedText: string;
@@ -21,14 +21,18 @@ export const EditorPanel: React.FC<{
 			? 'Scene summary / directions:'
 			: mode === 'micro-edit'
 			? 'Selected passage:'
-			: 'Selected text (for character update):';
+			: mode === 'character-update'
+			? 'Selected text (for character update):'
+			: 'Draft to check:';
 
 	const selectedPlaceholder =
 		mode === 'chapter'
 			? 'Write a rough summary of the scene you want (beats, directions, key dialogue notes, etc.)...'
 			: mode === 'micro-edit'
 			? 'Paste the passage you want revised...'
-			: 'Paste selected text here for character extraction...';
+			: mode === 'character-update'
+			? 'Paste selected text here for character extraction...'
+			: 'Paste the draft you want checked for continuity...';
 
 	return (
 		<div className="editor-panel">
