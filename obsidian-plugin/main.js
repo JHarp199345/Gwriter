@@ -63017,6 +63017,14 @@ var HeuristicProvider = class {
 var import_obsidian16 = require("obsidian");
 
 // services/retrieval/LocalEmbeddingModel.ts
+async function getPipeline() {
+  const mod2 = await Promise.resolve().then(() => (init_transformers(), transformers_exports));
+  const pipeline2 = mod2.pipeline || mod2.default && mod2.default.pipeline;
+  if (!pipeline2 || typeof pipeline2 !== "function") {
+    throw new Error("Pipeline not found in @xenova/transformers module");
+  }
+  return pipeline2;
+}
 function l2Normalize(vec) {
   let sumSq = 0;
   for (const v of vec)
@@ -63051,27 +63059,24 @@ var MiniLmLocalEmbeddingModel = class {
     const loadStart = Date.now();
     this.loading = (async () => {
       try {
-        console.log(`[LocalEmbeddingModel] Importing @xenova/transformers...`);
-        let transformersUnknown;
+        console.log(`[LocalEmbeddingModel] Loading @xenova/transformers pipeline...`);
+        let pipeline2;
         try {
-          transformersUnknown = await Promise.resolve().then(() => (init_transformers(), transformers_exports));
+          pipeline2 = await getPipeline();
+          if (!pipeline2 || typeof pipeline2 !== "function") {
+            throw new Error("Pipeline is not a function");
+          }
+          console.log(`[LocalEmbeddingModel] \u2713 Pipeline function loaded`);
         } catch (importErr) {
-          this.logError("ensureLoaded.import", "Dynamic import of @xenova/transformers", importErr);
-          throw new Error(`Failed to import @xenova/transformers: ${importErr instanceof Error ? importErr.message : String(importErr)}`);
+          this.logError("ensureLoaded.import", "Loading @xenova/transformers pipeline", importErr);
+          throw new Error(`Failed to load @xenova/transformers pipeline: ${importErr instanceof Error ? importErr.message : String(importErr)}`);
         }
-        const transformers = transformersUnknown;
-        if (!transformers.pipeline) {
-          const err = new Error("Transformers pipeline is unavailable - @xenova/transformers may not be installed or compatible");
-          this.logError("ensureLoaded.checkPipeline", "Checking if pipeline function exists", err);
-          throw err;
-        }
-        console.log(`[LocalEmbeddingModel] \u2713 Transformers library loaded`);
         const cacheDir = `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index/models`;
         console.log(`[LocalEmbeddingModel] Cache directory: ${cacheDir}`);
         console.log(`[LocalEmbeddingModel] Loading model: Xenova/all-MiniLM-L6-v2 (quantized)...`);
         let pipeUnknown;
         try {
-          pipeUnknown = await transformers.pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
+          pipeUnknown = await pipeline2("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
             quantized: true,
             progress_callback: void 0,
             cache_dir: cacheDir
@@ -64173,11 +64178,12 @@ var TransformersCrossEncoder = class {
     if (this.loading !== null)
       return this.loading;
     this.loading = (async () => {
-      const transformersUnknown = await Promise.resolve().then(() => (init_transformers(), transformers_exports));
-      const transformers = transformersUnknown;
-      if (!transformers.pipeline)
+      const transformersModule = await Promise.resolve().then(() => (init_transformers(), transformers_exports));
+      const pipeline2 = transformersModule.pipeline || transformersModule.default?.pipeline;
+      if (!pipeline2 || typeof pipeline2 !== "function") {
         throw new Error("Transformers pipeline is unavailable");
-      const pipeUnknown = await transformers.pipeline(
+      }
+      const pipeUnknown = await pipeline2(
         "text-classification",
         "Xenova/cross-encoder-ms-marco-MiniLM-L-6-v2",
         { quantized: true }

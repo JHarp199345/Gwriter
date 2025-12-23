@@ -1,6 +1,16 @@
 import type { Vault } from 'obsidian';
 import WritingDashboardPlugin from '../../main';
 
+// Helper to get pipeline function with proper error handling
+async function getPipeline(): Promise<any> {
+	const mod: any = await import('@xenova/transformers');
+	const pipeline = mod.pipeline || (mod.default && mod.default.pipeline);
+	if (!pipeline || typeof pipeline !== 'function') {
+		throw new Error('Pipeline not found in @xenova/transformers module');
+	}
+	return pipeline;
+}
+
 export interface LocalEmbeddingModel {
 	readonly id: string;
 	readonly dim: number;
@@ -60,25 +70,19 @@ export class MiniLmLocalEmbeddingModel implements LocalEmbeddingModel {
 		const loadStart = Date.now();
 		this.loading = (async () => {
 			try {
-				// Dynamic import to avoid bundling weight unless enabled.
-				console.log(`[LocalEmbeddingModel] Importing @xenova/transformers...`);
-				let transformersUnknown: unknown;
+				// Get pipeline function - using helper to ensure proper initialization
+				console.log(`[LocalEmbeddingModel] Loading @xenova/transformers pipeline...`);
+				let pipeline: any;
 				try {
-					transformersUnknown = await import('@xenova/transformers');
+					pipeline = await getPipeline();
+					if (!pipeline || typeof pipeline !== 'function') {
+						throw new Error('Pipeline is not a function');
+					}
+					console.log(`[LocalEmbeddingModel] ✓ Pipeline function loaded`);
 				} catch (importErr) {
-					this.logError('ensureLoaded.import', 'Dynamic import of @xenova/transformers', importErr);
-					throw new Error(`Failed to import @xenova/transformers: ${importErr instanceof Error ? importErr.message : String(importErr)}`);
+					this.logError('ensureLoaded.import', 'Loading @xenova/transformers pipeline', importErr);
+					throw new Error(`Failed to load @xenova/transformers pipeline: ${importErr instanceof Error ? importErr.message : String(importErr)}`);
 				}
-				
-				const transformers = transformersUnknown as {
-					pipeline?: (task: string, model: string, opts?: Record<string, unknown>) => Promise<unknown>;
-				};
-				if (!transformers.pipeline) {
-					const err = new Error('Transformers pipeline is unavailable - @xenova/transformers may not be installed or compatible');
-					this.logError('ensureLoaded.checkPipeline', 'Checking if pipeline function exists', err);
-					throw err;
-				}
-				console.log(`[LocalEmbeddingModel] ✓ Transformers library loaded`);
 
 				// Cache models inside plugin data to avoid re-downloading if possible.
 				// Note: transformers uses its own caching strategy; this is a hint.
@@ -88,7 +92,8 @@ export class MiniLmLocalEmbeddingModel implements LocalEmbeddingModel {
 
 				let pipeUnknown: unknown;
 				try {
-					pipeUnknown = await transformers.pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
+					// Call pipeline directly as a function
+					pipeUnknown = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
 						quantized: true,
 						progress_callback: undefined,
 						cache_dir: cacheDir

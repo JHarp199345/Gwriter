@@ -28,14 +28,16 @@ class TransformersCrossEncoder implements CpuRerankerModel {
 		if (this.loading !== null) return this.loading;
 
 		this.loading = (async () => {
-			const transformersUnknown: unknown = await import('@xenova/transformers');
-			const transformers = transformersUnknown as {
-				pipeline?: (task: string, model: string, opts?: Record<string, unknown>) => Promise<unknown>;
-			};
-			if (!transformers.pipeline) throw new Error('Transformers pipeline is unavailable');
+			const transformersModule: any = await import('@xenova/transformers');
+			// @xenova/transformers exports pipeline as a named export
+			// It might be on the default export or as a named export
+			const pipeline = transformersModule.pipeline || transformersModule.default?.pipeline;
+			if (!pipeline || typeof pipeline !== 'function') {
+				throw new Error('Transformers pipeline is unavailable');
+			}
 
 			// Cross-encoder reranker model (small-ish). Best-effort: may fail on some environments.
-			const pipeUnknown = await transformers.pipeline(
+			const pipeUnknown = await pipeline(
 				'text-classification',
 				'Xenova/cross-encoder-ms-marco-MiniLM-L-6-v2',
 				{ quantized: true }
