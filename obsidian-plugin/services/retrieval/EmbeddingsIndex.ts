@@ -258,6 +258,7 @@ export class EmbeddingsIndex {
 
 		// Skip empty files
 		if (!content || content.trim().length === 0) {
+			console.warn(`[EmbeddingsIndex] Skipping empty file: ${path}`);
 			return;
 		}
 
@@ -271,21 +272,30 @@ export class EmbeddingsIndex {
 		
 		// If no chunks created, skip this file (might be too short or have no headings)
 		if (chunks.length === 0) {
+			console.warn(`[EmbeddingsIndex] No chunks created for ${path} - file too short or no headings match chunking config`);
 			return;
 		}
 		
+		let successfulChunks = 0;
 		for (let i = 0; i < chunks.length; i++) {
 			const ch = chunks[i];
 			const textHash = fnv1a32(ch.text);
 			const key = `chunk:${path}:${i}`;
 			let vector: number[];
 			try {
-				vector =
-					this.backend === 'minilm'
-						? await this.model.embed(ch.text)
-						: buildVector(ch.text, this.dim);
+				if (this.backend === 'minilm') {
+					// Minilm requires async model loading - this might fail silently
+					vector = await this.model.embed(ch.text);
+				} else {
+					vector = buildVector(ch.text, this.dim);
+				}
 			} catch (err) {
-				console.error(`Failed to generate embedding for chunk ${i} of ${path}:`, err);
+				console.error(`[EmbeddingsIndex] Failed to generate embedding for chunk ${i} of ${path}:`, err);
+				// If ALL chunks fail for a file, the file won't be indexed
+				// This is a critical failure that should be logged
+				if (i === 0) {
+					console.error(`[EmbeddingsIndex] CRITICAL: First chunk failed for ${path} - file will not be indexed`);
+				}
 				// Skip this chunk if embedding fails, but continue with others
 				continue;
 			}
@@ -300,6 +310,13 @@ export class EmbeddingsIndex {
 				vector,
 				excerpt
 			});
+			successfulChunks++;
+		}
+		
+		if (successfulChunks === 0 && chunks.length > 0) {
+			console.error(`[EmbeddingsIndex] CRITICAL: All ${chunks.length} chunks failed for ${path} - file not indexed`);
+		} else if (successfulChunks < chunks.length) {
+			console.warn(`[EmbeddingsIndex] Partial success for ${path}: ${successfulChunks}/${chunks.length} chunks indexed`);
 		}
 	}
 

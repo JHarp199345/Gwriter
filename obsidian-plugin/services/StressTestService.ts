@@ -154,20 +154,33 @@ export class StressTestService {
 			// Trigger full rescan
 			if (this.plugin.settings.retrievalEnableSemanticIndex && !this.plugin.settings.retrievalIndexPaused) {
 				this.logEntry('Triggering full index rescan...');
+				this.logEntry(`Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || 'minilm'}`);
 				this.plugin.embeddingsIndex.enqueueFullRescan();
 				this.plugin.bm25Index.enqueueFullRescan();
 
-				// Wait a bit and check status
-				await new Promise(resolve => setTimeout(resolve, 2000));
-				
-				const statusAfter = this.plugin.embeddingsIndex?.getStatus?.();
-				this.logEntry(`Index status after 2s: ${statusAfter ? `${statusAfter.indexedFiles} files, ${statusAfter.indexedChunks} chunks, ${statusAfter.queued} queued` : 'N/A'}`);
-
-				// Wait more and check again
-				await new Promise(resolve => setTimeout(resolve, 5000));
+				// Check status multiple times to see progress
+				for (let i = 0; i < 10; i++) {
+					await new Promise(resolve => setTimeout(resolve, 1000));
+					const status = this.plugin.embeddingsIndex?.getStatus?.();
+					if (status) {
+						this.logEntry(`Index status after ${i + 1}s: ${status.indexedFiles} files, ${status.indexedChunks} chunks, ${status.queued} queued`);
+						
+						// If queue is empty and we have files, check if they're actually indexed
+						if (status.queued === 0 && status.indexedFiles === 0 && allFiles.length > 0 && i >= 3) {
+							// Check console for worker logs
+							this.logEntry(`  ⚠ Queue empty but no files indexed - check browser console for worker logs`);
+							break;
+						}
+						
+						// If we're making progress, continue
+						if (status.indexedFiles > 0 || status.queued === 0) {
+							break;
+						}
+					}
+				}
 				
 				const statusFinal = this.plugin.embeddingsIndex?.getStatus?.();
-				this.logEntry(`Index status after 7s: ${statusFinal ? `${statusFinal.indexedFiles} files, ${statusFinal.indexedChunks} chunks, ${statusFinal.queued} queued` : 'N/A'}`);
+				this.logEntry(`Final index status: ${statusFinal ? `${statusFinal.indexedFiles} files, ${statusFinal.indexedChunks} chunks, ${statusFinal.queued} queued` : 'N/A'}`);
 
 				if (statusFinal) {
 					if (statusFinal.queued > 0) {
@@ -177,6 +190,17 @@ export class StressTestService {
 						this.logEntry(`⚠ ERROR: No files indexed despite ${allFiles.length} files available`);
 						this.logEntry(`  - Index paused: ${statusFinal.paused}`);
 						this.logEntry(`  - Semantic retrieval enabled: ${this.plugin.settings.retrievalEnableSemanticIndex}`);
+						this.logEntry(`  - Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || 'minilm'}`);
+						this.logEntry(`  - Check browser console (F12) for detailed worker logs`);
+						
+						// Try to get more info about what's happening
+						const indexedPaths = this.plugin.embeddingsIndex?.getIndexedPaths?.() || [];
+						this.logEntry(`  - Actually indexed paths: ${indexedPaths.length}`);
+						if (indexedPaths.length > 0) {
+							indexedPaths.slice(0, 5).forEach(path => {
+								this.logEntry(`    - ${path}`);
+							});
+						}
 					}
 				}
 			} else {

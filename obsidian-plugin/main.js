@@ -59932,14 +59932,25 @@ var StressTestService = class {
       }
       if (this.plugin.settings.retrievalEnableSemanticIndex && !this.plugin.settings.retrievalIndexPaused) {
         this.logEntry("Triggering full index rescan...");
+        this.logEntry(`Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || "minilm"}`);
         this.plugin.embeddingsIndex.enqueueFullRescan();
         this.plugin.bm25Index.enqueueFullRescan();
-        await new Promise((resolve) => setTimeout(resolve, 2e3));
-        const statusAfter = this.plugin.embeddingsIndex?.getStatus?.();
-        this.logEntry(`Index status after 2s: ${statusAfter ? `${statusAfter.indexedFiles} files, ${statusAfter.indexedChunks} chunks, ${statusAfter.queued} queued` : "N/A"}`);
-        await new Promise((resolve) => setTimeout(resolve, 5e3));
+        for (let i = 0; i < 10; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 1e3));
+          const status = this.plugin.embeddingsIndex?.getStatus?.();
+          if (status) {
+            this.logEntry(`Index status after ${i + 1}s: ${status.indexedFiles} files, ${status.indexedChunks} chunks, ${status.queued} queued`);
+            if (status.queued === 0 && status.indexedFiles === 0 && allFiles.length > 0 && i >= 3) {
+              this.logEntry(`  \u26A0 Queue empty but no files indexed - check browser console for worker logs`);
+              break;
+            }
+            if (status.indexedFiles > 0 || status.queued === 0) {
+              break;
+            }
+          }
+        }
         const statusFinal = this.plugin.embeddingsIndex?.getStatus?.();
-        this.logEntry(`Index status after 7s: ${statusFinal ? `${statusFinal.indexedFiles} files, ${statusFinal.indexedChunks} chunks, ${statusFinal.queued} queued` : "N/A"}`);
+        this.logEntry(`Final index status: ${statusFinal ? `${statusFinal.indexedFiles} files, ${statusFinal.indexedChunks} chunks, ${statusFinal.queued} queued` : "N/A"}`);
         if (statusFinal) {
           if (statusFinal.queued > 0) {
             this.logEntry(`\u26A0 WARNING: ${statusFinal.queued} files still queued - indexing may be slow or stuck`);
@@ -59948,6 +59959,15 @@ var StressTestService = class {
             this.logEntry(`\u26A0 ERROR: No files indexed despite ${allFiles.length} files available`);
             this.logEntry(`  - Index paused: ${statusFinal.paused}`);
             this.logEntry(`  - Semantic retrieval enabled: ${this.plugin.settings.retrievalEnableSemanticIndex}`);
+            this.logEntry(`  - Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || "minilm"}`);
+            this.logEntry(`  - Check browser console (F12) for detailed worker logs`);
+            const indexedPaths = this.plugin.embeddingsIndex?.getIndexedPaths?.() || [];
+            this.logEntry(`  - Actually indexed paths: ${indexedPaths.length}`);
+            if (indexedPaths.length > 0) {
+              indexedPaths.slice(0, 5).forEach((path3) => {
+                this.logEntry(`    - ${path3}`);
+              });
+            }
           }
         }
       } else {
@@ -62881,6 +62901,7 @@ var EmbeddingsIndex = class {
   async _reindexFile(path3, content) {
     this._removePath(path3);
     if (!content || content.trim().length === 0) {
+      console.warn(`[EmbeddingsIndex] Skipping empty file: ${path3}`);
       return;
     }
     const cfg = chunkingKey(this.plugin);
@@ -62891,17 +62912,26 @@ var EmbeddingsIndex = class {
       overlapWords: cfg.overlapWords
     });
     if (chunks.length === 0) {
+      console.warn(`[EmbeddingsIndex] No chunks created for ${path3} - file too short or no headings match chunking config`);
       return;
     }
+    let successfulChunks = 0;
     for (let i = 0; i < chunks.length; i++) {
       const ch = chunks[i];
       const textHash = fnv1a32(ch.text);
       const key = `chunk:${path3}:${i}`;
       let vector;
       try {
-        vector = this.backend === "minilm" ? await this.model.embed(ch.text) : buildVector(ch.text, this.dim);
+        if (this.backend === "minilm") {
+          vector = await this.model.embed(ch.text);
+        } else {
+          vector = buildVector(ch.text, this.dim);
+        }
       } catch (err) {
-        console.error(`Failed to generate embedding for chunk ${i} of ${path3}:`, err);
+        console.error(`[EmbeddingsIndex] Failed to generate embedding for chunk ${i} of ${path3}:`, err);
+        if (i === 0) {
+          console.error(`[EmbeddingsIndex] CRITICAL: First chunk failed for ${path3} - file will not be indexed`);
+        }
         continue;
       }
       const excerpt = excerptOf(ch.text, 500);
@@ -62915,6 +62945,12 @@ var EmbeddingsIndex = class {
         vector,
         excerpt
       });
+      successfulChunks++;
+    }
+    if (successfulChunks === 0 && chunks.length > 0) {
+      console.error(`[EmbeddingsIndex] CRITICAL: All ${chunks.length} chunks failed for ${path3} - file not indexed`);
+    } else if (successfulChunks < chunks.length) {
+      console.warn(`[EmbeddingsIndex] Partial success for ${path3}: ${successfulChunks}/${chunks.length} chunks indexed`);
     }
   }
   _setChunk(chunk) {
