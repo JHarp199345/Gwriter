@@ -485,7 +485,7 @@ export default class WritingDashboardPlugin extends Plugin {
 				// If vault appears populated, ask user which file is the main book file
 				const mdFiles = this.app.vault.getMarkdownFiles();
 				if (mdFiles.length > 0) {
-					const modal = new BookMainSelectorModal(this, mdFiles);
+					const modal = new BookMainSelectorModal(this);
 					modal.open();
 				} else {
 				// Show setup wizard automatically on first run

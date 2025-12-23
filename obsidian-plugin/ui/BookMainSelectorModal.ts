@@ -1,19 +1,17 @@
-import { TFile } from 'obsidian';
 import WritingDashboardPlugin from '../main';
-import { FilePickerModal } from './FilePickerModal';
+import { FileTreePickerModal } from './FileTreePickerModal';
 
-export class BookMainSelectorModal extends FilePickerModal {
-	constructor(plugin: WritingDashboardPlugin, files: TFile[]) {
-		super({
-			app: plugin.app,
-			files,
-			placeholder: 'Type to search for your manuscript file (e.g., "Reach of the Abyss")',
-			onPick: (item) => {
-				plugin.settings.book2Path = item.path;
+export class BookMainSelectorModal extends FileTreePickerModal {
+	constructor(plugin: WritingDashboardPlugin) {
+		super(plugin, {
+			currentPath: plugin.settings.book2Path,
+			onPick: async (filePath) => {
+				plugin.settings.book2Path = filePath;
 				plugin.settings.setupCompleted = true;
-				return plugin.saveSettings();
+				await plugin.saveSettings();
 			}
 		});
+		this.titleEl.setText('Select your manuscript file');
 	}
 }
 

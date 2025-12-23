@@ -63263,18 +63263,17 @@ ${appendix}`);
 };
 
 // ui/BookMainSelectorModal.ts
-var BookMainSelectorModal = class extends FilePickerModal {
-  constructor(plugin, files) {
-    super({
-      app: plugin.app,
-      files,
-      placeholder: 'Type to search for your manuscript file (e.g., "Reach of the Abyss")',
-      onPick: (item) => {
-        plugin.settings.book2Path = item.path;
+var BookMainSelectorModal = class extends FileTreePickerModal {
+  constructor(plugin) {
+    super(plugin, {
+      currentPath: plugin.settings.book2Path,
+      onPick: async (filePath) => {
+        plugin.settings.book2Path = filePath;
         plugin.settings.setupCompleted = true;
-        return plugin.saveSettings();
+        await plugin.saveSettings();
       }
     });
+    this.titleEl.setText("Select your manuscript file");
   }
 };
 
@@ -70097,7 +70096,7 @@ var WritingDashboardPlugin = class extends import_obsidian22.Plugin {
       if (!bookMainExists) {
         const mdFiles = this.app.vault.getMarkdownFiles();
         if (mdFiles.length > 0) {
-          const modal = new BookMainSelectorModal(this, mdFiles);
+          const modal = new BookMainSelectorModal(this);
           modal.open();
         } else {
           this.showSetupWizard();
