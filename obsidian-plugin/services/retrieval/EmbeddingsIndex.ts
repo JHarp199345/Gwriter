@@ -180,13 +180,21 @@ export class EmbeddingsIndex {
 	private async _runWorker(): Promise<void> {
 		await this.ensureLoaded();
 
+		let processedCount = 0;
+		let skippedExcluded = 0;
+		let skippedNotMarkdown = 0;
+		let skippedHashMatch = 0;
+		let indexedCount = 0;
+		
 		while (this.queue.size > 0) {
 			if (this.plugin.settings.retrievalIndexPaused) break;
 			const next = this.queue.values().next().value as string;
 			this.queue.delete(next);
+			processedCount++;
 
 			// Exclusions can change at any time; honor them during processing.
 			if (this.plugin.vaultService.isExcludedPath(next)) {
+				skippedExcluded++;
 				this._removePath(next);
 				this._schedulePersist();
 				this._scheduleSettingsSave();
@@ -196,6 +204,7 @@ export class EmbeddingsIndex {
 			const file = this.vault.getAbstractFileByPath(next);
 			// Only index markdown files.
 			if (!(file instanceof TFile) || file.extension !== 'md') {
+				skippedNotMarkdown++;
 				this._removePath(next);
 				this._schedulePersist();
 				this._scheduleSettingsSave();
@@ -206,11 +215,17 @@ export class EmbeddingsIndex {
 				const content = await this.vault.read(file);
 				const fileHash = fnv1a32(content);
 				const prev = this.plugin.settings.retrievalIndexState?.[next];
-				if (prev?.hash === fileHash) {
+				const isCurrentlyIndexed = this.chunkKeysByPath.has(next);
+				
+				// Skip only if: hash matches AND file is already indexed
+				// If hash matches but file is NOT indexed, re-index it (might have been removed)
+				if (prev?.hash === fileHash && isCurrentlyIndexed) {
+					skippedHashMatch++;
 					continue;
 				}
 
 				await this._reindexFile(next, content);
+				indexedCount++;
 				this.plugin.settings.retrievalIndexState = {
 					...(this.plugin.settings.retrievalIndexState || {}),
 					[next]: {
@@ -221,12 +236,18 @@ export class EmbeddingsIndex {
 				};
 				this._schedulePersist();
 				this._scheduleSettingsSave();
-			} catch {
-				// Skip unreadable files.
+			} catch (err) {
+				// Skip unreadable files, but log for debugging
+				console.warn(`Failed to index file ${next}:`, err);
 			}
 
 			// Yield to keep UI responsive.
 			await new Promise((r) => setTimeout(r, 10));
+		}
+
+		// Log indexing stats for debugging
+		if (processedCount > 0) {
+			console.log(`[EmbeddingsIndex] Processed ${processedCount} files: ${indexedCount} indexed, ${skippedExcluded} excluded, ${skippedNotMarkdown} not markdown, ${skippedHashMatch} hash match (already indexed)`);
 		}
 
 		this.workerRunning = false;
@@ -235,6 +256,11 @@ export class EmbeddingsIndex {
 	private async _reindexFile(path: string, content: string): Promise<void> {
 		this._removePath(path);
 
+		// Skip empty files
+		if (!content || content.trim().length === 0) {
+			return;
+		}
+
 		const cfg = chunkingKey(this.plugin);
 		const chunks = buildIndexChunks({
 			text: content,
@@ -242,14 +268,27 @@ export class EmbeddingsIndex {
 			targetWords: cfg.targetWords,
 			overlapWords: cfg.overlapWords
 		});
+		
+		// If no chunks created, skip this file (might be too short or have no headings)
+		if (chunks.length === 0) {
+			return;
+		}
+		
 		for (let i = 0; i < chunks.length; i++) {
 			const ch = chunks[i];
 			const textHash = fnv1a32(ch.text);
 			const key = `chunk:${path}:${i}`;
-			const vector =
-				this.backend === 'minilm'
-					? await this.model.embed(ch.text)
-					: buildVector(ch.text, this.dim);
+			let vector: number[];
+			try {
+				vector =
+					this.backend === 'minilm'
+						? await this.model.embed(ch.text)
+						: buildVector(ch.text, this.dim);
+			} catch (err) {
+				console.error(`Failed to generate embedding for chunk ${i} of ${path}:`, err);
+				// Skip this chunk if embedding fails, but continue with others
+				continue;
+			}
 			const excerpt = excerptOf(ch.text, 500);
 			this._setChunk({
 				key,

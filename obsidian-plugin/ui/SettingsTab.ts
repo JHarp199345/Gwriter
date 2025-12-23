@@ -1,8 +1,9 @@
-import { App, PluginSettingTab, Setting, TFolder } from 'obsidian';
+import { App, PluginSettingTab, Setting, TFolder, Notice, TFile } from 'obsidian';
 import WritingDashboardPlugin from '../main';
 import { SetupWizardModal } from './SetupWizard';
 import { FileTreePickerModal } from './FileTreePickerModal';
 import { FolderTreePickerModal } from './FolderTreePickerModal';
+import { StressTestService } from '../services/StressTestService';
 
 // Model lists for each provider
 const OPENAI_MODELS = [
@@ -753,6 +754,47 @@ export class SettingsTab extends PluginSettingTab {
 					const clamped = Number.isFinite(parsed) ? Math.min(2000000, Math.max(1000, parsed)) : 128000;
 					this.plugin.settings.contextTokenLimit = clamped;
 					await this.plugin.saveSettings();
+				}));
+
+		// Stress Test Section
+		containerEl.createEl('h2', { text: 'Developer Tools' });
+
+		new Setting(containerEl)
+			.setName('Run Stress Test')
+			.setDesc('Comprehensive test of all plugin features. Creates temporary test files, runs all operations, then cleans up automatically. Log is saved as a note in your vault.')
+			.addButton(button => button
+				.setButtonText('Start Stress Test')
+				.setCta()
+				.onClick(async () => {
+					button.setDisabled(true);
+					button.setButtonText('Running...');
+					
+					try {
+						const stressTest = new StressTestService(this.plugin);
+						const logContent = await stressTest.runFullStressTest();
+						
+						// Save log as a note in the vault
+						const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+						const logFileName = `Stress Test Log - ${timestamp}.md`;
+						const logPath = logFileName;
+						
+						await this.plugin.app.vault.create(logPath, logContent);
+						
+						new Notice(`Stress test completed! Log saved to: ${logFileName}`);
+						
+						// Open the log file
+						const logFile = this.plugin.app.vault.getAbstractFileByPath(logPath);
+						if (logFile instanceof TFile) {
+							await this.app.workspace.openLinkText(logPath, '', true);
+						}
+						
+					} catch (error) {
+						new Notice(`Stress test failed: ${error instanceof Error ? error.message : String(error)}`);
+						console.error('Stress test error:', error);
+					} finally {
+						button.setDisabled(false);
+						button.setButtonText('Start Stress Test');
+					}
 				}));
 	}
 }

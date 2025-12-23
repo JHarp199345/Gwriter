@@ -57361,7 +57361,7 @@ __export(main_exports, {
   default: () => WritingDashboardPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian22 = require("obsidian");
+var import_obsidian23 = require("obsidian");
 
 // ui/DashboardView.ts
 var import_obsidian6 = require("obsidian");
@@ -59491,7 +59491,7 @@ var DashboardView = class extends import_obsidian6.ItemView {
 };
 
 // ui/SettingsTab.ts
-var import_obsidian9 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 
 // ui/SetupWizard.tsx
 var import_react8 = __toESM(require_react());
@@ -59815,6 +59815,350 @@ var FileTreePickerComponent = ({ plugin, currentPath, onPick, onClose }) => {
   return /* @__PURE__ */ import_react9.default.createElement("div", { className: "file-tree-picker", style: { padding: "12px", maxHeight: "60vh", overflowY: "auto" } }, /* @__PURE__ */ import_react9.default.createElement("div", { className: "vault-tree" }, rootItems.length === 0 ? /* @__PURE__ */ import_react9.default.createElement("div", { style: { padding: "12px", color: "var(--text-muted)" } }, "No markdown files found in vault") : rootItems.map((item) => renderItem(item))));
 };
 
+// services/StressTestService.ts
+var import_obsidian9 = require("obsidian");
+var StressTestService = class {
+  constructor(plugin) {
+    this.log = [];
+    this.testFolder = "StressTest-Temp";
+    this.testFiles = [];
+    this.testFolders = [];
+    this.startTime = 0;
+    this.plugin = plugin;
+  }
+  async runFullStressTest() {
+    this.log = [];
+    this.startTime = Date.now();
+    this.logEntry("=== WRITING DASHBOARD STRESS TEST ===");
+    this.logEntry(`Started: ${new Date().toISOString()}`);
+    this.logEntry(`Vault: ${this.plugin.app.vault.getName()}`);
+    this.logEntry("");
+    try {
+      await this.phase1_Setup();
+      await this.phase2_Indexing();
+      await this.phase3_FileOperations();
+      if (this.plugin.settings.apiKey) {
+        await this.phase4_WritingModes();
+      } else {
+        this.logEntry("Phase 4: Skipped (no API key configured)");
+      }
+      await this.phase5_Retrieval();
+    } catch (error2) {
+      this.logEntry(`FATAL ERROR: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      this.logEntry(`Stack: ${error2 instanceof Error ? error2.stack : "N/A"}`);
+    } finally {
+      await this.phase6_Cleanup();
+    }
+    const duration = ((Date.now() - this.startTime) / 1e3).toFixed(2);
+    this.logEntry("");
+    this.logEntry("=== STRESS TEST COMPLETED ===");
+    this.logEntry(`Duration: ${duration} seconds`);
+    this.logEntry(`Ended: ${new Date().toISOString()}`);
+    return this.log.join("\n");
+  }
+  logEntry(message) {
+    const timestamp = new Date().toISOString();
+    const entry = `[${timestamp}] ${message}`;
+    this.log.push(entry);
+    console.log(`[StressTest] ${message}`);
+  }
+  async phase1_Setup() {
+    this.logEntry("--- Phase 1: Setup ---");
+    const phaseStart = Date.now();
+    try {
+      await this.plugin.vaultService.createFolderIfNotExists(this.testFolder);
+      this.testFolders.push(this.testFolder);
+      this.logEntry(`\u2713 Created test folder: ${this.testFolder}`);
+      const testFiles = [
+        { name: "test-chapter-1.md", content: this.generateTestChapter(1) },
+        { name: "test-chapter-2.md", content: this.generateTestChapter(2) },
+        { name: "test-character-scene.md", content: this.generateCharacterScene() },
+        { name: "test-short.md", content: "This is a short test file with minimal content." },
+        { name: "test-long.md", content: this.generateLongContent() }
+      ];
+      for (const testFile of testFiles) {
+        const path3 = `${this.testFolder}/${testFile.name}`;
+        await this.plugin.vaultService.writeFile(path3, testFile.content);
+        this.testFiles.push(path3);
+        this.logEntry(`\u2713 Created test file: ${testFile.name} (${testFile.content.split(/\s+/).length} words)`);
+      }
+      const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
+      this.logEntry(`Phase 1 completed in ${phaseDuration}s`);
+      this.logEntry("");
+    } catch (error2) {
+      this.logEntry(`\u2717 Phase 1 failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      throw error2;
+    }
+  }
+  async phase2_Indexing() {
+    this.logEntry("--- Phase 2: Indexing Tests ---");
+    const phaseStart = Date.now();
+    try {
+      const statusBefore = this.plugin.embeddingsIndex?.getStatus?.();
+      this.logEntry(`Index status before: ${statusBefore ? `${statusBefore.indexedFiles} files, ${statusBefore.indexedChunks} chunks, ${statusBefore.queued} queued` : "N/A"}`);
+      const allFiles = this.plugin.vaultService.getIncludedMarkdownFiles();
+      this.logEntry(`Total markdown files in vault: ${allFiles.length}`);
+      const testFileCount = allFiles.filter((f) => f.path.startsWith(this.testFolder)).length;
+      this.logEntry(`Test files created: ${testFileCount}`);
+      const excludedTestFiles = [];
+      for (const file of allFiles) {
+        if (this.plugin.vaultService.isExcludedPath(file.path)) {
+          excludedTestFiles.push(file.path);
+        }
+      }
+      if (excludedTestFiles.length > 0) {
+        this.logEntry(`\u26A0 WARNING: ${excludedTestFiles.length} files are excluded from indexing:`);
+        excludedTestFiles.slice(0, 10).forEach((path3) => {
+          this.logEntry(`  - ${path3}`);
+        });
+        if (excludedTestFiles.length > 10) {
+          this.logEntry(`  ... and ${excludedTestFiles.length - 10} more`);
+        }
+      }
+      const profiles = this.plugin.settings.retrievalProfiles || [];
+      const activeProfile = profiles.find((p) => p.id === this.plugin.settings.retrievalActiveProfileId);
+      this.logEntry(`Active retrieval profile: ${activeProfile?.name || "N/A"} (${activeProfile?.id || "N/A"})`);
+      this.logEntry(`Included folders: ${activeProfile?.includedFolders?.length || 0} (empty = whole vault)`);
+      if (activeProfile?.includedFolders && activeProfile.includedFolders.length > 0) {
+        activeProfile.includedFolders.forEach((folder) => {
+          this.logEntry(`  - ${folder}`);
+        });
+      }
+      this.logEntry(`Excluded folders: ${this.plugin.settings.retrievalExcludedFolders?.length || 0}`);
+      if (this.plugin.settings.retrievalExcludedFolders && this.plugin.settings.retrievalExcludedFolders.length > 0) {
+        this.plugin.settings.retrievalExcludedFolders.forEach((folder) => {
+          this.logEntry(`  - ${folder}`);
+        });
+      }
+      if (this.plugin.settings.retrievalEnableSemanticIndex && !this.plugin.settings.retrievalIndexPaused) {
+        this.logEntry("Triggering full index rescan...");
+        this.plugin.embeddingsIndex.enqueueFullRescan();
+        this.plugin.bm25Index.enqueueFullRescan();
+        await new Promise((resolve) => setTimeout(resolve, 2e3));
+        const statusAfter = this.plugin.embeddingsIndex?.getStatus?.();
+        this.logEntry(`Index status after 2s: ${statusAfter ? `${statusAfter.indexedFiles} files, ${statusAfter.indexedChunks} chunks, ${statusAfter.queued} queued` : "N/A"}`);
+        await new Promise((resolve) => setTimeout(resolve, 5e3));
+        const statusFinal = this.plugin.embeddingsIndex?.getStatus?.();
+        this.logEntry(`Index status after 7s: ${statusFinal ? `${statusFinal.indexedFiles} files, ${statusFinal.indexedChunks} chunks, ${statusFinal.queued} queued` : "N/A"}`);
+        if (statusFinal) {
+          if (statusFinal.queued > 0) {
+            this.logEntry(`\u26A0 WARNING: ${statusFinal.queued} files still queued - indexing may be slow or stuck`);
+          }
+          if (statusFinal.indexedFiles === 0 && allFiles.length > 0) {
+            this.logEntry(`\u26A0 ERROR: No files indexed despite ${allFiles.length} files available`);
+            this.logEntry(`  - Index paused: ${statusFinal.paused}`);
+            this.logEntry(`  - Semantic retrieval enabled: ${this.plugin.settings.retrievalEnableSemanticIndex}`);
+          }
+        }
+      } else {
+        this.logEntry("\u26A0 Indexing is disabled or paused");
+        this.logEntry(`  - Semantic retrieval enabled: ${this.plugin.settings.retrievalEnableSemanticIndex}`);
+        this.logEntry(`  - Index paused: ${this.plugin.settings.retrievalIndexPaused}`);
+      }
+      const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
+      this.logEntry(`Phase 2 completed in ${phaseDuration}s`);
+      this.logEntry("");
+    } catch (error2) {
+      this.logEntry(`\u2717 Phase 2 failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+    }
+  }
+  async phase3_FileOperations() {
+    this.logEntry("--- Phase 3: File Operations ---");
+    const phaseStart = Date.now();
+    try {
+      if (this.testFiles.length > 0) {
+        const testPath = this.testFiles[0];
+        const content = await this.plugin.vaultService.readFile(testPath);
+        this.logEntry(`\u2713 Read file: ${testPath} (${content.length} chars)`);
+      }
+      const writeTestPath = `${this.testFolder}/write-test.md`;
+      const writeContent = "This is a write test file.";
+      await this.plugin.vaultService.writeFile(writeTestPath, writeContent);
+      this.testFiles.push(writeTestPath);
+      this.logEntry(`\u2713 Write file: ${writeTestPath}`);
+      const testSubFolder = `${this.testFolder}/subfolder`;
+      await this.plugin.vaultService.createFolderIfNotExists(testSubFolder);
+      this.testFolders.push(testSubFolder);
+      this.logEntry(`\u2713 Create folder: ${testSubFolder}`);
+      const structure = this.plugin.vaultService.getVaultStructure();
+      this.logEntry(`\u2713 Vault structure: ${structure.length} items total`);
+      const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
+      this.logEntry(`Phase 3 completed in ${phaseDuration}s`);
+      this.logEntry("");
+    } catch (error2) {
+      this.logEntry(`\u2717 Phase 3 failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+    }
+  }
+  async phase4_WritingModes() {
+    this.logEntry("--- Phase 4: Writing Mode Tests ---");
+    const phaseStart = Date.now();
+    try {
+      if (!this.plugin.queryBuilder) {
+        this.logEntry("\u26A0 QueryBuilder not available - skipping context aggregation test");
+        return;
+      }
+      this.logEntry("Testing context aggregation...");
+      const context = await this.plugin.contextAggregator.getChapterContext(
+        this.plugin.queryBuilder.build({
+          mode: "chapter",
+          activeFilePath: this.plugin.settings.book2Path,
+          primaryText: "Test scene summary",
+          directorNotes: ""
+        })
+      );
+      this.logEntry(`\u2713 Context aggregated: ${Object.keys(context).length} context sections`);
+      this.logEntry("Testing prompt building...");
+      const prompt = this.plugin.promptEngine.buildChapterPrompt(
+        context,
+        "Test rewrite instructions",
+        "Test scene summary",
+        1e3,
+        2e3
+      );
+      this.logEntry(`\u2713 Prompt built: ${prompt.length} chars`);
+      this.logEntry("\u26A0 AI generation skipped (stress test mode)");
+      const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
+      this.logEntry(`Phase 4 completed in ${phaseDuration}s`);
+      this.logEntry("");
+    } catch (error2) {
+      this.logEntry(`\u2717 Phase 4 failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+    }
+  }
+  async phase5_Retrieval() {
+    this.logEntry("--- Phase 5: Retrieval Tests ---");
+    const phaseStart = Date.now();
+    try {
+      if (!this.plugin.settings.retrievalEnableSemanticIndex) {
+        this.logEntry("\u26A0 Semantic retrieval disabled - skipping retrieval tests");
+        return;
+      }
+      if (!this.plugin.queryBuilder || !this.plugin.retrievalService) {
+        this.logEntry("\u26A0 Retrieval services not available - skipping retrieval tests");
+        return;
+      }
+      this.logEntry("Testing retrieval query...");
+      const query = this.plugin.queryBuilder.build({
+        mode: "chapter",
+        activeFilePath: this.plugin.settings.book2Path,
+        primaryText: "test query text about characters and plot",
+        directorNotes: ""
+      });
+      const results = await this.plugin.retrievalService.search(query, { limit: 10 });
+      this.logEntry(`\u2713 Retrieval query returned ${results.length} results`);
+      if (results.length > 0) {
+        results.slice(0, 3).forEach((result, idx) => {
+          this.logEntry(`  Result ${idx + 1}: ${result.path} (${result.excerpt.length} chars)`);
+        });
+      } else {
+        this.logEntry(`\u26A0 No retrieval results - index may be empty or query too specific`);
+      }
+      const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
+      this.logEntry(`Phase 5 completed in ${phaseDuration}s`);
+      this.logEntry("");
+    } catch (error2) {
+      this.logEntry(`\u2717 Phase 5 failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+    }
+  }
+  async phase6_Cleanup() {
+    this.logEntry("--- Phase 6: Cleanup ---");
+    const phaseStart = Date.now();
+    try {
+      for (const filePath of this.testFiles) {
+        try {
+          const file = this.plugin.app.vault.getAbstractFileByPath(filePath);
+          if (file instanceof import_obsidian9.TFile) {
+            await this.plugin.app.vault.delete(file);
+            this.logEntry(`\u2713 Deleted: ${filePath}`);
+          }
+        } catch (error2) {
+          this.logEntry(`\u26A0 Failed to delete ${filePath}: ${error2 instanceof Error ? error2.message : String(error2)}`);
+        }
+      }
+      for (const folderPath of this.testFolders.reverse()) {
+        try {
+          const folder = this.plugin.app.vault.getAbstractFileByPath(folderPath);
+          if (folder instanceof import_obsidian9.TFolder) {
+            if (folder.children.length === 0) {
+              await this.plugin.app.vault.delete(folder);
+              this.logEntry(`\u2713 Deleted folder: ${folderPath}`);
+            } else {
+              this.logEntry(`\u26A0 Folder not empty, skipping: ${folderPath}`);
+            }
+          }
+        } catch (error2) {
+          this.logEntry(`\u26A0 Failed to delete folder ${folderPath}: ${error2 instanceof Error ? error2.message : String(error2)}`);
+        }
+      }
+      for (const filePath of this.testFiles) {
+        this.plugin.embeddingsIndex?.queueRemoveFile(filePath);
+        this.plugin.bm25Index?.queueRemoveFile(filePath);
+      }
+      const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
+      this.logEntry(`Phase 6 completed in ${phaseDuration}s`);
+      this.logEntry("");
+    } catch (error2) {
+      this.logEntry(`\u2717 Phase 6 failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+    }
+  }
+  generateTestChapter(num) {
+    return `# Chapter ${num}
+
+This is a test chapter for stress testing the Writing Dashboard plugin.
+
+## Scene 1
+
+The protagonist walked through the ancient forest, feeling the weight of their mission. Trees towered overhead, their branches creating a canopy that filtered the sunlight into dappled patterns on the forest floor.
+
+## Scene 2
+
+A sound in the distance caught their attention. Something was moving through the underbrush, something large. The protagonist paused, hand moving to their weapon.
+
+## Scene 3
+
+The creature emerged from the shadows - a massive wolf with intelligent eyes. It studied the protagonist for a moment, then turned and disappeared back into the forest, leaving only the memory of its presence.
+
+The protagonist continued on their journey, now more aware of the dangers that lurked in this place.
+`;
+  }
+  generateCharacterScene() {
+    return `# Character Test Scene
+
+This scene involves multiple characters for testing character extraction.
+
+Ava stood at the edge of the cliff, looking down at the city below. Marcus joined her, his expression grim.
+
+"We need to move quickly," Marcus said. "They know we're here."
+
+Ava nodded, her mind racing through the possibilities. The mission had become more complicated than expected.
+
+"Can we trust them?" she asked.
+
+Marcus hesitated before answering. "We don't have a choice."
+
+Together, they began their descent into the city, each step bringing them closer to their goal - and to danger.
+`;
+  }
+  generateLongContent() {
+    const paragraphs = [
+      "This is a long test document designed to test chunking and indexing.",
+      "It contains multiple paragraphs that should be split into chunks.",
+      "Each paragraph adds to the word count to ensure proper chunking behavior.",
+      "The content is intentionally repetitive to test the indexing system.",
+      "This helps verify that large files are properly processed.",
+      "Chunking should break this into manageable pieces.",
+      "Each chunk should be around 500 words by default.",
+      "This document should create multiple chunks when indexed.",
+      "Testing the chunking algorithm is important for retrieval quality.",
+      "Proper chunking ensures relevant context is found during searches."
+    ];
+    let content = "# Long Test Document\n\n";
+    for (let i = 0; i < 20; i++) {
+      content += paragraphs.join("\n\n") + "\n\n";
+    }
+    return content;
+  }
+};
+
 // ui/SettingsTab.ts
 var OPENAI_MODELS = [
   { value: "gpt-5.2-pro", label: "GPT-5.2 Pro" },
@@ -59886,7 +60230,7 @@ function getModelsForProvider(provider) {
       return [];
   }
 }
-var SettingsTab = class extends import_obsidian9.PluginSettingTab {
+var SettingsTab = class extends import_obsidian10.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -59908,17 +60252,17 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian9.Setting(containerEl).setName("Configuration").setHeading();
-    new import_obsidian9.Setting(containerEl).setName("API key").setDesc("Your AI API key (stored securely)").addText((text2) => text2.setPlaceholder("Enter API key").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
+    new import_obsidian10.Setting(containerEl).setName("Configuration").setHeading();
+    new import_obsidian10.Setting(containerEl).setName("API key").setDesc("Your AI API key (stored securely)").addText((text2) => text2.setPlaceholder("Enter API key").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
       this.plugin.settings.apiKey = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian9.Setting(containerEl).setName("Generation mode").setDesc("Single mode: fast, single model. Multi mode: higher quality with multiple models.").addDropdown((dropdown) => dropdown.addOption("single", "Single mode").addOption("multi", "Multi mode").setValue(this.plugin.settings.generationMode).onChange(async (value) => {
+    new import_obsidian10.Setting(containerEl).setName("Generation mode").setDesc("Single mode: fast, single model. Multi mode: higher quality with multiple models.").addDropdown((dropdown) => dropdown.addOption("single", "Single mode").addOption("multi", "Multi mode").setValue(this.plugin.settings.generationMode).onChange(async (value) => {
       this.plugin.settings.generationMode = value;
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian9.Setting(containerEl).setName("API provider").setDesc("Choose your AI provider. Openrouter is recommended for multi mode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "Openrouter (recommended)").addOption("openai", "Openai").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
+    new import_obsidian10.Setting(containerEl).setName("API provider").setDesc("Choose your AI provider. Openrouter is recommended for multi mode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "Openrouter (recommended)").addOption("openai", "Openai").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
       this.plugin.settings.apiProvider = value;
       const models = getModelsForProvider(value);
       const currentModel = this.plugin.settings.model;
@@ -59928,7 +60272,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian9.Setting(containerEl).setName("Model").setDesc("AI model to use").addDropdown((dropdown) => {
+    new import_obsidian10.Setting(containerEl).setName("Model").setDesc("AI model to use").addDropdown((dropdown) => {
       const models = getModelsForProvider(this.plugin.settings.apiProvider);
       models.forEach((model) => {
         dropdown.addOption(model.value, model.label);
@@ -59939,10 +60283,10 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian9.Setting(containerEl).setName("Retrieval").setHeading();
+    new import_obsidian10.Setting(containerEl).setName("Retrieval").setHeading();
     const profiles = Array.isArray(this.plugin.settings.retrievalProfiles) ? this.plugin.settings.retrievalProfiles : [];
     const activeProfileId = this.plugin.settings.retrievalActiveProfileId;
-    new import_obsidian9.Setting(containerEl).setName("Retrieval profile").setDesc("Controls which folders are included for retrieval and indexing. Use this to avoid pulling irrelevant vault content.").addDropdown((dropdown) => {
+    new import_obsidian10.Setting(containerEl).setName("Retrieval profile").setDesc("Controls which folders are included for retrieval and indexing. Use this to avoid pulling irrelevant vault content.").addDropdown((dropdown) => {
       for (const p of profiles)
         dropdown.addOption(p.id, p.name);
       dropdown.setValue(activeProfileId || (profiles[0]?.id ?? "story"));
@@ -59958,7 +60302,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
     });
     const activeProfile = profiles.find((p) => p.id === activeProfileId) ?? profiles[0];
     if (activeProfile) {
-      new import_obsidian9.Setting(containerEl).setName("Profile name").setDesc("Rename the active profile.").addText(
+      new import_obsidian10.Setting(containerEl).setName("Profile name").setDesc("Rename the active profile.").addText(
         (text2) => text2.setValue(activeProfile.name).onChange(async (value) => {
           const nextName = value.trim() || activeProfile.name;
           activeProfile.name = nextName;
@@ -59967,7 +60311,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         })
       );
       let newProfileName = "";
-      new import_obsidian9.Setting(containerEl).setName("Create profile").setDesc("Create a new retrieval profile.").addText(
+      new import_obsidian10.Setting(containerEl).setName("Create profile").setDesc("Create a new retrieval profile.").addText(
         (text2) => text2.setPlaceholder("New profile name").onChange((value) => {
           newProfileName = value;
         })
@@ -59984,7 +60328,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         })
       );
       if (!["story", "research", "manuscript"].includes(activeProfile.id)) {
-        new import_obsidian9.Setting(containerEl).setName("Delete profile").setDesc("Deletes the active profile.").addButton(
+        new import_obsidian10.Setting(containerEl).setName("Delete profile").setDesc("Deletes the active profile.").addButton(
           (btn) => btn.setButtonText("Delete").onClick(async () => {
             this.plugin.settings.retrievalProfiles = profiles.filter((p) => p.id !== activeProfile.id);
             this.plugin.settings.retrievalActiveProfileId = this.plugin.settings.retrievalProfiles[0]?.id || "story";
@@ -60000,12 +60344,12 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
       const logsFolder = (this.plugin.settings.generationLogsFolder || "").replace(/\\/g, "/").replace(/\/+$/, "");
       const includes = new Set((activeProfile.includedFolders || []).map((p) => p.replace(/\\/g, "/")));
       const profileContainer = containerEl.createDiv({ cls: "writing-dashboard-exclusions" });
-      new import_obsidian9.Setting(profileContainer).setName("Included folders").setDesc("Only these folders are searched and indexed. Leave empty to include the whole vault (minus exclusions).");
+      new import_obsidian10.Setting(profileContainer).setName("Included folders").setDesc("Only these folders are searched and indexed. Leave empty to include the whole vault (minus exclusions).");
       for (const folder of folderRoster) {
         const normalized = folder.replace(/\\/g, "/");
         const isProtected = normalized === configDir2 || normalized.startsWith(`${configDir2}/`) || logsFolder && (normalized === logsFolder || normalized.startsWith(`${logsFolder}/`));
         const isChecked = includes.has(normalized);
-        new import_obsidian9.Setting(profileContainer).setName(normalized).addToggle(
+        new import_obsidian10.Setting(profileContainer).setName(normalized).addToggle(
           (toggle) => toggle.setValue(isChecked).setDisabled(isProtected).onChange(async (value) => {
             const next = new Set((activeProfile.includedFolders || []).map((p) => p.replace(/\\/g, "/")));
             if (value)
@@ -60023,19 +60367,19 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         );
       }
     }
-    new import_obsidian9.Setting(containerEl).setName("Enable BM25 retrieval").setDesc("Use a search-engine style relevance ranking (BM25). Recommended for names, places, and exact terms.").addToggle(
+    new import_obsidian10.Setting(containerEl).setName("Enable BM25 retrieval").setDesc("Use a search-engine style relevance ranking (BM25). Recommended for names, places, and exact terms.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableBm25)).onChange(async (value) => {
         this.plugin.settings.retrievalEnableBm25 = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian9.Setting(containerEl).setName("Enable semantic retrieval").setDesc("Build a local index to retrieve relevant notes from the vault. If disabled, retrieval uses heuristic matching only.").addToggle(
+    new import_obsidian10.Setting(containerEl).setName("Enable semantic retrieval").setDesc("Build a local index to retrieve relevant notes from the vault. If disabled, retrieval uses heuristic matching only.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableSemanticIndex)).onChange(async (value) => {
         this.plugin.settings.retrievalEnableSemanticIndex = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian9.Setting(containerEl).setName("Semantic backend").setDesc("Choose which local semantic retrieval method to use. True embeddings provide higher quality but may be slower.").addDropdown((dropdown) => {
+    new import_obsidian10.Setting(containerEl).setName("Semantic backend").setDesc("Choose which local semantic retrieval method to use. True embeddings provide higher quality but may be slower.").addDropdown((dropdown) => {
       dropdown.addOption("minilm", "True local embeddings (recommended)");
       dropdown.addOption("hash", "Fast lightweight (lower quality)");
       dropdown.setValue(this.plugin.settings.retrievalEmbeddingBackend ?? "minilm");
@@ -60044,13 +60388,13 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian9.Setting(containerEl).setName("Enable reranking").setDesc("Use a local CPU reranker to improve the ordering of retrieved snippets at Generate time. This can add a short delay.").addToggle(
+    new import_obsidian10.Setting(containerEl).setName("Enable reranking").setDesc("Use a local CPU reranker to improve the ordering of retrieved snippets at Generate time. This can add a short delay.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableReranker)).onChange(async (value) => {
         this.plugin.settings.retrievalEnableReranker = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian9.Setting(containerEl).setName("Retrieved items (limit)").setDesc("Maximum number of retrieved snippets to include in prompts.").addText(
+    new import_obsidian10.Setting(containerEl).setName("Retrieved items (limit)").setDesc("Maximum number of retrieved snippets to include in prompts.").addText(
       (text2) => text2.setPlaceholder("24").setValue(String(this.plugin.settings.retrievalTopK ?? 24)).onChange(async (value) => {
         const parsed = parseInt(value, 10);
         if (Number.isFinite(parsed)) {
@@ -60059,7 +60403,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         }
       })
     );
-    new import_obsidian9.Setting(containerEl).setName("Index chunk size (words)").setDesc("Controls how your notes are chunked for semantic retrieval. Larger chunks add more context but may reduce precision.").addText(
+    new import_obsidian10.Setting(containerEl).setName("Index chunk size (words)").setDesc("Controls how your notes are chunked for semantic retrieval. Larger chunks add more context but may reduce precision.").addText(
       (text2) => text2.setPlaceholder("500").setValue(String(this.plugin.settings.retrievalChunkWords ?? 500)).onChange(async (value) => {
         const parsed = parseInt(value, 10);
         if (Number.isFinite(parsed)) {
@@ -60068,7 +60412,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         }
       })
     );
-    new import_obsidian9.Setting(containerEl).setName("Index chunk overlap (words)").setDesc("Overlap helps preserve continuity between chunks.").addText(
+    new import_obsidian10.Setting(containerEl).setName("Index chunk overlap (words)").setDesc("Overlap helps preserve continuity between chunks.").addText(
       (text2) => text2.setPlaceholder("100").setValue(String(this.plugin.settings.retrievalChunkOverlapWords ?? 100)).onChange(async (value) => {
         const parsed = parseInt(value, 10);
         if (Number.isFinite(parsed)) {
@@ -60077,7 +60421,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         }
       })
     );
-    new import_obsidian9.Setting(containerEl).setName("Indexing heading level").setDesc("Preferred heading level used to split notes into coherent chunks for retrieval indexing. Falls back to word-window chunking if headings are missing.").addDropdown((dropdown) => {
+    new import_obsidian10.Setting(containerEl).setName("Indexing heading level").setDesc("Preferred heading level used to split notes into coherent chunks for retrieval indexing. Falls back to word-window chunking if headings are missing.").addDropdown((dropdown) => {
       dropdown.addOption("h1", "H1 (#)");
       dropdown.addOption("h2", "H2 (##)");
       dropdown.addOption("h3", "H3 (###)");
@@ -60088,7 +60432,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian9.Setting(containerEl).setName("Pause indexing").setDesc("Pauses background indexing for semantic retrieval.").addToggle(
+    new import_obsidian10.Setting(containerEl).setName("Pause indexing").setDesc("Pauses background indexing for semantic retrieval.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalIndexPaused)).onChange(async (value) => {
         this.plugin.settings.retrievalIndexPaused = value;
         await this.plugin.saveSettings();
@@ -60097,13 +60441,13 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
     const excluded = new Set((this.plugin.settings.retrievalExcludedFolders || []).map((p) => p.replace(/\\/g, "/")));
     const folders = this.plugin.vaultService.getAllFolderPaths();
     const exclusionsContainer = containerEl.createDiv({ cls: "writing-dashboard-exclusions" });
-    new import_obsidian9.Setting(exclusionsContainer).setName("Exclude from retrieval").setDesc("Choose folders to exclude from retrieval and indexing. Obsidian configuration is always excluded.");
+    new import_obsidian10.Setting(exclusionsContainer).setName("Exclude from retrieval").setDesc("Choose folders to exclude from retrieval and indexing. Obsidian configuration is always excluded.");
     const configDir = this.app.vault.configDir.replace(/\\/g, "/");
-    new import_obsidian9.Setting(exclusionsContainer).setName(configDir).setDesc("Always excluded.").addToggle((toggle) => toggle.setValue(true).setDisabled(true));
+    new import_obsidian10.Setting(exclusionsContainer).setName(configDir).setDesc("Always excluded.").addToggle((toggle) => toggle.setValue(true).setDisabled(true));
     for (const folder of folders) {
       const normalized = folder.replace(/\\/g, "/");
       const isChecked = excluded.has(normalized);
-      new import_obsidian9.Setting(exclusionsContainer).setName(normalized).addToggle(
+      new import_obsidian10.Setting(exclusionsContainer).setName(normalized).addToggle(
         (toggle) => toggle.setValue(isChecked).onChange(async (value) => {
           const next = new Set(
             (this.plugin.settings.retrievalExcludedFolders || []).map((p) => p.replace(/\\/g, "/"))
@@ -60120,9 +60464,9 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
     const existingSet = new Set(folders.map((f) => f.replace(/\\/g, "/")));
     const missing = Array.from(excluded).filter((p) => p && !existingSet.has(p));
     if (missing.length > 0) {
-      new import_obsidian9.Setting(exclusionsContainer).setName("Missing excluded folders").setHeading();
+      new import_obsidian10.Setting(exclusionsContainer).setName("Missing excluded folders").setHeading();
       for (const missingPath of missing.sort((a, b) => a.localeCompare(b))) {
-        new import_obsidian9.Setting(exclusionsContainer).setName(missingPath).setDesc("This folder does not exist in the vault.").addButton(
+        new import_obsidian10.Setting(exclusionsContainer).setName(missingPath).setDesc("This folder does not exist in the vault.").addButton(
           (btn) => btn.setButtonText("Remove").onClick(async () => {
             const next = new Set(
               (this.plugin.settings.retrievalExcludedFolders || []).map((p) => p.replace(/\\/g, "/"))
@@ -60135,15 +60479,15 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         );
       }
     }
-    new import_obsidian9.Setting(containerEl).setName("Generation logs").setHeading();
-    new import_obsidian9.Setting(containerEl).setName("Save generation logs").setDesc("Writes a log note per generation run with inputs, retrieved context, and output. Logs are excluded from retrieval.").addToggle(
+    new import_obsidian10.Setting(containerEl).setName("Generation logs").setHeading();
+    new import_obsidian10.Setting(containerEl).setName("Save generation logs").setDesc("Writes a log note per generation run with inputs, retrieved context, and output. Logs are excluded from retrieval.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.generationLogsEnabled)).onChange(async (value) => {
         this.plugin.settings.generationLogsEnabled = value;
         await this.plugin.saveSettings();
         if (value) {
           const folderPath = this.plugin.settings.generationLogsFolder || "";
           const folder = this.app.vault.getAbstractFileByPath(folderPath);
-          if (!folderPath || !(folder instanceof import_obsidian9.TFolder)) {
+          if (!folderPath || !(folder instanceof import_obsidian10.TFolder)) {
             const modal = new FolderTreePickerModal(this.plugin, {
               currentPath: folderPath || void 0,
               title: "Select or create generation logs folder",
@@ -60158,7 +60502,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         }
       })
     );
-    const generationLogsFolderSetting = new import_obsidian9.Setting(containerEl).setName("Generation logs folder").setDesc(`Current: ${this.plugin.settings.generationLogsFolder || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.generationLogsFolder ? this.plugin.settings.generationLogsFolder.split("/").pop() || "Select folder" : "Select folder").onClick(() => {
+    const generationLogsFolderSetting = new import_obsidian10.Setting(containerEl).setName("Generation logs folder").setDesc(`Current: ${this.plugin.settings.generationLogsFolder || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.generationLogsFolder ? this.plugin.settings.generationLogsFolder.split("/").pop() || "Select folder" : "Select folder").onClick(() => {
       const modal = new FolderTreePickerModal(this.plugin, {
         currentPath: this.plugin.settings.generationLogsFolder || void 0,
         title: "Select or create generation logs folder",
@@ -60170,20 +60514,20 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
       });
       modal.open();
     }));
-    new import_obsidian9.Setting(containerEl).setName("Include full prompt in logs").setDesc("If enabled, logs include the full prompt text that was sent to the model.").addToggle(
+    new import_obsidian10.Setting(containerEl).setName("Include full prompt in logs").setDesc("If enabled, logs include the full prompt text that was sent to the model.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.generationLogsIncludePrompt)).onChange(async (value) => {
         this.plugin.settings.generationLogsIncludePrompt = value;
         await this.plugin.saveSettings();
       })
     );
     if (this.plugin.settings.generationMode === "multi") {
-      new import_obsidian9.Setting(containerEl).setName("Multi-mode strategy").setDesc("Draft + revision: fast draft + quality revision. Consensus + multi-stage: maximum quality (slower, more expensive).").addDropdown((dropdown) => dropdown.addOption("draft-revision", "Draft + revision").addOption("consensus-multistage", "Consensus + multi-stage (maximum quality)").setValue(this.plugin.settings.multiStrategy).onChange(async (value) => {
+      new import_obsidian10.Setting(containerEl).setName("Multi-mode strategy").setDesc("Draft + revision: fast draft + quality revision. Consensus + multi-stage: maximum quality (slower, more expensive).").addDropdown((dropdown) => dropdown.addOption("draft-revision", "Draft + revision").addOption("consensus-multistage", "Consensus + multi-stage (maximum quality)").setValue(this.plugin.settings.multiStrategy).onChange(async (value) => {
         this.plugin.settings.multiStrategy = value;
         await this.plugin.saveSettings();
         this.display();
       }));
       if (this.plugin.settings.multiStrategy === "draft-revision") {
-        new import_obsidian9.Setting(containerEl).setName("Draft model").setDesc("Fast model for initial draft").addDropdown((dropdown) => {
+        new import_obsidian10.Setting(containerEl).setName("Draft model").setDesc("Fast model for initial draft").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -60194,7 +60538,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian9.Setting(containerEl).setName("Revision model").setDesc("Quality model for refinement").addDropdown((dropdown) => {
+        new import_obsidian10.Setting(containerEl).setName("Revision model").setDesc("Quality model for refinement").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -60206,7 +60550,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
           });
         });
       } else {
-        new import_obsidian9.Setting(containerEl).setName("Consensus model 1").setDesc("Primary model for consensus generation").addDropdown((dropdown) => {
+        new import_obsidian10.Setting(containerEl).setName("Consensus model 1").setDesc("Primary model for consensus generation").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -60217,7 +60561,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian9.Setting(containerEl).setName("Consensus model 2").setDesc("Second model for consensus generation").addDropdown((dropdown) => {
+        new import_obsidian10.Setting(containerEl).setName("Consensus model 2").setDesc("Second model for consensus generation").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -60228,7 +60572,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian9.Setting(containerEl).setName("Consensus model 3 (optional)").setDesc("Third model for stronger consensus (optional)").addDropdown((dropdown) => {
+        new import_obsidian10.Setting(containerEl).setName("Consensus model 3 (optional)").setDesc("Third model for stronger consensus (optional)").addDropdown((dropdown) => {
           dropdown.addOption("", "None");
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
@@ -60240,7 +60584,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian9.Setting(containerEl).setName("Synthesis model").setDesc("Model to synthesize final output from consensus").addDropdown((dropdown) => {
+        new import_obsidian10.Setting(containerEl).setName("Synthesis model").setDesc("Model to synthesize final output from consensus").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -60253,20 +60597,20 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         });
       }
     }
-    new import_obsidian9.Setting(containerEl).setName("Vault path").setDesc("Path to your Obsidian vault (auto-detected)").addText((text2) => text2.setPlaceholder("Vault path").setValue(this.plugin.settings.vaultPath).onChange(async (value) => {
+    new import_obsidian10.Setting(containerEl).setName("Vault path").setDesc("Path to your Obsidian vault (auto-detected)").addText((text2) => text2.setPlaceholder("Vault path").setValue(this.plugin.settings.vaultPath).onChange(async (value) => {
       this.plugin.settings.vaultPath = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian9.Setting(containerEl).setName("Setup wizard").setDesc("Create default files and folders for your writing workspace").addButton((button) => button.setButtonText("Run setup wizard").onClick(() => {
+    new import_obsidian10.Setting(containerEl).setName("Setup wizard").setDesc("Create default files and folders for your writing workspace").addButton((button) => button.setButtonText("Run setup wizard").onClick(() => {
       const modal = new SetupWizardModal(this.plugin);
       modal.open();
     }));
-    new import_obsidian9.Setting(containerEl).setName("Guided demo").setDesc("Generate demo-only text to learn the workflow (chapter \u2192 micro edit \u2192 character update).").addButton(
+    new import_obsidian10.Setting(containerEl).setName("Guided demo").setDesc("Generate demo-only text to learn the workflow (chapter \u2192 micro edit \u2192 character update).").addButton(
       (button) => button.setButtonText("Run guided demo").onClick(() => {
         this.plugin.requestGuidedDemoStart();
       })
     );
-    const characterFolderSetting = new import_obsidian9.Setting(containerEl).setName("Character folder").setDesc(`Current: ${this.plugin.settings.characterFolder || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.characterFolder ? this.plugin.settings.characterFolder.split("/").pop() || "Select folder" : "Select folder").onClick(() => {
+    const characterFolderSetting = new import_obsidian10.Setting(containerEl).setName("Character folder").setDesc(`Current: ${this.plugin.settings.characterFolder || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.characterFolder ? this.plugin.settings.characterFolder.split("/").pop() || "Select folder" : "Select folder").onClick(() => {
       const modal = new FolderTreePickerModal(this.plugin, {
         currentPath: this.plugin.settings.characterFolder || void 0,
         title: "Select or create character folder",
@@ -60278,7 +60622,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
       });
       modal.open();
     }));
-    const bookFileSetting = new import_obsidian9.Setting(containerEl).setName("Book main file").setDesc(`Current: ${this.plugin.settings.book2Path || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.book2Path ? this.plugin.settings.book2Path.split("/").pop() || "Select book file" : "Select book file").onClick(() => {
+    const bookFileSetting = new import_obsidian10.Setting(containerEl).setName("Book main file").setDesc(`Current: ${this.plugin.settings.book2Path || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.book2Path ? this.plugin.settings.book2Path.split("/").pop() || "Select book file" : "Select book file").onClick(() => {
       const modal = new FileTreePickerModal(this.plugin, {
         currentPath: this.plugin.settings.book2Path,
         onPick: async (filePath) => {
@@ -60289,7 +60633,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
       });
       modal.open();
     }));
-    const storyBibleSetting = new import_obsidian9.Setting(containerEl).setName("Story bible path").setDesc(`Current: ${this.plugin.settings.storyBiblePath || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.storyBiblePath ? this.plugin.settings.storyBiblePath.split("/").pop() || "Select story bible" : "Select story bible").onClick(() => {
+    const storyBibleSetting = new import_obsidian10.Setting(containerEl).setName("Story bible path").setDesc(`Current: ${this.plugin.settings.storyBiblePath || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.storyBiblePath ? this.plugin.settings.storyBiblePath.split("/").pop() || "Select story bible" : "Select story bible").onClick(() => {
       const modal = new FileTreePickerModal(this.plugin, {
         currentPath: this.plugin.settings.storyBiblePath,
         onPick: async (filePath) => {
@@ -60300,30 +60644,54 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
       });
       modal.open();
     }));
-    new import_obsidian9.Setting(containerEl).setName("Character extraction chunk size (words)").setDesc('Used by "process entire book" to batch character extraction. Larger chunks (e.g., 2000\u20133000) tend to improve character context.').addText((text2) => text2.setPlaceholder("2500").setValue(String(this.plugin.settings.characterExtractionChunkSize ?? 2500)).onChange(async (value) => {
+    new import_obsidian10.Setting(containerEl).setName("Character extraction chunk size (words)").setDesc('Used by "process entire book" to batch character extraction. Larger chunks (e.g., 2000\u20133000) tend to improve character context.').addText((text2) => text2.setPlaceholder("2500").setValue(String(this.plugin.settings.characterExtractionChunkSize ?? 2500)).onChange(async (value) => {
       const parsed = parseInt(value, 10);
       const clamped = Number.isFinite(parsed) ? Math.min(1e4, Math.max(250, parsed)) : 2500;
       this.plugin.settings.characterExtractionChunkSize = clamped;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian9.Setting(containerEl).setName("Default character extraction instructions").setDesc("Used by character update (selected text). If the extraction instructions box is empty/invalid, this default is used instead.").addTextArea((text2) => text2.setPlaceholder("Character update instructions...").setValue(this.plugin.settings.defaultCharacterExtractionInstructions || "").onChange(async (value) => {
+    new import_obsidian10.Setting(containerEl).setName("Default character extraction instructions").setDesc("Used by character update (selected text). If the extraction instructions box is empty/invalid, this default is used instead.").addTextArea((text2) => text2.setPlaceholder("Character update instructions...").setValue(this.plugin.settings.defaultCharacterExtractionInstructions || "").onChange(async (value) => {
       this.plugin.settings.defaultCharacterExtractionInstructions = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian9.Setting(containerEl).setName("Context token limit (warning)").setDesc("Shows a warning before generating if the estimated prompt tokens exceed this limit. Default: 128000.").addText((text2) => text2.setPlaceholder("128000").setValue(String(this.plugin.settings.contextTokenLimit ?? 128e3)).onChange(async (value) => {
+    new import_obsidian10.Setting(containerEl).setName("Context token limit (warning)").setDesc("Shows a warning before generating if the estimated prompt tokens exceed this limit. Default: 128000.").addText((text2) => text2.setPlaceholder("128000").setValue(String(this.plugin.settings.contextTokenLimit ?? 128e3)).onChange(async (value) => {
       const parsed = parseInt(value, 10);
       const clamped = Number.isFinite(parsed) ? Math.min(2e6, Math.max(1e3, parsed)) : 128e3;
       this.plugin.settings.contextTokenLimit = clamped;
       await this.plugin.saveSettings();
     }));
+    containerEl.createEl("h2", { text: "Developer Tools" });
+    new import_obsidian10.Setting(containerEl).setName("Run Stress Test").setDesc("Comprehensive test of all plugin features. Creates temporary test files, runs all operations, then cleans up automatically. Log is saved as a note in your vault.").addButton((button) => button.setButtonText("Start Stress Test").setCta().onClick(async () => {
+      button.setDisabled(true);
+      button.setButtonText("Running...");
+      try {
+        const stressTest = new StressTestService(this.plugin);
+        const logContent = await stressTest.runFullStressTest();
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5);
+        const logFileName = `Stress Test Log - ${timestamp}.md`;
+        const logPath = logFileName;
+        await this.plugin.app.vault.create(logPath, logContent);
+        new import_obsidian10.Notice(`Stress test completed! Log saved to: ${logFileName}`);
+        const logFile = this.plugin.app.vault.getAbstractFileByPath(logPath);
+        if (logFile instanceof import_obsidian10.TFile) {
+          await this.app.workspace.openLinkText(logPath, "", true);
+        }
+      } catch (error2) {
+        new import_obsidian10.Notice(`Stress test failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+        console.error("Stress test error:", error2);
+      } finally {
+        button.setDisabled(false);
+        button.setButtonText("Start Stress Test");
+      }
+    }));
   }
 };
 
 // services/VaultService.ts
-var import_obsidian12 = require("obsidian");
+var import_obsidian13 = require("obsidian");
 
 // services/CharacterNameResolver.ts
-var import_obsidian10 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 function normalizeForMatch(name2) {
   return (name2 || "").toLowerCase().trim().replace(/[-_]+/g, " ").replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
 }
@@ -60371,11 +60739,11 @@ function similarityScore(a, b) {
 }
 function listCharacterBasenames(vault, folderPath) {
   const folder = vault.getAbstractFileByPath(folderPath);
-  if (!(folder instanceof import_obsidian10.TFolder))
+  if (!(folder instanceof import_obsidian11.TFolder))
     return [];
   const names = [];
   for (const child of folder.children) {
-    if (child instanceof import_obsidian10.TFile && child.extension === "md") {
+    if (child instanceof import_obsidian11.TFile && child.extension === "md") {
       names.push(child.basename);
     }
   }
@@ -60414,7 +60782,7 @@ var CharacterNameResolver = class {
 };
 
 // ui/CharacterNameConflictModal.ts
-var import_obsidian11 = require("obsidian");
+var import_obsidian12 = require("obsidian");
 function showCharacterNameConflictModal(app, opts) {
   return new Promise((resolve) => {
     let settled = false;
@@ -60424,7 +60792,7 @@ function showCharacterNameConflictModal(app, opts) {
       settled = true;
       resolve(value);
     };
-    const modal = new class extends import_obsidian11.Modal {
+    const modal = new class extends import_obsidian12.Modal {
       constructor() {
         super(...arguments);
         this.selected = null;
@@ -60436,7 +60804,7 @@ function showCharacterNameConflictModal(app, opts) {
         if (opts.candidates.length) {
           this.contentEl.createEl("p", { text: "Select an existing character note:" });
           for (const c of opts.candidates) {
-            new import_obsidian11.Setting(this.contentEl).setName(c).addButton((btn) => {
+            new import_obsidian12.Setting(this.contentEl).setName(c).addButton((btn) => {
               btn.setButtonText("Use");
               btn.setCta();
               btn.onClick(() => {
@@ -60447,14 +60815,14 @@ function showCharacterNameConflictModal(app, opts) {
             });
           }
         }
-        new import_obsidian11.Setting(this.contentEl).setName("Create a new character note").setDesc("Use the proposed name as a new file in your character folder.").addButton((btn) => {
+        new import_obsidian12.Setting(this.contentEl).setName("Create a new character note").setDesc("Use the proposed name as a new file in your character folder.").addButton((btn) => {
           btn.setButtonText("Create new");
           btn.onClick(() => {
             settle({ type: "create", name: opts.proposedName });
             this.close();
           });
         });
-        new import_obsidian11.Setting(this.contentEl).addButton((btn) => {
+        new import_obsidian12.Setting(this.contentEl).addButton((btn) => {
           btn.setButtonText("Cancel");
           btn.onClick(() => {
             settle(null);
@@ -60479,7 +60847,7 @@ var VaultService = class {
   }
   async readFile(path3) {
     const file = this.vault.getAbstractFileByPath(path3);
-    if (file instanceof import_obsidian12.TFile) {
+    if (file instanceof import_obsidian13.TFile) {
       return await this.vault.read(file);
     }
     throw new Error(`File not found: ${path3}`);
@@ -60489,7 +60857,7 @@ var VaultService = class {
   }
   async createFileIfNotExists(path3, content) {
     const file = this.vault.getAbstractFileByPath(path3);
-    if (file instanceof import_obsidian12.TFile) {
+    if (file instanceof import_obsidian13.TFile) {
       return false;
     }
     await this.vault.create(path3, content);
@@ -60497,7 +60865,7 @@ var VaultService = class {
   }
   async createFolderIfNotExists(path3) {
     const folder = this.vault.getAbstractFileByPath(path3);
-    if (folder instanceof import_obsidian12.TFolder) {
+    if (folder instanceof import_obsidian13.TFolder) {
       return false;
     }
     await this.vault.createFolder(path3);
@@ -60524,12 +60892,12 @@ var VaultService = class {
    */
   findLatestStoryBible(folderPath) {
     const folder = this.vault.getAbstractFileByPath(folderPath);
-    if (!(folder instanceof import_obsidian12.TFolder)) {
+    if (!(folder instanceof import_obsidian13.TFolder)) {
       return null;
     }
     const storyBibleFiles = [];
     for (const child of folder.children) {
-      if (child instanceof import_obsidian12.TFile && child.extension === "md") {
+      if (child instanceof import_obsidian13.TFile && child.extension === "md") {
         if (child.basename.match(/^Story bible/i)) {
           storyBibleFiles.push(child);
         }
@@ -60590,7 +60958,7 @@ var VaultService = class {
       const chunkFilePath = `${chunkedFolderName}/${chunkFileName}`;
       const existing = this.vault.getAbstractFileByPath(chunkFilePath);
       if (overwrite) {
-        if (existing instanceof import_obsidian12.TFile) {
+        if (existing instanceof import_obsidian13.TFile) {
           await this.vault.modify(existing, chunks[i]);
           overwrittenCount++;
         } else {
@@ -60599,7 +60967,7 @@ var VaultService = class {
             created++;
         }
       } else {
-        if (existing instanceof import_obsidian12.TFile) {
+        if (existing instanceof import_obsidian13.TFile) {
           skipped++;
         } else {
           const wasCreated = await this.createFileIfNotExists(chunkFilePath, chunks[i]);
@@ -60612,11 +60980,11 @@ var VaultService = class {
     let deletedExtra = 0;
     if (overwrite) {
       const folder = this.vault.getAbstractFileByPath(chunkedFolderName);
-      if (folder instanceof import_obsidian12.TFolder) {
+      if (folder instanceof import_obsidian13.TFolder) {
         const maxIndex = chunks.length;
         const regex = new RegExp(`^${this._escapeRegExp(baseName)}-CHUNK-(\\d{3})\\.md$`);
         for (const child of folder.children) {
-          if (!(child instanceof import_obsidian12.TFile) || child.extension !== "md")
+          if (!(child instanceof import_obsidian13.TFile) || child.extension !== "md")
             continue;
           const match2 = child.name.match(regex);
           if (!match2)
@@ -60756,17 +61124,17 @@ ${update}
   _traverseFolder(folder, structure, basePath) {
     for (const child of folder.children) {
       const path3 = basePath ? `${basePath}/${child.name}` : child.name;
-      if (child instanceof import_obsidian12.TFolder) {
+      if (child instanceof import_obsidian13.TFolder) {
         structure.push({ name: child.name, path: path3, type: "folder" });
         this._traverseFolder(child, structure, path3);
-      } else if (child instanceof import_obsidian12.TFile) {
+      } else if (child instanceof import_obsidian13.TFile) {
         structure.push({ name: child.name, path: path3, type: "file" });
       }
     }
   }
   _collectFolders(folder, folders, basePath) {
     for (const child of folder.children) {
-      if (!(child instanceof import_obsidian12.TFolder))
+      if (!(child instanceof import_obsidian13.TFolder))
         continue;
       const path3 = basePath ? `${basePath}/${child.name}` : child.name;
       folders.push(path3);
@@ -60776,7 +61144,7 @@ ${update}
 };
 
 // services/ContextAggregator.ts
-var import_obsidian13 = require("obsidian");
+var import_obsidian14 = require("obsidian");
 var ContextAggregator = class {
   budgetToChars(tokens) {
     return Math.max(0, Math.floor(tokens * 4));
@@ -60861,7 +61229,7 @@ var ContextAggregator = class {
   async readFile(path3) {
     try {
       const file = this.vault.getAbstractFileByPath(path3);
-      if (file instanceof import_obsidian13.TFile) {
+      if (file instanceof import_obsidian14.TFile) {
         return await this.vault.read(file);
       }
       return `[File not found: ${path3}]`;
@@ -60911,9 +61279,9 @@ Score: ${item.score.toFixed(3)} (${item.source})
     const characterFolder = this.plugin.settings.characterFolder;
     try {
       const folder = this.vault.getAbstractFileByPath(characterFolder);
-      if (folder instanceof import_obsidian13.TFolder) {
+      if (folder instanceof import_obsidian14.TFolder) {
         for (const child of folder.children) {
-          if (child instanceof import_obsidian13.TFile && child.extension === "md") {
+          if (child instanceof import_obsidian14.TFile && child.extension === "md") {
             const characterName = child.basename;
             notes[characterName] = await this.vault.read(child);
           }
@@ -61372,7 +61740,7 @@ Return the full updated story bible markdown only.`;
 };
 
 // services/AIClient.ts
-var import_obsidian14 = require("obsidian");
+var import_obsidian15 = require("obsidian");
 var AIClient = class {
   _formatUnknown(value) {
     if (value instanceof Error)
@@ -61565,7 +61933,7 @@ ${alt}`).join("\n\n---\n\n")}`;
     };
   }
   async _generateOpenRouter(prompt, settings) {
-    const response = await (0, import_obsidian14.requestUrl)({
+    const response = await (0, import_obsidian15.requestUrl)({
       url: "https://openrouter.ai/api/v1/chat/completions",
       method: "POST",
       headers: {
@@ -61598,7 +61966,7 @@ ${alt}`).join("\n\n---\n\n")}`;
     return content;
   }
   async _generateOpenAI(prompt, settings) {
-    const response = await (0, import_obsidian14.requestUrl)({
+    const response = await (0, import_obsidian15.requestUrl)({
       url: "https://api.openai.com/v1/chat/completions",
       method: "POST",
       headers: {
@@ -61629,7 +61997,7 @@ ${alt}`).join("\n\n---\n\n")}`;
     return content;
   }
   async _generateAnthropic(prompt, settings) {
-    const response = await (0, import_obsidian14.requestUrl)({
+    const response = await (0, import_obsidian15.requestUrl)({
       url: "https://api.anthropic.com/v1/messages",
       method: "POST",
       headers: {
@@ -61679,7 +62047,7 @@ ${alt}`).join("\n\n---\n\n")}`;
       512,
       Math.min(8192, limit - promptTokens - 1024)
     );
-    const response = await (0, import_obsidian14.requestUrl)({
+    const response = await (0, import_obsidian15.requestUrl)({
       url: `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
       method: "POST",
       headers: {
@@ -62134,7 +62502,7 @@ var HeuristicProvider = class {
 };
 
 // services/retrieval/EmbeddingsIndex.ts
-var import_obsidian15 = require("obsidian");
+var import_obsidian16 = require("obsidian");
 
 // services/retrieval/LocalEmbeddingModel.ts
 function l2Normalize(vec) {
@@ -62453,19 +62821,27 @@ var EmbeddingsIndex = class {
   }
   async _runWorker() {
     await this.ensureLoaded();
+    let processedCount = 0;
+    let skippedExcluded = 0;
+    let skippedNotMarkdown = 0;
+    let skippedHashMatch = 0;
+    let indexedCount = 0;
     while (this.queue.size > 0) {
       if (this.plugin.settings.retrievalIndexPaused)
         break;
       const next = this.queue.values().next().value;
       this.queue.delete(next);
+      processedCount++;
       if (this.plugin.vaultService.isExcludedPath(next)) {
+        skippedExcluded++;
         this._removePath(next);
         this._schedulePersist();
         this._scheduleSettingsSave();
         continue;
       }
       const file = this.vault.getAbstractFileByPath(next);
-      if (!(file instanceof import_obsidian15.TFile) || file.extension !== "md") {
+      if (!(file instanceof import_obsidian16.TFile) || file.extension !== "md") {
+        skippedNotMarkdown++;
         this._removePath(next);
         this._schedulePersist();
         this._scheduleSettingsSave();
@@ -62475,10 +62851,13 @@ var EmbeddingsIndex = class {
         const content = await this.vault.read(file);
         const fileHash = fnv1a32(content);
         const prev = this.plugin.settings.retrievalIndexState?.[next];
-        if (prev?.hash === fileHash) {
+        const isCurrentlyIndexed = this.chunkKeysByPath.has(next);
+        if (prev?.hash === fileHash && isCurrentlyIndexed) {
+          skippedHashMatch++;
           continue;
         }
         await this._reindexFile(next, content);
+        indexedCount++;
         this.plugin.settings.retrievalIndexState = {
           ...this.plugin.settings.retrievalIndexState || {},
           [next]: {
@@ -62489,14 +62868,21 @@ var EmbeddingsIndex = class {
         };
         this._schedulePersist();
         this._scheduleSettingsSave();
-      } catch {
+      } catch (err) {
+        console.warn(`Failed to index file ${next}:`, err);
       }
       await new Promise((r) => setTimeout(r, 10));
+    }
+    if (processedCount > 0) {
+      console.log(`[EmbeddingsIndex] Processed ${processedCount} files: ${indexedCount} indexed, ${skippedExcluded} excluded, ${skippedNotMarkdown} not markdown, ${skippedHashMatch} hash match (already indexed)`);
     }
     this.workerRunning = false;
   }
   async _reindexFile(path3, content) {
     this._removePath(path3);
+    if (!content || content.trim().length === 0) {
+      return;
+    }
     const cfg = chunkingKey(this.plugin);
     const chunks = buildIndexChunks({
       text: content,
@@ -62504,11 +62890,20 @@ var EmbeddingsIndex = class {
       targetWords: cfg.targetWords,
       overlapWords: cfg.overlapWords
     });
+    if (chunks.length === 0) {
+      return;
+    }
     for (let i = 0; i < chunks.length; i++) {
       const ch = chunks[i];
       const textHash = fnv1a32(ch.text);
       const key = `chunk:${path3}:${i}`;
-      const vector = this.backend === "minilm" ? await this.model.embed(ch.text) : buildVector(ch.text, this.dim);
+      let vector;
+      try {
+        vector = this.backend === "minilm" ? await this.model.embed(ch.text) : buildVector(ch.text, this.dim);
+      } catch (err) {
+        console.error(`Failed to generate embedding for chunk ${i} of ${path3}:`, err);
+        continue;
+      }
       const excerpt = excerptOf(ch.text, 500);
       this._setChunk({
         key,
@@ -62655,7 +63050,7 @@ var LocalEmbeddingsProvider = class {
 };
 
 // services/retrieval/Bm25Index.ts
-var import_obsidian16 = require("obsidian");
+var import_obsidian17 = require("obsidian");
 function clampInt3(value, min2, max2) {
   if (!Number.isFinite(value))
     return min2;
@@ -62832,7 +63227,7 @@ var Bm25Index = class {
         continue;
       }
       const file = this.vault.getAbstractFileByPath(next);
-      if (!(file instanceof import_obsidian16.TFile) || file.extension !== "md") {
+      if (!(file instanceof import_obsidian17.TFile) || file.extension !== "md") {
         this._removePath(next);
         this._schedulePersist();
         continue;
@@ -63150,7 +63545,7 @@ ${it.excerpt}`;
 };
 
 // services/GenerationLogService.ts
-var import_obsidian17 = require("obsidian");
+var import_obsidian18 = require("obsidian");
 function normalizeFolder(folder) {
   const f = (folder || "").replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
   return f.length ? f : "Generation logs";
@@ -63178,7 +63573,7 @@ var GenerationLogService = class {
       return false;
     }
     const existing = this.app.vault.getAbstractFileByPath(folderPath);
-    if (existing instanceof import_obsidian17.TFolder)
+    if (existing instanceof import_obsidian18.TFolder)
       return true;
     try {
       await this.app.vault.createFolder(folderPath);
@@ -63237,7 +63632,7 @@ ${escapeFenceContent(params.finalPrompt)}
       await this.app.vault.create(path3, body);
       return path3;
     } catch {
-      new import_obsidian17.Notice("Failed to write generation log.");
+      new import_obsidian18.Notice("Failed to write generation log.");
       return null;
     }
   }
@@ -63245,7 +63640,7 @@ ${escapeFenceContent(params.finalPrompt)}
     if (!path3)
       return;
     const file = this.app.vault.getAbstractFileByPath(path3);
-    if (!(file instanceof import_obsidian17.TFile))
+    if (!(file instanceof import_obsidian18.TFile))
       return;
     const appendix = `## Result
 
@@ -63282,11 +63677,11 @@ var BookMainSelectorModal = class extends FileTreePickerModal {
 // ui/PublishWizardModal.tsx
 var import_react10 = __toESM(require_react());
 var import_client5 = __toESM(require_client());
-var import_obsidian21 = require("obsidian");
+var import_obsidian22 = require("obsidian");
 
 // ui/FolderPickerModal.ts
-var import_obsidian18 = require("obsidian");
-var FolderPickerModal = class extends import_obsidian18.FuzzySuggestModal {
+var import_obsidian19 = require("obsidian");
+var FolderPickerModal = class extends import_obsidian19.FuzzySuggestModal {
   constructor(opts) {
     super(opts.app);
     this.folders = opts.folders;
@@ -63306,8 +63701,8 @@ var FolderPickerModal = class extends import_obsidian18.FuzzySuggestModal {
 };
 
 // ui/BinaryFilePickerModal.ts
-var import_obsidian19 = require("obsidian");
-var BinaryFilePickerModal = class extends import_obsidian19.FuzzySuggestModal {
+var import_obsidian20 = require("obsidian");
+var BinaryFilePickerModal = class extends import_obsidian20.FuzzySuggestModal {
   constructor(opts) {
     super(opts.app);
     this.files = opts.files;
@@ -63327,7 +63722,7 @@ var BinaryFilePickerModal = class extends import_obsidian19.FuzzySuggestModal {
 };
 
 // services/publish/MarkdownCompile.ts
-var import_obsidian20 = require("obsidian");
+var import_obsidian21 = require("obsidian");
 function trimBom(s) {
   return s.charCodeAt(0) === 65279 ? s.slice(1) : s;
 }
@@ -63412,13 +63807,13 @@ function resolveLinkToFilePath(app, linkTarget, fromPath) {
   if (!t)
     return null;
   const direct = app.vault.getAbstractFileByPath(t);
-  if (direct instanceof import_obsidian20.TFile)
+  if (direct instanceof import_obsidian21.TFile)
     return direct.path;
   const directMd = app.vault.getAbstractFileByPath(`${t}.md`);
-  if (directMd instanceof import_obsidian20.TFile)
+  if (directMd instanceof import_obsidian21.TFile)
     return directMd.path;
   const dest = app.metadataCache.getFirstLinkpathDest(t, fromPath);
-  if (dest instanceof import_obsidian20.TFile)
+  if (dest instanceof import_obsidian21.TFile)
     return dest.path;
   return null;
 }
@@ -63428,7 +63823,7 @@ var MarkdownCompile = class {
   }
   async compileFromBookMain(sourcePath) {
     const file = this.app.vault.getAbstractFileByPath(sourcePath);
-    if (!(file instanceof import_obsidian20.TFile)) {
+    if (!(file instanceof import_obsidian21.TFile)) {
       throw new Error(`Book main file not found: ${sourcePath}`);
     }
     const text2 = await this.app.vault.read(file);
@@ -63437,7 +63832,7 @@ var MarkdownCompile = class {
   }
   async compileFromTocNote(tocPath) {
     const file = this.app.vault.getAbstractFileByPath(tocPath);
-    if (!(file instanceof import_obsidian20.TFile))
+    if (!(file instanceof import_obsidian21.TFile))
       throw new Error(`TOC note not found: ${tocPath}`);
     const text2 = await this.app.vault.read(file);
     const lines = trimBom(text2).split(/\r?\n/);
@@ -63453,7 +63848,7 @@ var MarkdownCompile = class {
       if (!destPath)
         continue;
       const dest = this.app.vault.getAbstractFileByPath(destPath);
-      if (!(dest instanceof import_obsidian20.TFile))
+      if (!(dest instanceof import_obsidian21.TFile))
         continue;
       const md2 = await this.app.vault.read(dest);
       const title = (() => {
@@ -69560,7 +69955,7 @@ function sanitizeFileName2(name2) {
 function ensureEpubExt2(name2) {
   return name2.toLowerCase().endsWith(".epub") ? name2 : `${name2}.epub`;
 }
-var PublishWizardModal = class extends import_obsidian21.Modal {
+var PublishWizardModal = class extends import_obsidian22.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.reactRoot = null;
@@ -69672,7 +70067,7 @@ var PublishWizardComponent = ({
     modal.open();
   };
   const pickFolder = (onPick) => {
-    const folders = plugin.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian21.TFolder);
+    const folders = plugin.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian22.TFolder);
     const modal = new FolderPickerModal({
       app: plugin.app,
       folders,
@@ -69774,7 +70169,7 @@ ${markdownToPlainText(c.markdown || "")}
         outputPath = out;
       }
       setProgress("");
-      new import_obsidian21.Notice(`Exported: ${outputPath}`);
+      new import_obsidian22.Notice(`Exported: ${outputPath}`);
       onClose();
     } catch (e) {
       const message = e instanceof Error ? e.message : (() => {
@@ -69922,7 +70317,7 @@ Output format (required):
   guidedDemoShownOnce: false,
   fileState: {}
 };
-var WritingDashboardPlugin = class extends import_obsidian22.Plugin {
+var WritingDashboardPlugin = class extends import_obsidian23.Plugin {
   constructor() {
     super(...arguments);
     /**
@@ -69957,11 +70352,11 @@ var WritingDashboardPlugin = class extends import_obsidian22.Plugin {
         const newNorm = file.path.replace(/\\/g, "/");
         let changed = false;
         const logsFolder = (this.settings.generationLogsFolder || "").replace(/\\/g, "/").replace(/\/+$/, "");
-        if (logsFolder && file instanceof import_obsidian22.TFolder && oldNorm === logsFolder) {
+        if (logsFolder && file instanceof import_obsidian23.TFolder && oldNorm === logsFolder) {
           this.settings.generationLogsFolder = newNorm;
           changed = true;
         }
-        if (!(file instanceof import_obsidian22.TFile) || file.extension !== "md") {
+        if (!(file instanceof import_obsidian23.TFile) || file.extension !== "md") {
           if (changed)
             await this.saveSettings();
           return;
@@ -70022,21 +70417,21 @@ var WritingDashboardPlugin = class extends import_obsidian22.Plugin {
     };
     this.registerEvent(
       this.app.vault.on("create", (file) => {
-        if (file instanceof import_obsidian22.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian23.TFile && file.extension === "md") {
           maybeQueueIndex(file.path);
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
-        if (file instanceof import_obsidian22.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian23.TFile && file.extension === "md") {
           maybeQueueIndex(file.path);
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
-        if (file instanceof import_obsidian22.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian23.TFile && file.extension === "md") {
           this.embeddingsIndex.queueRemoveFile(file.path);
           this.bm25Index.queueRemoveFile(file.path);
         }
@@ -70044,7 +70439,7 @@ var WritingDashboardPlugin = class extends import_obsidian22.Plugin {
     );
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
-        if (!(file instanceof import_obsidian22.TFile) || file.extension !== "md")
+        if (!(file instanceof import_obsidian23.TFile) || file.extension !== "md")
           return;
         this.embeddingsIndex.queueRemoveFile(oldPath);
         this.bm25Index.queueRemoveFile(oldPath);
