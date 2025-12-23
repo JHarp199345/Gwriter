@@ -161,7 +161,7 @@ export class Bm25Index {
 			this.chunkKeysByPath.clear();
 			this.postings.clear();
 
-			const chunks = parsed.chunks || {};
+			const chunks: Record<string, Bm25Chunk> = parsed.chunks || {};
 			for (const [key, ch] of Object.entries(chunks)) {
 				if (!ch?.key || !ch?.path) continue;
 				this.chunksByKey.set(key, ch);

@@ -60076,7 +60076,7 @@ var CharacterNameResolver = class {
     this.vault = vault;
     this.characterFolder = characterFolder;
   }
-  async resolve(proposedName) {
+  resolve(proposedName) {
     const proposed = (proposedName || "").trim();
     if (!proposed)
       return { needsConfirmation: { proposedName, candidates: [] } };
@@ -60344,7 +60344,7 @@ var VaultService = class {
       const cached = sessionResolutions.get(proposed);
       let resolvedName = cached;
       if (!resolvedName) {
-        const res = await resolver.resolve(proposed);
+        const res = resolver.resolve(proposed);
         if (res.resolvedName) {
           resolvedName = res.resolvedName;
         } else if (res.needsConfirmation) {

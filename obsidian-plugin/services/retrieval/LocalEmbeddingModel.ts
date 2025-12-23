@@ -56,7 +56,7 @@ export class MiniLmLocalEmbeddingModel implements LocalEmbeddingModel {
 			const pipe = pipeUnknown as (input: string, opts?: Record<string, unknown>) => Promise<unknown>;
 
 			this.pipeline = async (text: string) => {
-				const out = (await pipe(text, { pooling: 'mean', normalize: true })) as unknown;
+				const out = await pipe(text, { pooling: 'mean', normalize: true });
 				// transformers output can vary; handle common cases.
 				if (Array.isArray(out) && Array.isArray(out[0])) {
 					return l2Normalize(out[0] as number[]);

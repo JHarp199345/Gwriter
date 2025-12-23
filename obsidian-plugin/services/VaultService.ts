@@ -238,7 +238,7 @@ export class VaultService {
 			const cached = sessionResolutions.get(proposed);
 			let resolvedName = cached;
 			if (!resolvedName) {
-				const res = await resolver.resolve(proposed);
+				const res = resolver.resolve(proposed);
 				if (res.resolvedName) {
 					resolvedName = res.resolvedName;
 				} else if (res.needsConfirmation) {

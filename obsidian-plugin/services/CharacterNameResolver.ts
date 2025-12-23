@@ -87,7 +87,7 @@ export class CharacterNameResolver {
 		this.characterFolder = characterFolder;
 	}
 
-	async resolve(proposedName: string): Promise<ResolveResult> {
+	resolve(proposedName: string): ResolveResult {
 		const proposed = (proposedName || '').trim();
 		if (!proposed) return { needsConfirmation: { proposedName: proposedName, candidates: [] } };
 
