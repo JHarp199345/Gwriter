@@ -201,7 +201,7 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 	consensusModel3: 'gemini-pro',
 	synthesisModel: 'gpt-4',
 	vaultPath: '',
-	characterFolder: 'Characters',
+	characterFolder: '',
 	book2Path: 'Book-Main.md',
 	storyBiblePath: 'Book - Story Bible.md',
 	characterExtractionChunkSize: 2500,
@@ -234,7 +234,7 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 	retrievalEmbeddingBackend: 'minilm',
 	retrievalEnableBm25: true,
 	retrievalEnableReranker: false,
-	generationLogsFolder: 'Generation logs',
+	generationLogsFolder: '',
 	generationLogsEnabled: false,
 	generationLogsIncludePrompt: false,
 	modeState: {
@@ -373,11 +373,7 @@ export default class WritingDashboardPlugin extends Plugin {
 		this.bm25Index = new Bm25Index(this.app.vault, this);
 		this.cpuReranker = new CpuReranker();
 		this.generationLogService = new GenerationLogService(this.app, this);
-		if (this.settings.generationLogsEnabled) {
-			void this.generationLogService.ensureFolder().catch(() => {
-				// ignore
-			});
-		}
+		// Note: Folder validation happens when logs are enabled via settings toggle
 		const providers = [
 			new HeuristicProvider(this.app.vault, this.vaultService),
 			new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path)),

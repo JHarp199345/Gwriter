@@ -1,7 +1,8 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, TFolder } from 'obsidian';
 import WritingDashboardPlugin from '../main';
 import { SetupWizardModal } from './SetupWizard';
 import { FileTreePickerModal } from './FileTreePickerModal';
+import { FolderTreePickerModal } from './FolderTreePickerModal';
 
 // Model lists for each provider
 const OPENAI_MODELS = [
@@ -465,21 +466,47 @@ export class SettingsTab extends PluginSettingTab {
 				toggle.setValue(Boolean(this.plugin.settings.generationLogsEnabled)).onChange(async (value) => {
 					this.plugin.settings.generationLogsEnabled = value;
 					await this.plugin.saveSettings();
+					
+					// If enabling logs, check if folder is set and exists
+					if (value) {
+						const folderPath = this.plugin.settings.generationLogsFolder || '';
+						const folder = this.app.vault.getAbstractFileByPath(folderPath);
+						if (!folderPath || !(folder instanceof TFolder)) {
+							// Prompt user to select/create folder
+							const modal = new FolderTreePickerModal(this.plugin, {
+								currentPath: folderPath || undefined,
+								title: 'Select or create generation logs folder',
+								onPick: async (selectedPath) => {
+									this.plugin.settings.generationLogsFolder = selectedPath;
+									await this.plugin.saveSettings();
+									// Refresh the setting to update the button text
+									this.display();
+								}
+							});
+							modal.open();
+						}
+					}
 				})
 			);
 
-		new Setting(containerEl)
+		const generationLogsFolderSetting = new Setting(containerEl)
 			.setName('Generation logs folder')
-			.setDesc('Vault folder used to store generation logs.')
-			.addText((text) =>
-				text
-					.setPlaceholder('Generation logs')
-					.setValue(this.plugin.settings.generationLogsFolder || 'Generation logs')
-					.onChange(async (value) => {
-						this.plugin.settings.generationLogsFolder = value.trim() || 'Generation logs';
-						await this.plugin.saveSettings();
-					})
-			);
+			.setDesc(`Current: ${this.plugin.settings.generationLogsFolder || '(none selected)'}`)
+			.addButton(button => button
+				.setButtonText(this.plugin.settings.generationLogsFolder ? this.plugin.settings.generationLogsFolder.split('/').pop() || 'Select folder' : 'Select folder')
+				.onClick(() => {
+					const modal = new FolderTreePickerModal(this.plugin, {
+						currentPath: this.plugin.settings.generationLogsFolder || undefined,
+						title: 'Select or create generation logs folder',
+						onPick: async (folderPath) => {
+							this.plugin.settings.generationLogsFolder = folderPath;
+							await this.plugin.saveSettings();
+							// Refresh the setting to update the button text and desc
+							this.display();
+						}
+					});
+					modal.open();
+				}));
 
 		new Setting(containerEl)
 			.setName('Include full prompt in logs')
@@ -634,15 +661,23 @@ export class SettingsTab extends PluginSettingTab {
 				})
 			);
 
-		new Setting(containerEl)
+		const characterFolderSetting = new Setting(containerEl)
 			.setName('Character folder')
-			.setDesc('Folder name for character notes (default: characters)')
-			.addText(text => text
-				.setPlaceholder('Characters')
-				.setValue(this.plugin.settings.characterFolder)
-				.onChange(async (value) => {
-					this.plugin.settings.characterFolder = value;
-					await this.plugin.saveSettings();
+			.setDesc(`Current: ${this.plugin.settings.characterFolder || '(none selected)'}`)
+			.addButton(button => button
+				.setButtonText(this.plugin.settings.characterFolder ? this.plugin.settings.characterFolder.split('/').pop() || 'Select folder' : 'Select folder')
+				.onClick(() => {
+					const modal = new FolderTreePickerModal(this.plugin, {
+						currentPath: this.plugin.settings.characterFolder || undefined,
+						title: 'Select or create character folder',
+						onPick: async (folderPath) => {
+							this.plugin.settings.characterFolder = folderPath;
+							await this.plugin.saveSettings();
+							// Refresh the setting to update the button text and desc
+							this.display();
+						}
+					});
+					modal.open();
 				}));
 
 		const bookFileSetting = new Setting(containerEl)

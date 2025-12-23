@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Notice } from 'obsidian';
+import { Notice, TFolder } from 'obsidian';
 import WritingDashboardPlugin, { DashboardSettings } from '../main';
 import { VaultBrowser } from './VaultBrowser';
 import { EditorPanel } from './EditorPanel';
@@ -9,6 +9,7 @@ import { TextChunker } from '../services/TextChunker';
 import { fnv1a32 } from '../services/ContentHash';
 import { estimateTokens } from '../services/TokenEstimate';
 import { FilePickerModal } from './FilePickerModal';
+import { FolderTreePickerModal } from './FolderTreePickerModal';
 import { parseCharacterRoster, rosterToBulletList } from '../services/CharacterRoster';
 import { showConfirmModal } from './ConfirmModal';
 import { PromptPreviewModal } from './PromptPreviewModal';
@@ -832,6 +833,27 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			return;
 		}
 
+		// Check if character folder is set and exists (unless in guided demo)
+		if (!isGuidedDemoActive) {
+			const characterFolder = plugin.settings.characterFolder || '';
+			const folder = plugin.app.vault.getAbstractFileByPath(characterFolder);
+			if (!characterFolder || !(folder instanceof TFolder)) {
+				// Prompt user to select/create folder
+				const modal = new FolderTreePickerModal(plugin, {
+					currentPath: characterFolder || undefined,
+					title: 'Select or create character folder',
+					onPick: async (selectedPath) => {
+						plugin.settings.characterFolder = selectedPath;
+						await plugin.saveSettings();
+						// Retry the extraction after folder is selected
+						handleUpdateCharacters();
+					}
+				});
+				modal.open();
+				return;
+			}
+		}
+
 		// Guided demo can run without an API key (offline canned extraction).
 		// Auto mode: if API key exists, try AI; on failure, fall back to offline demo automatically.
 		if (!plugin.settings.apiKey && isGuidedDemoActive) {
@@ -1057,6 +1079,25 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const handleProcessEntireBook = async () => {
 		if (!plugin.settings.apiKey) {
 			setError('Please configure your API key in settings');
+			return;
+		}
+
+		// Check if character folder is set and exists
+		const characterFolder = plugin.settings.characterFolder || '';
+		const folder = plugin.app.vault.getAbstractFileByPath(characterFolder);
+		if (!characterFolder || !(folder instanceof TFolder)) {
+			// Prompt user to select/create folder
+			const modal = new FolderTreePickerModal(plugin, {
+				currentPath: characterFolder || undefined,
+				title: 'Select or create character folder',
+				onPick: async (selectedPath) => {
+					plugin.settings.characterFolder = selectedPath;
+					await plugin.saveSettings();
+					// Retry the processing after folder is selected
+					handleProcessEntireBook();
+				}
+			});
+			modal.open();
 			return;
 		}
 

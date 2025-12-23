@@ -50,20 +50,31 @@ export class GenerationLogService {
 		return normalizeFolder(this.plugin.settings.generationLogsFolder);
 	}
 
-	async ensureFolder(): Promise<void> {
+	async ensureFolder(): Promise<boolean> {
 		const folderPath = this.getFolderPath();
+		if (!folderPath) {
+			// Folder path not set - return false so caller can prompt user
+			return false;
+		}
 		const existing = this.app.vault.getAbstractFileByPath(folderPath);
-		if (existing instanceof TFolder) return;
+		if (existing instanceof TFolder) return true;
 		try {
 			await this.app.vault.createFolder(folderPath);
+			return true;
 		} catch {
-			// Folder may already exist or fail due to permissions; ignore.
+			// Folder may already exist or fail due to permissions; return false to prompt user
+			return false;
 		}
 	}
 
 	async startLog(params: GenerationLogStart): Promise<string | null> {
 		if (!this.plugin.settings.generationLogsEnabled) return null;
-		await this.ensureFolder();
+		const folderExists = await this.ensureFolder();
+		if (!folderExists) {
+			// Folder doesn't exist or path not set - log will be skipped
+			console.warn('Generation logs folder not set or does not exist. Skipping log creation.');
+			return null;
+		}
 
 		const now = new Date();
 		const folder = this.getFolderPath();
