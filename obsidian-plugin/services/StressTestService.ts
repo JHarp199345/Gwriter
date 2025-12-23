@@ -41,6 +41,13 @@ export class StressTestService {
 			// Phase 5: Retrieval Tests
 			await this.phase5_Retrieval();
 
+			// Phase 7: Character Operations (if API key available)
+			if (this.plugin.settings.apiKey) {
+				await this.phase7_CharacterOperations();
+			} else {
+				this.logEntry('Phase 7: Skipped (no API key configured)');
+			}
+
 		} catch (error) {
 			this.logEntry(`FATAL ERROR: ${error instanceof Error ? error.message : String(error)}`);
 			this.logEntry(`Stack: ${error instanceof Error ? error.stack : 'N/A'}`);
@@ -281,43 +288,161 @@ export class StressTestService {
 		const phaseStart = Date.now();
 
 		try {
-			// Test context aggregation
 			if (!this.plugin.queryBuilder) {
-				this.logEntry('⚠ QueryBuilder not available - skipping context aggregation test');
+				this.logEntry('⚠ QueryBuilder not available - skipping writing mode tests');
 				return;
 			}
-			
-			this.logEntry('Testing context aggregation...');
-			const context = await this.plugin.contextAggregator.getChapterContext(
-				this.plugin.queryBuilder.build({
+
+			// Test 1: Chapter Generation
+			this.logEntry('');
+			this.logEntry('=== Test 1: Chapter Generation ===');
+			try {
+				this.logEntry('Building context for chapter generation...');
+				const chapterQuery = this.plugin.queryBuilder.build({
 					mode: 'chapter',
 					activeFilePath: this.plugin.settings.book2Path,
-					primaryText: 'Test scene summary',
+					primaryText: 'A test scene where the protagonist discovers a hidden door in an ancient library.',
+					directorNotes: 'Write in third person, maintain a suspenseful and mysterious tone. Include sensory details.'
+				});
+				const chapterContext = await this.plugin.contextAggregator.getChapterContext(chapterQuery);
+				this.logEntry(`✓ Context aggregated: ${Object.keys(chapterContext).length} context sections`);
+				
+				this.logEntry('Building chapter generation prompt...');
+				const chapterPrompt = this.plugin.promptEngine.buildChapterPrompt(
+					chapterContext,
+					'[INSTRUCTION: Rewrite the scene summary into fully detailed dramatic prose. Include dialogue, sensory details, and action.]',
+					'A test scene where the protagonist discovers a hidden door in an ancient library.',
+					500,
+					1000
+				);
+				this.logEntry(`✓ Prompt built: ${chapterPrompt.length} chars (~${Math.round(chapterPrompt.length / 4)} tokens)`);
+				
+				this.logEntry('Calling AI for chapter generation...');
+				const chapterStart = Date.now();
+				const chapterResult = await this.plugin.aiClient.generate(
+					chapterPrompt,
+					{ ...this.plugin.settings, generationMode: 'single' as const }
+				);
+				const chapterDuration = ((Date.now() - chapterStart) / 1000).toFixed(2);
+				const chapterText = typeof chapterResult === 'string' ? chapterResult : (chapterResult as { primary: string }).primary;
+				const wordCount = chapterText.split(/\s+/).length;
+				this.logEntry(`✓ Chapter generated in ${chapterDuration}s: ${chapterText.length} chars, ${wordCount} words`);
+				this.logEntry(`  Preview: ${chapterText.substring(0, 150).replace(/\n/g, ' ')}...`);
+			} catch (error) {
+				this.logEntry(`✗ Chapter generation failed: ${error instanceof Error ? error.message : String(error)}`);
+				if (error instanceof Error && error.stack) {
+					this.logEntry(`  Stack: ${error.stack.split('\n').slice(0, 3).join('\n  ')}`);
+				}
+			}
+
+			// Test 2: Micro-Edit
+			this.logEntry('');
+			this.logEntry('=== Test 2: Micro-Edit ===');
+			try {
+				const testPassage = 'The protagonist walked through the door. They were nervous. The room was dark.';
+				this.logEntry(`Selected passage: "${testPassage}"`);
+				
+				this.logEntry('Building context for micro-edit...');
+				const microEditQuery = this.plugin.queryBuilder.build({
+					mode: 'micro-edit',
+					activeFilePath: this.plugin.settings.book2Path,
+					primaryText: testPassage,
+					directorNotes: 'Make the prose more vivid and engaging. Add sensory details and improve the pacing.'
+				});
+				const microEditContext = await this.plugin.contextAggregator.getMicroEditContext(testPassage, microEditQuery);
+				this.logEntry(`✓ Context aggregated: ${Object.keys(microEditContext).length} context sections`);
+				if (microEditContext.surrounding_before) {
+					this.logEntry(`  Surrounding before: ${microEditContext.surrounding_before.split(/\s+/).length} words`);
+				}
+				if (microEditContext.surrounding_after) {
+					this.logEntry(`  Surrounding after: ${microEditContext.surrounding_after.split(/\s+/).length} words`);
+				}
+				
+				this.logEntry('Building micro-edit prompt...');
+				const microEditPrompt = this.plugin.promptEngine.buildMicroEditPrompt(
+					testPassage,
+					'Make the prose more vivid and engaging. Add sensory details and improve the pacing.',
+					microEditContext
+				);
+				this.logEntry(`✓ Prompt built: ${microEditPrompt.length} chars (~${Math.round(microEditPrompt.length / 4)} tokens)`);
+				
+				this.logEntry('Calling AI for micro-edit...');
+				const microEditStart = Date.now();
+				const microEditResult = await this.plugin.aiClient.generate(
+					microEditPrompt,
+					{ ...this.plugin.settings, generationMode: 'single' as const }
+				);
+				const microEditDuration = ((Date.now() - microEditStart) / 1000).toFixed(2);
+				const microEditText = typeof microEditResult === 'string' ? microEditResult : (microEditResult as { primary: string }).primary;
+				const microEditWordCount = microEditText.split(/\s+/).length;
+				this.logEntry(`✓ Micro-edit generated in ${microEditDuration}s: ${microEditText.length} chars, ${microEditWordCount} words`);
+				this.logEntry(`  Original: "${testPassage}"`);
+				this.logEntry(`  Edited: "${microEditText.substring(0, 150).replace(/\n/g, ' ')}..."`);
+			} catch (error) {
+				this.logEntry(`✗ Micro-edit failed: ${error instanceof Error ? error.message : String(error)}`);
+				if (error instanceof Error && error.stack) {
+					this.logEntry(`  Stack: ${error.stack.split('\n').slice(0, 3).join('\n  ')}`);
+				}
+			}
+
+			// Test 3: Continuity Check
+			this.logEntry('');
+			this.logEntry('=== Test 3: Continuity Check ===');
+			try {
+				const testDraft = 'The protagonist entered the library. They found a book about ancient magic. The book was written in an unknown language.';
+				this.logEntry(`Test draft: "${testDraft}"`);
+				
+				this.logEntry('Building context for continuity check...');
+				const continuityQuery = this.plugin.queryBuilder.build({
+					mode: 'continuity-check',
+					activeFilePath: this.plugin.settings.book2Path,
+					primaryText: testDraft,
 					directorNotes: ''
-				})
-			);
-			this.logEntry(`✓ Context aggregated: ${Object.keys(context).length} context sections`);
-
-			// Test prompt building
-			this.logEntry('Testing prompt building...');
-			const prompt = this.plugin.promptEngine.buildChapterPrompt(
-				context,
-				'Test rewrite instructions',
-				'Test scene summary',
-				1000,
-				2000
-			);
-			this.logEntry(`✓ Prompt built: ${prompt.length} chars`);
-
-			// Note: We don't actually call AI to avoid costs during stress test
-			this.logEntry('⚠ AI generation skipped (stress test mode)');
+				});
+				// Continuity check uses micro-edit context (includes character notes + story bible + retrieved context)
+				const continuityContext = await this.plugin.contextAggregator.getMicroEditContext(testDraft, continuityQuery);
+				this.logEntry(`✓ Context aggregated: ${Object.keys(continuityContext).length} context sections`);
+				
+				this.logEntry('Building continuity check prompt...');
+				const continuityPrompt = this.plugin.promptEngine.buildContinuityCheckPrompt({
+					draft: testDraft,
+					context: continuityContext,
+					focus: {
+						knowledge: true,
+						timeline: true,
+						pov: true,
+						naming: true
+					}
+				});
+				this.logEntry(`✓ Prompt built: ${continuityPrompt.length} chars (~${Math.round(continuityPrompt.length / 4)} tokens)`);
+				
+				this.logEntry('Calling AI for continuity check...');
+				const continuityStart = Date.now();
+				const continuityResult = await this.plugin.aiClient.generate(
+					continuityPrompt,
+					{ ...this.plugin.settings, generationMode: 'single' as const }
+				);
+				const continuityDuration = ((Date.now() - continuityStart) / 1000).toFixed(2);
+				const continuityText = typeof continuityResult === 'string' ? continuityResult : (continuityResult as { primary: string }).primary;
+				this.logEntry(`✓ Continuity check completed in ${continuityDuration}s: ${continuityText.length} chars`);
+				this.logEntry(`  Result preview: ${continuityText.substring(0, 200).replace(/\n/g, ' ')}...`);
+			} catch (error) {
+				this.logEntry(`✗ Continuity check failed: ${error instanceof Error ? error.message : String(error)}`);
+				if (error instanceof Error && error.stack) {
+					this.logEntry(`  Stack: ${error.stack.split('\n').slice(0, 3).join('\n  ')}`);
+				}
+			}
 
 			const phaseDuration = ((Date.now() - phaseStart) / 1000).toFixed(2);
+			this.logEntry('');
 			this.logEntry(`Phase 4 completed in ${phaseDuration}s`);
 			this.logEntry('');
 
 		} catch (error) {
 			this.logEntry(`✗ Phase 4 failed: ${error instanceof Error ? error.message : String(error)}`);
+			if (error instanceof Error && error.stack) {
+				this.logEntry(`  Stack: ${error.stack.split('\n').slice(0, 5).join('\n  ')}`);
+			}
 		}
 	}
 
@@ -362,6 +487,110 @@ export class StressTestService {
 
 		} catch (error) {
 			this.logEntry(`✗ Phase 5 failed: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	}
+
+	private async phase7_CharacterOperations() {
+		this.logEntry('--- Phase 7: Character Operations ---');
+		const phaseStart = Date.now();
+
+		try {
+			if (!this.plugin.settings.characterFolder) {
+				this.logEntry('⚠ Character folder not configured - skipping character operations');
+				return;
+			}
+
+			// Ensure character folder exists
+			await this.plugin.vaultService.createFolderIfNotExists(this.plugin.settings.characterFolder);
+			this.logEntry(`✓ Character folder ready: ${this.plugin.settings.characterFolder}`);
+
+			// Test 1: Character Extraction from Selected Text
+			this.logEntry('');
+			this.logEntry('=== Test 1: Character Extraction (Selected Text) ===');
+			try {
+				const characterTestText = this.generateCharacterScene();
+				this.logEntry(`Test text: ${characterTestText.split(/\s+/).length} words`);
+				this.logEntry(`  Preview: ${characterTestText.substring(0, 100)}...`);
+				
+				this.logEntry('Building character extraction prompt...');
+				const characterNotes = await this.plugin.contextAggregator.getCharacterNotes();
+				const storyBible = await this.plugin.contextAggregator.readFile(this.plugin.settings.storyBiblePath);
+				const characterQuery = this.plugin.queryBuilder.build({
+					mode: 'character-update',
+					activeFilePath: this.plugin.settings.book2Path,
+					primaryText: characterTestText,
+					directorNotes: ''
+				});
+				const retrievedItems = await this.plugin.retrievalService.search(characterQuery, {
+					limit: this.plugin.settings.retrievalTopK ?? 24
+				});
+				const retrievedContext = retrievedItems.length === 0
+					? '[No retrieved context]'
+					: retrievedItems.map((it, idx) => `[${idx + 1}] ${it.path}\n${it.excerpt}`.trim()).join('\n\n---\n\n');
+				
+				const extractionPrompt = this.plugin.promptEngine.buildCharacterExtractionPrompt(
+					characterTestText,
+					characterNotes,
+					storyBible,
+					this.plugin.settings.defaultCharacterExtractionInstructions || 'Extract character information from the provided text.',
+					retrievedContext
+				);
+				this.logEntry(`✓ Prompt built: ${extractionPrompt.length} chars (~${Math.round(extractionPrompt.length / 4)} tokens)`);
+				this.logEntry(`  Retrieved context: ${retrievedItems.length} items`);
+				
+				this.logEntry('Calling AI for character extraction...');
+				const extractionStart = Date.now();
+				const extractionResult = await this.plugin.aiClient.generate(
+					extractionPrompt,
+					{ ...this.plugin.settings, generationMode: 'single' as const }
+				);
+				const extractionDuration = ((Date.now() - extractionStart) / 1000).toFixed(2);
+				const extractionText = typeof extractionResult === 'string' ? extractionResult : (extractionResult as { primary: string }).primary;
+				this.logEntry(`✓ Extraction completed in ${extractionDuration}s: ${extractionText.length} chars`);
+				this.logEntry(`  Result preview: ${extractionText.substring(0, 200).replace(/\n/g, ' ')}...`);
+				
+				// Parse and update character notes
+				this.logEntry('Parsing character extraction results...');
+				const updates = this.plugin.characterExtractor.parseExtraction(extractionText);
+				this.logEntry(`✓ Parsed ${updates.length} character update(s)`);
+				updates.forEach((update, idx) => {
+					this.logEntry(`  Update ${idx + 1}: ${update.character} (${update.update.split(/\s+/).length} words)`);
+				});
+				
+				if (updates.length > 0) {
+					this.logEntry('Updating character notes...');
+					await this.plugin.vaultService.updateCharacterNotes(updates);
+					this.logEntry(`✓ Updated ${updates.length} character note(s) in ${this.plugin.settings.characterFolder}`);
+					
+					// Verify files were created/updated
+					for (const update of updates) {
+						const characterPath = `${this.plugin.settings.characterFolder}/${update.character}.md`;
+						const file = this.plugin.app.vault.getAbstractFileByPath(characterPath);
+						if (file instanceof TFile) {
+							const content = await this.plugin.vaultService.readFile(characterPath);
+							this.logEntry(`  ✓ Verified: ${characterPath} (${content.length} chars)`);
+						}
+					}
+				} else {
+					this.logEntry('⚠ No character updates parsed from extraction result');
+				}
+			} catch (error) {
+				this.logEntry(`✗ Character extraction failed: ${error instanceof Error ? error.message : String(error)}`);
+				if (error instanceof Error && error.stack) {
+					this.logEntry(`  Stack: ${error.stack.split('\n').slice(0, 3).join('\n  ')}`);
+				}
+			}
+
+			const phaseDuration = ((Date.now() - phaseStart) / 1000).toFixed(2);
+			this.logEntry('');
+			this.logEntry(`Phase 7 completed in ${phaseDuration}s`);
+			this.logEntry('');
+
+		} catch (error) {
+			this.logEntry(`✗ Phase 7 failed: ${error instanceof Error ? error.message : String(error)}`);
+			if (error instanceof Error && error.stack) {
+				this.logEntry(`  Stack: ${error.stack.split('\n').slice(0, 5).join('\n  ')}`);
+			}
 		}
 	}
 
