@@ -51,17 +51,6 @@ export class ContextAggregator {
 	async getChapterContext(retrievalQuery: RetrievalQuery): Promise<Context> {
 		const settings = this.plugin.settings;
 		
-		// Handle extractionsPath gracefully - it's optional
-		let extractions = '';
-		if (settings.extractionsPath) {
-			try {
-				extractions = await this.readFile(settings.extractionsPath);
-			} catch {
-				// File doesn't exist, use empty string
-				extractions = '';
-			}
-		}
-		
 		// Budget context dynamically based on the configured contextTokenLimit.
 		const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
 		const contextBudget = Math.max(1000, limit - reserveForOutput - reserveForNonContext);
@@ -71,21 +60,20 @@ export class ContextAggregator {
 		const retrievedContext = await this.getRetrievedContext(retrievalQuery, retrievedLimit);
 		
 		// Read book file only to extract sliding window (last 20k words), not full context
+		// Sliding window is automatically extracted from book2Path by the plugin
 		const book2Full = await this.readFile(settings.book2Path);
 		const slidingWindow = this.extractWordsFromEnd(book2Full, 20000);
 		
 		const storyBible = await this.readFile(settings.storyBiblePath);
 
 		// Allocate context budget by priority. No book2 full context - only sliding window.
-		const smartBudget = Math.floor(contextBudget * 0.40);
-		const bibleBudget = Math.floor(contextBudget * 0.20);
-		const extractionsBudget = Math.floor(contextBudget * 0.10);
-		const slidingBudget = Math.floor(contextBudget * 0.08);
+		const smartBudget = Math.floor(contextBudget * 0.45);
+		const bibleBudget = Math.floor(contextBudget * 0.25);
+		const slidingBudget = Math.floor(contextBudget * 0.10);
 
 		return {
 			smart_connections: this.trimHeadToBudget(retrievedContext, smartBudget, 'Retrieved context'),
 			story_bible: this.trimHeadToBudget(storyBible, bibleBudget, 'Story bible'),
-			extractions: this.trimHeadToBudget(extractions, extractionsBudget, 'Extractions'),
 			sliding_window: this.trimHeadToBudget(slidingWindow, slidingBudget, 'Sliding window')
 		};
 	}
@@ -94,22 +82,12 @@ export class ContextAggregator {
 		const settings = this.plugin.settings;
 		const surrounding = await this.getSurroundingContext(selectedText, 500, 500);
 		
-		// Handle extractionsPath gracefully - it's optional
-		let extractions = '';
-		if (settings.extractionsPath) {
-			try {
-				extractions = await this.readFile(settings.extractionsPath);
-			} catch {
-				// File doesn't exist, use empty string
-				extractions = '';
-			}
-		}
-		
 		// Budget context dynamically based on the configured contextTokenLimit.
 		const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
 		const contextBudget = Math.max(1000, limit - reserveForOutput - reserveForNonContext);
 
 		// Read book file only to extract sliding window (last 20k words), not full context
+		// Sliding window is automatically extracted from book2Path by the plugin
 		const book2Full = await this.readFile(settings.book2Path);
 		const slidingWindow = this.extractWordsFromEnd(book2Full, 20000);
 		
@@ -122,15 +100,13 @@ export class ContextAggregator {
 
 		// Allocate budget by priority for micro edits.
 		const slidingBudget = Math.floor(contextBudget * 0.03);
-		const bibleBudget = Math.floor(contextBudget * 0.20);
-		const extractionsBudget = Math.floor(contextBudget * 0.10);
-		const characterBudget = Math.floor(contextBudget * 0.32);
-		const smartBudget = Math.floor(contextBudget * 0.15);
+		const bibleBudget = Math.floor(contextBudget * 0.25);
+		const characterBudget = Math.floor(contextBudget * 0.37);
+		const smartBudget = Math.floor(contextBudget * 0.20);
 
 		return {
 			sliding_window: this.trimHeadToBudget(slidingWindow, slidingBudget, 'Sliding window'),
 			story_bible: this.trimHeadToBudget(storyBible, bibleBudget, 'Story bible'),
-			extractions: this.trimHeadToBudget(extractions, extractionsBudget, 'Extractions'),
 			character_notes: this.trimHeadToBudget(characterNotes, characterBudget, 'Character notes'),
 			smart_connections: this.trimHeadToBudget(retrievedContext, smartBudget, 'Retrieved context'),
 			surrounding_before: surrounding.before,
@@ -248,16 +224,12 @@ export class ContextAggregator {
 	async getSurroundingContext(selectedText: string, wordsBefore: number = 500, wordsAfter: number = 500): Promise<{ before: string; after: string }> {
 		const settings = this.plugin.settings;
 		
-		// Try to get context from sliding window first, then book2
+		// Get context from book main file (sliding window is automatically extracted from here)
 		let sourceText = '';
 		try {
-			sourceText = await this.readFile(settings.slidingWindowPath);
+			sourceText = await this.readFile(settings.book2Path);
 		} catch {
-			try {
-				sourceText = await this.readFile(settings.book2Path);
-			} catch {
-				return { before: '', after: '' };
-			}
+			return { before: '', after: '' };
 		}
 		
 		// Find the selected text in the source

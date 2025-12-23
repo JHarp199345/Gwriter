@@ -1402,12 +1402,12 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					/>
 				</div>
 				<div className="main-workspace">
-					<div className="generation-status" style={{ marginBottom: '8px', fontSize: '0.9em', color: 'var(--text-muted)' }}>
-						📖 Book: {plugin.settings.book2Path || '(not set)'}
+					<div className="generation-status" style={{ marginBottom: '8px', fontSize: '0.9em' }}>
+						<span className="visual-aid-text">📖</span> Book: {plugin.settings.book2Path || '(not set)'}
 						{(() => {
 							const file = plugin.app.vault.getAbstractFileByPath(plugin.settings.book2Path);
 							if (plugin.settings.book2Path && !file) {
-								return ' (file not found)';
+								return <span className="visual-aid-text"> (file not found)</span>;
 							}
 							return '';
 						})()}
@@ -1590,17 +1590,19 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					)}
 					{promptTokenEstimate !== null && (
 						<div className="generation-status">
-							Estimated prompt size: ~{promptTokenEstimate.toLocaleString()} tokens
+							<span className="visual-aid-text">Estimated prompt size:</span> ~{promptTokenEstimate.toLocaleString()} tokens
 							{promptCharCount !== null ? ` (${promptCharCount.toLocaleString()} chars)` : ''}
 							{plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit
-								? ` — exceeds warning limit (${plugin.settings.contextTokenLimit.toLocaleString()})`
+								? <span className="visual-aid-text"> — exceeds warning limit ({plugin.settings.contextTokenLimit.toLocaleString()})</span>
 								: ''}
 						</div>
 					)}
-					<div className="generation-status">{indexStatusText}</div>
+					<div className="generation-status">
+						<span className="visual-aid-text">{indexStatusText}</span>
+					</div>
 					{retrievedContextStats && (
 						<div className="generation-status">
-							Retrieved context: {retrievedContextStats.items.toLocaleString()} item(s) (~
+							<span className="visual-aid-text">Retrieved context:</span> {retrievedContextStats.items.toLocaleString()} item(s) (~
 							{retrievedContextStats.tokens.toLocaleString()} tokens)
 						</div>
 					)}
@@ -1611,23 +1613,29 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					)}
 					{isGenerating && generationStage && (
 						<div className="generation-status">
-							⏳ {generationStage}
+							<span className="visual-aid-text">⏳</span> {generationStage}
 						</div>
 					)}
 					{mode === 'character-update' && (
 						<div className="generation-status">
-							Bulk source: {bulkSourcePath || plugin.settings.book2Path}
-							{bulkSourcePath ? ' (custom)' : ' (book main path)'}
+							<span className="visual-aid-text">Bulk source:</span> {bulkSourcePath || plugin.settings.book2Path}
+							{bulkSourcePath ? <span className="visual-aid-text"> (custom)</span> : <span className="visual-aid-text"> (book main path)</span>}
 						</div>
 					)}
 					<div className="controls">
-						<button onClick={openPublishWizard} disabled={isGenerating} className="update-characters-button">
+						<button 
+							onClick={openPublishWizard} 
+							disabled={isGenerating} 
+							className="update-characters-button"
+							title="Export your manuscript to EPUB format for publishing"
+						>
 							Export to epub
 						</button>
 						<button
 							onClick={handlePreviewPrompt}
 							disabled={isGenerating}
 							className="update-characters-button"
+							title="Preview the full AI prompt that will be sent (useful for debugging)"
 						>
 							Preview prompt
 						</button>
@@ -1636,6 +1644,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 								onClick={handleUpdateStoryBible}
 								disabled={isGenerating || !apiKeyPresent}
 								className="update-characters-button"
+								title="Extract story bible updates from the generated chapter text"
 							>
 								Update story bible
 							</button>
@@ -1645,6 +1654,11 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 								onClick={handleGenerate}
 								disabled={isGenerating || (!apiKeyPresent && !isGuidedDemoActive)}
 								className="generate-button"
+								title={mode === 'chapter' 
+									? 'Generate a new chapter based on your scene summary and instructions'
+									: mode === 'micro-edit'
+									? 'Generate a refined version of the selected passage'
+									: 'Check the draft text for continuity issues'}
 							>
 								{isGenerating
 									? 'Generating...'
@@ -1661,6 +1675,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 									onClick={handleUpdateCharacters}
 									disabled={isGenerating || !selectedText || (!apiKeyPresent && !isGuidedDemoActive)}
 									className="update-characters-button"
+									title="Extract character information from the selected text and update character notes"
 								>
 									Update characters
 								</button>
@@ -1668,6 +1683,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 									onClick={handleSelectCharacterExtractionSource}
 									disabled={isGenerating}
 									className="update-characters-button"
+									title="Choose a different file to process for bulk character extraction (defaults to book main file)"
 								>
 									Select file to process
 								</button>
@@ -1675,6 +1691,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 									onClick={handleClearCharacterExtractionSource}
 									disabled={isGenerating || !plugin.settings.characterExtractionSourcePath}
 									className="update-characters-button"
+									title="Reset to use the book main file for bulk processing"
 								>
 									Use book main path
 								</button>
@@ -1682,6 +1699,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 									onClick={handleProcessEntireBook}
 									disabled={isGenerating || !apiKeyPresent}
 									className="update-characters-button"
+									title="Process the entire book file in chunks, extract all character information, and update character notes"
 								>
 									Process entire book
 								</button>
@@ -1689,6 +1707,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 									onClick={handleChunkSelectedFile}
 									disabled={isGenerating || !apiKeyPresent}
 									className="update-characters-button"
+									title="Split the current note into 500-word chunks and save them in a chunked folder for Smart Connections"
 								>
 									Chunk current note
 								</button>

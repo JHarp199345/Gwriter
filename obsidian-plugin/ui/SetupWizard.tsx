@@ -47,17 +47,6 @@ Your active manuscript goes here.
 			defaultChecked: true
 		},
 		{
-			type: 'file',
-			path: plugin.settings.slidingWindowPath || 'Memory - Sliding Window.md',
-			description: 'Recent narrative context used for AI generation',
-			content: `# Memory - Sliding Window
-
-Recent narrative context for AI generation.
-
-[This file will be updated as you write]`,
-			defaultChecked: true
-		},
-		{
 			type: 'folder',
 			path: plugin.settings.characterFolder || 'Characters',
 			description: 'Folder for character notes (auto-updated by Character Update mode)',

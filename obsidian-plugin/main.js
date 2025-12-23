@@ -58930,10 +58930,10 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
       collapsed: isVaultPanelCollapsed,
       onToggleCollapsed: setIsVaultPanelCollapsed
     }
-  )), /* @__PURE__ */ import_react5.default.createElement("div", { className: "main-workspace" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status", style: { marginBottom: "8px", fontSize: "0.9em", color: "var(--text-muted)" } }, "\u{1F4D6} Book: ", plugin.settings.book2Path || "(not set)", (() => {
+  )), /* @__PURE__ */ import_react5.default.createElement("div", { className: "main-workspace" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status", style: { marginBottom: "8px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react5.default.createElement("span", { className: "visual-aid-text" }, "\u{1F4D6}"), " Book: ", plugin.settings.book2Path || "(not set)", (() => {
     const file = plugin.app.vault.getAbstractFileByPath(plugin.settings.book2Path);
     if (plugin.settings.book2Path && !file) {
-      return " (file not found)";
+      return /* @__PURE__ */ import_react5.default.createElement("span", { className: "visual-aid-text" }, " (file not found)");
     }
     return "";
   })()), /* @__PURE__ */ import_react5.default.createElement(
@@ -59095,12 +59095,22 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
       mode,
       onResetToDefault: mode === "chapter" ? () => updateNotes(DEFAULT_REWRITE_INSTRUCTIONS) : void 0
     }
-  ), promptTokenEstimate !== null && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Estimated prompt size: ~", promptTokenEstimate.toLocaleString(), " tokens", promptCharCount !== null ? ` (${promptCharCount.toLocaleString()} chars)` : "", plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit ? ` \u2014 exceeds warning limit (${plugin.settings.contextTokenLimit.toLocaleString()})` : ""), /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, indexStatusText), retrievedContextStats && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Retrieved context: ", retrievedContextStats.items.toLocaleString(), " item(s) (~", retrievedContextStats.tokens.toLocaleString(), " tokens)"), error2 && /* @__PURE__ */ import_react5.default.createElement("div", { className: "error-message" }, "\u274C ", error2), isGenerating && generationStage && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "\u23F3 ", generationStage), mode === "character-update" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, "Bulk source: ", bulkSourcePath || plugin.settings.book2Path, bulkSourcePath ? " (custom)" : " (book main path)"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "controls" }, /* @__PURE__ */ import_react5.default.createElement("button", { onClick: openPublishWizard, disabled: isGenerating, className: "update-characters-button" }, "Export to epub"), /* @__PURE__ */ import_react5.default.createElement(
+  ), promptTokenEstimate !== null && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, /* @__PURE__ */ import_react5.default.createElement("span", { className: "visual-aid-text" }, "Estimated prompt size:"), " ~", promptTokenEstimate.toLocaleString(), " tokens", promptCharCount !== null ? ` (${promptCharCount.toLocaleString()} chars)` : "", plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit ? /* @__PURE__ */ import_react5.default.createElement("span", { className: "visual-aid-text" }, " \u2014 exceeds warning limit (", plugin.settings.contextTokenLimit.toLocaleString(), ")") : ""), /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, /* @__PURE__ */ import_react5.default.createElement("span", { className: "visual-aid-text" }, indexStatusText)), retrievedContextStats && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, /* @__PURE__ */ import_react5.default.createElement("span", { className: "visual-aid-text" }, "Retrieved context:"), " ", retrievedContextStats.items.toLocaleString(), " item(s) (~", retrievedContextStats.tokens.toLocaleString(), " tokens)"), error2 && /* @__PURE__ */ import_react5.default.createElement("div", { className: "error-message" }, "\u274C ", error2), isGenerating && generationStage && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, /* @__PURE__ */ import_react5.default.createElement("span", { className: "visual-aid-text" }, "\u23F3"), " ", generationStage), mode === "character-update" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status" }, /* @__PURE__ */ import_react5.default.createElement("span", { className: "visual-aid-text" }, "Bulk source:"), " ", bulkSourcePath || plugin.settings.book2Path, bulkSourcePath ? /* @__PURE__ */ import_react5.default.createElement("span", { className: "visual-aid-text" }, " (custom)") : /* @__PURE__ */ import_react5.default.createElement("span", { className: "visual-aid-text" }, " (book main path)")), /* @__PURE__ */ import_react5.default.createElement("div", { className: "controls" }, /* @__PURE__ */ import_react5.default.createElement(
+    "button",
+    {
+      onClick: openPublishWizard,
+      disabled: isGenerating,
+      className: "update-characters-button",
+      title: "Export your manuscript to EPUB format for publishing"
+    },
+    "Export to epub"
+  ), /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
       onClick: handlePreviewPrompt,
       disabled: isGenerating,
-      className: "update-characters-button"
+      className: "update-characters-button",
+      title: "Preview the full AI prompt that will be sent (useful for debugging)"
     },
     "Preview prompt"
   ), mode === "chapter" && /* @__PURE__ */ import_react5.default.createElement(
@@ -59108,7 +59118,8 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
     {
       onClick: handleUpdateStoryBible,
       disabled: isGenerating || !apiKeyPresent,
-      className: "update-characters-button"
+      className: "update-characters-button",
+      title: "Extract story bible updates from the generated chapter text"
     },
     "Update story bible"
   ), mode !== "character-update" && /* @__PURE__ */ import_react5.default.createElement(
@@ -59116,7 +59127,8 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
     {
       onClick: handleGenerate,
       disabled: isGenerating || !apiKeyPresent && !isGuidedDemoActive,
-      className: "generate-button"
+      className: "generate-button",
+      title: mode === "chapter" ? "Generate a new chapter based on your scene summary and instructions" : mode === "micro-edit" ? "Generate a refined version of the selected passage" : "Check the draft text for continuity issues"
     },
     isGenerating ? "Generating..." : mode === "chapter" ? "Generate chapter" : mode === "micro-edit" ? "Generate edit" : "Run continuity check"
   ), mode === "character-update" && /* @__PURE__ */ import_react5.default.createElement(import_react5.default.Fragment, null, /* @__PURE__ */ import_react5.default.createElement(
@@ -59124,7 +59136,8 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
     {
       onClick: handleUpdateCharacters,
       disabled: isGenerating || !selectedText || !apiKeyPresent && !isGuidedDemoActive,
-      className: "update-characters-button"
+      className: "update-characters-button",
+      title: "Extract character information from the selected text and update character notes"
     },
     "Update characters"
   ), /* @__PURE__ */ import_react5.default.createElement(
@@ -59132,7 +59145,8 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
     {
       onClick: handleSelectCharacterExtractionSource,
       disabled: isGenerating,
-      className: "update-characters-button"
+      className: "update-characters-button",
+      title: "Choose a different file to process for bulk character extraction (defaults to book main file)"
     },
     "Select file to process"
   ), /* @__PURE__ */ import_react5.default.createElement(
@@ -59140,7 +59154,8 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
     {
       onClick: handleClearCharacterExtractionSource,
       disabled: isGenerating || !plugin.settings.characterExtractionSourcePath,
-      className: "update-characters-button"
+      className: "update-characters-button",
+      title: "Reset to use the book main file for bulk processing"
     },
     "Use book main path"
   ), /* @__PURE__ */ import_react5.default.createElement(
@@ -59148,7 +59163,8 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
     {
       onClick: handleProcessEntireBook,
       disabled: isGenerating || !apiKeyPresent,
-      className: "update-characters-button"
+      className: "update-characters-button",
+      title: "Process the entire book file in chunks, extract all character information, and update character notes"
     },
     "Process entire book"
   ), /* @__PURE__ */ import_react5.default.createElement(
@@ -59156,7 +59172,8 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
     {
       onClick: handleChunkSelectedFile,
       disabled: isGenerating || !apiKeyPresent,
-      className: "update-characters-button"
+      className: "update-characters-button",
+      title: "Split the current note into 500-word chunks and save them in a chunked folder for Smart Connections"
     },
     "Chunk current note"
   ))), mode === "chapter" && (generatedText || storyBibleDelta) && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status", style: { marginTop: 8 } }, /* @__PURE__ */ import_react5.default.createElement("button", { onClick: handleSaveStoryBibleAsNew, disabled: isGenerating || !generatedText }, "Save merged story bible"), /* @__PURE__ */ import_react5.default.createElement("button", { onClick: handleReplaceStoryBible, disabled: isGenerating || !generatedText, style: { marginLeft: 8 } }, "Replace story bible")), /* @__PURE__ */ import_react5.default.createElement(ModeSelector, { mode, onChange: setMode }))));
@@ -59238,17 +59255,6 @@ Your active manuscript goes here.
 
 ## Themes
 [Themes and motifs]`,
-      defaultChecked: true
-    },
-    {
-      type: "file",
-      path: plugin.settings.slidingWindowPath || "Memory - Sliding Window.md",
-      description: "Recent narrative context used for AI generation",
-      content: `# Memory - Sliding Window
-
-Recent narrative context for AI generation.
-
-[This file will be updated as you write]`,
       defaultChecked: true
     },
     {
@@ -59978,17 +59984,16 @@ var SettingsTab = class extends import_obsidian8.PluginSettingTab {
       });
       modal.open();
     }));
-    new import_obsidian8.Setting(containerEl).setName("Story bible path").setDesc("Path to your story bible").addText((text2) => text2.setPlaceholder("Book - story bible.md").setValue(this.plugin.settings.storyBiblePath).onChange(async (value) => {
-      this.plugin.settings.storyBiblePath = value;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian8.Setting(containerEl).setName("Extractions path (optional)").setDesc("Path to your extractions file. Optional - only needed if you use extractions instead of chunked folders.").addText((text2) => text2.setPlaceholder("Extractions.md").setValue(this.plugin.settings.extractionsPath).onChange(async (value) => {
-      this.plugin.settings.extractionsPath = value;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian8.Setting(containerEl).setName("Sliding window path").setDesc("Path to your sliding window memory file").addText((text2) => text2.setPlaceholder("Memory - sliding window.md").setValue(this.plugin.settings.slidingWindowPath).onChange(async (value) => {
-      this.plugin.settings.slidingWindowPath = value;
-      await this.plugin.saveSettings();
+    const storyBibleSetting = new import_obsidian8.Setting(containerEl).setName("Story bible path").setDesc(`Current: ${this.plugin.settings.storyBiblePath || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.storyBiblePath ? this.plugin.settings.storyBiblePath.split("/").pop() || "Select story bible" : "Select story bible").onClick(() => {
+      const modal = new FileTreePickerModal(this.plugin, {
+        currentPath: this.plugin.settings.storyBiblePath,
+        onPick: async (filePath) => {
+          this.plugin.settings.storyBiblePath = filePath;
+          await this.plugin.saveSettings();
+          this.display();
+        }
+      });
+      modal.open();
     }));
     new import_obsidian8.Setting(containerEl).setName("Character extraction chunk size (words)").setDesc('Used by "process entire book" to batch character extraction. Larger chunks (e.g., 2000\u20133000) tend to improve character context.').addText((text2) => text2.setPlaceholder("2500").setValue(String(this.plugin.settings.characterExtractionChunkSize ?? 2500)).onChange(async (value) => {
       const parsed = parseInt(value, 10);
@@ -60503,14 +60508,6 @@ var ContextAggregator = class {
   }
   async getChapterContext(retrievalQuery) {
     const settings = this.plugin.settings;
-    let extractions = "";
-    if (settings.extractionsPath) {
-      try {
-        extractions = await this.readFile(settings.extractionsPath);
-      } catch {
-        extractions = "";
-      }
-    }
     const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
     const contextBudget = Math.max(1e3, limit - reserveForOutput - reserveForNonContext);
     const retrievedLimit = Math.min(200, Math.max(24, Math.floor(contextBudget / 12e3)));
@@ -60518,28 +60515,18 @@ var ContextAggregator = class {
     const book2Full = await this.readFile(settings.book2Path);
     const slidingWindow = this.extractWordsFromEnd(book2Full, 2e4);
     const storyBible = await this.readFile(settings.storyBiblePath);
-    const smartBudget = Math.floor(contextBudget * 0.4);
-    const bibleBudget = Math.floor(contextBudget * 0.2);
-    const extractionsBudget = Math.floor(contextBudget * 0.1);
-    const slidingBudget = Math.floor(contextBudget * 0.08);
+    const smartBudget = Math.floor(contextBudget * 0.45);
+    const bibleBudget = Math.floor(contextBudget * 0.25);
+    const slidingBudget = Math.floor(contextBudget * 0.1);
     return {
       smart_connections: this.trimHeadToBudget(retrievedContext, smartBudget, "Retrieved context"),
       story_bible: this.trimHeadToBudget(storyBible, bibleBudget, "Story bible"),
-      extractions: this.trimHeadToBudget(extractions, extractionsBudget, "Extractions"),
       sliding_window: this.trimHeadToBudget(slidingWindow, slidingBudget, "Sliding window")
     };
   }
   async getMicroEditContext(selectedText, retrievalQuery) {
     const settings = this.plugin.settings;
     const surrounding = await this.getSurroundingContext(selectedText, 500, 500);
-    let extractions = "";
-    if (settings.extractionsPath) {
-      try {
-        extractions = await this.readFile(settings.extractionsPath);
-      } catch {
-        extractions = "";
-      }
-    }
     const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
     const contextBudget = Math.max(1e3, limit - reserveForOutput - reserveForNonContext);
     const book2Full = await this.readFile(settings.book2Path);
@@ -60549,14 +60536,12 @@ var ContextAggregator = class {
     const retrievedLimit = Math.min(80, Math.max(12, Math.floor(contextBudget / 2e4)));
     const retrievedContext = await this.getRetrievedContext(retrievalQuery, retrievedLimit);
     const slidingBudget = Math.floor(contextBudget * 0.03);
-    const bibleBudget = Math.floor(contextBudget * 0.2);
-    const extractionsBudget = Math.floor(contextBudget * 0.1);
-    const characterBudget = Math.floor(contextBudget * 0.32);
-    const smartBudget = Math.floor(contextBudget * 0.15);
+    const bibleBudget = Math.floor(contextBudget * 0.25);
+    const characterBudget = Math.floor(contextBudget * 0.37);
+    const smartBudget = Math.floor(contextBudget * 0.2);
     return {
       sliding_window: this.trimHeadToBudget(slidingWindow, slidingBudget, "Sliding window"),
       story_bible: this.trimHeadToBudget(storyBible, bibleBudget, "Story bible"),
-      extractions: this.trimHeadToBudget(extractions, extractionsBudget, "Extractions"),
       character_notes: this.trimHeadToBudget(characterNotes, characterBudget, "Character notes"),
       smart_connections: this.trimHeadToBudget(retrievedContext, smartBudget, "Retrieved context"),
       surrounding_before: surrounding.before,
@@ -60662,13 +60647,9 @@ ${content}
     const settings = this.plugin.settings;
     let sourceText = "";
     try {
-      sourceText = await this.readFile(settings.slidingWindowPath);
+      sourceText = await this.readFile(settings.book2Path);
     } catch {
-      try {
-        sourceText = await this.readFile(settings.book2Path);
-      } catch {
-        return { before: "", after: "" };
-      }
+      return { before: "", after: "" };
     }
     const selectedIndex = sourceText.indexOf(selectedText);
     if (selectedIndex === -1) {
@@ -60697,10 +60678,9 @@ ${context.smart_connections || ""}
 Use these excerpts to maintain continuity, tone, and world consistency.
 
 -------------------------------------------------------------
-STORY BIBLE + EXTRACTIONS \u2014 WORLD + RULESET
+STORY BIBLE \u2014 WORLD + RULESET
 -------------------------------------------------------------
 ${context.story_bible || ""}
-${context.extractions || ""}
 
 These define rules of the world, character arcs, faction details, timelines, technology, tone, themes, motifs, and relationship structure.
 
@@ -60731,7 +60711,7 @@ SUMMARY OF YOUR ROLE
 -------------------------------------------------------------
 - Retrieved context = continuity references from whole vault (including previous books)
 - Sliding Window = direct lead-in (last 20k words of active manuscript)
-- Story Bible + Extractions = world + theme rules
+- Story Bible = world + theme rules
 - Rewrite Instructions = style and constraints
 - Scene Summary = outline to be rewritten into full prose
 
@@ -60779,10 +60759,9 @@ ${context.sliding_window || ""}
 This provides immediate narrative context around the selected passage.
 
 -------------------------------------------------------------
-STORY BIBLE + EXTRACTIONS \u2014 CANON CONSTRAINTS
+STORY BIBLE \u2014 CANON CONSTRAINTS
 -------------------------------------------------------------
 ${context.story_bible || ""}
-${context.extractions || ""}
 
 Maintain consistency with world rules, character arcs, and established canon.
 
@@ -60837,10 +60816,9 @@ Rules:
 - Keep the report short and actionable.
 
 -------------------------------------------------------------
-STORY BIBLE + EXTRACTIONS (CANON)
+STORY BIBLE (CANON)
 -------------------------------------------------------------
 ${params.context.story_bible || ""}
-${params.context.extractions || ""}
 
 -------------------------------------------------------------
 CHARACTER NOTES (VOICE + STATE)
@@ -69566,8 +69544,6 @@ var DEFAULT_SETTINGS = {
   characterFolder: "Characters",
   book2Path: "Book-Main.md",
   storyBiblePath: "Book - Story Bible.md",
-  extractionsPath: "Extractions.md",
-  slidingWindowPath: "Memory - Sliding Window.md",
   characterExtractionChunkSize: 2500,
   contextTokenLimit: 128e3,
   defaultCharacterExtractionInstructions: `[CHARACTER UPDATE INSTRUCTIONS]
@@ -69869,9 +69845,6 @@ var WritingDashboardPlugin = class extends import_obsidian21.Plugin {
       };
       storyFolders.add(parentOf(this.settings.book2Path));
       storyFolders.add(parentOf(this.settings.storyBiblePath));
-      storyFolders.add(parentOf(this.settings.slidingWindowPath));
-      if (this.settings.extractionsPath)
-        storyFolders.add(parentOf(this.settings.extractionsPath));
       const storyIncluded = Array.from(storyFolders).map((s) => (s || "").replace(/\/+$/, "")).filter((s) => s.length > 0);
       this.settings.retrievalProfiles = [
         { id: "story", name: "Story", includedFolders: storyIncluded },

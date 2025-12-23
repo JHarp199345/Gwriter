@@ -1,7 +1,6 @@
 export interface Context {
 	smart_connections?: string;
 	story_bible?: string;
-	extractions?: string;
 	sliding_window?: string;
 	character_notes?: string;
 	surrounding_before?: string;
@@ -28,10 +27,9 @@ ${context.smart_connections || ''}
 Use these excerpts to maintain continuity, tone, and world consistency.
 
 -------------------------------------------------------------
-STORY BIBLE + EXTRACTIONS — WORLD + RULESET
+STORY BIBLE — WORLD + RULESET
 -------------------------------------------------------------
 ${context.story_bible || ''}
-${context.extractions || ''}
 
 These define rules of the world, character arcs, faction details, timelines, technology, tone, themes, motifs, and relationship structure.
 
@@ -62,7 +60,7 @@ SUMMARY OF YOUR ROLE
 -------------------------------------------------------------
 - Retrieved context = continuity references from whole vault (including previous books)
 - Sliding Window = direct lead-in (last 20k words of active manuscript)
-- Story Bible + Extractions = world + theme rules
+- Story Bible = world + theme rules
 - Rewrite Instructions = style and constraints
 - Scene Summary = outline to be rewritten into full prose
 
@@ -111,10 +109,9 @@ ${context.sliding_window || ''}
 This provides immediate narrative context around the selected passage.
 
 -------------------------------------------------------------
-STORY BIBLE + EXTRACTIONS — CANON CONSTRAINTS
+STORY BIBLE — CANON CONSTRAINTS
 -------------------------------------------------------------
 ${context.story_bible || ''}
-${context.extractions || ''}
 
 Maintain consistency with world rules, character arcs, and established canon.
 
@@ -171,10 +168,9 @@ Rules:
 - Keep the report short and actionable.
 
 -------------------------------------------------------------
-STORY BIBLE + EXTRACTIONS (CANON)
+STORY BIBLE (CANON)
 -------------------------------------------------------------
 ${params.context.story_bible || ''}
-${params.context.extractions || ''}
 
 -------------------------------------------------------------
 CHARACTER NOTES (VOICE + STATE)

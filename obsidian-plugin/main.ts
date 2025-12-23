@@ -35,8 +35,6 @@ export interface DashboardSettings {
 	characterFolder: string;
 	book2Path: string;
 	storyBiblePath: string;
-	extractionsPath: string;
-	slidingWindowPath: string;
 	/**
 	 * Word count per chunk when running "Process Entire Book" character extraction.
 	 * (Chunking for Smart Connections/reference folders is separate.)
@@ -206,8 +204,6 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 	characterFolder: 'Characters',
 	book2Path: 'Book-Main.md',
 	storyBiblePath: 'Book - Story Bible.md',
-	extractionsPath: 'Extractions.md',
-	slidingWindowPath: 'Memory - Sliding Window.md',
 	characterExtractionChunkSize: 2500,
 	contextTokenLimit: 128000,
 	defaultCharacterExtractionInstructions:
@@ -565,8 +561,6 @@ export default class WritingDashboardPlugin extends Plugin {
 			// include the folders containing key story files when possible
 			storyFolders.add(parentOf(this.settings.book2Path));
 			storyFolders.add(parentOf(this.settings.storyBiblePath));
-			storyFolders.add(parentOf(this.settings.slidingWindowPath));
-			if (this.settings.extractionsPath) storyFolders.add(parentOf(this.settings.extractionsPath));
 			// remove empty entries (root is ambiguous; keep only if explicit)
 			const storyIncluded = Array.from(storyFolders).map((s) => (s || '').replace(/\/+$/, '')).filter((s) => s.length > 0);
 

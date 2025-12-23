@@ -663,38 +663,24 @@ export class SettingsTab extends PluginSettingTab {
 					modal.open();
 				}));
 
-		new Setting(containerEl)
+		const storyBibleSetting = new Setting(containerEl)
 			.setName('Story bible path')
-			.setDesc('Path to your story bible')
-			.addText(text => text
-				.setPlaceholder('Book - story bible.md')
-				.setValue(this.plugin.settings.storyBiblePath)
-				.onChange(async (value) => {
-					this.plugin.settings.storyBiblePath = value;
-					await this.plugin.saveSettings();
+			.setDesc(`Current: ${this.plugin.settings.storyBiblePath || '(none selected)'}`)
+			.addButton(button => button
+				.setButtonText(this.plugin.settings.storyBiblePath ? this.plugin.settings.storyBiblePath.split('/').pop() || 'Select story bible' : 'Select story bible')
+				.onClick(() => {
+					const modal = new FileTreePickerModal(this.plugin, {
+						currentPath: this.plugin.settings.storyBiblePath,
+						onPick: async (filePath) => {
+							this.plugin.settings.storyBiblePath = filePath;
+							await this.plugin.saveSettings();
+							// Refresh the setting to update the button text and desc
+							this.display();
+						}
+					});
+					modal.open();
 				}));
 
-		new Setting(containerEl)
-			.setName('Extractions path (optional)')
-			.setDesc('Path to your extractions file. Optional - only needed if you use extractions instead of chunked folders.')
-			.addText(text => text
-				.setPlaceholder('Extractions.md')
-				.setValue(this.plugin.settings.extractionsPath)
-				.onChange(async (value) => {
-					this.plugin.settings.extractionsPath = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Sliding window path')
-			.setDesc('Path to your sliding window memory file')
-			.addText(text => text
-				.setPlaceholder('Memory - sliding window.md')
-				.setValue(this.plugin.settings.slidingWindowPath)
-				.onChange(async (value) => {
-					this.plugin.settings.slidingWindowPath = value;
-					await this.plugin.saveSettings();
-				}));
 
 		new Setting(containerEl)
 			.setName('Character extraction chunk size (words)')
