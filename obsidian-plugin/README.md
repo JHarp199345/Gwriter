@@ -83,6 +83,19 @@ A writing dashboard plugin that integrates AI-powered chapter generation, micro-
 4. Rename it to `writing-dashboard`
 5. Restart Obsidian
 
+## First-Run Setup
+
+On first run, the plugin will automatically show a **Setup Wizard** to help you create the default vault structure. You can also manually trigger it:
+
+1. Open Obsidian settings → **Writing dashboard**
+2. Click **"Run setup wizard"** button
+3. Or use Command Palette: **"Run setup wizard"**
+
+The wizard lets you:
+- Create default files: `Book-Main.md`, `Book - Story Bible.md`, `Memory - Sliding Window.md`
+- Create the `Characters/` folder with a template
+- All files/folders are only created if they don't already exist (won't overwrite)
+
 ## Configuration
 
 1. Open Obsidian settings → **Writing dashboard**
@@ -91,9 +104,10 @@ A writing dashboard plugin that integrates AI-powered chapter generation, micro-
    - **API Provider**: Choose your provider
    - **Model**: examples: `gpt-4o`, `claude-3-5-sonnet`, `gemini-2.5-pro`
    - **Vault Path**: Auto-detected, but can be overridden
-   - **Character Folder**: Default is `Characters`
+   - **Character Folder**: Use the folder tree picker to select or create a folder (default: `Characters`)
    - **Book main file**: Use the file tree picker to select your active manuscript (supports files at root or in folders)
-   - **File Paths**: Configure paths to your Story Bible, Extractions, etc.
+   - **Story Bible Path**: Use the file tree picker to select your story bible file
+   - **Generation Logs Folder**: Optional folder for logging generation runs (excluded from retrieval)
 
 Note: The sliding window is automatically extracted from your book main file (last 20,000 words), so no separate sliding window path is needed. Model names change frequently. The plugin sends the model id you enter to your chosen provider.
 
@@ -136,6 +150,16 @@ Bulk character backfill:
 2. Click **Select file to process** and choose the manuscript you want to scan
 3. Click **Process Entire Book**
 4. The plugin performs a 2-pass scan (roster + per-chapter extraction) and updates character notes
+
+### File Chunking
+
+Manually chunk large files into smaller segments:
+
+1. Select **Character Update** mode
+2. Select text in your editor OR select a file to process
+3. Click **Chunk Selected File**
+4. The plugin creates a `[FILENAME]-Chunked/` folder with numbered chunk files (e.g., `Book-Main-CHUNK-001.md`)
+5. Each chunk is approximately 500 words with overlap for context
 
 ### Story Bible Updates
 
@@ -235,6 +259,26 @@ If enabled in settings, the plugin writes a per-run log note to `Generation logs
 - Verify file paths in settings match your vault structure
 - Ensure files exist at the specified paths
 - Check vault path is correct
+
+### Embedding/Indexing Issues
+
+- **Semantic embeddings may not work** - The local embedding model (`@xenova/transformers`) may fail to load due to bundling issues. This is a known issue being worked on.
+- **BM25 retrieval still works** - Even if embeddings fail, the plugin uses BM25 (text-based) retrieval which works reliably.
+- **Check index status** - Go to Settings → Writing dashboard → Retrieval to see indexing status.
+- **Run stress test** - Use the Developer Tools stress test (Settings → Writing dashboard → Developer Tools) to get detailed diagnostics about embedding failures.
+
+### Developer Tools
+
+The plugin includes a comprehensive stress test for diagnostics:
+
+1. Go to Settings → Writing dashboard → Developer Tools
+2. Click **"Start Stress Test"**
+3. The test will:
+   - Create temporary test files
+   - Test all plugin operations (indexing, retrieval, AI calls, character extraction)
+   - Generate a detailed log with error diagnostics
+   - Clean up all temporary files automatically
+4. The log is saved as a note in your vault: `Stress Test Log - [timestamp].md`
 
 ## Development
 
