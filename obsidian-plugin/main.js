@@ -67817,16 +67817,19 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian10.Setting(containerEl).setName("Semantic backend").setDesc("Choose which local semantic retrieval method to use. True embeddings provide higher quality but may be slower.").addDropdown((dropdown) => {
-      dropdown.addOption("minilm", "True local embeddings (recommended)");
-      dropdown.addOption("hash", "Fast lightweight (lower quality)");
-      dropdown.setValue(this.plugin.settings.retrievalEmbeddingBackend ?? "minilm");
+    new import_obsidian10.Setting(containerEl).setName("Semantic backend").setDesc("Choose which local semantic retrieval method to use. Hash is fast and reliable. MiniLM is experimental and may not work in all environments.").addDropdown((dropdown) => {
+      dropdown.addOption("hash", "Hash (fast, reliable - recommended)");
+      dropdown.addOption("minilm", "MiniLM embeddings (experimental, may fail)");
+      dropdown.setValue(this.plugin.settings.retrievalEmbeddingBackend ?? "hash");
       dropdown.onChange(async (value) => {
         this.plugin.settings.retrievalEmbeddingBackend = value;
         await this.plugin.saveSettings();
+        if (value === "minilm") {
+          this.plugin.embeddingsIndex.enqueueFullRescan();
+        }
       });
     });
-    new import_obsidian10.Setting(containerEl).setName("Enable reranking").setDesc("Use a local CPU reranker to improve the ordering of retrieved snippets at Generate time. This can add a short delay.").addToggle(
+    new import_obsidian10.Setting(containerEl).setName("Enable reranking (experimental)").setDesc("Use a local CPU reranker to improve the ordering of retrieved snippets. Experimental feature - may fail if model files cannot be downloaded. If disabled, retrieval will work without reranking.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableReranker)).onChange(async (value) => {
         this.plugin.settings.retrievalEnableReranker = value;
         await this.plugin.saveSettings();
@@ -72074,33 +72077,43 @@ ${it.excerpt}`;
     });
   }
   async rerank(query, items, opts) {
-    const limit = Math.max(1, Math.min(200, Math.floor(opts.limit)));
-    const shortlist = Math.max(limit, Math.min(120, Math.floor(opts.shortlist ?? 60)));
-    const qh = this.hashQuery(query);
-    const map2 = this.cache.get(qh) ?? /* @__PURE__ */ new Map();
-    this.cache.set(qh, map2);
-    const scored = [];
-    const slice = items.slice(0, shortlist);
-    for (const it of slice) {
-      const cached = map2.get(it.key);
-      if (typeof cached === "number") {
-        scored.push({ item: it, score: cached });
-        continue;
-      }
-      const doc = `${it.path}
+    try {
+      const limit = Math.max(1, Math.min(200, Math.floor(opts.limit)));
+      const shortlist = Math.max(limit, Math.min(120, Math.floor(opts.shortlist ?? 60)));
+      const qh = this.hashQuery(query);
+      const map2 = this.cache.get(qh) ?? /* @__PURE__ */ new Map();
+      this.cache.set(qh, map2);
+      const scored = [];
+      const slice = items.slice(0, shortlist);
+      for (const it of slice) {
+        const cached = map2.get(it.key);
+        if (typeof cached === "number") {
+          scored.push({ item: it, score: cached });
+          continue;
+        }
+        try {
+          const doc = `${it.path}
 ${it.excerpt}`;
-      const res = await this.model.rerankPair(query, doc);
-      map2.set(it.key, res.score);
-      scored.push({ item: it, score: res.score });
+          const res = await this.model.rerankPair(query, doc);
+          map2.set(it.key, res.score);
+          scored.push({ item: it, score: res.score });
+        } catch (err) {
+          console.warn(`[CpuReranker] Failed to rerank item ${it.key}, using original score:`, err);
+          scored.push({ item: it, score: it.score });
+        }
+      }
+      const out = scored.sort((a, b) => b.score - a.score || b.item.score - a.item.score).slice(0, limit).map((s) => ({
+        ...s.item,
+        // Keep the score field as the rerank score so formatting reflects true order.
+        score: s.score,
+        source: "rerank",
+        reasonTags: Array.from(/* @__PURE__ */ new Set([...s.item.reasonTags ?? [], "rerank"]))
+      }));
+      return out;
+    } catch (err) {
+      console.warn("[CpuReranker] Reranking failed, returning original results:", err);
+      return items.slice(0, opts.limit);
     }
-    const out = scored.sort((a, b) => b.score - a.score || b.item.score - a.item.score).slice(0, limit).map((s) => ({
-      ...s.item,
-      // Keep the score field as the rerank score so formatting reflects true order.
-      score: s.score,
-      source: "rerank",
-      reasonTags: Array.from(/* @__PURE__ */ new Set([...s.item.reasonTags ?? [], "rerank"]))
-    }));
-    return out;
   }
 };
 

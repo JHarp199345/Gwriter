@@ -252,39 +252,52 @@ export class CpuReranker {
 	}
 
 	async rerank(query: string, items: ContextItem[], opts: CpuRerankOptions): Promise<ContextItem[]> {
-		const limit = Math.max(1, Math.min(200, Math.floor(opts.limit)));
-		const shortlist = Math.max(limit, Math.min(120, Math.floor(opts.shortlist ?? 60)));
-		const qh = this.hashQuery(query);
-		const map = this.cache.get(qh) ?? new Map<string, number>();
-		this.cache.set(qh, map);
+		// Gracefully degrade if reranking fails - return original items unchanged
+		try {
+			const limit = Math.max(1, Math.min(200, Math.floor(opts.limit)));
+			const shortlist = Math.max(limit, Math.min(120, Math.floor(opts.shortlist ?? 60)));
+			const qh = this.hashQuery(query);
+			const map = this.cache.get(qh) ?? new Map<string, number>();
+			this.cache.set(qh, map);
 
-		const scored: Array<{ item: ContextItem; score: number }> = [];
-		const slice = items.slice(0, shortlist);
-		for (const it of slice) {
-			const cached = map.get(it.key);
-			if (typeof cached === 'number') {
-				scored.push({ item: it, score: cached });
-				continue;
+			const scored: Array<{ item: ContextItem; score: number }> = [];
+			const slice = items.slice(0, shortlist);
+			for (const it of slice) {
+				const cached = map.get(it.key);
+				if (typeof cached === 'number') {
+					scored.push({ item: it, score: cached });
+					continue;
+				}
+				try {
+					const doc = `${it.path}\n${it.excerpt}`;
+					const res = await this.model.rerankPair(query, doc);
+					map.set(it.key, res.score);
+					scored.push({ item: it, score: res.score });
+				} catch (err) {
+					// If reranking fails for an item, use original score
+					console.warn(`[CpuReranker] Failed to rerank item ${it.key}, using original score:`, err);
+					scored.push({ item: it, score: it.score });
+				}
 			}
-			const doc = `${it.path}\n${it.excerpt}`;
-			const res = await this.model.rerankPair(query, doc);
-			map.set(it.key, res.score);
-			scored.push({ item: it, score: res.score });
+
+			// Merge rerank score into final ordering; keep original score as secondary signal.
+			const out = scored
+				.sort((a, b) => b.score - a.score || b.item.score - a.item.score)
+				.slice(0, limit)
+				.map((s) => ({
+					...s.item,
+					// Keep the score field as the rerank score so formatting reflects true order.
+					score: s.score,
+					source: 'rerank',
+					reasonTags: Array.from(new Set([...(s.item.reasonTags ?? []), 'rerank']))
+				}));
+
+			return out;
+		} catch (err) {
+			// If reranking completely fails (model not loaded, network error, etc.), return original items
+			console.warn('[CpuReranker] Reranking failed, returning original results:', err);
+			return items.slice(0, opts.limit);
 		}
-
-		// Merge rerank score into final ordering; keep original score as secondary signal.
-		const out = scored
-			.sort((a, b) => b.score - a.score || b.item.score - a.item.score)
-			.slice(0, limit)
-			.map((s) => ({
-				...s.item,
-				// Keep the score field as the rerank score so formatting reflects true order.
-				score: s.score,
-				source: 'rerank',
-				reasonTags: Array.from(new Set([...(s.item.reasonTags ?? []), 'rerank']))
-			}));
-
-		return out;
 	}
 }
 

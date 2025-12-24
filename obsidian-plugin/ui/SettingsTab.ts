@@ -306,20 +306,23 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Semantic backend')
-			.setDesc('Choose which local semantic retrieval method to use. True embeddings provide higher quality but may be slower.')
+			.setDesc('Choose which local semantic retrieval method to use. Hash is fast and reliable. MiniLM is experimental and may not work in all environments.')
 			.addDropdown((dropdown) => {
-				dropdown.addOption('minilm', 'True local embeddings (recommended)');
-				dropdown.addOption('hash', 'Fast lightweight (lower quality)');
-				dropdown.setValue(this.plugin.settings.retrievalEmbeddingBackend ?? 'minilm');
+				dropdown.addOption('hash', 'Hash (fast, reliable - recommended)');
+				dropdown.addOption('minilm', 'MiniLM embeddings (experimental, may fail)');
+				dropdown.setValue(this.plugin.settings.retrievalEmbeddingBackend ?? 'hash');
 				dropdown.onChange(async (value) => {
 					this.plugin.settings.retrievalEmbeddingBackend = value as 'hash' | 'minilm';
 					await this.plugin.saveSettings();
+					if (value === 'minilm') {
+						this.plugin.embeddingsIndex.enqueueFullRescan();
+					}
 				});
 			});
 
 		new Setting(containerEl)
-			.setName('Enable reranking')
-			.setDesc('Use a local CPU reranker to improve the ordering of retrieved snippets at Generate time. This can add a short delay.')
+			.setName('Enable reranking (experimental)')
+			.setDesc('Use a local CPU reranker to improve the ordering of retrieved snippets. Experimental feature - may fail if model files cannot be downloaded. If disabled, retrieval will work without reranking.')
 			.addToggle((toggle) =>
 				toggle.setValue(Boolean(this.plugin.settings.retrievalEnableReranker)).onChange(async (value) => {
 					this.plugin.settings.retrievalEnableReranker = value;
