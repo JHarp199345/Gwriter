@@ -69980,6 +69980,7 @@ var lastEnvSnapshot = null;
 function captureEnvSnapshot(mod2, env, where) {
   try {
     const onnx = env?.backends?.onnx;
+    const backends = env?.backends;
     lastEnvSnapshot = {
       where,
       timestamp: new Date().toISOString(),
@@ -69987,12 +69988,16 @@ function captureEnvSnapshot(mod2, env, where) {
       hasDefault: !!mod2?.default,
       hasPipeline: typeof (mod2?.pipeline || mod2?.default?.pipeline) === "function",
       envKeys: env ? Object.keys(env).slice(0, 20) : null,
-      backendKeys: onnx ? Object.keys(onnx).slice(0, 20) : null,
+      envHasBackends: !!backends,
+      backendsKeys: backends ? Object.keys(backends) : null,
+      onnxKeyExists: backends ? "onnx" in backends : false,
+      onnxValueExists: onnx !== void 0,
+      onnxValueType: typeof onnx,
+      onnxKeys: onnx ? Object.keys(onnx).slice(0, 20) : null,
       onnxHasWasm: !!onnx?.wasm,
       onnxWasmKeys: onnx?.wasm ? Object.keys(onnx.wasm).slice(0, 20) : null,
       onnxWasmPaths: onnx?.wasm?.wasmPaths ?? null,
-      envHasUseWasm: typeof env?.useWasm === "function",
-      envHasBackends: !!env?.backends
+      envHasUseWasm: typeof env?.useWasm === "function"
     };
     console.log("[LocalEmbeddingModel] [ENV SNAPSHOT]", lastEnvSnapshot);
   } catch (e) {
@@ -70064,14 +70069,22 @@ async function getPipeline(plugin) {
   }
   console.log(`[LocalEmbeddingModel] [STEP 4] Attempting to configure WASM paths...`);
   if (env) {
+    const onnxKeyExists = env.backends && "onnx" in env.backends;
+    const onnxValue = env.backends?.onnx;
+    console.log(`[LocalEmbeddingModel] [STEP 4] onnx key exists: ${onnxKeyExists}`);
+    console.log(`[LocalEmbeddingModel] [STEP 4] onnx value is: ${onnxValue !== void 0 ? "defined" : "undefined"}`);
     if (typeof env.useWasm === "function") {
       try {
         console.log(`[LocalEmbeddingModel] [STEP 4] Attempting env.useWasm()...`);
         env.useWasm();
         console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Called env.useWasm()`);
+        const onnxAfterUseWasm = env.backends?.onnx;
+        console.log(`[LocalEmbeddingModel] [STEP 4] After useWasm(), onnx backend: ${onnxAfterUseWasm !== void 0 ? "exists" : "still undefined"}`);
       } catch (useWasmErr) {
         console.warn(`[LocalEmbeddingModel] [STEP 4] env.useWasm() failed:`, useWasmErr);
       }
+    } else {
+      console.log(`[LocalEmbeddingModel] [STEP 4] env.useWasm is not available (type: ${typeof env.useWasm})`);
     }
     if (env.backends?.onnx) {
       const onnxBackend = env.backends.onnx;
@@ -70126,6 +70139,15 @@ async function getPipeline(plugin) {
             console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to define wasmPaths:`, defineErr);
           }
         }
+      }
+    } else {
+      console.warn(`[LocalEmbeddingModel] [STEP 4] \u2717 ONNX backend not available`);
+      console.warn(`[LocalEmbeddingModel] [STEP 4] env.backends exists: ${!!env.backends}`);
+      console.warn(`[LocalEmbeddingModel] [STEP 4] env.backends keys:`, env.backends ? Object.keys(env.backends) : "N/A");
+      console.warn(`[LocalEmbeddingModel] [STEP 4] onnx key exists but value undefined: ${onnxKeyExists && onnxValue === void 0}`);
+      console.warn(`[LocalEmbeddingModel] [STEP 4] This will cause constructSession to fail - ONNX Runtime not initialized`);
+      if (!lastEnvSnapshot) {
+        captureEnvSnapshot(mod2, env, "onnx-backend-unavailable");
       }
     }
     if ("wasmPaths" in env) {
