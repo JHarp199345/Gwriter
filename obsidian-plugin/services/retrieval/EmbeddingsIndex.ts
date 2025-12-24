@@ -2,7 +2,6 @@ import type { Vault } from 'obsidian';
 import { TFile } from 'obsidian';
 import WritingDashboardPlugin from '../../main';
 import { fnv1a32 } from '../ContentHash';
-import { MiniLmLocalEmbeddingModel } from './LocalEmbeddingModel';
 import { buildIndexChunks } from './Chunking';
 
 export interface IndexedChunk {
@@ -19,7 +18,7 @@ export interface IndexedChunk {
 interface PersistedIndexV1 {
 	version: 1;
 	dim: number;
-	backend: 'hash' | 'minilm';
+	backend: 'hash';
 	chunking?: { headingLevel: 'h1' | 'h2' | 'h3' | 'none'; targetWords: number; overlapWords: number };
 	chunks: IndexedChunk[];
 }
@@ -82,8 +81,7 @@ export class EmbeddingsIndex {
 	private readonly vault: Vault;
 	private readonly plugin: WritingDashboardPlugin;
 	private readonly dim: number;
-	private readonly backend: 'hash' | 'minilm';
-	private readonly model: MiniLmLocalEmbeddingModel;
+	private readonly backend: 'hash';
 
 	private loaded = false;
 	private chunksByKey = new Map<string, IndexedChunk>();
@@ -97,17 +95,12 @@ export class EmbeddingsIndex {
 	// Error tracking
 	private readonly errorLog: ErrorLogEntry[] = [];
 	private readonly maxStoredErrors = 100;
-	
-	// Fallback tracking: if MiniLM fails too many times, we should switch to hash
-	private fallbackNotified = false; // Track if we've already notified about fallback
 
 	constructor(vault: Vault, plugin: WritingDashboardPlugin, dim: number = 256) {
 		this.vault = vault;
 		this.plugin = plugin;
-		const backend = plugin.settings.retrievalEmbeddingBackend;
-		this.backend = backend === 'hash' ? 'hash' : 'minilm';
-		this.dim = this.backend === 'minilm' ? 384 : dim;
-		this.model = new MiniLmLocalEmbeddingModel(vault, plugin);
+		this.backend = 'hash';
+		this.dim = dim;
 	}
 
 	getIndexFilePath(): string {
@@ -344,32 +337,6 @@ export class EmbeddingsIndex {
 			return;
 		}
 
-		// Check if model is ready (for minilm backend)
-		// Also check if MiniLM is fundamentally broken and needs fallback
-		if (this.backend === 'minilm') {
-			const loadAttempts = this.model.getLoadAttempts();
-			const lastError = this.model.getLastLoadError();
-			
-			// If MiniLM has failed >50 times and we haven't notified yet, suggest fallback
-			if (loadAttempts > 50 && lastError && !this.fallbackNotified) {
-				const shouldFallback = await this.checkAndSuggestFallback(loadAttempts, lastError);
-				if (shouldFallback) {
-					// Fallback was accepted - this will recreate the index, so return early
-					return;
-				}
-			}
-			
-			try {
-				const isReady = await this.model.isReady();
-				console.log(`  - Model ready: ${isReady}`);
-				if (!isReady) {
-					console.warn(`  - Model not ready, attempting to load...`);
-				}
-			} catch (modelCheckErr) {
-				console.error(`  - Model readiness check failed:`, modelCheckErr);
-			}
-		}
-		
 		let successfulChunks = 0;
 		let firstError: Error | null = null;
 		for (let i = 0; i < chunks.length; i++) {
@@ -380,24 +347,9 @@ export class EmbeddingsIndex {
 			try {
 				console.log(`  - Generating embedding for chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words)...`);
 				const embedStart = Date.now();
-				if (this.backend === 'minilm') {
-					// Minilm requires async model loading - this might fail silently
-					vector = await this.model.embed(ch.text);
-					const embedDuration = Date.now() - embedStart;
-					console.log(`  - ✓ Embedding generated in ${embedDuration}ms: ${vector.length} dimensions`);
-					// Verify vector is valid
-					if (!vector || vector.length !== this.dim) {
-						throw new Error(`Invalid vector dimensions: expected ${this.dim}, got ${vector?.length || 0}`);
-					}
-					// Check if vector is all zeros (indicates failure)
-					const sum = vector.reduce((a, b) => a + Math.abs(b), 0);
-					if (sum < 0.001) {
-						console.warn(`  - ⚠ Warning: Vector appears to be all zeros (sum=${sum})`);
-					}
-				} else {
-					vector = buildVector(ch.text, this.dim);
-					console.log(`  - ✓ Hash-based vector generated: ${vector.length} dimensions`);
-				}
+				vector = buildVector(ch.text, this.dim);
+				const embedDuration = Date.now() - embedStart;
+				console.log(`  - ✓ Hash-based vector generated in ${embedDuration}ms: ${vector.length} dimensions`);
 			} catch (err) {
 				const errorMsg = err instanceof Error ? err.message : String(err);
 				const errorStack = err instanceof Error ? err.stack : undefined;
@@ -496,14 +448,11 @@ export class EmbeddingsIndex {
 	}
 
 	buildQueryVector(queryText: string): number[] {
-		if (this.backend !== 'minilm') return buildVector(queryText, this.dim);
-		// Note: query embedding is async; providers should call embedQueryVector instead.
 		return buildVector(queryText, this.dim);
 	}
 
 	async embedQueryVector(queryText: string): Promise<number[]> {
-		if (this.backend !== 'minilm') return buildVector(queryText, this.dim);
-		return await this.model.embed(queryText);
+		return buildVector(queryText, this.dim);
 	}
 
 	private _schedulePersist(): void {
@@ -546,45 +495,6 @@ export class EmbeddingsIndex {
 		}, 1000);
 	}
 	
-	/**
-	 * Check if MiniLM is fundamentally broken and suggest fallback to hash backend.
-	 * Returns true if fallback was applied (which will cause the index to be recreated).
-	 */
-	private async checkAndSuggestFallback(loadAttempts: number, lastError: { message: string; location: string; context: string }): Promise<boolean> {
-		// Only suggest fallback once per session
-		if (this.fallbackNotified) {
-			return false;
-		}
-		
-		// Check if the error is the ONNX Runtime initialization error
-		const isOnnxError = lastError.message.includes("Cannot read properties of undefined (reading 'create')") ||
-			lastError.message.includes('constructSession') ||
-			lastError.location === 'ensureLoaded' ||
-			lastError.location === 'ensureLoaded.createPipeline';
-		
-		if (!isOnnxError) {
-			// Not the expected error - don't suggest fallback
-			return false;
-		}
-		
-		console.warn(`[EmbeddingsIndex] MiniLM embedding model is failing repeatedly (${loadAttempts} attempts)`);
-		console.warn(`[EmbeddingsIndex] Last error: ${lastError.message} at ${lastError.location}`);
-		console.warn(`[EmbeddingsIndex] This appears to be an ONNX Runtime initialization issue that cannot be automatically resolved.`);
-		console.warn(`[EmbeddingsIndex] Suggesting automatic fallback to hash-based embeddings...`);
-		
-		// Mark as notified to avoid repeated notifications
-		this.fallbackNotified = true;
-		
-		// Notify the plugin to switch backend
-		try {
-			await this.plugin.handleEmbeddingBackendFallback();
-			console.log(`[EmbeddingsIndex] Backend automatically switched to 'hash'`);
-			return true;
-		} catch (err) {
-			console.error(`[EmbeddingsIndex] Failed to switch backend:`, err);
-			return false;
-		}
-	}
 }
 
 

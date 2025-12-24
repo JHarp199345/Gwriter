@@ -306,17 +306,13 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Semantic backend')
-			.setDesc('Choose which local semantic retrieval method to use. Hash is fast and reliable. MiniLM is experimental and may not work in all environments.')
+			.setDesc('Choose which local semantic retrieval method to use. Hash is fast and reliable.')
 			.addDropdown((dropdown) => {
 				dropdown.addOption('hash', 'Hash (fast, reliable - recommended)');
-				dropdown.addOption('minilm', 'MiniLM embeddings (experimental, may fail)');
 				dropdown.setValue(this.plugin.settings.retrievalEmbeddingBackend ?? 'hash');
 				dropdown.onChange(async (value) => {
-					this.plugin.settings.retrievalEmbeddingBackend = value as 'hash' | 'minilm';
+					this.plugin.settings.retrievalEmbeddingBackend = value as 'hash';
 					await this.plugin.saveSettings();
-					if (value === 'minilm') {
-						this.plugin.embeddingsIndex.enqueueFullRescan();
-					}
 				});
 			});
 
@@ -346,27 +342,10 @@ export class SettingsTab extends PluginSettingTab {
 					})
 			);
 
-		// Retrieval source selection
+		// External embedding API settings (always shown - automatically used if configured)
 		new Setting(containerEl)
-			.setName('Retrieval source')
-			.setDesc('Choose between local retrieval (hash + BM25) or external embedding API (hybrid with BM25).')
-			.addDropdown((dropdown) => {
-				dropdown.addOption('local', 'Local (hash + BM25)');
-				dropdown.addOption('external-api', 'External embedding API (hybrid)');
-				dropdown.setValue(this.plugin.settings.retrievalSource ?? 'local');
-				dropdown.onChange(async (value) => {
-					this.plugin.settings.retrievalSource = value as 'local' | 'external-api';
-					await this.plugin.saveSettings();
-					await this.plugin.recreateRetrievalService();
-					this.display(); // Refresh to show/hide external API settings
-				});
-			});
-
-		// External embedding API settings (shown when external-api is selected)
-		if (this.plugin.settings.retrievalSource === 'external-api') {
-			new Setting(containerEl)
-				.setName('External embedding provider')
-				.setDesc('Choose which external embedding API to use.')
+			.setName('External embedding provider')
+			.setDesc('Choose which external embedding API to use. If configured, external embeddings will be used automatically instead of local hash embeddings.')
 				.addDropdown((dropdown) => {
 					dropdown.addOption('openai', 'OpenAI');
 					dropdown.addOption('cohere', 'Cohere');
@@ -386,6 +365,7 @@ export class SettingsTab extends PluginSettingTab {
 							this.plugin.settings.externalEmbeddingModel = '';
 						}
 						await this.plugin.saveSettings();
+						await this.plugin.recreateRetrievalService(); // Recreate to use new provider
 						this.display(); // Refresh to show provider-specific settings
 					});
 				});
@@ -400,6 +380,7 @@ export class SettingsTab extends PluginSettingTab {
 					text.onChange(async (value) => {
 						this.plugin.settings.externalEmbeddingApiKey = value;
 						await this.plugin.saveSettings();
+						await this.plugin.recreateRetrievalService(); // Recreate to use new API key
 					});
 				});
 
@@ -495,50 +476,6 @@ export class SettingsTab extends PluginSettingTab {
 						}
 					})
 				);
-		}
-
-		// Smart Connections context settings (optional)
-		new Setting(containerEl)
-			.setName('Use Smart Connections context (optional)')
-			.setDesc('Include Smart Connections context in prompts. Requires Smart Connections plugin to be installed.')
-			.addToggle((toggle) =>
-				toggle.setValue(Boolean(this.plugin.settings.retrievalEnableSmartConnectionsContext)).onChange(async (value) => {
-					this.plugin.settings.retrievalEnableSmartConnectionsContext = value;
-					await this.plugin.saveSettings();
-					this.display(); // Refresh to show/hide Smart Connections options
-				})
-			);
-
-		if (this.plugin.settings.retrievalEnableSmartConnectionsContext) {
-			new Setting(containerEl)
-				.setName('Smart Connections context source')
-				.setDesc('How to get Smart Connections context: via Bases files or a copied context note.')
-				.addDropdown((dropdown) => {
-					dropdown.addOption('bases', 'Via Bases');
-					dropdown.addOption('copied-note', 'Via copied context note');
-					dropdown.setValue(this.plugin.settings.smartConnectionsContextSource ?? 'bases');
-					dropdown.onChange(async (value) => {
-						this.plugin.settings.smartConnectionsContextSource = value as 'bases' | 'copied-note';
-						await this.plugin.saveSettings();
-						this.display(); // Refresh to show/hide context note path
-					});
-				});
-
-			if (this.plugin.settings.smartConnectionsContextSource === 'copied-note') {
-				new Setting(containerEl)
-					.setName('Smart Connections context note path')
-					.setDesc('Path to the note containing Smart Connections context (e.g., Smart Connections/Context.md).')
-					.addText((text) =>
-						text
-							.setPlaceholder('Smart Connections/Context.md')
-							.setValue(this.plugin.settings.smartConnectionsContextNotePath ?? '')
-							.onChange(async (value) => {
-								this.plugin.settings.smartConnectionsContextNotePath = value;
-								await this.plugin.saveSettings();
-							})
-					);
-			}
-		}
 
 		new Setting(containerEl)
 			.setName('Index chunk size (words)')

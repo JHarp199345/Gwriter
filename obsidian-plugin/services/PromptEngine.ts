@@ -1,6 +1,5 @@
 export interface Context {
 	smart_connections?: string;
-	smart_connections_context?: string; // Optional Smart Connections context (Bases or copied note)
 	story_bible?: string;
 	sliding_window?: string;
 	character_notes?: string;
@@ -26,7 +25,6 @@ RETRIEVED CONTEXT — RELEVANT NOTES (WHOLE VAULT)
 ${context.smart_connections || ''}
 
 Use these excerpts to maintain continuity, tone, and world consistency.
-${context.smart_connections_context ? `\n\n-------------------------------------------------------------\nSMART CONNECTIONS CONTEXT (OPTIONAL)\n-------------------------------------------------------------\n${context.smart_connections_context}\n\nAdditional context from Smart Connections plugin (if available).` : ''}
 
 -------------------------------------------------------------
 STORY BIBLE — WORLD + RULESET
@@ -130,7 +128,6 @@ RETRIEVED CONTEXT — STYLE ECHOES
 ${context.smart_connections || ''}
 
 Similar passages for tone and style reference.
-${context.smart_connections_context ? `\n\n-------------------------------------------------------------\nSMART CONNECTIONS CONTEXT (OPTIONAL)\n-------------------------------------------------------------\n${context.smart_connections_context}\n\nAdditional context from Smart Connections plugin (if available).` : ''}
 
 -------------------------------------------------------------
 YOUR TASK

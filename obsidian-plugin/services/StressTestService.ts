@@ -29,7 +29,7 @@ export class StressTestService {
 		this.logEntry(`Story Bible Path: ${this.plugin.settings.storyBiblePath || 'Not configured'}`);
 		this.logEntry(`Character Folder: ${this.plugin.settings.characterFolder || 'Not configured (will use default: Characters)'}`);
 		this.logEntry(`Semantic Retrieval: ${this.plugin.settings.retrievalEnableSemanticIndex ? 'Enabled' : 'Disabled'}`);
-		this.logEntry(`Embedding Backend: ${this.plugin.settings.retrievalEmbeddingBackend || 'minilm'}`);
+		this.logEntry(`Embedding Backend: ${this.plugin.settings.retrievalEmbeddingBackend || 'hash'}`);
 		this.logEntry(`BM25 Retrieval: ${this.plugin.settings.retrievalEnableBm25 ? 'Enabled' : 'Disabled'}`);
 		this.logEntry(`Index Paused: ${this.plugin.settings.retrievalIndexPaused ? 'Yes' : 'No'}`);
 		this.logEntry(`Retrieval Top K: ${this.plugin.settings.retrievalTopK || 24}`);
@@ -154,7 +154,7 @@ export class StressTestService {
 		try {
 			this.logEntry('=== Indexing Configuration ===');
 			this.logEntry(`Semantic retrieval enabled: ${this.plugin.settings.retrievalEnableSemanticIndex}`);
-			this.logEntry(`Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || 'minilm'}`);
+			this.logEntry(`Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || 'hash'}`);
 			this.logEntry(`Index paused: ${this.plugin.settings.retrievalIndexPaused}`);
 			this.logEntry(`Chunk size: ${this.plugin.settings.retrievalChunkWords || 500} words`);
 			this.logEntry(`Chunk overlap: ${this.plugin.settings.retrievalChunkOverlapWords || 100} words`);
@@ -209,65 +209,8 @@ export class StressTestService {
 			// Trigger full rescan
 			if (this.plugin.settings.retrievalEnableSemanticIndex && !this.plugin.settings.retrievalIndexPaused) {
 				this.logEntry('Triggering full index rescan...');
-				this.logEntry(`Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || 'minilm'}`);
-				
-				// Check model readiness for minilm backend
-				if (this.plugin.settings.retrievalEmbeddingBackend === 'minilm') {
-					this.logEntry('Checking embedding model readiness...');
-					try {
-						const model = (this.plugin.embeddingsIndex as any)?.model;
-						if (model && typeof model.isReady === 'function') {
-							const loadAttempts = model.getLoadAttempts?.() || 0;
-							this.logEntry(`  Load attempts: ${loadAttempts}`);
-							
-							const isReady = await model.isReady();
-							this.logEntry(`  Model ready: ${isReady}`);
-							if (!isReady) {
-								this.logEntry(`  ⚠ Model not ready - attempting to load (this may take time on first run)...`);
-								
-								// Check for previous load errors
-								const lastError = model.getLastLoadError?.();
-								if (lastError) {
-									this.logEntry(`  Previous load error detected:`);
-									this.logEntry(`    Location: ${lastError.location}`);
-									this.logEntry(`    Context: ${lastError.context}`);
-									this.logEntry(`    Message: ${lastError.message}`);
-									if (lastError.stack) {
-										this.logEntry(`    Stack (first 3 lines):`);
-										lastError.stack.split('\n').slice(0, 3).forEach(line => {
-											this.logEntry(`      ${line.trim()}`);
-										});
-									}
-								}
-								
-								// Wait a bit and check again to see if loading completes
-								this.logEntry(`  Waiting 3 seconds for model load to complete...`);
-								await new Promise(resolve => setTimeout(resolve, 3000));
-								const isReadyAfterWait = await model.isReady();
-								this.logEntry(`  Model ready after wait: ${isReadyAfterWait}`);
-								
-								if (!isReadyAfterWait) {
-									const errorAfterWait = model.getLastLoadError?.();
-									if (errorAfterWait) {
-										this.logEntry(`  Load error after wait:`);
-										this.logEntry(`    ${errorAfterWait.message}`);
-									} else {
-										this.logEntry(`  ⚠ Model still not ready but no error captured - may be loading slowly`);
-									}
-								}
-							} else {
-								this.logEntry(`  ✓ Model is ready`);
-							}
-						} else {
-							this.logEntry(`  ⚠ Cannot check model readiness (isReady method not available)`);
-						}
-					} catch (modelErr) {
-						this.logEntry(`  ✗ Model readiness check failed: ${modelErr instanceof Error ? modelErr.message : String(modelErr)}`);
-						if (modelErr instanceof Error && modelErr.stack) {
-							this.logEntry(`    Stack: ${modelErr.stack.split('\n').slice(0, 3).join('\n    ')}`);
-						}
-					}
-				}
+				this.logEntry(`Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || 'hash'}`);
+				// Hash backend doesn't require model readiness checks
 				
 				this.plugin.embeddingsIndex.enqueueFullRescan();
 				this.plugin.bm25Index.enqueueFullRescan();

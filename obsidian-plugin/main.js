@@ -66749,7 +66749,7 @@ var StressTestService = class {
     this.logEntry(`Story Bible Path: ${this.plugin.settings.storyBiblePath || "Not configured"}`);
     this.logEntry(`Character Folder: ${this.plugin.settings.characterFolder || "Not configured (will use default: Characters)"}`);
     this.logEntry(`Semantic Retrieval: ${this.plugin.settings.retrievalEnableSemanticIndex ? "Enabled" : "Disabled"}`);
-    this.logEntry(`Embedding Backend: ${this.plugin.settings.retrievalEmbeddingBackend || "minilm"}`);
+    this.logEntry(`Embedding Backend: ${this.plugin.settings.retrievalEmbeddingBackend || "hash"}`);
     this.logEntry(`BM25 Retrieval: ${this.plugin.settings.retrievalEnableBm25 ? "Enabled" : "Disabled"}`);
     this.logEntry(`Index Paused: ${this.plugin.settings.retrievalIndexPaused ? "Yes" : "No"}`);
     this.logEntry(`Retrieval Top K: ${this.plugin.settings.retrievalTopK || 24}`);
@@ -66847,7 +66847,7 @@ var StressTestService = class {
     try {
       this.logEntry("=== Indexing Configuration ===");
       this.logEntry(`Semantic retrieval enabled: ${this.plugin.settings.retrievalEnableSemanticIndex}`);
-      this.logEntry(`Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || "minilm"}`);
+      this.logEntry(`Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || "hash"}`);
       this.logEntry(`Index paused: ${this.plugin.settings.retrievalIndexPaused}`);
       this.logEntry(`Chunk size: ${this.plugin.settings.retrievalChunkWords || 500} words`);
       this.logEntry(`Chunk overlap: ${this.plugin.settings.retrievalChunkOverlapWords || 100} words`);
@@ -66891,57 +66891,7 @@ var StressTestService = class {
       }
       if (this.plugin.settings.retrievalEnableSemanticIndex && !this.plugin.settings.retrievalIndexPaused) {
         this.logEntry("Triggering full index rescan...");
-        this.logEntry(`Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || "minilm"}`);
-        if (this.plugin.settings.retrievalEmbeddingBackend === "minilm") {
-          this.logEntry("Checking embedding model readiness...");
-          try {
-            const model = this.plugin.embeddingsIndex?.model;
-            if (model && typeof model.isReady === "function") {
-              const loadAttempts = model.getLoadAttempts?.() || 0;
-              this.logEntry(`  Load attempts: ${loadAttempts}`);
-              const isReady = await model.isReady();
-              this.logEntry(`  Model ready: ${isReady}`);
-              if (!isReady) {
-                this.logEntry(`  \u26A0 Model not ready - attempting to load (this may take time on first run)...`);
-                const lastError = model.getLastLoadError?.();
-                if (lastError) {
-                  this.logEntry(`  Previous load error detected:`);
-                  this.logEntry(`    Location: ${lastError.location}`);
-                  this.logEntry(`    Context: ${lastError.context}`);
-                  this.logEntry(`    Message: ${lastError.message}`);
-                  if (lastError.stack) {
-                    this.logEntry(`    Stack (first 3 lines):`);
-                    lastError.stack.split("\n").slice(0, 3).forEach((line) => {
-                      this.logEntry(`      ${line.trim()}`);
-                    });
-                  }
-                }
-                this.logEntry(`  Waiting 3 seconds for model load to complete...`);
-                await new Promise((resolve) => setTimeout(resolve, 3e3));
-                const isReadyAfterWait = await model.isReady();
-                this.logEntry(`  Model ready after wait: ${isReadyAfterWait}`);
-                if (!isReadyAfterWait) {
-                  const errorAfterWait = model.getLastLoadError?.();
-                  if (errorAfterWait) {
-                    this.logEntry(`  Load error after wait:`);
-                    this.logEntry(`    ${errorAfterWait.message}`);
-                  } else {
-                    this.logEntry(`  \u26A0 Model still not ready but no error captured - may be loading slowly`);
-                  }
-                }
-              } else {
-                this.logEntry(`  \u2713 Model is ready`);
-              }
-            } else {
-              this.logEntry(`  \u26A0 Cannot check model readiness (isReady method not available)`);
-            }
-          } catch (modelErr) {
-            this.logEntry(`  \u2717 Model readiness check failed: ${modelErr instanceof Error ? modelErr.message : String(modelErr)}`);
-            if (modelErr instanceof Error && modelErr.stack) {
-              this.logEntry(`    Stack: ${modelErr.stack.split("\n").slice(0, 3).join("\n    ")}`);
-            }
-          }
-        }
+        this.logEntry(`Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || "hash"}`);
         this.plugin.embeddingsIndex.enqueueFullRescan();
         this.plugin.bm25Index.enqueueFullRescan();
         for (let i = 0; i < 10; i++) {
@@ -67817,16 +67767,12 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian10.Setting(containerEl).setName("Semantic backend").setDesc("Choose which local semantic retrieval method to use. Hash is fast and reliable. MiniLM is experimental and may not work in all environments.").addDropdown((dropdown) => {
+    new import_obsidian10.Setting(containerEl).setName("Semantic backend").setDesc("Choose which local semantic retrieval method to use. Hash is fast and reliable.").addDropdown((dropdown) => {
       dropdown.addOption("hash", "Hash (fast, reliable - recommended)");
-      dropdown.addOption("minilm", "MiniLM embeddings (experimental, may fail)");
       dropdown.setValue(this.plugin.settings.retrievalEmbeddingBackend ?? "hash");
       dropdown.onChange(async (value) => {
         this.plugin.settings.retrievalEmbeddingBackend = value;
         await this.plugin.saveSettings();
-        if (value === "minilm") {
-          this.plugin.embeddingsIndex.enqueueFullRescan();
-        }
       });
     });
     new import_obsidian10.Setting(containerEl).setName("Enable reranking (experimental)").setDesc("Use a local CPU reranker to improve the ordering of retrieved snippets. Experimental feature - may fail if model files cannot be downloaded. If disabled, retrieval will work without reranking.").addToggle(
@@ -70187,461 +70133,6 @@ var HeuristicProvider = class {
 // services/retrieval/EmbeddingsIndex.ts
 var import_obsidian16 = require("obsidian");
 
-// services/retrieval/LocalEmbeddingModel.ts
-function deepInspect(obj, maxDepth = 3, currentDepth = 0, visited = /* @__PURE__ */ new WeakSet()) {
-  if (currentDepth >= maxDepth || obj === null || obj === void 0) {
-    return typeof obj;
-  }
-  if (typeof obj !== "object") {
-    return obj;
-  }
-  if (visited.has(obj)) {
-    return "[Circular]";
-  }
-  visited.add(obj);
-  const result = {};
-  try {
-    const keys = Object.keys(obj).slice(0, 20);
-    for (const key of keys) {
-      try {
-        const val = obj[key];
-        if (typeof val === "function") {
-          result[key] = `[Function: ${val.name || "anonymous"}]`;
-        } else if (typeof val === "object" && val !== null) {
-          result[key] = deepInspect(val, maxDepth, currentDepth + 1, visited);
-        } else {
-          result[key] = val;
-        }
-      } catch (e) {
-        result[key] = `[Error accessing: ${e}]`;
-      }
-    }
-  } catch (e) {
-    return `[Error inspecting: ${e}]`;
-  }
-  return result;
-}
-var lastEnvSnapshot = null;
-function captureEnvSnapshot(mod2, env, where) {
-  try {
-    const onnx = env?.backends?.onnx;
-    const backends = env?.backends;
-    lastEnvSnapshot = {
-      where,
-      timestamp: new Date().toISOString(),
-      modKeys: mod2 && typeof mod2 === "object" ? Object.keys(mod2).slice(0, 20) : null,
-      hasDefault: !!mod2?.default,
-      hasPipeline: typeof (mod2?.pipeline || mod2?.default?.pipeline) === "function",
-      envKeys: env ? Object.keys(env).slice(0, 20) : null,
-      envHasBackends: !!backends,
-      backendsKeys: backends ? Object.keys(backends) : null,
-      onnxKeyExists: backends ? "onnx" in backends : false,
-      onnxValueExists: onnx !== void 0,
-      onnxValueType: typeof onnx,
-      onnxKeys: onnx ? Object.keys(onnx).slice(0, 20) : null,
-      onnxHasWasm: !!onnx?.wasm,
-      onnxWasmKeys: onnx?.wasm ? Object.keys(onnx.wasm).slice(0, 20) : null,
-      onnxWasmPaths: onnx?.wasm?.wasmPaths ?? null,
-      envHasUseWasm: typeof env?.useWasm === "function"
-    };
-    console.log("[LocalEmbeddingModel] [ENV SNAPSHOT]", lastEnvSnapshot);
-  } catch (e) {
-    console.warn("[LocalEmbeddingModel] [ENV SNAPSHOT] Failed to capture env snapshot:", e);
-  }
-}
-async function getPipeline(plugin) {
-  console.log(`[LocalEmbeddingModel] === STARTING PIPELINE LOAD ===`);
-  console.log(`[LocalEmbeddingModel] Timestamp: ${new Date().toISOString()}`);
-  console.log(`[LocalEmbeddingModel] [STEP 1] Importing transformers.js module...`);
-  let mod2;
-  try {
-    mod2 = await Promise.resolve().then(() => (init_transformers(), transformers_exports));
-    console.log(`[LocalEmbeddingModel] [STEP 1] \u2713 Module imported successfully`);
-    console.log(`[LocalEmbeddingModel] [STEP 1] Module type: ${typeof mod2}`);
-    console.log(`[LocalEmbeddingModel] [STEP 1] Module is null: ${mod2 === null}`);
-    console.log(`[LocalEmbeddingModel] [STEP 1] Module is undefined: ${mod2 === void 0}`);
-  } catch (importErr) {
-    console.error(`[LocalEmbeddingModel] [STEP 1] \u2717 Module import failed:`, importErr);
-    throw new Error(`Failed to import transformers.js: ${importErr instanceof Error ? importErr.message : String(importErr)}`);
-  }
-  console.log(`[LocalEmbeddingModel] [STEP 2] Inspecting module structure...`);
-  console.log(`[LocalEmbeddingModel] [STEP 2] Module keys (first 30):`, mod2 && typeof mod2 === "object" ? Object.keys(mod2).slice(0, 30) : "N/A");
-  console.log(`[LocalEmbeddingModel] [STEP 2] Has 'env' property:`, "env" in (mod2 || {}));
-  console.log(`[LocalEmbeddingModel] [STEP 2] Has 'default' property:`, "default" in (mod2 || {}));
-  console.log(`[LocalEmbeddingModel] [STEP 2] Has 'pipeline' property:`, "pipeline" in (mod2 || {}));
-  console.log(`[LocalEmbeddingModel] [STEP 2] mod.env type:`, typeof mod2?.env);
-  console.log(`[LocalEmbeddingModel] [STEP 2] mod.default type:`, typeof mod2?.default);
-  console.log(`[LocalEmbeddingModel] [STEP 2] mod.pipeline type:`, typeof mod2?.pipeline);
-  let env = null;
-  let envSource = "none";
-  console.log(`[LocalEmbeddingModel] [STEP 3] Attempting to locate environment structure...`);
-  if (mod2?.env) {
-    console.log(`[LocalEmbeddingModel] [STEP 3] \u2713 Found env via mod.env`);
-    env = mod2.env;
-    envSource = "mod.env";
-  } else if (mod2?.default?.env) {
-    console.log(`[LocalEmbeddingModel] [STEP 3] \u2713 Found env via mod.default.env`);
-    env = mod2.default.env;
-    envSource = "mod.default.env";
-  }
-  if (env) {
-    console.log(`[LocalEmbeddingModel] [STEP 3] env type: ${typeof env}`);
-    console.log(`[LocalEmbeddingModel] [STEP 3] env keys (first 30):`, Object.keys(env).slice(0, 30));
-    console.log(`[LocalEmbeddingModel] [STEP 3] env.backends exists:`, "backends" in env);
-    console.log(`[LocalEmbeddingModel] [STEP 3] env.backends.onnx exists:`, env.backends?.onnx !== void 0);
-    console.log(`[LocalEmbeddingModel] [STEP 3] env.useWasm exists:`, typeof env.useWasm === "function");
-    if (env.backends) {
-      console.log(`[LocalEmbeddingModel] [STEP 3] env.backends keys:`, Object.keys(env.backends));
-    }
-    if (env.backends?.onnx) {
-      console.log(`[LocalEmbeddingModel] [STEP 3] env.backends.onnx type:`, typeof env.backends.onnx);
-      console.log(`[LocalEmbeddingModel] [STEP 3] env.backends.onnx keys:`, Object.keys(env.backends.onnx).slice(0, 20));
-    }
-    if (!lastEnvSnapshot) {
-      captureEnvSnapshot(mod2, env, "before-wasm-config");
-    }
-  } else {
-    console.warn(`[LocalEmbeddingModel] [STEP 3] \u2717 Could not find env structure`);
-    console.warn(`[LocalEmbeddingModel] [STEP 3] mod.env exists:`, mod2?.env !== void 0);
-    console.warn(`[LocalEmbeddingModel] [STEP 3] mod.default exists:`, mod2?.default !== void 0);
-    console.warn(`[LocalEmbeddingModel] [STEP 3] mod.default.env exists:`, mod2?.default?.env !== void 0);
-    if (mod2?.env) {
-      console.log(`[LocalEmbeddingModel] [STEP 3] mod.env structure (depth 3):`, deepInspect(mod2.env, 3));
-    }
-    if (mod2?.default?.env) {
-      console.log(`[LocalEmbeddingModel] [STEP 3] mod.default.env structure (depth 3):`, deepInspect(mod2.default.env, 3));
-    }
-  }
-  console.log(`[LocalEmbeddingModel] [STEP 4] Attempting to configure WASM paths...`);
-  const wasmBasePath = "./lib/";
-  if (env) {
-    let onnxBackendEnv = null;
-    let onnxBackendPath = "none";
-    if (mod2?.ONNX) {
-      console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Found ONNX export in module`);
-      const onnx = mod2.ONNX;
-      if (onnx?.env?.wasm) {
-        onnxBackendEnv = onnx.env.wasm;
-        onnxBackendPath = "mod.ONNX.env.wasm";
-        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Found ONNX env.wasm via mod.ONNX`);
-      } else if (onnx?.env) {
-        onnxBackendEnv = onnx.env;
-        onnxBackendPath = "mod.ONNX.env";
-        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Found ONNX env via mod.ONNX`);
-      }
-    }
-    if (!onnxBackendEnv && env.backends?.onnx) {
-      const onnxBackend = env.backends.onnx;
-      console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 ONNX backend found via env.backends.onnx`);
-      if (onnxBackend.env?.wasm) {
-        onnxBackendEnv = onnxBackend.env.wasm;
-        onnxBackendPath = "env.backends.onnx.env.wasm";
-        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Found WASM env at onnxBackend.env.wasm`);
-      } else if (onnxBackend.wasm) {
-        onnxBackendEnv = onnxBackend.wasm;
-        onnxBackendPath = "onnxBackend.wasm";
-        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Found WASM env at onnxBackend.wasm`);
-      } else if (onnxBackend.env) {
-        onnxBackendEnv = onnxBackend.env;
-        onnxBackendPath = "onnxBackend.env";
-        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Found env at onnxBackend.env`);
-      }
-    }
-    if (onnxBackendEnv) {
-      console.log(`[LocalEmbeddingModel] [STEP 4] Configuring WASM paths at: ${onnxBackendPath}`);
-      try {
-        if ("wasmPaths" in onnxBackendEnv) {
-          const currentPaths = onnxBackendEnv.wasmPaths;
-          console.log(`[LocalEmbeddingModel] [STEP 4] Current wasmPaths: ${JSON.stringify(currentPaths)}`);
-          onnxBackendEnv.wasmPaths = wasmBasePath;
-          console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Updated wasmPaths to: ${wasmBasePath}`);
-          console.log(`[LocalEmbeddingModel] [STEP 4] Verified wasmPaths: ${JSON.stringify(onnxBackendEnv.wasmPaths)}`);
-        } else {
-          Object.defineProperty(onnxBackendEnv, "wasmPaths", {
-            value: wasmBasePath,
-            writable: true,
-            enumerable: true,
-            configurable: true
-          });
-          console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Created and set wasmPaths to: ${wasmBasePath}`);
-        }
-      } catch (pathErr) {
-        console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to set wasmPaths at ${onnxBackendPath}:`, pathErr);
-      }
-    } else {
-      console.warn(`[LocalEmbeddingModel] [STEP 4] \u26A0 ONNX backend environment not found via standard paths`);
-      console.warn(`[LocalEmbeddingModel] [STEP 4] Attempting fallback: setting on env.backends.onnx directly...`);
-      if (!env.backends) {
-        try {
-          env.backends = {};
-          console.log(`[LocalEmbeddingModel] [STEP 4] Created env.backends object`);
-        } catch (e) {
-          console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to create env.backends:`, e);
-        }
-      }
-      if (env.backends && !env.backends.onnx) {
-        console.warn(`[LocalEmbeddingModel] [STEP 4] env.backends.onnx is still undefined - ONNX backend may not be initialized yet`);
-        console.warn(`[LocalEmbeddingModel] [STEP 4] This is expected if ONNX backend initializes lazily`);
-      }
-      captureEnvSnapshot(mod2, env, "wasm-config-attempt");
-      if (lastEnvSnapshot) {
-        console.log("[LocalEmbeddingModel] [ENV SNAPSHOT]", JSON.stringify(lastEnvSnapshot, null, 2));
-      }
-    }
-    try {
-      if ("wasmPaths" in env) {
-        env.wasmPaths = wasmBasePath;
-        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Also set env.wasmPaths to: ${wasmBasePath}`);
-      }
-    } catch (envPathErr) {
-      console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to set top-level env.wasmPaths:`, envPathErr);
-    }
-  } else {
-    console.warn(`[LocalEmbeddingModel] [STEP 4] \u2717 Cannot configure WASM paths - env not found`);
-  }
-  console.log(`[LocalEmbeddingModel] [STEP 5] Locating pipeline function...`);
-  const pipeline = mod2.pipeline || mod2.default?.pipeline;
-  console.log(`[LocalEmbeddingModel] [STEP 5] Pipeline found:`, pipeline !== void 0 && pipeline !== null);
-  console.log(`[LocalEmbeddingModel] [STEP 5] Pipeline type:`, typeof pipeline);
-  console.log(`[LocalEmbeddingModel] [STEP 5] Pipeline is function:`, typeof pipeline === "function");
-  if (!pipeline || typeof pipeline !== "function") {
-    console.error(`[LocalEmbeddingModel] [STEP 5] \u2717 Pipeline not found or not a function`);
-    console.error(`[LocalEmbeddingModel] [STEP 5] mod.pipeline:`, mod2?.pipeline);
-    console.error(`[LocalEmbeddingModel] [STEP 5] mod.default.pipeline:`, mod2?.default?.pipeline);
-    throw new Error("Pipeline not found in transformers module");
-  }
-  console.log(`[LocalEmbeddingModel] [STEP 5] \u2713 Pipeline function found`);
-  console.log(`[LocalEmbeddingModel] === PIPELINE LOAD COMPLETE ===`);
-  return pipeline;
-}
-function l2Normalize(vec) {
-  let sumSq = 0;
-  for (const v of vec)
-    sumSq += v * v;
-  const norm = Math.sqrt(sumSq) || 1;
-  return vec.map((v) => v / norm);
-}
-var MiniLmLocalEmbeddingModel = class {
-  constructor(vault, plugin) {
-    this.id = "minilm";
-    this.dim = 384;
-    this.pipeline = null;
-    this.loading = null;
-    this.loadAttempts = 0;
-    this.lastLoadError = null;
-    this.errorLog = [];
-    this.maxStoredErrors = 50;
-    this.vault = vault;
-    this.plugin = plugin;
-  }
-  async ensureLoaded() {
-    if (this.pipeline) {
-      console.log(`[LocalEmbeddingModel] Pipeline already loaded (attempt #${this.loadAttempts})`);
-      return;
-    }
-    if (this.loading !== null) {
-      console.log(`[LocalEmbeddingModel] Pipeline loading in progress (attempt #${this.loadAttempts}), waiting...`);
-      return this.loading;
-    }
-    console.log(`[LocalEmbeddingModel] === STARTING MODEL LOAD ===`);
-    console.log(`[LocalEmbeddingModel] Load attempt #${this.loadAttempts + 1}`);
-    console.log(`[LocalEmbeddingModel] Timestamp: ${new Date().toISOString()}`);
-    this.loadAttempts++;
-    const loadStart = Date.now();
-    this.loading = (async () => {
-      try {
-        console.log(`[LocalEmbeddingModel] [LOAD] Step 1: Getting pipeline function...`);
-        let pipeline;
-        try {
-          pipeline = await getPipeline(this.plugin);
-          if (!pipeline) {
-            throw new Error("Pipeline is null or undefined");
-          }
-          if (typeof pipeline !== "function") {
-            throw new Error(`Pipeline is not a function, got: ${typeof pipeline}`);
-          }
-          console.log(`[LocalEmbeddingModel] [LOAD] Step 1: \u2713 Pipeline function loaded (type: ${typeof pipeline}, name: ${pipeline.name || "anonymous"})`);
-        } catch (importErr) {
-          console.error(`[LocalEmbeddingModel] [LOAD] Step 1: \u2717 Failed to get pipeline function`);
-          this.logError("ensureLoaded.import", "Loading vendored transformers pipeline", importErr);
-          throw new Error(`Failed to load transformers pipeline: ${importErr instanceof Error ? importErr.message : String(importErr)}`);
-        }
-        const cacheDir = `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index/models`;
-        console.log(`[LocalEmbeddingModel] [LOAD] Step 2: Preparing model cache...`);
-        console.log(`[LocalEmbeddingModel] [LOAD] Step 2: Cache directory: ${cacheDir}`);
-        console.log(`[LocalEmbeddingModel] [LOAD] Step 2: Model: Xenova/all-MiniLM-L6-v2`);
-        console.log(`[LocalEmbeddingModel] [LOAD] Step 2: Quantized: true`);
-        console.log(`[LocalEmbeddingModel] [LOAD] Step 3: Creating model pipeline (this may take time)...`);
-        let pipeUnknown;
-        try {
-          const pipelineStartTime = Date.now();
-          pipeUnknown = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
-            quantized: true,
-            progress_callback: void 0,
-            cache_dir: cacheDir
-          });
-          const pipelineDuration = Date.now() - pipelineStartTime;
-          console.log(`[LocalEmbeddingModel] [LOAD] Step 3: \u2713 Pipeline created in ${pipelineDuration}ms`);
-          console.log(`[LocalEmbeddingModel] [LOAD] Step 3: Pipeline output type: ${typeof pipeUnknown}`);
-          console.log(`[LocalEmbeddingModel] [LOAD] Step 3: Pipeline output is array: ${Array.isArray(pipeUnknown)}`);
-        } catch (pipelineErr) {
-          console.error(`[LocalEmbeddingModel] [LOAD] Step 3: \u2717 Pipeline creation failed`);
-          console.error(`[LocalEmbeddingModel] [LOAD] Step 3: Error type: ${pipelineErr instanceof Error ? pipelineErr.constructor.name : typeof pipelineErr}`);
-          console.error(`[LocalEmbeddingModel] [LOAD] Step 3: Error message: ${pipelineErr instanceof Error ? pipelineErr.message : String(pipelineErr)}`);
-          if (pipelineErr instanceof Error && pipelineErr.stack) {
-            console.error(`[LocalEmbeddingModel] [LOAD] Step 3: Error stack (first 10 lines):`);
-            console.error(pipelineErr.stack.split("\n").slice(0, 10).join("\n"));
-          }
-          if (!lastEnvSnapshot) {
-            try {
-              const modAtError = await Promise.resolve().then(() => (init_transformers(), transformers_exports));
-              const envAtError = modAtError.env || modAtError.default?.env;
-              if (envAtError) {
-                captureEnvSnapshot(modAtError, envAtError, "on-pipeline-error");
-              }
-            } catch {
-            }
-          }
-          this.logError("ensureLoaded.createPipeline", `Creating pipeline with model Xenova/all-MiniLM-L6-v2, cache: ${cacheDir}`, pipelineErr);
-          throw pipelineErr;
-        }
-        const pipe = pipeUnknown;
-        console.log(`[LocalEmbeddingModel] [LOAD] Step 4: Wrapping pipeline function...`);
-        this.pipeline = async (text2) => {
-          const embedStartTime = Date.now();
-          try {
-            console.log(`[LocalEmbeddingModel] [EMBED] Starting embedding generation for text (${text2.length} chars, ${text2.split(/\s+/).length} words)...`);
-            const out = await pipe(text2, { pooling: "mean", normalize: true });
-            const embedDuration = Date.now() - embedStartTime;
-            console.log(`[LocalEmbeddingModel] [EMBED] Raw output received in ${embedDuration}ms`);
-            console.log(`[LocalEmbeddingModel] [EMBED] Output type: ${typeof out}`);
-            console.log(`[LocalEmbeddingModel] [EMBED] Output is array: ${Array.isArray(out)}`);
-            let result;
-            if (Array.isArray(out) && Array.isArray(out[0])) {
-              console.log(`[LocalEmbeddingModel] [EMBED] Format: Array<Array<number>>, using out[0]`);
-              result = l2Normalize(out[0]);
-            } else if (Array.isArray(out)) {
-              console.log(`[LocalEmbeddingModel] [EMBED] Format: Array<number>, using directly`);
-              result = l2Normalize(out);
-            } else {
-              const maybe = out;
-              if (Array.isArray(maybe?.data)) {
-                console.log(`[LocalEmbeddingModel] [EMBED] Format: Object with data array, using data`);
-                result = l2Normalize(maybe.data);
-              } else {
-                const err = new Error(`Unexpected embeddings output format: ${typeof out}, isArray: ${Array.isArray(out)}`);
-                this.logError("pipeline.embed", `Processing text (${text2.length} chars)`, err);
-                console.error(`[LocalEmbeddingModel] [EMBED] \u2717 Unexpected output format`);
-                console.error(`[LocalEmbeddingModel] [EMBED] Output:`, out);
-                throw err;
-              }
-            }
-            console.log(`[LocalEmbeddingModel] [EMBED] \u2713 Embedding generated successfully (${result.length} dimensions)`);
-            return result;
-          } catch (err) {
-            const embedDuration = Date.now() - embedStartTime;
-            console.error(`[LocalEmbeddingModel] [EMBED] \u2717 Embedding generation failed after ${embedDuration}ms`);
-            this.logError("pipeline.embed", `Generating embedding for text (${text2.length} chars, ${text2.split(/\s+/).length} words)`, err);
-            console.error(`[LocalEmbeddingModel] [EMBED] Error:`, err);
-            throw err;
-          }
-        };
-        const loadDuration = Date.now() - loadStart;
-        console.log(`[LocalEmbeddingModel] [LOAD] Step 4: \u2713 Pipeline wrapper created`);
-        console.log(`[LocalEmbeddingModel] === MODEL FULLY LOADED ===`);
-        console.log(`[LocalEmbeddingModel] Total load time: ${loadDuration}ms`);
-        console.log(`[LocalEmbeddingModel] Load attempts: ${this.loadAttempts}`);
-      } catch (err) {
-        const loadDuration = Date.now() - loadStart;
-        console.error(`[LocalEmbeddingModel] === MODEL LOAD FAILED ===`);
-        console.error(`[LocalEmbeddingModel] Total load time: ${loadDuration}ms`);
-        console.error(`[LocalEmbeddingModel] Load attempt: #${this.loadAttempts}`);
-        this.logError("ensureLoaded", `Model loading attempt #${this.loadAttempts}`, err);
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        const errorStack = err instanceof Error ? err.stack : void 0;
-        const errorType = err instanceof Error ? err.constructor.name : typeof err;
-        console.error(`[LocalEmbeddingModel] Error type: ${errorType}`);
-        console.error(`[LocalEmbeddingModel] Error message: ${errorMsg}`);
-        if (errorStack) {
-          console.error(`[LocalEmbeddingModel] Error stack (first 15 lines):`);
-          console.error(errorStack.split("\n").slice(0, 15).join("\n"));
-        }
-        throw err;
-      }
-    })().finally(() => {
-      this.loading = null;
-    });
-    return this.loading;
-  }
-  async isReady() {
-    try {
-      await this.ensureLoaded();
-      return this.pipeline !== null;
-    } catch (err) {
-      this.logError("isReady", "Checking model readiness", err);
-      return false;
-    }
-  }
-  getRecentErrors(limit = 20) {
-    return this.errorLog.slice(-limit);
-  }
-  getLastLoadError() {
-    return this.lastLoadError;
-  }
-  getLoadAttempts() {
-    return this.loadAttempts;
-  }
-  getEnvSnapshot() {
-    return lastEnvSnapshot;
-  }
-  logError(location, context, error2) {
-    const errorMsg = error2 instanceof Error ? error2.message : String(error2);
-    const errorStack = error2 instanceof Error ? error2.stack : void 0;
-    const errorType = error2 instanceof Error ? error2.constructor.name : typeof error2;
-    const entry = {
-      timestamp: new Date().toISOString(),
-      location,
-      context,
-      message: errorMsg,
-      stack: errorStack,
-      errorType
-    };
-    this.errorLog.push(entry);
-    if (this.errorLog.length > this.maxStoredErrors) {
-      this.errorLog.shift();
-    }
-    if (location === "ensureLoaded" || location === "isReady") {
-      this.lastLoadError = entry;
-    }
-    console.error(`[LocalEmbeddingModel] ERROR [${location}] ${context}:`, errorMsg);
-    if (errorStack) {
-      console.error(`[LocalEmbeddingModel] Stack:`, errorStack.split("\n").slice(0, 3).join("\n"));
-    }
-  }
-  async embed(text2) {
-    const t = (text2 || "").trim();
-    if (!t) {
-      console.warn(`[LocalEmbeddingModel] Empty text provided, returning zero vector`);
-      return new Array(this.dim).fill(0);
-    }
-    try {
-      await this.ensureLoaded();
-      if (!this.pipeline) {
-        throw new Error("Embeddings pipeline unavailable after loading attempt");
-      }
-      const embedStart = Date.now();
-      const result = await this.pipeline(t);
-      const embedDuration = Date.now() - embedStart;
-      console.log(`[LocalEmbeddingModel] Generated embedding in ${embedDuration}ms for text (${t.length} chars, ${t.split(/\s+/).length} words)`);
-      return result;
-    } catch (err) {
-      this.logError("embed", `Embedding text (${t.length} chars, ${t.split(/\s+/).length} words)`, err);
-      console.error(`[LocalEmbeddingModel] Embedding generation failed:`, err);
-      throw err;
-    }
-  }
-};
-
 // services/retrieval/Chunking.ts
 function clampInt(value, min, max) {
   if (!Number.isFinite(value))
@@ -70806,7 +70297,6 @@ function excerptOf(text2, maxChars) {
   return `${trimmed.slice(0, maxChars)}\u2026`;
 }
 var EmbeddingsIndex = class {
-  // Track if we've already notified about fallback
   constructor(vault, plugin, dim = 256) {
     this.loaded = false;
     this.chunksByKey = /* @__PURE__ */ new Map();
@@ -70818,14 +70308,10 @@ var EmbeddingsIndex = class {
     // Error tracking
     this.errorLog = [];
     this.maxStoredErrors = 100;
-    // Fallback tracking: if MiniLM fails too many times, we should switch to hash
-    this.fallbackNotified = false;
     this.vault = vault;
     this.plugin = plugin;
-    const backend = plugin.settings.retrievalEmbeddingBackend;
-    this.backend = backend === "hash" ? "hash" : "minilm";
-    this.dim = this.backend === "minilm" ? 384 : dim;
-    this.model = new MiniLmLocalEmbeddingModel(vault, plugin);
+    this.backend = "hash";
+    this.dim = dim;
   }
   getIndexFilePath() {
     return `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index/index.json`;
@@ -71019,25 +70505,6 @@ var EmbeddingsIndex = class {
       console.warn(`[EmbeddingsIndex] No chunks created for ${path} - file too short or no headings match chunking config`);
       return;
     }
-    if (this.backend === "minilm") {
-      const loadAttempts = this.model.getLoadAttempts();
-      const lastError = this.model.getLastLoadError();
-      if (loadAttempts > 50 && lastError && !this.fallbackNotified) {
-        const shouldFallback = await this.checkAndSuggestFallback(loadAttempts, lastError);
-        if (shouldFallback) {
-          return;
-        }
-      }
-      try {
-        const isReady = await this.model.isReady();
-        console.log(`  - Model ready: ${isReady}`);
-        if (!isReady) {
-          console.warn(`  - Model not ready, attempting to load...`);
-        }
-      } catch (modelCheckErr) {
-        console.error(`  - Model readiness check failed:`, modelCheckErr);
-      }
-    }
     let successfulChunks = 0;
     let firstError = null;
     for (let i = 0; i < chunks.length; i++) {
@@ -71048,21 +70515,9 @@ var EmbeddingsIndex = class {
       try {
         console.log(`  - Generating embedding for chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words)...`);
         const embedStart = Date.now();
-        if (this.backend === "minilm") {
-          vector = await this.model.embed(ch.text);
-          const embedDuration = Date.now() - embedStart;
-          console.log(`  - \u2713 Embedding generated in ${embedDuration}ms: ${vector.length} dimensions`);
-          if (!vector || vector.length !== this.dim) {
-            throw new Error(`Invalid vector dimensions: expected ${this.dim}, got ${vector?.length || 0}`);
-          }
-          const sum = vector.reduce((a, b) => a + Math.abs(b), 0);
-          if (sum < 1e-3) {
-            console.warn(`  - \u26A0 Warning: Vector appears to be all zeros (sum=${sum})`);
-          }
-        } else {
-          vector = buildVector(ch.text, this.dim);
-          console.log(`  - \u2713 Hash-based vector generated: ${vector.length} dimensions`);
-        }
+        vector = buildVector(ch.text, this.dim);
+        const embedDuration = Date.now() - embedStart;
+        console.log(`  - \u2713 Hash-based vector generated in ${embedDuration}ms: ${vector.length} dimensions`);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         const errorStack = err instanceof Error ? err.stack : void 0;
@@ -71150,14 +70605,10 @@ var EmbeddingsIndex = class {
     return ch?.vector ?? null;
   }
   buildQueryVector(queryText) {
-    if (this.backend !== "minilm")
-      return buildVector(queryText, this.dim);
     return buildVector(queryText, this.dim);
   }
   async embedQueryVector(queryText) {
-    if (this.backend !== "minilm")
-      return buildVector(queryText, this.dim);
-    return await this.model.embed(queryText);
+    return buildVector(queryText, this.dim);
   }
   _schedulePersist() {
     if (this.persistTimer)
@@ -71193,32 +70644,6 @@ var EmbeddingsIndex = class {
       void this.plugin.saveSettings().catch(() => {
       });
     }, 1e3);
-  }
-  /**
-   * Check if MiniLM is fundamentally broken and suggest fallback to hash backend.
-   * Returns true if fallback was applied (which will cause the index to be recreated).
-   */
-  async checkAndSuggestFallback(loadAttempts, lastError) {
-    if (this.fallbackNotified) {
-      return false;
-    }
-    const isOnnxError = lastError.message.includes("Cannot read properties of undefined (reading 'create')") || lastError.message.includes("constructSession") || lastError.location === "ensureLoaded" || lastError.location === "ensureLoaded.createPipeline";
-    if (!isOnnxError) {
-      return false;
-    }
-    console.warn(`[EmbeddingsIndex] MiniLM embedding model is failing repeatedly (${loadAttempts} attempts)`);
-    console.warn(`[EmbeddingsIndex] Last error: ${lastError.message} at ${lastError.location}`);
-    console.warn(`[EmbeddingsIndex] This appears to be an ONNX Runtime initialization issue that cannot be automatically resolved.`);
-    console.warn(`[EmbeddingsIndex] Suggesting automatic fallback to hash-based embeddings...`);
-    this.fallbackNotified = true;
-    try {
-      await this.plugin.handleEmbeddingBackendFallback();
-      console.log(`[EmbeddingsIndex] Backend automatically switched to 'hash'`);
-      return true;
-    } catch (err) {
-      console.error(`[EmbeddingsIndex] Failed to switch backend:`, err);
-      return false;
-    }
   }
 };
 
@@ -79145,48 +78570,6 @@ var WritingDashboardPlugin = class extends import_obsidian24.Plugin {
       );
     }
     this.retrievalService = new RetrievalService(providers, { getVector: (key) => this.embeddingsIndex.getVectorForKey(key) });
-  }
-  /**
-   * Handle automatic fallback from minilm to hash backend when MiniLM fails repeatedly.
-   * This recreates the embeddings index and retrieval service with the hash backend.
-   */
-  async handleEmbeddingBackendFallback() {
-    if (this.settings.retrievalEmbeddingBackend !== "minilm") {
-      return;
-    }
-    console.log(`[WritingDashboardPlugin] Automatically switching embedding backend from 'minilm' to 'hash' due to repeated failures`);
-    this.settings.retrievalEmbeddingBackend = "hash";
-    await this.saveSettings();
-    this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this);
-    const providers = [
-      new HeuristicProvider(this.app.vault, this.vaultService),
-      new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path))
-    ];
-    if (this.settings.retrievalSource === "external-api") {
-      providers.push(
-        new ExternalEmbeddingsProvider(
-          this,
-          this.embeddingsIndex,
-          this.bm25Index,
-          () => Boolean(this.settings.retrievalSource === "external-api" && this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey),
-          (path) => !this.vaultService.isExcludedPath(path)
-        )
-      );
-    } else {
-      providers.push(
-        new LocalEmbeddingsProvider(
-          this.embeddingsIndex,
-          () => Boolean(this.settings.retrievalEnableSemanticIndex),
-          (path) => !this.vaultService.isExcludedPath(path)
-        )
-      );
-    }
-    this.retrievalService = new RetrievalService(providers, { getVector: (key) => this.embeddingsIndex.getVectorForKey(key) });
-    if (this.settings.retrievalEnableSemanticIndex && !this.settings.retrievalIndexPaused) {
-      this.embeddingsIndex.enqueueFullRescan();
-    }
-    new import_obsidian24.Notice("Embedding backend automatically switched to hash-based embeddings due to MiniLM initialization failures. Your index is being rebuilt.", 8e3);
-    console.log(`[WritingDashboardPlugin] Backend switched and reindex triggered`);
   }
   requestGuidedDemoStart() {
     this.guidedDemoStartRequested = true;

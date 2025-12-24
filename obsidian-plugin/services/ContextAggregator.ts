@@ -51,70 +51,6 @@ export class ContextAggregator {
 		this.vaultService = vaultService;
 	}
 
-	/**
-	 * Get Smart Connections context if enabled (templater/clipboard pattern).
-	 * Returns empty string if disabled or if context cannot be retrieved.
-	 */
-	private async getSmartConnectionsContextIfEnabled(): Promise<string> {
-		const settings = this.plugin.settings;
-		if (!settings.retrievalEnableSmartConnectionsContext) {
-			return '';
-		}
-
-		try {
-			if (settings.smartConnectionsContextSource === 'bases') {
-				// Read Smart Connections Bases files
-				const basesPaths = await this.vaultService.getSmartConnectionsBasesPaths();
-				if (basesPaths.length === 0) {
-					console.warn('[ContextAggregator] Smart Connections Bases not found');
-					return '';
-				}
-
-				const basesContent: string[] = [];
-				for (const path of basesPaths) {
-					try {
-						const content = await this.readFile(path);
-						basesContent.push(content);
-					} catch (error) {
-						console.warn(`[ContextAggregator] Failed to read Smart Connections Base: ${path}`, error);
-						// Continue with other bases
-					}
-				}
-
-				if (basesContent.length === 0) {
-					return '';
-				}
-
-				return `[Smart Connections Bases Context]\n${basesContent.join('\n\n---\n\n')}`;
-			} else if (settings.smartConnectionsContextSource === 'copied-note') {
-				// Read copied context note
-				const notePath = settings.smartConnectionsContextNotePath;
-				if (!notePath) {
-					console.warn('[ContextAggregator] Smart Connections context note path not configured');
-					return '';
-				}
-
-				try {
-					const noteContent = await this.readFile(notePath);
-					if (noteContent.startsWith('[File not found:') || noteContent.startsWith('[Error reading file')) {
-						console.warn(`[ContextAggregator] Smart Connections context note not found: ${notePath}`);
-						return '';
-					}
-					return `[Smart Connections Context Note]\n${noteContent}`;
-				} catch (error) {
-					console.warn(`[ContextAggregator] Failed to read Smart Connections context note: ${notePath}`, error);
-					return '';
-				}
-			}
-		} catch (error) {
-			console.warn('[ContextAggregator] Error retrieving Smart Connections context:', error);
-			// Fail gracefully - return empty string
-			return '';
-		}
-
-		return '';
-	}
-
 	async getChapterContext(retrievalQuery: RetrievalQuery): Promise<Context> {
 		const settings = this.plugin.settings;
 		
@@ -132,14 +68,9 @@ export class ContextAggregator {
 		const slidingWindow = this.extractWordsFromEnd(book2Full, 20000);
 		
 		const storyBible = await this.readFile(settings.storyBiblePath);
-
-		// Get Smart Connections context if enabled
-		const smartConnectionsContext = await this.getSmartConnectionsContextIfEnabled();
 		
 		// Allocate context budget by priority. No book2 full context - only sliding window.
-		// Reserve 10% for Smart Connections context if enabled, otherwise allocate to retrieved context
-		const smartConnectionsBudget = smartConnectionsContext ? Math.floor(contextBudget * 0.10) : 0;
-		const smartBudget = Math.floor(contextBudget * (smartConnectionsContext ? 0.35 : 0.45));
+		const smartBudget = Math.floor(contextBudget * 0.45);
 		const bibleBudget = Math.floor(contextBudget * 0.25);
 		const slidingBudget = Math.floor(contextBudget * 0.10);
 
@@ -148,11 +79,6 @@ export class ContextAggregator {
 			story_bible: this.trimHeadToBudget(storyBible, bibleBudget, 'Story bible'),
 			sliding_window: this.trimHeadToBudget(slidingWindow, slidingBudget, 'Sliding window')
 		};
-
-		// Add Smart Connections context if available
-		if (smartConnectionsContext) {
-			result.smart_connections_context = this.trimHeadToBudget(smartConnectionsContext, smartConnectionsBudget, 'Smart Connections context');
-		}
 
 		return result;
 	}
@@ -176,17 +102,12 @@ export class ContextAggregator {
 		// Retrieved context in micro-edit is a style/continuity echo; keep it smaller.
 		const retrievedLimit = Math.min(80, Math.max(12, Math.floor(contextBudget / 20000)));
 		const retrievedContext = await this.getRetrievedContext(retrievalQuery, retrievedLimit);
-
-		// Get Smart Connections context if enabled
-		const smartConnectionsContext = await this.getSmartConnectionsContextIfEnabled();
 		
 		// Allocate budget by priority for micro edits.
-		// Reserve 10% for Smart Connections context if enabled, otherwise allocate to retrieved context
-		const smartConnectionsBudget = smartConnectionsContext ? Math.floor(contextBudget * 0.10) : 0;
 		const slidingBudget = Math.floor(contextBudget * 0.03);
 		const bibleBudget = Math.floor(contextBudget * 0.25);
 		const characterBudget = Math.floor(contextBudget * 0.37);
-		const smartBudget = Math.floor(contextBudget * (smartConnectionsContext ? 0.10 : 0.20));
+		const smartBudget = Math.floor(contextBudget * 0.20);
 
 		const result: Context = {
 			sliding_window: this.trimHeadToBudget(slidingWindow, slidingBudget, 'Sliding window'),
@@ -196,11 +117,6 @@ export class ContextAggregator {
 			surrounding_before: surrounding.before,
 			surrounding_after: surrounding.after
 		};
-
-		// Add Smart Connections context if available
-		if (smartConnectionsContext) {
-			result.smart_connections_context = this.trimHeadToBudget(smartConnectionsContext, smartConnectionsBudget, 'Smart Connections context');
-		}
 
 		return result;
 	}

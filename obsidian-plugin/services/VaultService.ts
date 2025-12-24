@@ -96,47 +96,6 @@ export class VaultService {
 		return storyBibleFiles[0].path;
 	}
 
-	/**
-	 * Detect Smart Connections Bases location and return array of file paths.
-	 * Returns empty array if not found (never throws).
-	 * Checks common locations: .obsidian/plugins/smart-connections/bases/
-	 */
-	async getSmartConnectionsBasesPaths(): Promise<string[]> {
-		const basesPaths: string[] = [];
-		
-		// Common locations to check
-		const possibleLocations = [
-			'.obsidian/plugins/smart-connections/bases',
-			'.obsidian/plugins/smart-connections/Bases',
-			'Smart Connections/Bases',
-			'Bases'
-		];
-
-		for (const location of possibleLocations) {
-			try {
-				const folder = this.vault.getAbstractFileByPath(location);
-				if (folder instanceof TFolder) {
-					// Collect all markdown files in this folder
-					for (const child of folder.children) {
-						if (child instanceof TFile && child.extension === 'md') {
-							basesPaths.push(child.path);
-						}
-					}
-					// If we found files, return them (first location wins)
-					if (basesPaths.length > 0) {
-						return basesPaths;
-					}
-				}
-			} catch {
-				// Location doesn't exist or can't be accessed, continue to next
-				continue;
-			}
-		}
-
-		// No Bases found
-		return [];
-	}
-
 	async setupDefaultStructure(items: Array<{type: 'file' | 'folder', path: string, content?: string}>): Promise<{created: string[], skipped: string[]}> {
 		const created: string[] = [];
 		const skipped: string[] = [];

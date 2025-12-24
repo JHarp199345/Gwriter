@@ -12,6 +12,7 @@ import { HeuristicProvider } from './services/retrieval/HeuristicProvider';
 import { EmbeddingsIndex } from './services/retrieval/EmbeddingsIndex';
 import { LocalEmbeddingsProvider } from './services/retrieval/LocalEmbeddingsProvider';
 import { ExternalEmbeddingsProvider } from './services/retrieval/ExternalEmbeddingsProvider';
+import { SmartConnectionsProvider } from './services/retrieval/SmartConnectionsProvider';
 import { Bm25Index } from './services/retrieval/Bm25Index';
 import { Bm25Provider } from './services/retrieval/Bm25Provider';
 import { CpuReranker } from './services/retrieval/CpuReranker';
@@ -38,7 +39,6 @@ export interface DashboardSettings {
 	storyBiblePath: string;
 	/**
 	 * Word count per chunk when running "Process Entire Book" character extraction.
-	 * (Chunking for Smart Connections/reference folders is separate.)
 	 */
 	characterExtractionChunkSize: number;
 	/**
@@ -99,10 +99,9 @@ export interface DashboardSettings {
 	>;
 	/**
 	 * Local embeddings backend for semantic retrieval.
-	 * - hash: lightweight hashed bag-of-words (fast, lower quality)
-	 * - minilm: true local embeddings (higher quality; may be slower)
+	 * - hash: lightweight hashed bag-of-words (fast, reliable)
 	 */
-	retrievalEmbeddingBackend: 'hash' | 'minilm';
+	retrievalEmbeddingBackend: 'hash';
 	/**
 	 * Enable BM25 lexical retrieval (recommended).
 	 */
@@ -115,18 +114,6 @@ export interface DashboardSettings {
 	 * Retrieval source: local (hash+BM25) or external embedding API (hybrid).
 	 */
 	retrievalSource: 'local' | 'external-api';
-	/**
-	 * Optional: Include Smart Connections context in prompts (best-effort, never required).
-	 */
-	retrievalEnableSmartConnectionsContext: boolean;
-	/**
-	 * How to get Smart Connections context: via Bases files or a copied context note.
-	 */
-	smartConnectionsContextSource: 'bases' | 'copied-note';
-	/**
-	 * Path to copied Smart Connections context note (if using copied-note source).
-	 */
-	smartConnectionsContextNotePath?: string;
 	/**
 	 * External embedding API provider (OpenAI, Cohere, Google Gemini, or custom).
 	 */
@@ -272,9 +259,6 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 	retrievalEnableBm25: true,
 	retrievalEnableReranker: false,
 	retrievalSource: 'local',
-	retrievalEnableSmartConnectionsContext: false,
-	smartConnectionsContextSource: 'bases',
-	smartConnectionsContextNotePath: '',
 	externalEmbeddingProvider: undefined,
 	externalEmbeddingApiKey: undefined,
 	externalEmbeddingModel: undefined,
@@ -425,20 +409,21 @@ export default class WritingDashboardPlugin extends Plugin {
 			new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path))
 		];
 		
-		// Add semantic provider based on retrieval source
-		if (this.settings.retrievalSource === 'external-api') {
-			// Use external embeddings API (hybrid with BM25)
+		// Add semantic provider - automatically use external if configured, otherwise use local
+		const hasExternalConfig = Boolean(this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey);
+		if (hasExternalConfig) {
+			// Use external embeddings API automatically if configured (hybrid with BM25)
 			providers.push(
 				new ExternalEmbeddingsProvider(
 					this,
 					this.embeddingsIndex,
 					this.bm25Index,
-					() => Boolean(this.settings.retrievalSource === 'external-api' && this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey),
+					() => Boolean(this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey),
 					(path) => !this.vaultService.isExcludedPath(path)
 				)
 			);
 		} else {
-			// Use local embeddings (hash or minilm)
+			// Use local embeddings (hash)
 			providers.push(
 				new LocalEmbeddingsProvider(
 					this.embeddingsIndex,
@@ -581,7 +566,8 @@ export default class WritingDashboardPlugin extends Plugin {
 	async recreateRetrievalService(): Promise<void> {
 		const providers: Array<import('./services/retrieval/types').RetrievalProvider> = [
 			new HeuristicProvider(this.app.vault, this.vaultService),
-			new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path))
+			new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path)),
+			new SmartConnectionsProvider(this.app.vault, (path) => !this.vaultService.isExcludedPath(path))
 		];
 		
 		if (this.settings.retrievalSource === 'external-api') {
@@ -607,63 +593,6 @@ export default class WritingDashboardPlugin extends Plugin {
 		this.retrievalService = new RetrievalService(providers, { getVector: (key) => this.embeddingsIndex.getVectorForKey(key) });
 	}
 
-	/**
-	 * Handle automatic fallback from minilm to hash backend when MiniLM fails repeatedly.
-	 * This recreates the embeddings index and retrieval service with the hash backend.
-	 */
-	async handleEmbeddingBackendFallback(): Promise<void> {
-		if (this.settings.retrievalEmbeddingBackend !== 'minilm') {
-			// Already using hash or something else
-			return;
-		}
-		
-		console.log(`[WritingDashboardPlugin] Automatically switching embedding backend from 'minilm' to 'hash' due to repeated failures`);
-		
-		// Switch the backend setting
-		this.settings.retrievalEmbeddingBackend = 'hash';
-		await this.saveSettings();
-		
-		// Recreate the embeddings index with hash backend
-		this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this);
-		
-		// Recreate providers with the new index (respecting retrievalSource setting)
-		const providers: Array<import('./services/retrieval/types').RetrievalProvider> = [
-			new HeuristicProvider(this.app.vault, this.vaultService),
-			new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path))
-		];
-		
-		if (this.settings.retrievalSource === 'external-api') {
-			providers.push(
-				new ExternalEmbeddingsProvider(
-					this,
-					this.embeddingsIndex,
-					this.bm25Index,
-					() => Boolean(this.settings.retrievalSource === 'external-api' && this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey),
-					(path) => !this.vaultService.isExcludedPath(path)
-				)
-			);
-		} else {
-			providers.push(
-				new LocalEmbeddingsProvider(
-					this.embeddingsIndex,
-					() => Boolean(this.settings.retrievalEnableSemanticIndex),
-					(path) => !this.vaultService.isExcludedPath(path)
-				)
-			);
-		}
-		
-		this.retrievalService = new RetrievalService(providers, { getVector: (key) => this.embeddingsIndex.getVectorForKey(key) });
-		
-		// Trigger a reindex with the new backend
-		if (this.settings.retrievalEnableSemanticIndex && !this.settings.retrievalIndexPaused) {
-			this.embeddingsIndex.enqueueFullRescan();
-		}
-		
-		// Show notification to user
-		new Notice('Embedding backend automatically switched to hash-based embeddings due to MiniLM initialization failures. Your index is being rebuilt.', 8000);
-		
-		console.log(`[WritingDashboardPlugin] Backend switched and reindex triggered`);
-	}
 
 	requestGuidedDemoStart() {
 		this.guidedDemoStartRequested = true;
