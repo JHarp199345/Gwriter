@@ -28,72 +28,107 @@ class TransformersCrossEncoder implements CpuRerankerModel {
 		if (this.loading !== null) return this.loading;
 
 		this.loading = (async () => {
-			// Import the vendored transformers library
-			const transformersModule: any = await import('../../lib/transformers.js');
+			console.log(`[CpuReranker] === STARTING RERANKER LOAD ===`);
+			console.log(`[CpuReranker] Timestamp: ${new Date().toISOString()}`);
 			
-			// Try multiple ways to access the environment
+			// Import the vendored transformers library
+			console.log(`[CpuReranker] [STEP 1] Importing transformers.js module...`);
+			let transformersModule: any;
+			try {
+				transformersModule = await import('../../lib/transformers.js');
+				console.log(`[CpuReranker] [STEP 1] ✓ Module imported successfully`);
+			} catch (importErr) {
+				console.error(`[CpuReranker] [STEP 1] ✗ Module import failed:`, importErr);
+				throw new Error(`Failed to import transformers.js: ${importErr instanceof Error ? importErr.message : String(importErr)}`);
+			}
+			
+			// Try multiple ways to access the environment - DON'T CREATE FAKE ONES
+			console.log(`[CpuReranker] [STEP 2] Locating ONNX environment structure...`);
 			let env: any = null;
+			let envSource = 'none';
 			
 			// Method 1: Direct env (standard)
-			if (transformersModule.env && transformersModule.env.backends && transformersModule.env.backends.onnx) {
+			if (transformersModule.env?.backends?.onnx) {
+				console.log(`[CpuReranker] [STEP 2] ✓ Found env via transformersModule.env.backends.onnx`);
 				env = transformersModule.env;
+				envSource = 'transformersModule.env';
 			}
 			// Method 2: default.env (if default export)
-			else if (transformersModule.default && transformersModule.default.env && transformersModule.default.env.backends && transformersModule.default.env.backends.onnx) {
+			else if (transformersModule.default?.env?.backends?.onnx) {
+				console.log(`[CpuReranker] [STEP 2] ✓ Found env via transformersModule.default.env.backends.onnx`);
 				env = transformersModule.default.env;
+				envSource = 'transformersModule.default.env';
 			}
-			// Method 3: Create structure if it doesn't exist
-			else if (transformersModule && typeof transformersModule === 'object') {
-				if (!transformersModule.env) {
-					transformersModule.env = {};
-				}
-				if (!transformersModule.env.backends) {
-					transformersModule.env.backends = {};
-				}
-				if (!transformersModule.env.backends.onnx) {
-					transformersModule.env.backends.onnx = {};
-				}
-				env = transformersModule.env;
+			else {
+				console.warn(`[CpuReranker] [STEP 2] ✗ Could not find ONNX environment structure`);
 			}
 			
-			// Configure WASM paths if we found/created the environment
+			// Configure WASM paths ONLY if the real ONNX environment exists
+			console.log(`[CpuReranker] [STEP 3] Attempting to configure WASM paths...`);
+			
 			if (env && env.backends && env.backends.onnx) {
-				const onnxEnv = env.backends.onnx;
-				if (!onnxEnv.wasm) onnxEnv.wasm = {};
+				const onnxBackend = env.backends.onnx;
+				console.log(`[CpuReranker] [STEP 3] ✓ ONNX backend found via ${envSource}`);
 				
-				const wasmFiles = [
-					'ort-wasm.wasm',
-					'ort-wasm-simd.wasm',
-					'ort-wasm-threaded.wasm',
-					'ort-wasm-simd-threaded.wasm'
-				];
+				// Try to find the actual ONNX Runtime environment
+				let wasmEnv: any = null;
+				let wasmEnvPath = 'none';
 				
-				const wasmPaths: Record<string, string> = {};
-				for (const wasmFile of wasmFiles) {
-					wasmPaths[wasmFile] = `./lib/${wasmFile}`;
+				if (onnxBackend.env?.wasm) {
+					console.log(`[CpuReranker] [STEP 3] ✓ Found WASM env at onnxBackend.env.wasm`);
+					wasmEnv = onnxBackend.env.wasm;
+					wasmEnvPath = 'onnxBackend.env.wasm';
+				} else if (onnxBackend.wasm) {
+					console.log(`[CpuReranker] [STEP 3] ✓ Found WASM env at onnxBackend.wasm`);
+					wasmEnv = onnxBackend.wasm;
+					wasmEnvPath = 'onnxBackend.wasm';
+				} else {
+					console.warn(`[CpuReranker] [STEP 3] ✗ WASM environment not found`);
 				}
 				
-				onnxEnv.wasm.wasmPaths = wasmPaths;
-				console.log(`[CpuReranker] Configured WASM paths:`, wasmPaths);
+				if (wasmEnv) {
+					// Use string-based path (base directory) like transformers.js does
+					const wasmBasePath = './lib/';
+					console.log(`[CpuReranker] [STEP 3] Setting wasmPaths to: ${wasmBasePath}`);
+					wasmEnv.wasmPaths = wasmBasePath;
+					console.log(`[CpuReranker] [STEP 3] ✓ WASM paths configured at ${wasmEnvPath}`);
+				} else {
+					console.error(`[CpuReranker] [STEP 3] ✗ Cannot configure WASM paths - WASM environment not found`);
+				}
 			} else {
-				console.error(`[CpuReranker] Could not configure WASM paths - env structure not found`);
+				console.error(`[CpuReranker] [STEP 3] ✗ Cannot configure WASM paths - ONNX backend not found`);
 			}
 			
-			// @xenova/transformers exports pipeline as a named export
-			// It might be on the default export or as a named export
+			// Get pipeline function
+			console.log(`[CpuReranker] [STEP 4] Locating pipeline function...`);
 			const pipeline = transformersModule.pipeline || transformersModule.default?.pipeline;
+			console.log(`[CpuReranker] [STEP 4] Pipeline found:`, pipeline !== undefined && pipeline !== null);
+			console.log(`[CpuReranker] [STEP 4] Pipeline type:`, typeof pipeline);
+			
 			if (!pipeline || typeof pipeline !== 'function') {
+				console.error(`[CpuReranker] [STEP 4] ✗ Pipeline not found or not a function`);
 				throw new Error('Transformers pipeline is unavailable');
 			}
+			
+			console.log(`[CpuReranker] [STEP 4] ✓ Pipeline function found`);
 
 			// Cross-encoder reranker model (small-ish). Best-effort: may fail on some environments.
-			const pipeUnknown = await pipeline(
-				'text-classification',
-				'Xenova/cross-encoder-ms-marco-MiniLM-L-6-v2',
-				{ quantized: true }
-			);
-			const pipe = pipeUnknown as (input: unknown) => Promise<unknown>;
-			this.pipeline = async (input) => await pipe(input);
+			console.log(`[CpuReranker] [STEP 5] Creating cross-encoder pipeline...`);
+			console.log(`[CpuReranker] [STEP 5] Model: Xenova/cross-encoder-ms-marco-MiniLM-L-6-v2`);
+			try {
+				const pipeUnknown = await pipeline(
+					'text-classification',
+					'Xenova/cross-encoder-ms-marco-MiniLM-L-6-v2',
+					{ quantized: true }
+				);
+				const pipe = pipeUnknown as (input: unknown) => Promise<unknown>;
+				this.pipeline = async (input) => await pipe(input);
+				console.log(`[CpuReranker] [STEP 5] ✓ Pipeline created successfully`);
+				console.log(`[CpuReranker] === RERANKER LOAD COMPLETE ===`);
+			} catch (pipeErr) {
+				console.error(`[CpuReranker] [STEP 5] ✗ Pipeline creation failed:`, pipeErr);
+				throw pipeErr;
+			}
 		})().finally(() => {
 			this.loading = null;
 		});
