@@ -297,7 +297,7 @@ export class Bm25Index {
 				chunkIndex: i,
 				startWord: ch.startWord,
 				endWord: ch.endWord,
-				excerpt: excerptOf(ch.text, 500),
+				excerpt: excerptOf(ch.text, 2500),
 				len: toks.length
 			};
 			this.chunksByKey.set(key, meta);

@@ -59094,7 +59094,7 @@ ${t2}`);
             /* harmony export */
             "dot": () => (
               /* binding */
-              dot3
+              dot4
             ),
             /* harmony export */
             "getTopItems": () => (
@@ -59223,7 +59223,7 @@ ${t2}`);
               logSoftmaxArr
             );
           }
-          function dot3(arr1, arr2) {
+          function dot4(arr1, arr2) {
             let result = 0;
             for (let i = 0; i < arr1.length; ++i) {
               result += arr1[i] * arr2[i];
@@ -59238,7 +59238,7 @@ ${t2}`);
             return items;
           }
           function cos_sim(arr1, arr2) {
-            const dotProduct = dot3(arr1, arr2);
+            const dotProduct = dot4(arr1, arr2);
             const magnitudeA = magnitude(arr1);
             const magnitudeB = magnitude(arr2);
             const cosineSimilarity = dotProduct / (magnitudeA * magnitudeB);
@@ -67841,6 +67841,132 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         }
       })
     );
+    new import_obsidian10.Setting(containerEl).setName("Retrieval source").setDesc("Choose between local retrieval (hash + BM25) or external embedding API (hybrid with BM25).").addDropdown((dropdown) => {
+      dropdown.addOption("local", "Local (hash + BM25)");
+      dropdown.addOption("external-api", "External embedding API (hybrid)");
+      dropdown.setValue(this.plugin.settings.retrievalSource ?? "local");
+      dropdown.onChange(async (value) => {
+        this.plugin.settings.retrievalSource = value;
+        await this.plugin.saveSettings();
+        await this.plugin.recreateRetrievalService();
+        this.display();
+      });
+    });
+    if (this.plugin.settings.retrievalSource === "external-api") {
+      new import_obsidian10.Setting(containerEl).setName("External embedding provider").setDesc("Choose which external embedding API to use.").addDropdown((dropdown) => {
+        dropdown.addOption("openai", "OpenAI");
+        dropdown.addOption("cohere", "Cohere");
+        dropdown.addOption("google", "Google (Gemini)");
+        dropdown.addOption("custom", "Custom");
+        dropdown.setValue(this.plugin.settings.externalEmbeddingProvider ?? "openai");
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.externalEmbeddingProvider = value;
+          if (value === "openai") {
+            this.plugin.settings.externalEmbeddingModel = "text-embedding-3-small";
+          } else if (value === "cohere") {
+            this.plugin.settings.externalEmbeddingModel = "embed-english-v3.0";
+          } else if (value === "google") {
+            this.plugin.settings.externalEmbeddingModel = "gemini-embedding-001";
+          } else {
+            this.plugin.settings.externalEmbeddingModel = "";
+          }
+          await this.plugin.saveSettings();
+          this.display();
+        });
+      });
+      new import_obsidian10.Setting(containerEl).setName("External embedding API key").setDesc("Your API key for the external embedding provider.").addText((text2) => {
+        text2.setPlaceholder("Enter API key").setValue(this.plugin.settings.externalEmbeddingApiKey ?? "");
+        text2.inputEl.type = "password";
+        text2.onChange(async (value) => {
+          this.plugin.settings.externalEmbeddingApiKey = value;
+          await this.plugin.saveSettings();
+        });
+      });
+      const provider = this.plugin.settings.externalEmbeddingProvider ?? "openai";
+      const defaultModel = provider === "openai" ? "text-embedding-3-small" : provider === "cohere" ? "embed-english-v3.0" : provider === "google" ? "gemini-embedding-001" : "";
+      new import_obsidian10.Setting(containerEl).setName("External embedding model").setDesc(`Model name for ${provider} (e.g., ${defaultModel}).`).addText(
+        (text2) => text2.setPlaceholder(defaultModel).setValue(this.plugin.settings.externalEmbeddingModel ?? defaultModel).onChange(async (value) => {
+          this.plugin.settings.externalEmbeddingModel = value;
+          await this.plugin.saveSettings();
+        })
+      );
+      if (provider === "google") {
+        new import_obsidian10.Setting(containerEl).setName("Use batch embeddings (Google Gemini)").setDesc("Use batch endpoint for more efficient embedding of multiple queries.").addToggle(
+          (toggle) => toggle.setValue(Boolean(this.plugin.settings.externalEmbeddingUseBatch)).onChange(async (value) => {
+            this.plugin.settings.externalEmbeddingUseBatch = value;
+            await this.plugin.saveSettings();
+          })
+        );
+      }
+      if (provider === "custom") {
+        new import_obsidian10.Setting(containerEl).setName("Custom API URL").setDesc("Endpoint URL for your custom embedding API.").addText(
+          (text2) => text2.setPlaceholder("https://api.example.com/embeddings").setValue(this.plugin.settings.externalEmbeddingApiUrl ?? "").onChange(async (value) => {
+            this.plugin.settings.externalEmbeddingApiUrl = value;
+            await this.plugin.saveSettings();
+          })
+        );
+      }
+      new import_obsidian10.Setting(containerEl).setName("Test connection").setDesc("Test the external embedding API connection.").addButton(
+        (btn) => btn.setButtonText("Test").onClick(async () => {
+          btn.setDisabled(true);
+          btn.setButtonText("Testing...");
+          try {
+            const testQuery = "test";
+            const response = await fetch(
+              provider === "openai" ? "https://api.openai.com/v1/embeddings" : provider === "cohere" ? "https://api.cohere.ai/v1/embed" : provider === "google" ? `https://generativelanguage.googleapis.com/v1beta/models/${this.plugin.settings.externalEmbeddingModel || "gemini-embedding-001"}:embedContent?key=${this.plugin.settings.externalEmbeddingApiKey}` : this.plugin.settings.externalEmbeddingApiUrl || "",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...provider !== "google" && provider !== "custom" ? { Authorization: `Bearer ${this.plugin.settings.externalEmbeddingApiKey}` } : {}
+                },
+                body: JSON.stringify(
+                  provider === "openai" ? { model: this.plugin.settings.externalEmbeddingModel || "text-embedding-3-small", input: testQuery } : provider === "cohere" ? { model: this.plugin.settings.externalEmbeddingModel || "embed-english-v3.0", texts: [testQuery] } : provider === "google" ? { content: { parts: [{ text: testQuery }] } } : { text: testQuery }
+                )
+              }
+            );
+            if (response.ok) {
+              new import_obsidian10.Notice("External embedding API connection successful!", 3e3);
+            } else {
+              const error2 = await response.text();
+              new import_obsidian10.Notice(`External embedding API test failed: ${response.status} ${error2}`, 5e3);
+            }
+          } catch (error2) {
+            new import_obsidian10.Notice(`External embedding API test failed: ${error2 instanceof Error ? error2.message : String(error2)}`, 5e3);
+          } finally {
+            btn.setDisabled(false);
+            btn.setButtonText("Test");
+          }
+        })
+      );
+    }
+    new import_obsidian10.Setting(containerEl).setName("Use Smart Connections context (optional)").setDesc("Include Smart Connections context in prompts. Requires Smart Connections plugin to be installed.").addToggle(
+      (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableSmartConnectionsContext)).onChange(async (value) => {
+        this.plugin.settings.retrievalEnableSmartConnectionsContext = value;
+        await this.plugin.saveSettings();
+        this.display();
+      })
+    );
+    if (this.plugin.settings.retrievalEnableSmartConnectionsContext) {
+      new import_obsidian10.Setting(containerEl).setName("Smart Connections context source").setDesc("How to get Smart Connections context: via Bases files or a copied context note.").addDropdown((dropdown) => {
+        dropdown.addOption("bases", "Via Bases");
+        dropdown.addOption("copied-note", "Via copied context note");
+        dropdown.setValue(this.plugin.settings.smartConnectionsContextSource ?? "bases");
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.smartConnectionsContextSource = value;
+          await this.plugin.saveSettings();
+          this.display();
+        });
+      });
+      if (this.plugin.settings.smartConnectionsContextSource === "copied-note") {
+        new import_obsidian10.Setting(containerEl).setName("Smart Connections context note path").setDesc("Path to the note containing Smart Connections context (e.g., Smart Connections/Context.md).").addText(
+          (text2) => text2.setPlaceholder("Smart Connections/Context.md").setValue(this.plugin.settings.smartConnectionsContextNotePath ?? "").onChange(async (value) => {
+            this.plugin.settings.smartConnectionsContextNotePath = value;
+            await this.plugin.saveSettings();
+          })
+        );
+      }
+    }
     new import_obsidian10.Setting(containerEl).setName("Index chunk size (words)").setDesc("Controls how your notes are chunked for semantic retrieval. Larger chunks add more context but may reduce precision.").addText(
       (text2) => text2.setPlaceholder("500").setValue(String(this.plugin.settings.retrievalChunkWords ?? 500)).onChange(async (value) => {
         const parsed = parseInt(value, 10);
@@ -68351,6 +68477,38 @@ var VaultService = class {
     });
     return storyBibleFiles[0].path;
   }
+  /**
+   * Detect Smart Connections Bases location and return array of file paths.
+   * Returns empty array if not found (never throws).
+   * Checks common locations: .obsidian/plugins/smart-connections/bases/
+   */
+  async getSmartConnectionsBasesPaths() {
+    const basesPaths = [];
+    const possibleLocations = [
+      ".obsidian/plugins/smart-connections/bases",
+      ".obsidian/plugins/smart-connections/Bases",
+      "Smart Connections/Bases",
+      "Bases"
+    ];
+    for (const location of possibleLocations) {
+      try {
+        const folder = this.vault.getAbstractFileByPath(location);
+        if (folder instanceof import_obsidian13.TFolder) {
+          for (const child of folder.children) {
+            if (child instanceof import_obsidian13.TFile && child.extension === "md") {
+              basesPaths.push(child.path);
+            }
+          }
+          if (basesPaths.length > 0) {
+            return basesPaths;
+          }
+        }
+      } catch {
+        continue;
+      }
+    }
+    return [];
+  }
   async setupDefaultStructure(items) {
     const created = [];
     const skipped = [];
@@ -68615,9 +68773,65 @@ var ContextAggregator = class {
     const reserveForNonContext = Math.min(2e4, Math.max(4e3, Math.floor(limit * 0.02)));
     return { limit, reserveForOutput, reserveForNonContext };
   }
-  constructor(vault, plugin) {
+  constructor(vault, plugin, vaultService) {
     this.vault = vault;
     this.plugin = plugin;
+    this.vaultService = vaultService;
+  }
+  /**
+   * Get Smart Connections context if enabled (templater/clipboard pattern).
+   * Returns empty string if disabled or if context cannot be retrieved.
+   */
+  async getSmartConnectionsContextIfEnabled() {
+    const settings = this.plugin.settings;
+    if (!settings.retrievalEnableSmartConnectionsContext) {
+      return "";
+    }
+    try {
+      if (settings.smartConnectionsContextSource === "bases") {
+        const basesPaths = await this.vaultService.getSmartConnectionsBasesPaths();
+        if (basesPaths.length === 0) {
+          console.warn("[ContextAggregator] Smart Connections Bases not found");
+          return "";
+        }
+        const basesContent = [];
+        for (const path of basesPaths) {
+          try {
+            const content = await this.readFile(path);
+            basesContent.push(content);
+          } catch (error2) {
+            console.warn(`[ContextAggregator] Failed to read Smart Connections Base: ${path}`, error2);
+          }
+        }
+        if (basesContent.length === 0) {
+          return "";
+        }
+        return `[Smart Connections Bases Context]
+${basesContent.join("\n\n---\n\n")}`;
+      } else if (settings.smartConnectionsContextSource === "copied-note") {
+        const notePath = settings.smartConnectionsContextNotePath;
+        if (!notePath) {
+          console.warn("[ContextAggregator] Smart Connections context note path not configured");
+          return "";
+        }
+        try {
+          const noteContent = await this.readFile(notePath);
+          if (noteContent.startsWith("[File not found:") || noteContent.startsWith("[Error reading file")) {
+            console.warn(`[ContextAggregator] Smart Connections context note not found: ${notePath}`);
+            return "";
+          }
+          return `[Smart Connections Context Note]
+${noteContent}`;
+        } catch (error2) {
+          console.warn(`[ContextAggregator] Failed to read Smart Connections context note: ${notePath}`, error2);
+          return "";
+        }
+      }
+    } catch (error2) {
+      console.warn("[ContextAggregator] Error retrieving Smart Connections context:", error2);
+      return "";
+    }
+    return "";
   }
   async getChapterContext(retrievalQuery) {
     const settings = this.plugin.settings;
@@ -68628,14 +68842,20 @@ var ContextAggregator = class {
     const book2Full = await this.readFile(settings.book2Path);
     const slidingWindow = this.extractWordsFromEnd(book2Full, 2e4);
     const storyBible = await this.readFile(settings.storyBiblePath);
-    const smartBudget = Math.floor(contextBudget * 0.45);
+    const smartConnectionsContext = await this.getSmartConnectionsContextIfEnabled();
+    const smartConnectionsBudget = smartConnectionsContext ? Math.floor(contextBudget * 0.1) : 0;
+    const smartBudget = Math.floor(contextBudget * (smartConnectionsContext ? 0.35 : 0.45));
     const bibleBudget = Math.floor(contextBudget * 0.25);
     const slidingBudget = Math.floor(contextBudget * 0.1);
-    return {
+    const result = {
       smart_connections: this.trimHeadToBudget(retrievedContext, smartBudget, "Retrieved context"),
       story_bible: this.trimHeadToBudget(storyBible, bibleBudget, "Story bible"),
       sliding_window: this.trimHeadToBudget(slidingWindow, slidingBudget, "Sliding window")
     };
+    if (smartConnectionsContext) {
+      result.smart_connections_context = this.trimHeadToBudget(smartConnectionsContext, smartConnectionsBudget, "Smart Connections context");
+    }
+    return result;
   }
   async getMicroEditContext(selectedText, retrievalQuery) {
     const settings = this.plugin.settings;
@@ -68648,11 +68868,13 @@ var ContextAggregator = class {
     const characterNotes = this.formatCharacterNotes(await this.getAllCharacterNotes());
     const retrievedLimit = Math.min(80, Math.max(12, Math.floor(contextBudget / 2e4)));
     const retrievedContext = await this.getRetrievedContext(retrievalQuery, retrievedLimit);
+    const smartConnectionsContext = await this.getSmartConnectionsContextIfEnabled();
+    const smartConnectionsBudget = smartConnectionsContext ? Math.floor(contextBudget * 0.1) : 0;
     const slidingBudget = Math.floor(contextBudget * 0.03);
     const bibleBudget = Math.floor(contextBudget * 0.25);
     const characterBudget = Math.floor(contextBudget * 0.37);
-    const smartBudget = Math.floor(contextBudget * 0.2);
-    return {
+    const smartBudget = Math.floor(contextBudget * (smartConnectionsContext ? 0.1 : 0.2));
+    const result = {
       sliding_window: this.trimHeadToBudget(slidingWindow, slidingBudget, "Sliding window"),
       story_bible: this.trimHeadToBudget(storyBible, bibleBudget, "Story bible"),
       character_notes: this.trimHeadToBudget(characterNotes, characterBudget, "Character notes"),
@@ -68660,6 +68882,10 @@ var ContextAggregator = class {
       surrounding_before: surrounding.before,
       surrounding_after: surrounding.after
     };
+    if (smartConnectionsContext) {
+      result.smart_connections_context = this.trimHeadToBudget(smartConnectionsContext, smartConnectionsBudget, "Smart Connections context");
+    }
+    return result;
   }
   async getCharacterNotes() {
     return await this.getAllCharacterNotes();
@@ -68789,6 +69015,14 @@ RETRIEVED CONTEXT \u2014 RELEVANT NOTES (WHOLE VAULT)
 ${context.smart_connections || ""}
 
 Use these excerpts to maintain continuity, tone, and world consistency.
+${context.smart_connections_context ? `
+
+-------------------------------------------------------------
+SMART CONNECTIONS CONTEXT (OPTIONAL)
+-------------------------------------------------------------
+${context.smart_connections_context}
+
+Additional context from Smart Connections plugin (if available).` : ""}
 
 -------------------------------------------------------------
 STORY BIBLE \u2014 WORLD + RULESET
@@ -68891,6 +69125,14 @@ RETRIEVED CONTEXT \u2014 STYLE ECHOES
 ${context.smart_connections || ""}
 
 Similar passages for tone and style reference.
+${context.smart_connections_context ? `
+
+-------------------------------------------------------------
+SMART CONNECTIONS CONTEXT (OPTIONAL)
+-------------------------------------------------------------
+${context.smart_connections_context}
+
+Additional context from Smart Connections plugin (if available).` : ""}
 
 -------------------------------------------------------------
 YOUR TASK
@@ -69922,7 +70164,7 @@ var HeuristicProvider = class {
         reasonTags.push("titleMatch");
       if (tf > 0)
         reasonTags.push("textMatch");
-      const excerpt = firstTerm ? findSnippet(content, firstTerm, 600) : content.slice(0, 600);
+      const excerpt = firstTerm ? findSnippet(content, firstTerm, 2500) : content.slice(0, 2500);
       results.push({
         key: `file:${file.path}`,
         path: file.path,
@@ -70839,7 +71081,7 @@ var EmbeddingsIndex = class {
         }
         continue;
       }
-      const excerpt = excerptOf(ch.text, 500);
+      const excerpt = excerptOf(ch.text, 2500);
       this._setChunk({
         key,
         path,
@@ -71019,6 +71261,240 @@ var LocalEmbeddingsProvider = class {
         score: Math.max(0, Math.min(1, (score + 1) / 2)),
         source: this.id,
         reasonTags: ["semantic"]
+      });
+    }
+    return results.slice(0, opts.limit);
+  }
+};
+
+// services/retrieval/ExternalEmbeddingsProvider.ts
+function dot3(a, b) {
+  const n = Math.min(a.length, b.length);
+  let s = 0;
+  for (let i = 0; i < n; i++)
+    s += a[i] * b[i];
+  return s;
+}
+var ExternalEmbeddingsProvider = class {
+  // 1 hour
+  constructor(plugin, embeddingsIndex, bm25Index, isEnabled, isAllowedPath) {
+    this.id = "external-embeddings";
+    // Cache for embedding vectors (query text -> vector)
+    this.embeddingCache = /* @__PURE__ */ new Map();
+    this.cacheTtl = 36e5;
+    this.plugin = plugin;
+    this.embeddingsIndex = embeddingsIndex;
+    this.bm25Index = bm25Index;
+    this.isEnabled = isEnabled;
+    this.isAllowedPath = isAllowedPath;
+  }
+  async getQueryEmbedding(query) {
+    const cached = this.embeddingCache.get(query);
+    if (cached && Date.now() - cached.timestamp < this.cacheTtl) {
+      return cached.vector;
+    }
+    const settings = this.plugin.settings;
+    const provider = settings.externalEmbeddingProvider;
+    const apiKey = settings.externalEmbeddingApiKey;
+    const model = settings.externalEmbeddingModel || this.getDefaultModel(provider);
+    const apiUrl = settings.externalEmbeddingApiUrl;
+    if (!provider || !apiKey) {
+      throw new Error("External embedding provider or API key not configured");
+    }
+    let vector;
+    try {
+      if (provider === "openai") {
+        vector = await this.callOpenAIEmbedding(apiKey, model, query);
+      } else if (provider === "cohere") {
+        vector = await this.callCohereEmbedding(apiKey, model, query);
+      } else if (provider === "google") {
+        vector = await this.callGoogleEmbedding(apiKey, model, query, settings.externalEmbeddingUseBatch || false);
+      } else if (provider === "custom" && apiUrl) {
+        vector = await this.callCustomEmbedding(apiUrl, query);
+      } else {
+        throw new Error(`Unsupported embedding provider: ${provider}`);
+      }
+      this.embeddingCache.set(query, { vector, timestamp: Date.now() });
+      return vector;
+    } catch (error2) {
+      console.error(`[ExternalEmbeddingsProvider] Failed to get embedding:`, error2);
+      throw error2;
+    }
+  }
+  getDefaultModel(provider) {
+    switch (provider) {
+      case "openai":
+        return "text-embedding-3-small";
+      case "cohere":
+        return "embed-english-v3.0";
+      case "google":
+        return "gemini-embedding-001";
+      default:
+        return "";
+    }
+  }
+  async callOpenAIEmbedding(apiKey, model, query) {
+    const response = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        input: query
+      })
+    });
+    if (!response.ok) {
+      const error2 = await response.text();
+      throw new Error(`OpenAI embedding API error: ${response.status} ${error2}`);
+    }
+    const data = await response.json();
+    if (data.data && data.data[0] && data.data[0].embedding) {
+      return data.data[0].embedding;
+    }
+    throw new Error("Invalid OpenAI embedding response format");
+  }
+  async callCohereEmbedding(apiKey, model, query) {
+    const response = await fetch("https://api.cohere.ai/v1/embed", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        texts: [query]
+      })
+    });
+    if (!response.ok) {
+      const error2 = await response.text();
+      throw new Error(`Cohere embedding API error: ${response.status} ${error2}`);
+    }
+    const data = await response.json();
+    if (data.embeddings && data.embeddings[0]) {
+      return data.embeddings[0];
+    }
+    throw new Error("Invalid Cohere embedding response format");
+  }
+  async callGoogleEmbedding(apiKey, model, query, useBatch) {
+    if (useBatch) {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            requests: [{
+              content: {
+                parts: [{ text: query }]
+              }
+            }]
+          })
+        }
+      );
+      if (!response.ok) {
+        const error2 = await response.text();
+        throw new Error(`Google Gemini batch embedding API error: ${response.status} ${error2}`);
+      }
+      const data = await response.json();
+      if (data.embeddings && data.embeddings[0] && data.embeddings[0].values) {
+        return data.embeddings[0].values;
+      }
+      throw new Error("Invalid Google Gemini batch embedding response format");
+    } else {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            content: {
+              parts: [{ text: query }]
+            }
+          })
+        }
+      );
+      if (!response.ok) {
+        const error2 = await response.text();
+        throw new Error(`Google Gemini embedding API error: ${response.status} ${error2}`);
+      }
+      const data = await response.json();
+      if (data.embedding && data.embedding.values) {
+        return data.embedding.values;
+      }
+      throw new Error("Invalid Google Gemini embedding response format");
+    }
+  }
+  async callCustomEmbedding(apiUrl, query) {
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        text: query
+      })
+    });
+    if (!response.ok) {
+      const error2 = await response.text();
+      throw new Error(`Custom embedding API error: ${response.status} ${error2}`);
+    }
+    const data = await response.json();
+    if (Array.isArray(data)) {
+      return data;
+    }
+    if (data.embedding && Array.isArray(data.embedding)) {
+      return data.embedding;
+    }
+    if (data.vector && Array.isArray(data.vector)) {
+      return data.vector;
+    }
+    if (data.values && Array.isArray(data.values)) {
+      return data.values;
+    }
+    throw new Error("Invalid custom embedding API response format");
+  }
+  async search(query, opts) {
+    if (!this.isEnabled())
+      return [];
+    const q = (query.text ?? "").trim();
+    if (!q)
+      return [];
+    await this.embeddingsIndex.ensureLoaded();
+    let qVec;
+    try {
+      qVec = await this.getQueryEmbedding(q);
+    } catch (error2) {
+      console.error(`[ExternalEmbeddingsProvider] Failed to get query embedding:`, error2);
+      return [];
+    }
+    const chunks = this.embeddingsIndex.getAllChunks().filter((c) => this.isAllowedPath(c.path));
+    if (chunks.length === 0)
+      return [];
+    const scored = chunks.map((c) => {
+      const localVec = c.vector;
+      const qNorm = Math.sqrt(qVec.reduce((sum, v) => sum + v * v, 0)) || 1;
+      const localNorm = Math.sqrt(localVec.reduce((sum, v) => sum + v * v, 0)) || 1;
+      const normalizedQ = qVec.map((v) => v / qNorm);
+      const normalizedLocal = localVec.map((v) => v / localNorm);
+      const score = dot3(normalizedQ, normalizedLocal);
+      return { chunk: c, score };
+    }).sort((a, b) => b.score - a.score).slice(0, Math.max(1, Math.min(200, opts.limit * 6)));
+    const results = [];
+    for (const { chunk, score } of scored) {
+      results.push({
+        key: chunk.key,
+        path: chunk.path,
+        title: chunk.path.split("/").pop(),
+        excerpt: chunk.excerpt,
+        score: Math.max(0, Math.min(1, (score + 1) / 2)),
+        source: this.id,
+        reasonTags: ["external-embeddings"]
       });
     }
     return results.slice(0, opts.limit);
@@ -71263,7 +71739,7 @@ var Bm25Index = class {
         chunkIndex: i,
         startWord: ch.startWord,
         endWord: ch.endWord,
-        excerpt: excerptOf2(ch.text, 500),
+        excerpt: excerptOf2(ch.text, 2500),
         len: toks.length
       };
       this.chunksByKey.set(key, meta);
@@ -78376,9 +78852,18 @@ Output format (required):
   retrievalChunkHeadingLevel: "h1",
   retrievalIndexPaused: false,
   retrievalIndexState: {},
-  retrievalEmbeddingBackend: "minilm",
+  retrievalEmbeddingBackend: "hash",
   retrievalEnableBm25: true,
   retrievalEnableReranker: false,
+  retrievalSource: "local",
+  retrievalEnableSmartConnectionsContext: false,
+  smartConnectionsContextSource: "bases",
+  smartConnectionsContextNotePath: "",
+  externalEmbeddingProvider: void 0,
+  externalEmbeddingApiKey: void 0,
+  externalEmbeddingModel: void 0,
+  externalEmbeddingApiUrl: void 0,
+  externalEmbeddingUseBatch: false,
   generationLogsFolder: "",
   generationLogsEnabled: false,
   generationLogsIncludePrompt: false,
@@ -78478,7 +78963,7 @@ var WritingDashboardPlugin = class extends import_obsidian24.Plugin {
       await this.saveSettings();
     }
     this.vaultService = new VaultService(this.app.vault, this);
-    this.contextAggregator = new ContextAggregator(this.app.vault, this);
+    this.contextAggregator = new ContextAggregator(this.app.vault, this, this.vaultService);
     this.promptEngine = new PromptEngine();
     this.aiClient = new AIClient();
     this.characterExtractor = new CharacterExtractor();
@@ -78489,13 +78974,27 @@ var WritingDashboardPlugin = class extends import_obsidian24.Plugin {
     this.generationLogService = new GenerationLogService(this.app, this);
     const providers = [
       new HeuristicProvider(this.app.vault, this.vaultService),
-      new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path)),
-      new LocalEmbeddingsProvider(
-        this.embeddingsIndex,
-        () => Boolean(this.settings.retrievalEnableSemanticIndex),
-        (path) => !this.vaultService.isExcludedPath(path)
-      )
+      new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path))
     ];
+    if (this.settings.retrievalSource === "external-api") {
+      providers.push(
+        new ExternalEmbeddingsProvider(
+          this,
+          this.embeddingsIndex,
+          this.bm25Index,
+          () => Boolean(this.settings.retrievalSource === "external-api" && this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey),
+          (path) => !this.vaultService.isExcludedPath(path)
+        )
+      );
+    } else {
+      providers.push(
+        new LocalEmbeddingsProvider(
+          this.embeddingsIndex,
+          () => Boolean(this.settings.retrievalEnableSemanticIndex),
+          (path) => !this.vaultService.isExcludedPath(path)
+        )
+      );
+    }
     this.retrievalService = new RetrievalService(providers, { getVector: (key) => this.embeddingsIndex.getVectorForKey(key) });
     const maybeQueueIndex = (path) => {
       if (this.settings.retrievalIndexPaused)
@@ -78605,6 +79104,36 @@ var WritingDashboardPlugin = class extends import_obsidian24.Plugin {
     modal.open();
   }
   /**
+   * Recreate the retrieval service with the current settings.
+   * Called when retrievalSource or other retrieval settings change.
+   */
+  async recreateRetrievalService() {
+    const providers = [
+      new HeuristicProvider(this.app.vault, this.vaultService),
+      new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path))
+    ];
+    if (this.settings.retrievalSource === "external-api") {
+      providers.push(
+        new ExternalEmbeddingsProvider(
+          this,
+          this.embeddingsIndex,
+          this.bm25Index,
+          () => Boolean(this.settings.retrievalSource === "external-api" && this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey),
+          (path) => !this.vaultService.isExcludedPath(path)
+        )
+      );
+    } else {
+      providers.push(
+        new LocalEmbeddingsProvider(
+          this.embeddingsIndex,
+          () => Boolean(this.settings.retrievalEnableSemanticIndex),
+          (path) => !this.vaultService.isExcludedPath(path)
+        )
+      );
+    }
+    this.retrievalService = new RetrievalService(providers, { getVector: (key) => this.embeddingsIndex.getVectorForKey(key) });
+  }
+  /**
    * Handle automatic fallback from minilm to hash backend when MiniLM fails repeatedly.
    * This recreates the embeddings index and retrieval service with the hash backend.
    */
@@ -78618,13 +79147,27 @@ var WritingDashboardPlugin = class extends import_obsidian24.Plugin {
     this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this);
     const providers = [
       new HeuristicProvider(this.app.vault, this.vaultService),
-      new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path)),
-      new LocalEmbeddingsProvider(
-        this.embeddingsIndex,
-        () => Boolean(this.settings.retrievalEnableSemanticIndex),
-        (path) => !this.vaultService.isExcludedPath(path)
-      )
+      new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path))
     ];
+    if (this.settings.retrievalSource === "external-api") {
+      providers.push(
+        new ExternalEmbeddingsProvider(
+          this,
+          this.embeddingsIndex,
+          this.bm25Index,
+          () => Boolean(this.settings.retrievalSource === "external-api" && this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey),
+          (path) => !this.vaultService.isExcludedPath(path)
+        )
+      );
+    } else {
+      providers.push(
+        new LocalEmbeddingsProvider(
+          this.embeddingsIndex,
+          () => Boolean(this.settings.retrievalEnableSemanticIndex),
+          (path) => !this.vaultService.isExcludedPath(path)
+        )
+      );
+    }
     this.retrievalService = new RetrievalService(providers, { getVector: (key) => this.embeddingsIndex.getVectorForKey(key) });
     if (this.settings.retrievalEnableSemanticIndex && !this.settings.retrievalIndexPaused) {
       this.embeddingsIndex.enqueueFullRescan();

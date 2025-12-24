@@ -144,7 +144,7 @@ export class HeuristicProvider implements RetrievalProvider {
 			if (titleHits > 0) reasonTags.push('titleMatch');
 			if (tf > 0) reasonTags.push('textMatch');
 
-			const excerpt = firstTerm ? findSnippet(content, firstTerm, 600) : content.slice(0, 600);
+			const excerpt = firstTerm ? findSnippet(content, firstTerm, 2500) : content.slice(0, 2500);
 
 			results.push({
 				key: `file:${file.path}`,

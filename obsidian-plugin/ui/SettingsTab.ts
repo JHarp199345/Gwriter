@@ -343,6 +343,200 @@ export class SettingsTab extends PluginSettingTab {
 					})
 			);
 
+		// Retrieval source selection
+		new Setting(containerEl)
+			.setName('Retrieval source')
+			.setDesc('Choose between local retrieval (hash + BM25) or external embedding API (hybrid with BM25).')
+			.addDropdown((dropdown) => {
+				dropdown.addOption('local', 'Local (hash + BM25)');
+				dropdown.addOption('external-api', 'External embedding API (hybrid)');
+				dropdown.setValue(this.plugin.settings.retrievalSource ?? 'local');
+				dropdown.onChange(async (value) => {
+					this.plugin.settings.retrievalSource = value as 'local' | 'external-api';
+					await this.plugin.saveSettings();
+					await this.plugin.recreateRetrievalService();
+					this.display(); // Refresh to show/hide external API settings
+				});
+			});
+
+		// External embedding API settings (shown when external-api is selected)
+		if (this.plugin.settings.retrievalSource === 'external-api') {
+			new Setting(containerEl)
+				.setName('External embedding provider')
+				.setDesc('Choose which external embedding API to use.')
+				.addDropdown((dropdown) => {
+					dropdown.addOption('openai', 'OpenAI');
+					dropdown.addOption('cohere', 'Cohere');
+					dropdown.addOption('google', 'Google (Gemini)');
+					dropdown.addOption('custom', 'Custom');
+					dropdown.setValue(this.plugin.settings.externalEmbeddingProvider ?? 'openai');
+					dropdown.onChange(async (value) => {
+						this.plugin.settings.externalEmbeddingProvider = value as 'openai' | 'cohere' | 'google' | 'custom';
+						// Set default model for provider
+						if (value === 'openai') {
+							this.plugin.settings.externalEmbeddingModel = 'text-embedding-3-small';
+						} else if (value === 'cohere') {
+							this.plugin.settings.externalEmbeddingModel = 'embed-english-v3.0';
+						} else if (value === 'google') {
+							this.plugin.settings.externalEmbeddingModel = 'gemini-embedding-001';
+						} else {
+							this.plugin.settings.externalEmbeddingModel = '';
+						}
+						await this.plugin.saveSettings();
+						this.display(); // Refresh to show provider-specific settings
+					});
+				});
+
+			new Setting(containerEl)
+				.setName('External embedding API key')
+				.setDesc('Your API key for the external embedding provider.')
+				.addText((text) => {
+					text.setPlaceholder('Enter API key')
+						.setValue(this.plugin.settings.externalEmbeddingApiKey ?? '');
+					text.inputEl.type = 'password';
+					text.onChange(async (value) => {
+						this.plugin.settings.externalEmbeddingApiKey = value;
+						await this.plugin.saveSettings();
+					});
+				});
+
+			const provider = this.plugin.settings.externalEmbeddingProvider ?? 'openai';
+			const defaultModel = provider === 'openai' ? 'text-embedding-3-small' : provider === 'cohere' ? 'embed-english-v3.0' : provider === 'google' ? 'gemini-embedding-001' : '';
+
+			new Setting(containerEl)
+				.setName('External embedding model')
+				.setDesc(`Model name for ${provider} (e.g., ${defaultModel}).`)
+				.addText((text) =>
+					text
+						.setPlaceholder(defaultModel)
+						.setValue(this.plugin.settings.externalEmbeddingModel ?? defaultModel)
+						.onChange(async (value) => {
+							this.plugin.settings.externalEmbeddingModel = value;
+							await this.plugin.saveSettings();
+						})
+				);
+
+			if (provider === 'google') {
+				new Setting(containerEl)
+					.setName('Use batch embeddings (Google Gemini)')
+					.setDesc('Use batch endpoint for more efficient embedding of multiple queries.')
+					.addToggle((toggle) =>
+						toggle.setValue(Boolean(this.plugin.settings.externalEmbeddingUseBatch)).onChange(async (value) => {
+							this.plugin.settings.externalEmbeddingUseBatch = value;
+							await this.plugin.saveSettings();
+						})
+					);
+			}
+
+			if (provider === 'custom') {
+				new Setting(containerEl)
+					.setName('Custom API URL')
+					.setDesc('Endpoint URL for your custom embedding API.')
+					.addText((text) =>
+						text
+							.setPlaceholder('https://api.example.com/embeddings')
+							.setValue(this.plugin.settings.externalEmbeddingApiUrl ?? '')
+							.onChange(async (value) => {
+								this.plugin.settings.externalEmbeddingApiUrl = value;
+								await this.plugin.saveSettings();
+							})
+					);
+			}
+
+			new Setting(containerEl)
+				.setName('Test connection')
+				.setDesc('Test the external embedding API connection.')
+				.addButton((btn) =>
+					btn.setButtonText('Test').onClick(async () => {
+						btn.setDisabled(true);
+						btn.setButtonText('Testing...');
+						try {
+							// Simple test: try to get an embedding for a test query
+							const testQuery = 'test';
+							const response = await fetch(
+								provider === 'openai'
+									? 'https://api.openai.com/v1/embeddings'
+									: provider === 'cohere'
+									? 'https://api.cohere.ai/v1/embed'
+									: provider === 'google'
+									? `https://generativelanguage.googleapis.com/v1beta/models/${this.plugin.settings.externalEmbeddingModel || 'gemini-embedding-001'}:embedContent?key=${this.plugin.settings.externalEmbeddingApiKey}`
+									: this.plugin.settings.externalEmbeddingApiUrl || '',
+								{
+									method: 'POST',
+									headers: {
+										'Content-Type': 'application/json',
+										...(provider !== 'google' && provider !== 'custom' ? { Authorization: `Bearer ${this.plugin.settings.externalEmbeddingApiKey}` } : {})
+									},
+									body: JSON.stringify(
+										provider === 'openai'
+											? { model: this.plugin.settings.externalEmbeddingModel || 'text-embedding-3-small', input: testQuery }
+											: provider === 'cohere'
+											? { model: this.plugin.settings.externalEmbeddingModel || 'embed-english-v3.0', texts: [testQuery] }
+											: provider === 'google'
+											? { content: { parts: [{ text: testQuery }] } }
+											: { text: testQuery }
+									)
+								}
+							);
+							if (response.ok) {
+								new Notice('External embedding API connection successful!', 3000);
+							} else {
+								const error = await response.text();
+								new Notice(`External embedding API test failed: ${response.status} ${error}`, 5000);
+							}
+						} catch (error) {
+							new Notice(`External embedding API test failed: ${error instanceof Error ? error.message : String(error)}`, 5000);
+						} finally {
+							btn.setDisabled(false);
+							btn.setButtonText('Test');
+						}
+					})
+				);
+		}
+
+		// Smart Connections context settings (optional)
+		new Setting(containerEl)
+			.setName('Use Smart Connections context (optional)')
+			.setDesc('Include Smart Connections context in prompts. Requires Smart Connections plugin to be installed.')
+			.addToggle((toggle) =>
+				toggle.setValue(Boolean(this.plugin.settings.retrievalEnableSmartConnectionsContext)).onChange(async (value) => {
+					this.plugin.settings.retrievalEnableSmartConnectionsContext = value;
+					await this.plugin.saveSettings();
+					this.display(); // Refresh to show/hide Smart Connections options
+				})
+			);
+
+		if (this.plugin.settings.retrievalEnableSmartConnectionsContext) {
+			new Setting(containerEl)
+				.setName('Smart Connections context source')
+				.setDesc('How to get Smart Connections context: via Bases files or a copied context note.')
+				.addDropdown((dropdown) => {
+					dropdown.addOption('bases', 'Via Bases');
+					dropdown.addOption('copied-note', 'Via copied context note');
+					dropdown.setValue(this.plugin.settings.smartConnectionsContextSource ?? 'bases');
+					dropdown.onChange(async (value) => {
+						this.plugin.settings.smartConnectionsContextSource = value as 'bases' | 'copied-note';
+						await this.plugin.saveSettings();
+						this.display(); // Refresh to show/hide context note path
+					});
+				});
+
+			if (this.plugin.settings.smartConnectionsContextSource === 'copied-note') {
+				new Setting(containerEl)
+					.setName('Smart Connections context note path')
+					.setDesc('Path to the note containing Smart Connections context (e.g., Smart Connections/Context.md).')
+					.addText((text) =>
+						text
+							.setPlaceholder('Smart Connections/Context.md')
+							.setValue(this.plugin.settings.smartConnectionsContextNotePath ?? '')
+							.onChange(async (value) => {
+								this.plugin.settings.smartConnectionsContextNotePath = value;
+								await this.plugin.saveSettings();
+							})
+					);
+			}
+		}
+
 		new Setting(containerEl)
 			.setName('Index chunk size (words)')
 			.setDesc('Controls how your notes are chunked for semantic retrieval. Larger chunks add more context but may reduce precision.')

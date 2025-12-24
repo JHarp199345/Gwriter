@@ -423,7 +423,7 @@ export class EmbeddingsIndex {
 				// Skip this chunk if embedding fails, but continue with others
 				continue;
 			}
-			const excerpt = excerptOf(ch.text, 500);
+			const excerpt = excerptOf(ch.text, 2500);
 			this._setChunk({
 				key,
 				path,
