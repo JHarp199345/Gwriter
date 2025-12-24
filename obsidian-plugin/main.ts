@@ -1,4 +1,4 @@
-import { Plugin, TFile, TFolder } from 'obsidian';
+import { Notice, Plugin, TFile, TFolder } from 'obsidian';
 import { DashboardView, VIEW_TYPE_DASHBOARD } from './ui/DashboardView';
 import { SettingsTab } from './ui/SettingsTab';
 import { VaultService } from './services/VaultService';
@@ -507,6 +507,48 @@ export default class WritingDashboardPlugin extends Plugin {
 	showPublishWizard() {
 		const modal = new PublishWizardModal(this);
 		modal.open();
+	}
+
+	/**
+	 * Handle automatic fallback from minilm to hash backend when MiniLM fails repeatedly.
+	 * This recreates the embeddings index and retrieval service with the hash backend.
+	 */
+	async handleEmbeddingBackendFallback(): Promise<void> {
+		if (this.settings.retrievalEmbeddingBackend !== 'minilm') {
+			// Already using hash or something else
+			return;
+		}
+		
+		console.log(`[WritingDashboardPlugin] Automatically switching embedding backend from 'minilm' to 'hash' due to repeated failures`);
+		
+		// Switch the backend setting
+		this.settings.retrievalEmbeddingBackend = 'hash';
+		await this.saveSettings();
+		
+		// Recreate the embeddings index with hash backend
+		this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this);
+		
+		// Recreate the LocalEmbeddingsProvider with the new index
+		const providers = [
+			new HeuristicProvider(this.app.vault, this.vaultService),
+			new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path)),
+			new LocalEmbeddingsProvider(
+				this.embeddingsIndex,
+				() => Boolean(this.settings.retrievalEnableSemanticIndex),
+				(path) => !this.vaultService.isExcludedPath(path)
+			)
+		];
+		this.retrievalService = new RetrievalService(providers, { getVector: (key) => this.embeddingsIndex.getVectorForKey(key) });
+		
+		// Trigger a reindex with the new backend
+		if (this.settings.retrievalEnableSemanticIndex && !this.settings.retrievalIndexPaused) {
+			this.embeddingsIndex.enqueueFullRescan();
+		}
+		
+		// Show notification to user
+		new Notice('Embedding backend automatically switched to hash-based embeddings due to MiniLM initialization failures. Your index is being rebuilt.', 8000);
+		
+		console.log(`[WritingDashboardPlugin] Backend switched and reindex triggered`);
 	}
 
 	requestGuidedDemoStart() {

@@ -37,6 +37,32 @@ function deepInspect(obj: any, maxDepth: number = 3, currentDepth: number = 0, v
 	return result;
 }
 
+// Capture a one-time snapshot of the transformers env / ONNX state for diagnostics
+let lastEnvSnapshot: any | null = null;
+
+function captureEnvSnapshot(mod: any, env: any, where: string): void {
+	try {
+		const onnx = env?.backends?.onnx;
+		lastEnvSnapshot = {
+			where,
+			timestamp: new Date().toISOString(),
+			modKeys: mod && typeof mod === 'object' ? Object.keys(mod).slice(0, 20) : null,
+			hasDefault: !!mod?.default,
+			hasPipeline: typeof (mod?.pipeline || mod?.default?.pipeline) === 'function',
+			envKeys: env ? Object.keys(env).slice(0, 20) : null,
+			backendKeys: onnx ? Object.keys(onnx).slice(0, 20) : null,
+			onnxHasWasm: !!onnx?.wasm,
+			onnxWasmKeys: onnx?.wasm ? Object.keys(onnx.wasm).slice(0, 20) : null,
+			onnxWasmPaths: onnx?.wasm?.wasmPaths ?? null,
+			envHasUseWasm: typeof env?.useWasm === 'function',
+			envHasBackends: !!env?.backends,
+		};
+		console.log('[LocalEmbeddingModel] [ENV SNAPSHOT]', lastEnvSnapshot);
+	} catch (e) {
+		console.warn('[LocalEmbeddingModel] [ENV SNAPSHOT] Failed to capture env snapshot:', e);
+	}
+}
+
 // Helper to get pipeline function with proper error handling
 // Uses vendored transformers.js to avoid bundling issues
 async function getPipeline(plugin: WritingDashboardPlugin): Promise<any> {
@@ -99,6 +125,10 @@ async function getPipeline(plugin: WritingDashboardPlugin): Promise<any> {
 		if (env.backends?.onnx) {
 			console.log(`[LocalEmbeddingModel] [STEP 3] env.backends.onnx type:`, typeof env.backends.onnx);
 			console.log(`[LocalEmbeddingModel] [STEP 3] env.backends.onnx keys:`, Object.keys(env.backends.onnx).slice(0, 20));
+		}
+		// Capture env snapshot before WASM config
+		if (!lastEnvSnapshot) {
+			captureEnvSnapshot(mod, env, 'before-wasm-config');
 		}
 	} else {
 		console.warn(`[LocalEmbeddingModel] [STEP 3] ✗ Could not find env structure`);
@@ -340,6 +370,18 @@ export class MiniLmLocalEmbeddingModel implements LocalEmbeddingModel {
 						console.error(`[LocalEmbeddingModel] [LOAD] Step 3: Error stack (first 10 lines):`);
 						console.error(pipelineErr.stack.split('\n').slice(0, 10).join('\n'));
 					}
+					// Capture env snapshot at failure time if we don't have one
+					if (!lastEnvSnapshot) {
+						try {
+							const modAtError = await import('../../lib/transformers.js');
+							const envAtError = modAtError.env || modAtError.default?.env;
+							if (envAtError) {
+								captureEnvSnapshot(modAtError, envAtError, 'on-pipeline-error');
+							}
+						} catch {
+							// ignore secondary failures
+						}
+					}
 					this.logError('ensureLoaded.createPipeline', `Creating pipeline with model Xenova/all-MiniLM-L6-v2, cache: ${cacheDir}`, pipelineErr);
 					throw pipelineErr;
 				}
@@ -437,6 +479,10 @@ export class MiniLmLocalEmbeddingModel implements LocalEmbeddingModel {
 
 	getLoadAttempts(): number {
 		return this.loadAttempts;
+	}
+
+	getEnvSnapshot(): any | null {
+		return lastEnvSnapshot;
 	}
 
 	private logError(location: string, context: string, error: unknown): void {

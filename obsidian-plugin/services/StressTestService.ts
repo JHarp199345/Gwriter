@@ -408,6 +408,27 @@ export class StressTestService {
 								this.logEntry(`    * Errors may be occurring but not being caught`);
 							}
 							
+							// Log transformers env snapshot for diagnostics
+							const envSnapshot = model?.getEnvSnapshot?.();
+							if (envSnapshot) {
+								this.logEntry(`  === TRANSFORMERS ENV SNAPSHOT ===`);
+								this.logEntry(`    Where: ${envSnapshot.where}`);
+								this.logEntry(`    Timestamp: ${envSnapshot.timestamp}`);
+								this.logEntry(`    Mod keys (first 20): ${JSON.stringify(envSnapshot.modKeys)}`);
+								this.logEntry(`    Has default: ${envSnapshot.hasDefault}`);
+								this.logEntry(`    Has pipeline: ${envSnapshot.hasPipeline}`);
+								this.logEntry(`    Env keys (first 20): ${JSON.stringify(envSnapshot.envKeys)}`);
+								this.logEntry(`    Env has useWasm: ${envSnapshot.envHasUseWasm}`);
+								this.logEntry(`    Env has backends: ${envSnapshot.envHasBackends}`);
+								this.logEntry(`    Backend keys (first 20): ${JSON.stringify(envSnapshot.backendKeys)}`);
+								this.logEntry(`    ONNX has wasm: ${envSnapshot.onnxHasWasm}`);
+								this.logEntry(`    ONNX wasm keys (first 20): ${JSON.stringify(envSnapshot.onnxWasmKeys)}`);
+								this.logEntry(`    ONNX wasmPaths: ${JSON.stringify(envSnapshot.onnxWasmPaths)}`);
+								this.logEntry(`  === END TRANSFORMERS ENV SNAPSHOT ===`);
+							} else {
+								this.logEntry(`  ⚠ Transformers env snapshot: [none captured]`);
+							}
+							
 							this.logEntry(`  === END ERROR DIAGNOSTICS ===`);
 						} else if (indexedPaths.length > 0 || allChunks.length > 0) {
 							this.logEntry(`  - CONFIRMED: Chunks DO exist but status is wrong - bug in getStatus()`);

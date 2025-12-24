@@ -97,6 +97,9 @@ export class EmbeddingsIndex {
 	// Error tracking
 	private readonly errorLog: ErrorLogEntry[] = [];
 	private readonly maxStoredErrors = 100;
+	
+	// Fallback tracking: if MiniLM fails too many times, we should switch to hash
+	private fallbackNotified = false; // Track if we've already notified about fallback
 
 	constructor(vault: Vault, plugin: WritingDashboardPlugin, dim: number = 256) {
 		this.vault = vault;
@@ -342,7 +345,20 @@ export class EmbeddingsIndex {
 		}
 
 		// Check if model is ready (for minilm backend)
+		// Also check if MiniLM is fundamentally broken and needs fallback
 		if (this.backend === 'minilm') {
+			const loadAttempts = this.model.getLoadAttempts();
+			const lastError = this.model.getLastLoadError();
+			
+			// If MiniLM has failed >50 times and we haven't notified yet, suggest fallback
+			if (loadAttempts > 50 && lastError && !this.fallbackNotified) {
+				const shouldFallback = await this.checkAndSuggestFallback(loadAttempts, lastError);
+				if (shouldFallback) {
+					// Fallback was accepted - this will recreate the index, so return early
+					return;
+				}
+			}
+			
 			try {
 				const isReady = await this.model.isReady();
 				console.log(`  - Model ready: ${isReady}`);
@@ -528,6 +544,46 @@ export class EmbeddingsIndex {
 				// ignore
 			});
 		}, 1000);
+	}
+	
+	/**
+	 * Check if MiniLM is fundamentally broken and suggest fallback to hash backend.
+	 * Returns true if fallback was applied (which will cause the index to be recreated).
+	 */
+	private async checkAndSuggestFallback(loadAttempts: number, lastError: { message: string; location: string; context: string }): Promise<boolean> {
+		// Only suggest fallback once per session
+		if (this.fallbackNotified) {
+			return false;
+		}
+		
+		// Check if the error is the ONNX Runtime initialization error
+		const isOnnxError = lastError.message.includes("Cannot read properties of undefined (reading 'create')") ||
+			lastError.message.includes('constructSession') ||
+			lastError.location === 'ensureLoaded' ||
+			lastError.location === 'ensureLoaded.createPipeline';
+		
+		if (!isOnnxError) {
+			// Not the expected error - don't suggest fallback
+			return false;
+		}
+		
+		console.warn(`[EmbeddingsIndex] MiniLM embedding model is failing repeatedly (${loadAttempts} attempts)`);
+		console.warn(`[EmbeddingsIndex] Last error: ${lastError.message} at ${lastError.location}`);
+		console.warn(`[EmbeddingsIndex] This appears to be an ONNX Runtime initialization issue that cannot be automatically resolved.`);
+		console.warn(`[EmbeddingsIndex] Suggesting automatic fallback to hash-based embeddings...`);
+		
+		// Mark as notified to avoid repeated notifications
+		this.fallbackNotified = true;
+		
+		// Notify the plugin to switch backend
+		try {
+			await this.plugin.handleEmbeddingBackendFallback();
+			console.log(`[EmbeddingsIndex] Backend automatically switched to 'hash'`);
+			return true;
+		} catch (err) {
+			console.error(`[EmbeddingsIndex] Failed to switch backend:`, err);
+			return false;
+		}
 	}
 }
 

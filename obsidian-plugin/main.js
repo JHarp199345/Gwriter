@@ -67055,6 +67055,25 @@ var StressTestService = class {
                 this.logEntry(`    * Queue may be emptying before processing`);
                 this.logEntry(`    * Errors may be occurring but not being caught`);
               }
+              const envSnapshot = model?.getEnvSnapshot?.();
+              if (envSnapshot) {
+                this.logEntry(`  === TRANSFORMERS ENV SNAPSHOT ===`);
+                this.logEntry(`    Where: ${envSnapshot.where}`);
+                this.logEntry(`    Timestamp: ${envSnapshot.timestamp}`);
+                this.logEntry(`    Mod keys (first 20): ${JSON.stringify(envSnapshot.modKeys)}`);
+                this.logEntry(`    Has default: ${envSnapshot.hasDefault}`);
+                this.logEntry(`    Has pipeline: ${envSnapshot.hasPipeline}`);
+                this.logEntry(`    Env keys (first 20): ${JSON.stringify(envSnapshot.envKeys)}`);
+                this.logEntry(`    Env has useWasm: ${envSnapshot.envHasUseWasm}`);
+                this.logEntry(`    Env has backends: ${envSnapshot.envHasBackends}`);
+                this.logEntry(`    Backend keys (first 20): ${JSON.stringify(envSnapshot.backendKeys)}`);
+                this.logEntry(`    ONNX has wasm: ${envSnapshot.onnxHasWasm}`);
+                this.logEntry(`    ONNX wasm keys (first 20): ${JSON.stringify(envSnapshot.onnxWasmKeys)}`);
+                this.logEntry(`    ONNX wasmPaths: ${JSON.stringify(envSnapshot.onnxWasmPaths)}`);
+                this.logEntry(`  === END TRANSFORMERS ENV SNAPSHOT ===`);
+              } else {
+                this.logEntry(`  \u26A0 Transformers env snapshot: [none captured]`);
+              }
               this.logEntry(`  === END ERROR DIAGNOSTICS ===`);
             } else if (indexedPaths.length > 0 || allChunks.length > 0) {
               this.logEntry(`  - CONFIRMED: Chunks DO exist but status is wrong - bug in getStatus()`);
@@ -69957,6 +69976,29 @@ function deepInspect(obj, maxDepth = 3, currentDepth = 0, visited = /* @__PURE__
   }
   return result;
 }
+var lastEnvSnapshot = null;
+function captureEnvSnapshot(mod2, env, where) {
+  try {
+    const onnx = env?.backends?.onnx;
+    lastEnvSnapshot = {
+      where,
+      timestamp: new Date().toISOString(),
+      modKeys: mod2 && typeof mod2 === "object" ? Object.keys(mod2).slice(0, 20) : null,
+      hasDefault: !!mod2?.default,
+      hasPipeline: typeof (mod2?.pipeline || mod2?.default?.pipeline) === "function",
+      envKeys: env ? Object.keys(env).slice(0, 20) : null,
+      backendKeys: onnx ? Object.keys(onnx).slice(0, 20) : null,
+      onnxHasWasm: !!onnx?.wasm,
+      onnxWasmKeys: onnx?.wasm ? Object.keys(onnx.wasm).slice(0, 20) : null,
+      onnxWasmPaths: onnx?.wasm?.wasmPaths ?? null,
+      envHasUseWasm: typeof env?.useWasm === "function",
+      envHasBackends: !!env?.backends
+    };
+    console.log("[LocalEmbeddingModel] [ENV SNAPSHOT]", lastEnvSnapshot);
+  } catch (e) {
+    console.warn("[LocalEmbeddingModel] [ENV SNAPSHOT] Failed to capture env snapshot:", e);
+  }
+}
 async function getPipeline(plugin) {
   console.log(`[LocalEmbeddingModel] === STARTING PIPELINE LOAD ===`);
   console.log(`[LocalEmbeddingModel] Timestamp: ${new Date().toISOString()}`);
@@ -70004,6 +70046,9 @@ async function getPipeline(plugin) {
     if (env.backends?.onnx) {
       console.log(`[LocalEmbeddingModel] [STEP 3] env.backends.onnx type:`, typeof env.backends.onnx);
       console.log(`[LocalEmbeddingModel] [STEP 3] env.backends.onnx keys:`, Object.keys(env.backends.onnx).slice(0, 20));
+    }
+    if (!lastEnvSnapshot) {
+      captureEnvSnapshot(mod2, env, "before-wasm-config");
     }
   } else {
     console.warn(`[LocalEmbeddingModel] [STEP 3] \u2717 Could not find env structure`);
@@ -70189,6 +70234,16 @@ var MiniLmLocalEmbeddingModel = class {
             console.error(`[LocalEmbeddingModel] [LOAD] Step 3: Error stack (first 10 lines):`);
             console.error(pipelineErr.stack.split("\n").slice(0, 10).join("\n"));
           }
+          if (!lastEnvSnapshot) {
+            try {
+              const modAtError = await Promise.resolve().then(() => (init_transformers(), transformers_exports));
+              const envAtError = modAtError.env || modAtError.default?.env;
+              if (envAtError) {
+                captureEnvSnapshot(modAtError, envAtError, "on-pipeline-error");
+              }
+            } catch {
+            }
+          }
           this.logError("ensureLoaded.createPipeline", `Creating pipeline with model Xenova/all-MiniLM-L6-v2, cache: ${cacheDir}`, pipelineErr);
           throw pipelineErr;
         }
@@ -70277,6 +70332,9 @@ var MiniLmLocalEmbeddingModel = class {
   }
   getLoadAttempts() {
     return this.loadAttempts;
+  }
+  getEnvSnapshot() {
+    return lastEnvSnapshot;
   }
   logError(location, context, error2) {
     const errorMsg = error2 instanceof Error ? error2.message : String(error2);
@@ -70490,6 +70548,7 @@ function excerptOf(text2, maxChars) {
   return `${trimmed.slice(0, maxChars)}\u2026`;
 }
 var EmbeddingsIndex = class {
+  // Track if we've already notified about fallback
   constructor(vault, plugin, dim = 256) {
     this.loaded = false;
     this.chunksByKey = /* @__PURE__ */ new Map();
@@ -70501,6 +70560,8 @@ var EmbeddingsIndex = class {
     // Error tracking
     this.errorLog = [];
     this.maxStoredErrors = 100;
+    // Fallback tracking: if MiniLM fails too many times, we should switch to hash
+    this.fallbackNotified = false;
     this.vault = vault;
     this.plugin = plugin;
     const backend = plugin.settings.retrievalEmbeddingBackend;
@@ -70701,6 +70762,14 @@ var EmbeddingsIndex = class {
       return;
     }
     if (this.backend === "minilm") {
+      const loadAttempts = this.model.getLoadAttempts();
+      const lastError = this.model.getLastLoadError();
+      if (loadAttempts > 50 && lastError && !this.fallbackNotified) {
+        const shouldFallback = await this.checkAndSuggestFallback(loadAttempts, lastError);
+        if (shouldFallback) {
+          return;
+        }
+      }
       try {
         const isReady = await this.model.isReady();
         console.log(`  - Model ready: ${isReady}`);
@@ -70866,6 +70935,32 @@ var EmbeddingsIndex = class {
       void this.plugin.saveSettings().catch(() => {
       });
     }, 1e3);
+  }
+  /**
+   * Check if MiniLM is fundamentally broken and suggest fallback to hash backend.
+   * Returns true if fallback was applied (which will cause the index to be recreated).
+   */
+  async checkAndSuggestFallback(loadAttempts, lastError) {
+    if (this.fallbackNotified) {
+      return false;
+    }
+    const isOnnxError = lastError.message.includes("Cannot read properties of undefined (reading 'create')") || lastError.message.includes("constructSession") || lastError.location === "ensureLoaded" || lastError.location === "ensureLoaded.createPipeline";
+    if (!isOnnxError) {
+      return false;
+    }
+    console.warn(`[EmbeddingsIndex] MiniLM embedding model is failing repeatedly (${loadAttempts} attempts)`);
+    console.warn(`[EmbeddingsIndex] Last error: ${lastError.message} at ${lastError.location}`);
+    console.warn(`[EmbeddingsIndex] This appears to be an ONNX Runtime initialization issue that cannot be automatically resolved.`);
+    console.warn(`[EmbeddingsIndex] Suggesting automatic fallback to hash-based embeddings...`);
+    this.fallbackNotified = true;
+    try {
+      await this.plugin.handleEmbeddingBackendFallback();
+      console.log(`[EmbeddingsIndex] Backend automatically switched to 'hash'`);
+      return true;
+    } catch (err) {
+      console.error(`[EmbeddingsIndex] Failed to switch backend:`, err);
+      return false;
+    }
   }
 };
 
@@ -78498,6 +78593,34 @@ var WritingDashboardPlugin = class extends import_obsidian24.Plugin {
   showPublishWizard() {
     const modal = new PublishWizardModal(this);
     modal.open();
+  }
+  /**
+   * Handle automatic fallback from minilm to hash backend when MiniLM fails repeatedly.
+   * This recreates the embeddings index and retrieval service with the hash backend.
+   */
+  async handleEmbeddingBackendFallback() {
+    if (this.settings.retrievalEmbeddingBackend !== "minilm") {
+      return;
+    }
+    console.log(`[WritingDashboardPlugin] Automatically switching embedding backend from 'minilm' to 'hash' due to repeated failures`);
+    this.settings.retrievalEmbeddingBackend = "hash";
+    await this.saveSettings();
+    this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this);
+    const providers = [
+      new HeuristicProvider(this.app.vault, this.vaultService),
+      new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path)),
+      new LocalEmbeddingsProvider(
+        this.embeddingsIndex,
+        () => Boolean(this.settings.retrievalEnableSemanticIndex),
+        (path) => !this.vaultService.isExcludedPath(path)
+      )
+    ];
+    this.retrievalService = new RetrievalService(providers, { getVector: (key) => this.embeddingsIndex.getVectorForKey(key) });
+    if (this.settings.retrievalEnableSemanticIndex && !this.settings.retrievalIndexPaused) {
+      this.embeddingsIndex.enqueueFullRescan();
+    }
+    new import_obsidian24.Notice("Embedding backend automatically switched to hash-based embeddings due to MiniLM initialization failures. Your index is being rebuilt.", 8e3);
+    console.log(`[WritingDashboardPlugin] Backend switched and reindex triggered`);
   }
   requestGuidedDemoStart() {
     this.guidedDemoStartRequested = true;
