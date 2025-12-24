@@ -69644,17 +69644,45 @@ var import_obsidian16 = require("obsidian");
 // services/retrieval/LocalEmbeddingModel.ts
 async function getPipeline(plugin) {
   const mod2 = await Promise.resolve().then(() => (init_transformers(), transformers_exports));
-  if (mod2.env) {
-    if (!mod2.env.backends)
-      mod2.env.backends = {};
-    if (!mod2.env.backends.onnx)
-      mod2.env.backends.onnx = {};
-    if (!mod2.env.backends.onnx.wasm)
-      mod2.env.backends.onnx.wasm = {};
-    const pluginBasePath = plugin.app.vault.adapter.basePath || "";
-    const wasmPath = pluginBasePath ? `${pluginBasePath}/.obsidian/plugins/${plugin.manifest.id}/lib/` : `./lib/`;
-    mod2.env.backends.onnx.wasm.wasmPaths = wasmPath;
-    console.log(`[LocalEmbeddingModel] Configured WASM path: ${wasmPath}`);
+  if (mod2.env && mod2.env.backends && mod2.env.backends.onnx) {
+    const onnxEnv = mod2.env.backends.onnx;
+    if (!onnxEnv.wasm)
+      onnxEnv.wasm = {};
+    const vaultBase = plugin.app.vault.adapter.basePath || "";
+    const pluginId = plugin.manifest.id;
+    const wasmFiles = [
+      "ort-wasm.wasm",
+      "ort-wasm-simd.wasm",
+      "ort-wasm-threaded.wasm",
+      "ort-wasm-simd-threaded.wasm"
+    ];
+    const wasmPaths = {};
+    for (const wasmFile of wasmFiles) {
+      wasmPaths[wasmFile] = `./lib/${wasmFile}`;
+    }
+    onnxEnv.wasm.wasmPaths = wasmPaths;
+    console.log(`[LocalEmbeddingModel] === WASM PATH CONFIGURATION ===`);
+    console.log(`[LocalEmbeddingModel] Vault base: ${vaultBase}`);
+    console.log(`[LocalEmbeddingModel] Plugin ID: ${pluginId}`);
+    console.log(`[LocalEmbeddingModel] WASM paths configured:`, wasmPaths);
+    console.log(`[LocalEmbeddingModel] ONNX env structure:`, {
+      hasEnv: !!mod2.env,
+      hasBackends: !!mod2.env?.backends,
+      hasOnnx: !!mod2.env?.backends?.onnx,
+      hasWasm: !!mod2.env?.backends?.onnx?.wasm,
+      wasmPathsType: typeof onnxEnv.wasm.wasmPaths,
+      wasmPathsIsObject: typeof onnxEnv.wasm.wasmPaths === "object",
+      wasmPathsKeys: typeof onnxEnv.wasm.wasmPaths === "object" ? Object.keys(onnxEnv.wasm.wasmPaths) : "N/A"
+    });
+    console.log(`[LocalEmbeddingModel] === END WASM CONFIGURATION ===`);
+  } else {
+    console.error(`[LocalEmbeddingModel] ERROR: mod.env structure not found:`, {
+      hasMod: !!mod2,
+      hasEnv: !!mod2?.env,
+      hasBackends: !!mod2?.env?.backends,
+      hasOnnx: !!mod2?.env?.backends?.onnx,
+      modKeys: mod2 ? Object.keys(mod2) : []
+    });
   }
   const pipeline = mod2.pipeline || mod2.default && mod2.default.pipeline;
   if (!pipeline || typeof pipeline !== "function") {
@@ -70816,8 +70844,22 @@ var TransformersCrossEncoder = class {
       return this.loading;
     this.loading = (async () => {
       const transformersModule = await Promise.resolve().then(() => (init_transformers(), transformers_exports));
-      if (transformersModule.env && transformersModule.env.backends && transformersModule.env.backends.onnx && transformersModule.env.backends.onnx.wasm) {
-        transformersModule.env.backends.onnx.wasm.wasmPaths = "./lib/";
+      if (transformersModule.env && transformersModule.env.backends && transformersModule.env.backends.onnx) {
+        const onnxEnv = transformersModule.env.backends.onnx;
+        if (!onnxEnv.wasm)
+          onnxEnv.wasm = {};
+        const wasmFiles = [
+          "ort-wasm.wasm",
+          "ort-wasm-simd.wasm",
+          "ort-wasm-threaded.wasm",
+          "ort-wasm-simd-threaded.wasm"
+        ];
+        const wasmPaths = {};
+        for (const wasmFile of wasmFiles) {
+          wasmPaths[wasmFile] = `./lib/${wasmFile}`;
+        }
+        onnxEnv.wasm.wasmPaths = wasmPaths;
+        console.log(`[CpuReranker] Configured WASM paths:`, wasmPaths);
       }
       const pipeline = transformersModule.pipeline || transformersModule.default?.pipeline;
       if (!pipeline || typeof pipeline !== "function") {

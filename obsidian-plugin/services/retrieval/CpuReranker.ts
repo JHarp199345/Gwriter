@@ -31,11 +31,25 @@ class TransformersCrossEncoder implements CpuRerankerModel {
 			// Import the vendored transformers library
 			const transformersModule: any = await import('../../lib/transformers.js');
 			
-			// Configure WASM paths - use a relative path from the plugin directory
-			// The library will resolve this relative to where it's loaded
-			if (transformersModule.env && transformersModule.env.backends && transformersModule.env.backends.onnx && transformersModule.env.backends.onnx.wasm) {
-				// Use relative path - the library should resolve it from the plugin directory
-				transformersModule.env.backends.onnx.wasm.wasmPaths = './lib/';
+			// Configure WASM paths - use object mapping for individual files
+			if (transformersModule.env && transformersModule.env.backends && transformersModule.env.backends.onnx) {
+				const onnxEnv = transformersModule.env.backends.onnx;
+				if (!onnxEnv.wasm) onnxEnv.wasm = {};
+				
+				const wasmFiles = [
+					'ort-wasm.wasm',
+					'ort-wasm-simd.wasm',
+					'ort-wasm-threaded.wasm',
+					'ort-wasm-simd-threaded.wasm'
+				];
+				
+				const wasmPaths: Record<string, string> = {};
+				for (const wasmFile of wasmFiles) {
+					wasmPaths[wasmFile] = `./lib/${wasmFile}`;
+				}
+				
+				onnxEnv.wasm.wasmPaths = wasmPaths;
+				console.log(`[CpuReranker] Configured WASM paths:`, wasmPaths);
 			}
 			
 			// @xenova/transformers exports pipeline as a named export
