@@ -164,7 +164,7 @@ ${focusLines.length ? focusLines.join('\n') : '- General continuity'}
 
 Rules:
 - Evidence-based only: cite exact quotes from the draft and from context when possible.
-- Do not invent canon. If something is unknown, mark it as \"Needs confirmation\".
+- Do not invent canon. If something is unknown, mark it as "Needs confirmation".
 - Keep the report short and actionable.
 
 -------------------------------------------------------------
@@ -198,8 +198,8 @@ OUTPUT FORMAT (required)
 ## Continuity report
 - Severity: Low | Medium | High
 - Issue: ...
-- Evidence (draft): \"...\"
-- Evidence (canon/context): \"...\" (or [none found])
+- Evidence (draft): "..."
+- Evidence (canon/context): "..." (or [none found])
 - Suggested fix: ...
 
 ## Suggested patches (optional)

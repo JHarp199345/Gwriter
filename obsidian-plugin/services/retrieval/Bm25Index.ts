@@ -174,7 +174,7 @@ export class Bm25Index {
 			const postings = parsed.postings || {};
 			for (const [term, list] of Object.entries(postings)) {
 				if (!Array.isArray(list)) continue;
-				this.postings.set(term, list.filter((e) => Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'number') as Array<[string, number]>);
+				this.postings.set(term, list.filter((e): e is [string, number] => Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'number'));
 			}
 		} catch {
 			// Corrupt index should not break the plugin; we rebuild lazily.

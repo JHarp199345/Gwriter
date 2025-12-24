@@ -1,17 +1,30 @@
+import { Modal } from 'obsidian';
 import WritingDashboardPlugin from '../main';
 import { FileTreePickerModal } from './FileTreePickerModal';
 
-export class BookMainSelectorModal extends FileTreePickerModal {
+export class BookMainSelectorModal extends Modal {
+	private plugin: WritingDashboardPlugin;
+
 	constructor(plugin: WritingDashboardPlugin) {
-		super(plugin, {
-			currentPath: plugin.settings.book2Path,
-			onPick: async (filePath) => {
-				plugin.settings.book2Path = filePath;
-				plugin.settings.setupCompleted = true;
-				await plugin.saveSettings();
+		super(plugin.app);
+		this.plugin = plugin;
+	}
+
+	onOpen() {
+		// Delegate to FileTreePickerModal
+		const modal = new FileTreePickerModal(this.plugin, {
+			currentPath: this.plugin.settings.book2Path,
+			title: 'Select your main book file',
+			onPick: async (filePath: string) => {
+				this.plugin.settings.book2Path = filePath;
+				this.plugin.settings.setupCompleted = true;
+				await this.plugin.saveSettings();
+				this.close();
 			}
 		});
-		this.titleEl.setText('Select your manuscript file');
+		modal.open();
+		// Close this modal immediately since FileTreePickerModal handles its own UI
+		this.close();
 	}
 }
 

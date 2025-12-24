@@ -8,16 +8,18 @@ export class FileTreePickerModal extends Modal {
 	private reactRoot: { render: (node: unknown) => void; unmount: () => void } | null = null;
 	private onPick: (filePath: string) => void | Promise<void>;
 	private currentPath?: string;
+	private title: string;
 
-	constructor(plugin: WritingDashboardPlugin, opts: { onPick: (filePath: string) => void | Promise<void>; currentPath?: string }) {
+	constructor(plugin: WritingDashboardPlugin, opts: { onPick: (filePath: string) => void | Promise<void>; currentPath?: string; title?: string }) {
 		super(plugin.app);
 		this.plugin = plugin;
 		this.onPick = opts.onPick;
 		this.currentPath = opts.currentPath;
+		this.title = opts.title || 'Select file';
 	}
 
 	onOpen() {
-		this.titleEl.setText('Select book file');
+		this.titleEl.setText(this.title);
 		this.contentEl.empty();
 		const container = this.contentEl.createDiv();
 		this.reactRoot = createRoot(container);
@@ -110,21 +112,14 @@ export const FileTreePickerComponent: React.FC<FileTreePickerComponentProps> = (
 			return (
 				<div 
 					key={item.path} 
-					className={`vault-item file ${isSelected ? 'selected' : ''}`}
+					className={`vault-item file ${isSelected ? 'selected' : 'hoverable'}`}
 					style={{ 
 						paddingLeft: `${depth * 20}px`,
 						cursor: 'pointer',
 						padding: '4px 8px',
-						borderRadius: '4px',
-						backgroundColor: isSelected ? 'var(--background-modifier-hover)' : 'transparent'
+						borderRadius: '4px'
 					}}
 					onClick={() => onPick(item.path)}
-					onMouseEnter={(e) => {
-						if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--background-modifier-hover)';
-					}}
-					onMouseLeave={(e) => {
-						if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
-					}}
 				>
 					📄 {item.name}
 					{isSelected && <span style={{ marginLeft: '8px', color: 'var(--text-accent)' }}>✓</span>}

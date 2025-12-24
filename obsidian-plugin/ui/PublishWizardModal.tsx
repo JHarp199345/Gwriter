@@ -4,6 +4,7 @@ import { Modal, Notice, TFile, TFolder } from 'obsidian';
 import WritingDashboardPlugin from '../main';
 import { FilePickerModal } from './FilePickerModal';
 import { FolderPickerModal } from './FolderPickerModal';
+import { FileTreePickerModal } from './FileTreePickerModal';
 import { BinaryFilePickerModal } from './BinaryFilePickerModal';
 import { MarkdownCompile } from '../services/publish/MarkdownCompile';
 import { EpubExportService } from '../services/publish/EpubExportService';
@@ -152,13 +153,13 @@ export const PublishWizardComponent: React.FC<{ plugin: WritingDashboardPlugin; 
 		return true;
 	}, [step, mode, sourcePath, tocPath, embedFonts, fontRegular, outputFolder, outputFileName]);
 
-	const pickMarkdownFile = (placeholder: string, onPick: (file: TFile) => void | Promise<void>) => {
-		const files = plugin.app.vault.getMarkdownFiles();
-		const modal = new FilePickerModal({
-			app: plugin.app,
-			files,
-			placeholder,
-			onPick
+	const pickMarkdownFile = (title: string, onPick: (filePath: string) => void | Promise<void>, currentPath?: string) => {
+		const modal = new FileTreePickerModal(plugin, {
+			currentPath: currentPath,
+			title: title,
+			onPick: async (filePath: string) => {
+				await onPick(filePath);
+			}
 		});
 		modal.open();
 	};
@@ -325,9 +326,9 @@ export const PublishWizardComponent: React.FC<{ plugin: WritingDashboardPlugin; 
 								<input value={sourcePath} onChange={(e) => setSourcePath(e.target.value)} disabled={isExporting} />
 								<button
 									onClick={() =>
-										pickMarkdownFile('Pick your manuscript note', (file) => {
-											setSourcePath(file.path);
-										})
+										pickMarkdownFile('Pick your manuscript note', (filePath: string) => {
+											setSourcePath(filePath);
+										}, sourcePath)
 									}
 									disabled={isExporting}
 								>
@@ -344,9 +345,9 @@ export const PublishWizardComponent: React.FC<{ plugin: WritingDashboardPlugin; 
 								<input value={tocPath} onChange={(e) => setTocPath(e.target.value)} disabled={isExporting} />
 								<button
 									onClick={() =>
-										pickMarkdownFile('Pick your TOC note', (file) => {
-											setTocPath(file.path);
-										})
+										pickMarkdownFile('Pick your TOC note', (filePath: string) => {
+											setTocPath(filePath);
+										}, tocPath)
 									}
 									disabled={isExporting}
 								>

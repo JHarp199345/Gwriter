@@ -1101,7 +1101,7 @@ var require_react_development = __commonJS({
           }
           return dispatcher.useContext(Context);
         }
-        function useState7(initialState) {
+        function useState8(initialState) {
           var dispatcher = resolveDispatcher();
           return dispatcher.useState(initialState);
         }
@@ -1904,7 +1904,7 @@ var require_react_development = __commonJS({
         exports.useMemo = useMemo2;
         exports.useReducer = useReducer;
         exports.useRef = useRef3;
-        exports.useState = useState7;
+        exports.useState = useState8;
         exports.useSyncExternalStore = useSyncExternalStore;
         exports.useTransition = useTransition;
         exports.version = ReactVersion;
@@ -2400,9 +2400,9 @@ var require_react_dom_development = __commonJS({
         if (typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ !== "undefined" && typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart === "function") {
           __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(new Error());
         }
-        var React11 = require_react();
+        var React12 = require_react();
         var Scheduler = require_scheduler();
-        var ReactSharedInternals = React11.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+        var ReactSharedInternals = React12.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
         var suppressWarning = false;
         function setSuppressWarning(newSuppressWarning) {
           {
@@ -4007,7 +4007,7 @@ var require_react_dom_development = __commonJS({
           {
             if (props.value == null) {
               if (typeof props.children === "object" && props.children !== null) {
-                React11.Children.forEach(props.children, function(child) {
+                React12.Children.forEach(props.children, function(child) {
                   if (child == null) {
                     return;
                   }
@@ -23088,7 +23088,7 @@ var require_react_dom_development = __commonJS({
             unmarkContainerAsRoot(container);
           }
         };
-        function createRoot6(container, options2) {
+        function createRoot7(container, options2) {
           if (!isValidContainer(container)) {
             throw new Error("createRoot(...): Target container is not a DOM element.");
           }
@@ -23471,7 +23471,7 @@ var require_react_dom_development = __commonJS({
               error2('You are importing createRoot from "react-dom" which is not supported. You should instead import it from "react-dom/client".');
             }
           }
-          return createRoot6(container, options2);
+          return createRoot7(container, options2);
         }
         function hydrateRoot$1(container, initialChildren, options2) {
           {
@@ -63986,16 +63986,16 @@ __export(main_exports, {
   default: () => WritingDashboardPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian23 = require("obsidian");
+var import_obsidian24 = require("obsidian");
 
 // ui/DashboardView.ts
-var import_obsidian6 = require("obsidian");
-var import_client2 = __toESM(require_client());
-var import_react7 = __toESM(require_react());
+var import_obsidian7 = require("obsidian");
+var import_client4 = __toESM(require_client());
+var import_react9 = __toESM(require_react());
 
 // ui/DashboardComponent.tsx
-var import_react6 = __toESM(require_react());
-var import_obsidian5 = require("obsidian");
+var import_react8 = __toESM(require_react());
+var import_obsidian6 = require("obsidian");
 
 // ui/VaultBrowser.tsx
 var import_react = __toESM(require_react());
@@ -64252,36 +64252,11 @@ function estimateTokens(text2) {
   return Math.ceil(text2.length / 4);
 }
 
-// ui/FilePickerModal.ts
-var import_obsidian = require("obsidian");
-var FilePickerModal = class extends import_obsidian.FuzzySuggestModal {
-  constructor(opts) {
-    super(opts.app);
-    this.files = opts.files;
-    this.placeholderText = opts.placeholder;
-    this.onPick = opts.onPick;
-    this.setPlaceholder(this.placeholderText);
-  }
-  getItems() {
-    return this.files.slice().sort((a, b) => {
-      const aScore = (a.stat?.mtime || 0) + (a.stat?.size || 0);
-      const bScore = (b.stat?.mtime || 0) + (b.stat?.size || 0);
-      return bScore - aScore;
-    });
-  }
-  getItemText(item) {
-    return item.path;
-  }
-  onChooseItem(item) {
-    void this.onPick(item);
-  }
-};
-
 // ui/FolderTreePickerModal.tsx
-var import_obsidian2 = require("obsidian");
+var import_obsidian = require("obsidian");
 var import_react5 = __toESM(require_react());
 var import_client = __toESM(require_client());
-var FolderTreePickerModal = class extends import_obsidian2.Modal {
+var FolderTreePickerModal = class extends import_obsidian.Modal {
   constructor(plugin, opts) {
     super(plugin.app);
     this.reactRoot = null;
@@ -64520,6 +64495,115 @@ var FolderTreePickerComponent = ({
   ));
 };
 
+// ui/FileTreePickerModal.tsx
+var import_obsidian2 = require("obsidian");
+var import_react6 = __toESM(require_react());
+var import_client2 = __toESM(require_client());
+var FileTreePickerModal = class extends import_obsidian2.Modal {
+  constructor(plugin, opts) {
+    super(plugin.app);
+    this.reactRoot = null;
+    this.plugin = plugin;
+    this.onPick = opts.onPick;
+    this.currentPath = opts.currentPath;
+    this.title = opts.title || "Select file";
+  }
+  onOpen() {
+    this.titleEl.setText(this.title);
+    this.contentEl.empty();
+    const container = this.contentEl.createDiv();
+    this.reactRoot = (0, import_client2.createRoot)(container);
+    this.reactRoot.render(
+      import_react6.default.createElement(FileTreePickerComponent, {
+        plugin: this.plugin,
+        currentPath: this.currentPath,
+        onPick: (path) => {
+          void this.onPick(path);
+          this.close();
+        },
+        onClose: () => this.close()
+      })
+    );
+  }
+  onClose() {
+    if (this.reactRoot) {
+      this.reactRoot.unmount();
+      this.reactRoot = null;
+    }
+    this.contentEl.empty();
+  }
+};
+var FileTreePickerComponent = ({ plugin, currentPath, onPick, onClose }) => {
+  const [structure, setStructure] = (0, import_react6.useState)([]);
+  const [expandedFolders, setExpandedFolders] = (0, import_react6.useState)(/* @__PURE__ */ new Set([""]));
+  (0, import_react6.useEffect)(() => {
+    const vaultStructure = plugin.vaultService.getVaultStructure();
+    const filtered = vaultStructure.filter(
+      (item) => item.type === "folder" || item.type === "file" && item.path.endsWith(".md")
+    );
+    setStructure(filtered);
+    const expanded = /* @__PURE__ */ new Set([""]);
+    if (currentPath) {
+      const parts = currentPath.split("/");
+      for (let i = 1; i < parts.length; i++) {
+        expanded.add(parts.slice(0, i).join("/"));
+      }
+    }
+    setExpandedFolders(expanded);
+  }, [currentPath, plugin]);
+  const toggleFolder = (path) => {
+    const newExpanded = new Set(expandedFolders);
+    if (newExpanded.has(path)) {
+      newExpanded.delete(path);
+    } else {
+      newExpanded.add(path);
+    }
+    setExpandedFolders(newExpanded);
+  };
+  const renderItem = (item, depth = 0) => {
+    if (item.type === "folder") {
+      const isExpanded = expandedFolders.has(item.path);
+      const children = structure.filter(
+        (s) => s.path.startsWith(item.path + "/") && s.path.split("/").length === item.path.split("/").length + 1
+      );
+      if (children.length === 0)
+        return null;
+      return /* @__PURE__ */ import_react6.default.createElement("div", { key: item.path, className: "vault-item folder", style: { paddingLeft: `${depth * 20}px` } }, /* @__PURE__ */ import_react6.default.createElement(
+        "span",
+        {
+          className: "folder-toggle",
+          onClick: () => toggleFolder(item.path),
+          style: { cursor: "pointer", userSelect: "none" }
+        },
+        isExpanded ? "\u{1F4C2}" : "\u{1F4C1}",
+        " ",
+        item.name
+      ), isExpanded && children.map((child) => renderItem(child, depth + 1)));
+    } else {
+      const isSelected = item.path === currentPath;
+      return /* @__PURE__ */ import_react6.default.createElement(
+        "div",
+        {
+          key: item.path,
+          className: `vault-item file ${isSelected ? "selected" : "hoverable"}`,
+          style: {
+            paddingLeft: `${depth * 20}px`,
+            cursor: "pointer",
+            padding: "4px 8px",
+            borderRadius: "4px"
+          },
+          onClick: () => onPick(item.path)
+        },
+        "\u{1F4C4} ",
+        item.name,
+        isSelected && /* @__PURE__ */ import_react6.default.createElement("span", { style: { marginLeft: "8px", color: "var(--text-accent)" } }, "\u2713")
+      );
+    }
+  };
+  const rootItems = structure.filter((item) => !item.path.includes("/"));
+  return /* @__PURE__ */ import_react6.default.createElement("div", { className: "file-tree-picker", style: { padding: "12px", maxHeight: "60vh", overflowY: "auto" } }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "vault-tree" }, rootItems.length === 0 ? /* @__PURE__ */ import_react6.default.createElement("div", { style: { padding: "12px", color: "var(--text-muted)" } }, "No markdown files found in vault") : rootItems.map((item) => renderItem(item))));
+};
+
 // services/CharacterRoster.ts
 function normalizeName(name2) {
   return name2.trim().replace(/\s+/g, " ");
@@ -64646,8 +64730,277 @@ var PromptPreviewModal = class extends import_obsidian4.Modal {
   }
 };
 
+// ui/ButtonHelpModal.tsx
+var import_obsidian5 = require("obsidian");
+var import_react7 = __toESM(require_react());
+var import_client3 = __toESM(require_client());
+var WORKFLOWS = {
+  "Content Generation": [
+    {
+      buttonLabel: "Generate chapter",
+      mode: ["chapter"],
+      workflow: [
+        "Write your Scene Summary / Directions",
+        "Set target word range (Min \u2192 Max)",
+        "Optional: Review/edit Rewrite Instructions",
+        'Click "Generate chapter"',
+        "Review output and copy to your manuscript"
+      ]
+    },
+    {
+      buttonLabel: "Generate edit",
+      mode: ["micro-edit"],
+      workflow: [
+        'Paste problematic passage in "Selected Text"',
+        "Enter grievances/directives in the textarea",
+        'Click "Generate edit"',
+        "Copy the refined alternative into your manuscript"
+      ]
+    },
+    {
+      buttonLabel: "Run continuity check",
+      mode: ["continuity-check"],
+      workflow: [
+        "Paste draft text to check (or use last generated output)",
+        "Optional: Adjust focus toggles (Knowledge, Timeline, POV, Naming)",
+        'Click "Run continuity check"',
+        "Review violations report with suggested patches"
+      ]
+    }
+  ],
+  "Character Management": [
+    {
+      buttonLabel: "Update characters",
+      mode: ["character-update"],
+      workflow: [
+        'Paste character-relevant text in "Selected Text" field',
+        'Click "Update characters"',
+        "Character notes are automatically updated with timestamped entries in the Characters/ folder"
+      ]
+    },
+    {
+      buttonLabel: "Select file to process",
+      mode: ["character-update"],
+      workflow: [
+        "Click to open file tree picker",
+        "Select a manuscript file for bulk character extraction",
+        'Selected file will be used by "Process entire book" button'
+      ]
+    },
+    {
+      buttonLabel: "Use book main path",
+      mode: ["character-update"],
+      workflow: [
+        "Resets the source file back to your main book file (configured in settings)",
+        "Useful when you want to switch from a custom file back to the default"
+      ]
+    },
+    {
+      buttonLabel: "Process entire book",
+      mode: ["character-update"],
+      workflow: [
+        'Optional: Select custom file with "Select file to process"',
+        "Click to perform 2-pass scan (roster + per-chapter extraction)",
+        "Character notes updated from entire manuscript automatically"
+      ]
+    },
+    {
+      buttonLabel: "Chunk current note",
+      mode: ["character-update"],
+      workflow: [
+        "Select a file to process first",
+        "Click to chunk it into smaller sections for processing"
+      ]
+    }
+  ],
+  "Story Bible": [
+    {
+      buttonLabel: "Update story bible",
+      mode: ["chapter"],
+      workflow: [
+        "Write or generate a chapter",
+        'Click "Update story bible" to extract updates from the text',
+        "Review the merged output in the generated text area",
+        'Use "Save merged story bible" or "Replace story bible" to save'
+      ]
+    },
+    {
+      buttonLabel: "Save merged story bible",
+      mode: ["chapter"],
+      workflow: [
+        "After updating story bible, review the merged output",
+        "Click to save as a new versioned file in Story bibles/ folder",
+        'File will be named "Story bible - YYYY-MM-DD.md"'
+      ]
+    },
+    {
+      buttonLabel: "Replace story bible",
+      mode: ["chapter"],
+      workflow: [
+        "After updating story bible, review the merged output",
+        "Click to save new version and automatically update the active story bible path in settings"
+      ]
+    }
+  ],
+  "Utilities": [
+    {
+      buttonLabel: "Export to epub",
+      workflow: [
+        "Click to open export wizard",
+        "Step 1: Select source (book main file or TOC note)",
+        "Step 2: Enter metadata (title, author, language, subtitle)",
+        "Step 3: Configure front matter (title page, copyright page, license)",
+        "Step 4: Choose typography and optional font embedding",
+        "Step 5: Select output folder and file name",
+        "Step 6: Click export to generate EPUB, DOCX, RTF, or plain text"
+      ]
+    },
+    {
+      buttonLabel: "Preview prompt",
+      workflow: [
+        "Configure all inputs (scene summary, selected text, etc.)",
+        "Click to preview the full prompt that will be sent to AI",
+        "Review token estimates and retrieved context summary",
+        "Useful for debugging or understanding what context the AI sees"
+      ]
+    }
+  ]
+};
+var ButtonHelpModalComponent = ({ onClose }) => {
+  const [expandedCategory, setExpandedCategory] = (0, import_react7.useState)(null);
+  const toggleCategory = (category) => {
+    setExpandedCategory(expandedCategory === category ? null : category);
+  };
+  return /* @__PURE__ */ import_react7.default.createElement("div", { style: { padding: "20px", maxHeight: "70vh", overflowY: "auto" } }, /* @__PURE__ */ import_react7.default.createElement("h2", { style: { marginTop: 0 } }, "Button Workflows"), /* @__PURE__ */ import_react7.default.createElement("p", { style: { color: "var(--text-muted)", fontSize: "14px", marginBottom: "20px" } }, "Click on a category to expand and see detailed workflows for each button."), Object.entries(WORKFLOWS).map(([category, items]) => /* @__PURE__ */ import_react7.default.createElement("div", { key: category, style: { marginBottom: "16px" } }, /* @__PURE__ */ import_react7.default.createElement(
+    "button",
+    {
+      onClick: () => toggleCategory(category),
+      style: {
+        width: "100%",
+        textAlign: "left",
+        padding: "12px",
+        background: "var(--background-secondary)",
+        border: "1px solid var(--background-modifier-border)",
+        borderRadius: "4px",
+        cursor: "pointer",
+        fontSize: "16px",
+        fontWeight: 600,
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center"
+      }
+    },
+    /* @__PURE__ */ import_react7.default.createElement("span", null, category),
+    /* @__PURE__ */ import_react7.default.createElement("span", null, expandedCategory === category ? "\u2212" : "+")
+  ), expandedCategory === category && /* @__PURE__ */ import_react7.default.createElement("div", { style: { marginTop: "8px", paddingLeft: "12px" } }, items.map((item, index) => /* @__PURE__ */ import_react7.default.createElement(
+    "div",
+    {
+      key: index,
+      style: {
+        marginBottom: "20px",
+        padding: "12px",
+        background: "var(--background-primary)",
+        border: "1px solid var(--background-modifier-border)",
+        borderRadius: "4px"
+      }
+    },
+    /* @__PURE__ */ import_react7.default.createElement(
+      "h3",
+      {
+        style: {
+          margin: "0 0 8px 0",
+          fontSize: "14px",
+          fontWeight: 600,
+          color: "var(--text-accent)"
+        }
+      },
+      item.buttonLabel
+    ),
+    item.mode && /* @__PURE__ */ import_react7.default.createElement(
+      "div",
+      {
+        style: {
+          fontSize: "12px",
+          color: "var(--text-muted)",
+          marginBottom: "8px",
+          fontStyle: "italic"
+        }
+      },
+      "Available in: ",
+      item.mode.join(", "),
+      " mode"
+    ),
+    /* @__PURE__ */ import_react7.default.createElement("ol", { style: { margin: 0, paddingLeft: "20px" } }, item.workflow.map((step, stepIndex) => /* @__PURE__ */ import_react7.default.createElement("li", { key: stepIndex, style: { marginBottom: "4px", fontSize: "13px" } }, step)))
+  ))))));
+};
+var ButtonHelpModal = class extends import_obsidian5.Modal {
+  constructor() {
+    super(...arguments);
+    this.reactRoot = null;
+  }
+  onOpen() {
+    this.titleEl.setText("Button Workflows & Usage Guide");
+    this.contentEl.empty();
+    const container = this.contentEl.createDiv();
+    this.reactRoot = (0, import_client3.createRoot)(container);
+    this.reactRoot.render(import_react7.default.createElement(ButtonHelpModalComponent, { onClose: () => this.close() }));
+  }
+  onClose() {
+    if (this.reactRoot) {
+      this.reactRoot.unmount();
+      this.reactRoot = null;
+    }
+    this.contentEl.empty();
+  }
+};
+
 // ui/DashboardComponent.tsx
 var DEFAULT_REWRITE_INSTRUCTIONS = "[INSTRUCTION: The Scene Summary is a rough summary OR directions. Rewrite it into a fully detailed dramatic scene. Include dialogue, sensory details, and action. Do not summarize; write the prose. Match the tone, rhythm, and pacing of the provided context.]";
+var getButtonTooltip = (buttonId, mode) => {
+  const workflows = {
+    "export-epub": {
+      "": "Workflow: 1) Click to open export wizard, 2) Select source (book main or TOC), 3) Enter metadata, 4) Configure front matter, 5) Choose typography, 6) Select output folder and export"
+    },
+    "preview-prompt": {
+      "": "Workflow: 1) Configure all inputs (scene summary, selected text, etc.), 2) Click to preview the full prompt that will be sent to AI, 3) Review token estimates and retrieved context"
+    },
+    "generate-chapter": {
+      "chapter": "Workflow: 1) Write Scene Summary / Directions, 2) Set target word range (Min \u2192 Max), 3) Optional: Review/edit Rewrite Instructions, 4) Click to generate, 5) Review output and copy to manuscript"
+    },
+    "generate-edit": {
+      "micro-edit": 'Workflow: 1) Paste problematic passage in "Selected Text", 2) Enter grievances/directives, 3) Click to generate refined alternative, 4) Copy the result into your manuscript'
+    },
+    "run-continuity-check": {
+      "continuity-check": "Workflow: 1) Paste draft text to check (or use last generated output), 2) Optional: Adjust focus toggles (Knowledge, Timeline, POV, Naming), 3) Click to run check, 4) Review violations report with suggested patches"
+    },
+    "update-characters": {
+      "character-update": 'Workflow: 1) Paste character-relevant text in "Selected Text" field, 2) Click to automatically update character notes with timestamped entries in the Characters/ folder'
+    },
+    "select-file-process": {
+      "character-update": 'Workflow: 1) Click to select a manuscript file for bulk character extraction, 2) Selected file will be used by "Process entire book" button'
+    },
+    "use-book-main-path": {
+      "character-update": "Workflow: Resets the source file back to your main book file (configured in settings) for character extraction"
+    },
+    "process-entire-book": {
+      "character-update": 'Workflow: 1) Optional: Select custom file with "Select file to process", 2) Click to perform 2-pass scan (roster + per-chapter extraction), 3) Character notes updated from entire manuscript'
+    },
+    "chunk-current-note": {
+      "character-update": "Workflow: 1) Select a file to process, 2) Click to chunk it into smaller sections for processing"
+    },
+    "update-story-bible": {
+      "chapter": "Workflow: 1) Write or generate a chapter, 2) Click to extract story bible updates from the text, 3) Review merged output, 4) Save as new version or replace existing story bible"
+    },
+    "save-merged-story-bible": {
+      "chapter": "Workflow: After updating story bible, click to save merged output as a new versioned file in Story bibles/ folder"
+    },
+    "replace-story-bible": {
+      "chapter": "Workflow: After updating story bible, click to save new version and automatically update the active story bible path in settings"
+    }
+  };
+  const modeKey = mode || "";
+  return workflows[buttonId]?.[modeKey] || workflows[buttonId]?.[""] || "";
+};
 var DashboardComponent = ({ plugin }) => {
   const formatUnknownForUi = (value) => {
     if (value instanceof Error)
@@ -64668,37 +65021,37 @@ var DashboardComponent = ({ plugin }) => {
       return "[unserializable value]";
     }
   };
-  const [mode, setMode] = (0, import_react6.useState)("chapter");
-  const [demoStep, setDemoStep] = (0, import_react6.useState)("off");
-  const [apiKeyPresent, setApiKeyPresent] = (0, import_react6.useState)(Boolean(plugin.settings.apiKey));
-  const [demoStepCompleted, setDemoStepCompleted] = (0, import_react6.useState)({
+  const [mode, setMode] = (0, import_react8.useState)("chapter");
+  const [demoStep, setDemoStep] = (0, import_react8.useState)("off");
+  const [apiKeyPresent, setApiKeyPresent] = (0, import_react8.useState)(Boolean(plugin.settings.apiKey));
+  const [demoStepCompleted, setDemoStepCompleted] = (0, import_react8.useState)({
     chapter: false,
     "micro-edit": false,
     "character-update": false,
     done: false
   });
-  const [isVaultPanelCollapsed, setIsVaultPanelCollapsed] = (0, import_react6.useState)(() => {
+  const [isVaultPanelCollapsed, setIsVaultPanelCollapsed] = (0, import_react8.useState)(() => {
     try {
       return window.localStorage.getItem("writing-dashboard:vaultPanelCollapsed") === "1";
     } catch {
       return false;
     }
   });
-  const [modeState, setModeState] = (0, import_react6.useState)(() => plugin.settings.modeState);
-  const [storyBibleDelta, setStoryBibleDelta] = (0, import_react6.useState)("");
-  const warmTimerRef = (0, import_react6.useRef)(null);
-  const warmReqIdRef = (0, import_react6.useRef)(0);
-  const modeStateSaveTimerRef = (0, import_react6.useRef)(null);
-  const [minWordsInput, setMinWordsInput] = (0, import_react6.useState)(String(plugin.settings.modeState.chapter.minWords ?? 2e3));
-  const [maxWordsInput, setMaxWordsInput] = (0, import_react6.useState)(String(plugin.settings.modeState.chapter.maxWords ?? 6e3));
-  const [generatedText, setGeneratedText] = (0, import_react6.useState)("");
-  const [isGenerating, setIsGenerating] = (0, import_react6.useState)(false);
-  const [generationStage, setGenerationStage] = (0, import_react6.useState)("");
-  const [error2, setError] = (0, import_react6.useState)(null);
-  const [promptTokenEstimate, setPromptTokenEstimate] = (0, import_react6.useState)(null);
-  const [promptCharCount, setPromptCharCount] = (0, import_react6.useState)(null);
-  const [retrievedContextStats, setRetrievedContextStats] = (0, import_react6.useState)(null);
-  const [indexStatusText, setIndexStatusText] = (0, import_react6.useState)(() => {
+  const [modeState, setModeState] = (0, import_react8.useState)(() => plugin.settings.modeState);
+  const [storyBibleDelta, setStoryBibleDelta] = (0, import_react8.useState)("");
+  const warmTimerRef = (0, import_react8.useRef)(null);
+  const warmReqIdRef = (0, import_react8.useRef)(0);
+  const modeStateSaveTimerRef = (0, import_react8.useRef)(null);
+  const [minWordsInput, setMinWordsInput] = (0, import_react8.useState)(String(plugin.settings.modeState.chapter.minWords ?? 2e3));
+  const [maxWordsInput, setMaxWordsInput] = (0, import_react8.useState)(String(plugin.settings.modeState.chapter.maxWords ?? 6e3));
+  const [generatedText, setGeneratedText] = (0, import_react8.useState)("");
+  const [isGenerating, setIsGenerating] = (0, import_react8.useState)(false);
+  const [generationStage, setGenerationStage] = (0, import_react8.useState)("");
+  const [error2, setError] = (0, import_react8.useState)(null);
+  const [promptTokenEstimate, setPromptTokenEstimate] = (0, import_react8.useState)(null);
+  const [promptCharCount, setPromptCharCount] = (0, import_react8.useState)(null);
+  const [retrievedContextStats, setRetrievedContextStats] = (0, import_react8.useState)(null);
+  const [indexStatusText, setIndexStatusText] = (0, import_react8.useState)(() => {
     if (!plugin.settings.retrievalEnableSemanticIndex)
       return "Semantic retrieval: Off";
     const status = plugin.embeddingsIndex?.getStatus?.();
@@ -64710,7 +65063,7 @@ var DashboardComponent = ({ plugin }) => {
       return `Index: Building (${status.queued} queued, ${status.indexedChunks} chunk(s))`;
     return `Index: Up to date (${status.indexedFiles} file(s), ${status.indexedChunks} chunk(s))`;
   });
-  const [bulkSourcePath, setBulkSourcePath] = (0, import_react6.useState)(
+  const [bulkSourcePath, setBulkSourcePath] = (0, import_react8.useState)(
     plugin.settings.characterExtractionSourcePath
   );
   const getMainInputValue = () => {
@@ -64838,7 +65191,7 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
       setting?.open?.();
       setting?.openTabById?.("writing-dashboard");
     } catch {
-      new import_obsidian5.Notice("Open settings \u2192 writing dashboard to configure your API key.");
+      new import_obsidian6.Notice("Open settings \u2192 writing dashboard to configure your API key.");
     }
   };
   const handlePreviewPrompt = async () => {
@@ -64920,7 +65273,7 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
     try {
       plugin.showPublishWizard();
     } catch {
-      new import_obsidian5.Notice("Unable to open the publishing wizard.");
+      new import_obsidian6.Notice("Unable to open the publishing wizard.");
     }
   };
   const isGuidedDemoActive = demoStep !== "off" && demoStep !== "done";
@@ -64979,17 +65332,17 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
       "character-update": false,
       done: false
     });
-    new import_obsidian5.Notice(
+    new import_obsidian6.Notice(
       plugin.settings.apiKey ? "Guided demo started. This will only generate demo text." : "Guided demo started in offline mode (no API key)."
     );
   };
-  (0, import_react6.useEffect)(() => {
+  (0, import_react8.useEffect)(() => {
     setMinWordsInput(String(modeState.chapter.minWords ?? 2e3));
   }, [modeState.chapter.minWords]);
-  (0, import_react6.useEffect)(() => {
+  (0, import_react8.useEffect)(() => {
     setMaxWordsInput(String(modeState.chapter.maxWords ?? 6e3));
   }, [modeState.chapter.maxWords]);
-  (0, import_react6.useEffect)(() => {
+  (0, import_react8.useEffect)(() => {
     const update = () => {
       try {
         if (!plugin.settings.retrievalEnableSemanticIndex) {
@@ -65026,14 +65379,14 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
       "character-update": false,
       done: false
     });
-    new import_obsidian5.Notice("Guided demo exited.");
+    new import_obsidian6.Notice("Guided demo exited.");
   };
   const skipGuidedDemo = () => {
     plugin.settings.guidedDemoDismissed = true;
     plugin.settings.guidedDemoShownOnce = true;
     void plugin.saveSettings();
     exitGuidedDemo();
-    new import_obsidian5.Notice("Guided demo skipped.");
+    new import_obsidian6.Notice("Guided demo skipped.");
   };
   const continueGuidedDemo = () => {
     if (demoStep === "chapter") {
@@ -65078,10 +65431,10 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
         plugin.settings.guidedDemoShownOnce = true;
         void plugin.saveSettings();
       }
-      new import_obsidian5.Notice(`Guided demo complete. Demo notes are in "${DEMO_FOLDER}/".`);
+      new import_obsidian6.Notice(`Guided demo complete. Demo notes are in "${DEMO_FOLDER}/".`);
     }
   };
-  (0, import_react6.useEffect)(() => {
+  (0, import_react8.useEffect)(() => {
     if (mode !== "chapter")
       return;
     if ((modeState.chapter.rewriteInstructions || "").trim())
@@ -65095,7 +65448,7 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
       return next;
     });
   }, [mode]);
-  (0, import_react6.useEffect)(() => {
+  (0, import_react8.useEffect)(() => {
     const onSettingsChanged = () => {
       setApiKeyPresent(Boolean(plugin.settings.apiKey));
     };
@@ -65115,12 +65468,12 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
       window.removeEventListener("writing-dashboard:guided-demo-start", onGuidedDemoStart);
     };
   }, []);
-  (0, import_react6.useEffect)(() => {
+  (0, import_react8.useEffect)(() => {
     if (mode === "character-update") {
       setBulkSourcePath(plugin.settings.characterExtractionSourcePath);
     }
   }, [mode]);
-  (0, import_react6.useEffect)(() => {
+  (0, import_react8.useEffect)(() => {
     if (mode !== "continuity-check")
       return;
     if ((modeState.continuityCheck.draftText || "").trim())
@@ -65136,7 +65489,7 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
       return next;
     });
   }, [mode]);
-  (0, import_react6.useEffect)(() => {
+  (0, import_react8.useEffect)(() => {
     try {
       window.localStorage.setItem(
         "writing-dashboard:vaultPanelCollapsed",
@@ -65145,7 +65498,7 @@ Marcus\u2019s voice dropped. \u201COr someone was.\u201D`;
     } catch {
     }
   }, [isVaultPanelCollapsed]);
-  (0, import_react6.useEffect)(() => {
+  (0, import_react8.useEffect)(() => {
     if (mode === "character-update")
       return;
     const primaryText = getMainInputValue().trim();
@@ -65346,7 +65699,7 @@ Continue anyway?`,
             setGeneratedText(DEMO_MICRO_EDIT_OUTPUT);
             setDemoStepCompleted((prev) => ({ ...prev, "micro-edit": true }));
           }
-          new import_obsidian5.Notice("AI request failed. Ran offline demo instead.");
+          new import_obsidian6.Notice("AI request failed. Ran offline demo instead.");
         } finally {
           setGenerationStage("");
         }
@@ -65370,7 +65723,7 @@ Continue anyway?`,
     if (!isGuidedDemoActive) {
       const characterFolder = plugin.settings.characterFolder || "";
       const folder = plugin.app.vault.getAbstractFileByPath(characterFolder);
-      if (!characterFolder || !(folder instanceof import_obsidian5.TFolder)) {
+      if (!characterFolder || !(folder instanceof import_obsidian6.TFolder)) {
         const modal = new FolderTreePickerModal(plugin, {
           currentPath: characterFolder || void 0,
           title: "Select or create character folder",
@@ -65394,7 +65747,7 @@ Continue anyway?`,
         await plugin.vaultService.updateCharacterNotes(updates, DEMO_CHARACTER_FOLDER);
         setDemoStepCompleted((prev) => ({ ...prev, "character-update": true }));
         setGenerationStage("");
-        new import_obsidian5.Notice(`Updated ${updates.length} demo character note(s)`);
+        new import_obsidian6.Notice(`Updated ${updates.length} demo character note(s)`);
       } catch (err) {
         const message = formatUnknownForUi(err);
         setError(message || "Character extraction failed");
@@ -65452,16 +65805,16 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
           throw err;
         console.error("Guided demo character extraction failed; falling back to offline demo:", err);
         updates = plugin.characterExtractor.parseExtraction(DEMO_CHARACTER_EXTRACTION_OUTPUT);
-        new import_obsidian5.Notice("AI request failed. Used offline demo character extraction instead.");
+        new import_obsidian6.Notice("AI request failed. Used offline demo character extraction instead.");
       }
       if (isGuidedDemoActive) {
         await plugin.vaultService.createFolderIfNotExists(DEMO_FOLDER);
         await plugin.vaultService.updateCharacterNotes(updates, DEMO_CHARACTER_FOLDER);
-        new import_obsidian5.Notice(`Updated ${updates.length} demo character note(s)`);
+        new import_obsidian6.Notice(`Updated ${updates.length} demo character note(s)`);
         setDemoStepCompleted((prev) => ({ ...prev, "character-update": true }));
       } else {
         await plugin.vaultService.updateCharacterNotes(updates);
-        new import_obsidian5.Notice(`Updated ${updates.length} character note(s)`);
+        new import_obsidian6.Notice(`Updated ${updates.length} character note(s)`);
       }
       setError(null);
       setGenerationStage("");
@@ -65500,7 +65853,7 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
       });
       const merged = await plugin.aiClient.generate(mergePrompt, singleSettings);
       setGeneratedText(merged);
-      new import_obsidian5.Notice("Story bible update generated. Review and save when ready.");
+      new import_obsidian6.Notice("Story bible update generated. Review and save when ready.");
     } catch (err) {
       const message = formatUnknownForUi(err);
       setError(message || "Story bible update failed");
@@ -65513,7 +65866,7 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
   const handleSaveStoryBibleAsNew = async () => {
     const merged = (generatedText || "").trim();
     if (!merged) {
-      new import_obsidian5.Notice("Nothing to save");
+      new import_obsidian6.Notice("Nothing to save");
       return;
     }
     const now = new Date();
@@ -65525,12 +65878,12 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
     await plugin.vaultService.writeFile(path, merged + "\n");
     plugin.settings.storyBiblePath = path;
     await plugin.saveSettings();
-    new import_obsidian5.Notice(`Saved merged story bible to ${path}`);
+    new import_obsidian6.Notice(`Saved merged story bible to ${path}`);
   };
   const handleReplaceStoryBible = async () => {
     const merged = (generatedText || "").trim();
     if (!merged) {
-      new import_obsidian5.Notice("Nothing to save");
+      new import_obsidian6.Notice("Nothing to save");
       return;
     }
     const ok = await showConfirmModal(plugin.app, {
@@ -65561,18 +65914,16 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
     await plugin.vaultService.writeFile(newPath, merged + "\n");
     plugin.settings.storyBiblePath = newPath;
     await plugin.saveSettings();
-    new import_obsidian5.Notice("Story bible saved as new version and updated.");
+    new import_obsidian6.Notice("Story bible saved as new version and updated.");
   };
   const handleSelectCharacterExtractionSource = () => {
-    const files = plugin.app.vault.getMarkdownFiles();
-    const modal = new FilePickerModal({
-      app: plugin.app,
-      files,
-      placeholder: "Pick the manuscript to process for bulk character extraction (Book 1, Book 2, etc.)",
-      onPick: async (file) => {
-        plugin.settings.characterExtractionSourcePath = file.path;
+    const modal = new FileTreePickerModal(plugin, {
+      currentPath: plugin.settings.characterExtractionSourcePath,
+      title: "Select file to process for character extraction",
+      onPick: async (filePath) => {
+        plugin.settings.characterExtractionSourcePath = filePath;
         await plugin.saveSettings();
-        setBulkSourcePath(file.path);
+        setBulkSourcePath(filePath);
       }
     });
     modal.open();
@@ -65589,7 +65940,7 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
     }
     const characterFolder = plugin.settings.characterFolder || "";
     const folder = plugin.app.vault.getAbstractFileByPath(characterFolder);
-    if (!characterFolder || !(folder instanceof import_obsidian5.TFolder)) {
+    if (!characterFolder || !(folder instanceof import_obsidian6.TFolder)) {
       const modal = new FolderTreePickerModal(plugin, {
         currentPath: characterFolder || void 0,
         title: "Select or create character folder",
@@ -65644,7 +65995,7 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
       if (fileState.lastProcessHash === hashNow && !canRetryFailures) {
         setError(null);
         setGenerationStage("");
-        new import_obsidian5.Notice("Book unchanged since last processing \u2014 skipping.");
+        new import_obsidian6.Notice("Book unchanged since last processing \u2014 skipping.");
         return;
       }
       let rosterText;
@@ -65736,11 +66087,11 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
       setError(null);
       setGenerationStage("");
       if (failedChapterIndices.length > 0) {
-        new import_obsidian5.Notice(
+        new import_obsidian6.Notice(
           `Processed book and updated ${aggregatedUpdates.length} character note(s). ${failedChapterIndices.length} chapter(s) failed; re-run to retry failures.`
         );
       } else {
-        new import_obsidian5.Notice(`Processed book and updated ${aggregatedUpdates.length} character note(s)`);
+        new import_obsidian6.Notice(`Processed book and updated ${aggregatedUpdates.length} character note(s)`);
       }
     } catch (err) {
       setError(getErrorMessage(err) || "Processing entire book failed");
@@ -65775,7 +66126,7 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
       if (prevState?.lastChunkHash === hashNow) {
         setError(null);
         setGenerationStage("");
-        new import_obsidian5.Notice("Chunks are up to date \u2014 no rebuild needed.");
+        new import_obsidian6.Notice("Chunks are up to date \u2014 no rebuild needed.");
         return;
       }
       const wordCount = TextChunker.getWordCount(textToChunk);
@@ -65792,7 +66143,7 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
       setError(null);
       setGenerationStage("");
       const written = result.created + result.overwritten;
-      new import_obsidian5.Notice(
+      new import_obsidian6.Notice(
         `Chunks rebuilt (${result.totalChunks} total; ${written} written; ${result.deletedExtra} deleted)`
       );
     } catch (err) {
@@ -65808,14 +66159,14 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
     if (generatedText) {
       try {
         await navigator.clipboard.writeText(generatedText);
-        new import_obsidian5.Notice("Copied to clipboard");
+        new import_obsidian6.Notice("Copied to clipboard");
       } catch (err) {
         console.error("Copy failed:", err);
-        new import_obsidian5.Notice("Copy failed");
+        new import_obsidian6.Notice("Copy failed");
       }
     }
   };
-  return /* @__PURE__ */ import_react6.default.createElement("div", { className: "writing-dashboard" }, demoStep !== "off" && /* @__PURE__ */ import_react6.default.createElement("div", { className: "demo-banner" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "demo-banner-left" }, /* @__PURE__ */ import_react6.default.createElement("strong", null, "Guided demo"), /* @__PURE__ */ import_react6.default.createElement("span", { className: "demo-banner-step" }, demoStep === "chapter" && "Step 1/3: Generate a chapter (demo text)", demoStep === "micro-edit" && "Step 2/3: Micro edit (demo text)", demoStep === "character-update" && "Step 3/3: Update characters (demo folder)", demoStep === "done" && "Complete"), !canUseAiInDemo && /* @__PURE__ */ import_react6.default.createElement("span", { className: "demo-banner-step" }, "Offline demo: uses sample outputs. Add an API key to run real generation.")), /* @__PURE__ */ import_react6.default.createElement("div", { className: "demo-banner-actions" }, /* @__PURE__ */ import_react6.default.createElement("button", { onClick: openPluginSettings, disabled: isGenerating, className: "mod-secondary" }, "Open settings"), !plugin.settings.setupCompleted && /* @__PURE__ */ import_react6.default.createElement("button", { onClick: skipGuidedDemo, disabled: isGenerating, className: "mod-secondary" }, "Skip demo"), demoStep !== "done" && /* @__PURE__ */ import_react6.default.createElement(
+  return /* @__PURE__ */ import_react8.default.createElement("div", { className: "writing-dashboard" }, demoStep !== "off" && /* @__PURE__ */ import_react8.default.createElement("div", { className: "demo-banner" }, /* @__PURE__ */ import_react8.default.createElement("div", { className: "demo-banner-left" }, /* @__PURE__ */ import_react8.default.createElement("strong", null, "Guided demo"), /* @__PURE__ */ import_react8.default.createElement("span", { className: "demo-banner-step" }, demoStep === "chapter" && "Step 1/3: Generate a chapter (demo text)", demoStep === "micro-edit" && "Step 2/3: Micro edit (demo text)", demoStep === "character-update" && "Step 3/3: Update characters (demo folder)", demoStep === "done" && "Complete"), !canUseAiInDemo && /* @__PURE__ */ import_react8.default.createElement("span", { className: "demo-banner-step" }, "Offline demo: uses sample outputs. Add an API key to run real generation.")), /* @__PURE__ */ import_react8.default.createElement("div", { className: "demo-banner-actions" }, /* @__PURE__ */ import_react8.default.createElement("button", { onClick: openPluginSettings, disabled: isGenerating, className: "mod-secondary" }, "Open settings"), !plugin.settings.setupCompleted && /* @__PURE__ */ import_react8.default.createElement("button", { onClick: skipGuidedDemo, disabled: isGenerating, className: "mod-secondary" }, "Skip demo"), demoStep !== "done" && /* @__PURE__ */ import_react8.default.createElement(
     "button",
     {
       onClick: continueGuidedDemo,
@@ -65823,20 +66174,20 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
       className: "mod-cta"
     },
     "Next"
-  ), demoStep === "done" && /* @__PURE__ */ import_react6.default.createElement("button", { onClick: exitGuidedDemo, disabled: isGenerating, className: "mod-cta" }, "Close demo"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: exitGuidedDemo, disabled: isGenerating, className: "mod-secondary" }, "Exit"))), !apiKeyPresent && !isGuidedDemoActive && /* @__PURE__ */ import_react6.default.createElement("div", { className: "backend-warning" }, "\u26A0\uFE0F Please configure your API key in settings \u2192 writing dashboard"), /* @__PURE__ */ import_react6.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: `sidebar ${isVaultPanelCollapsed ? "collapsed" : ""}` }, /* @__PURE__ */ import_react6.default.createElement(
+  ), demoStep === "done" && /* @__PURE__ */ import_react8.default.createElement("button", { onClick: exitGuidedDemo, disabled: isGenerating, className: "mod-cta" }, "Close demo"), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: exitGuidedDemo, disabled: isGenerating, className: "mod-secondary" }, "Exit"))), !apiKeyPresent && !isGuidedDemoActive && /* @__PURE__ */ import_react8.default.createElement("div", { className: "backend-warning" }, "\u26A0\uFE0F Please configure your API key in settings \u2192 writing dashboard"), /* @__PURE__ */ import_react8.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react8.default.createElement("div", { className: `sidebar ${isVaultPanelCollapsed ? "collapsed" : ""}` }, /* @__PURE__ */ import_react8.default.createElement(
     VaultBrowser,
     {
       plugin,
       collapsed: isVaultPanelCollapsed,
       onToggleCollapsed: setIsVaultPanelCollapsed
     }
-  )), /* @__PURE__ */ import_react6.default.createElement("div", { className: "main-workspace" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "generation-status", style: { marginBottom: "8px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react6.default.createElement("span", { className: "visual-aid-text" }, "\u{1F4D6}"), " Book: ", plugin.settings.book2Path || "(not set)", (() => {
+  )), /* @__PURE__ */ import_react8.default.createElement("div", { className: "main-workspace" }, /* @__PURE__ */ import_react8.default.createElement("div", { className: "generation-status", style: { marginBottom: "8px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react8.default.createElement("span", { className: "visual-aid-text" }, "\u{1F4D6}"), " Book: ", plugin.settings.book2Path || "(not set)", (() => {
     const file = plugin.app.vault.getAbstractFileByPath(plugin.settings.book2Path);
     if (plugin.settings.book2Path && !file) {
-      return /* @__PURE__ */ import_react6.default.createElement("span", { className: "visual-aid-text" }, " (file not found)");
+      return /* @__PURE__ */ import_react8.default.createElement("span", { className: "visual-aid-text" }, " (file not found)");
     }
     return "";
-  })()), /* @__PURE__ */ import_react6.default.createElement(
+  })()), /* @__PURE__ */ import_react8.default.createElement(
     EditorPanel,
     {
       plugin,
@@ -65847,7 +66198,7 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
       onGeneratedChange: setGeneratedText,
       onCopy: handleCopyToClipboard
     }
-  ), mode === "chapter" && /* @__PURE__ */ import_react6.default.createElement("div", { className: "word-count-input" }, /* @__PURE__ */ import_react6.default.createElement("label", null, "Target word range:"), /* @__PURE__ */ import_react6.default.createElement(
+  ), mode === "chapter" && /* @__PURE__ */ import_react8.default.createElement("div", { className: "word-count-input" }, /* @__PURE__ */ import_react8.default.createElement("label", null, "Target word range:"), /* @__PURE__ */ import_react8.default.createElement(
     "input",
     {
       type: "number",
@@ -65883,7 +66234,7 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
       min: "100",
       max: "2000000"
     }
-  ), /* @__PURE__ */ import_react6.default.createElement("span", { style: { margin: "0 8px" } }, "to"), /* @__PURE__ */ import_react6.default.createElement(
+  ), /* @__PURE__ */ import_react8.default.createElement("span", { style: { margin: "0 8px" } }, "to"), /* @__PURE__ */ import_react8.default.createElement(
     "input",
     {
       type: "number",
@@ -65919,7 +66270,7 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
       min: "100",
       max: "2000000"
     }
-  )), mode === "continuity-check" && /* @__PURE__ */ import_react6.default.createElement("div", { className: "generation-status" }, /* @__PURE__ */ import_react6.default.createElement("div", { style: { marginBottom: 6 } }, "Continuity focus:"), /* @__PURE__ */ import_react6.default.createElement("label", { style: { marginRight: 12 } }, /* @__PURE__ */ import_react6.default.createElement(
+  )), mode === "continuity-check" && /* @__PURE__ */ import_react8.default.createElement("div", { className: "generation-status" }, /* @__PURE__ */ import_react8.default.createElement("div", { style: { marginBottom: 6 } }, "Continuity focus:"), /* @__PURE__ */ import_react8.default.createElement("label", { style: { marginRight: 12 } }, /* @__PURE__ */ import_react8.default.createElement(
     "input",
     {
       type: "checkbox",
@@ -65936,7 +66287,7 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
         return next;
       })
     }
-  ), "Knowledge"), /* @__PURE__ */ import_react6.default.createElement("label", { style: { marginRight: 12 } }, /* @__PURE__ */ import_react6.default.createElement(
+  ), "Knowledge"), /* @__PURE__ */ import_react8.default.createElement("label", { style: { marginRight: 12 } }, /* @__PURE__ */ import_react8.default.createElement(
     "input",
     {
       type: "checkbox",
@@ -65953,7 +66304,7 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
         return next;
       })
     }
-  ), "Timeline"), /* @__PURE__ */ import_react6.default.createElement("label", { style: { marginRight: 12 } }, /* @__PURE__ */ import_react6.default.createElement(
+  ), "Timeline"), /* @__PURE__ */ import_react8.default.createElement("label", { style: { marginRight: 12 } }, /* @__PURE__ */ import_react8.default.createElement(
     "input",
     {
       type: "checkbox",
@@ -65970,7 +66321,7 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
         return next;
       })
     }
-  ), "POV"), /* @__PURE__ */ import_react6.default.createElement("label", null, /* @__PURE__ */ import_react6.default.createElement(
+  ), "POV"), /* @__PURE__ */ import_react8.default.createElement("label", null, /* @__PURE__ */ import_react8.default.createElement(
     "input",
     {
       type: "checkbox",
@@ -65987,7 +66338,7 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
         return next;
       })
     }
-  ), "Naming")), mode !== "continuity-check" && /* @__PURE__ */ import_react6.default.createElement(
+  ), "Naming")), mode !== "continuity-check" && /* @__PURE__ */ import_react8.default.createElement(
     DirectorNotes,
     {
       value: directorNotes,
@@ -65995,93 +66346,121 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
       mode,
       onResetToDefault: mode === "chapter" ? () => updateNotes(DEFAULT_REWRITE_INSTRUCTIONS) : void 0
     }
-  ), promptTokenEstimate !== null && /* @__PURE__ */ import_react6.default.createElement("div", { className: "generation-status" }, /* @__PURE__ */ import_react6.default.createElement("span", { className: "visual-aid-text" }, "Estimated prompt size:"), " ~", promptTokenEstimate.toLocaleString(), " tokens", promptCharCount !== null ? ` (${promptCharCount.toLocaleString()} chars)` : "", plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit ? /* @__PURE__ */ import_react6.default.createElement("span", { className: "visual-aid-text" }, " \u2014 exceeds warning limit (", plugin.settings.contextTokenLimit.toLocaleString(), ")") : ""), /* @__PURE__ */ import_react6.default.createElement("div", { className: "generation-status" }, /* @__PURE__ */ import_react6.default.createElement("span", { className: "visual-aid-text" }, indexStatusText)), retrievedContextStats && /* @__PURE__ */ import_react6.default.createElement("div", { className: "generation-status" }, /* @__PURE__ */ import_react6.default.createElement("span", { className: "visual-aid-text" }, "Retrieved context:"), " ", retrievedContextStats.items.toLocaleString(), " item(s) (~", retrievedContextStats.tokens.toLocaleString(), " tokens)"), error2 && /* @__PURE__ */ import_react6.default.createElement("div", { className: "error-message" }, "\u274C ", error2), isGenerating && generationStage && /* @__PURE__ */ import_react6.default.createElement("div", { className: "generation-status" }, /* @__PURE__ */ import_react6.default.createElement("span", { className: "visual-aid-text" }, "\u23F3"), " ", generationStage), mode === "character-update" && /* @__PURE__ */ import_react6.default.createElement("div", { className: "generation-status" }, /* @__PURE__ */ import_react6.default.createElement("span", { className: "visual-aid-text" }, "Bulk source:"), " ", bulkSourcePath || plugin.settings.book2Path, bulkSourcePath ? /* @__PURE__ */ import_react6.default.createElement("span", { className: "visual-aid-text" }, " (custom)") : /* @__PURE__ */ import_react6.default.createElement("span", { className: "visual-aid-text" }, " (book main path)")), /* @__PURE__ */ import_react6.default.createElement("div", { className: "controls" }, /* @__PURE__ */ import_react6.default.createElement(
+  ), promptTokenEstimate !== null && /* @__PURE__ */ import_react8.default.createElement("div", { className: "generation-status" }, /* @__PURE__ */ import_react8.default.createElement("span", { className: "visual-aid-text" }, "Estimated prompt size:"), " ~", promptTokenEstimate.toLocaleString(), " tokens", promptCharCount !== null ? ` (${promptCharCount.toLocaleString()} chars)` : "", plugin.settings.contextTokenLimit && promptTokenEstimate > plugin.settings.contextTokenLimit ? /* @__PURE__ */ import_react8.default.createElement("span", { className: "visual-aid-text" }, " \u2014 exceeds warning limit (", plugin.settings.contextTokenLimit.toLocaleString(), ")") : ""), /* @__PURE__ */ import_react8.default.createElement("div", { className: "generation-status" }, /* @__PURE__ */ import_react8.default.createElement("span", { className: "visual-aid-text" }, indexStatusText)), retrievedContextStats && /* @__PURE__ */ import_react8.default.createElement("div", { className: "generation-status" }, /* @__PURE__ */ import_react8.default.createElement("span", { className: "visual-aid-text" }, "Retrieved context:"), " ", retrievedContextStats.items.toLocaleString(), " item(s) (~", retrievedContextStats.tokens.toLocaleString(), " tokens)"), error2 && /* @__PURE__ */ import_react8.default.createElement("div", { className: "error-message" }, "\u274C ", error2), isGenerating && generationStage && /* @__PURE__ */ import_react8.default.createElement("div", { className: "generation-status" }, /* @__PURE__ */ import_react8.default.createElement("span", { className: "visual-aid-text" }, "\u23F3"), " ", generationStage), mode === "character-update" && /* @__PURE__ */ import_react8.default.createElement("div", { className: "generation-status" }, /* @__PURE__ */ import_react8.default.createElement("span", { className: "visual-aid-text" }, "Bulk source:"), " ", bulkSourcePath || plugin.settings.book2Path, bulkSourcePath ? /* @__PURE__ */ import_react8.default.createElement("span", { className: "visual-aid-text" }, " (custom)") : /* @__PURE__ */ import_react8.default.createElement("span", { className: "visual-aid-text" }, " (book main path)")), /* @__PURE__ */ import_react8.default.createElement("div", { className: "controls" }, /* @__PURE__ */ import_react8.default.createElement("div", { className: "button-group utility-buttons" }, /* @__PURE__ */ import_react8.default.createElement("div", { className: "button-group-header" }, /* @__PURE__ */ import_react8.default.createElement("h3", null, "Utilities"), /* @__PURE__ */ import_react8.default.createElement(
+    "button",
+    {
+      onClick: () => {
+        const modal = new ButtonHelpModal(plugin.app);
+        modal.open();
+      },
+      className: "help-button update-characters-button",
+      title: "View button workflows and usage guide"
+    },
+    "?"
+  )), /* @__PURE__ */ import_react8.default.createElement("div", { className: "button-group-buttons" }, /* @__PURE__ */ import_react8.default.createElement(
     "button",
     {
       onClick: openPublishWizard,
       disabled: isGenerating,
       className: "update-characters-button",
-      title: "Export your manuscript to EPUB format for publishing"
+      title: getButtonTooltip("export-epub")
     },
     "Export to epub"
-  ), /* @__PURE__ */ import_react6.default.createElement(
+  ), /* @__PURE__ */ import_react8.default.createElement(
     "button",
     {
       onClick: handlePreviewPrompt,
       disabled: isGenerating,
       className: "update-characters-button",
-      title: "Preview the full AI prompt that will be sent (useful for debugging)"
+      title: getButtonTooltip("preview-prompt")
     },
     "Preview prompt"
-  ), mode === "chapter" && /* @__PURE__ */ import_react6.default.createElement(
-    "button",
-    {
-      onClick: handleUpdateStoryBible,
-      disabled: isGenerating || !apiKeyPresent,
-      className: "update-characters-button",
-      title: "Extract story bible updates from the generated chapter text"
-    },
-    "Update story bible"
-  ), mode !== "character-update" && /* @__PURE__ */ import_react6.default.createElement(
+  ))), mode !== "character-update" && /* @__PURE__ */ import_react8.default.createElement("div", { className: "button-group generation-buttons" }, /* @__PURE__ */ import_react8.default.createElement("h3", null, "Content Generation"), /* @__PURE__ */ import_react8.default.createElement("div", { className: "button-group-buttons" }, /* @__PURE__ */ import_react8.default.createElement(
     "button",
     {
       onClick: handleGenerate,
       disabled: isGenerating || !apiKeyPresent && !isGuidedDemoActive,
       className: "generate-button",
-      title: mode === "chapter" ? "Generate a new chapter based on your scene summary and instructions" : mode === "micro-edit" ? "Generate a refined version of the selected passage" : "Check the draft text for continuity issues"
+      title: mode === "chapter" ? getButtonTooltip("generate-chapter", mode) : mode === "micro-edit" ? getButtonTooltip("generate-edit", mode) : getButtonTooltip("run-continuity-check", mode)
     },
     isGenerating ? "Generating..." : mode === "chapter" ? "Generate chapter" : mode === "micro-edit" ? "Generate edit" : "Run continuity check"
-  ), mode === "character-update" && /* @__PURE__ */ import_react6.default.createElement(import_react6.default.Fragment, null, /* @__PURE__ */ import_react6.default.createElement(
+  ))), mode === "character-update" && /* @__PURE__ */ import_react8.default.createElement("div", { className: "button-group character-buttons" }, /* @__PURE__ */ import_react8.default.createElement("h3", null, "Character Management"), /* @__PURE__ */ import_react8.default.createElement("div", { className: "button-group-buttons" }, /* @__PURE__ */ import_react8.default.createElement(
     "button",
     {
       onClick: handleUpdateCharacters,
       disabled: isGenerating || !selectedText || !apiKeyPresent && !isGuidedDemoActive,
       className: "update-characters-button",
-      title: "Extract character information from the selected text and update character notes"
+      title: getButtonTooltip("update-characters", mode)
     },
     "Update characters"
-  ), /* @__PURE__ */ import_react6.default.createElement(
+  ), /* @__PURE__ */ import_react8.default.createElement(
     "button",
     {
       onClick: handleSelectCharacterExtractionSource,
       disabled: isGenerating,
       className: "update-characters-button",
-      title: "Choose a different file to process for bulk character extraction (defaults to book main file)"
+      title: getButtonTooltip("select-file-process", mode)
     },
     "Select file to process"
-  ), /* @__PURE__ */ import_react6.default.createElement(
+  ), /* @__PURE__ */ import_react8.default.createElement(
     "button",
     {
       onClick: handleClearCharacterExtractionSource,
       disabled: isGenerating || !plugin.settings.characterExtractionSourcePath,
       className: "update-characters-button",
-      title: "Reset to use the book main file for bulk processing"
+      title: getButtonTooltip("use-book-main-path", mode)
     },
     "Use book main path"
-  ), /* @__PURE__ */ import_react6.default.createElement(
+  ), /* @__PURE__ */ import_react8.default.createElement(
     "button",
     {
       onClick: handleProcessEntireBook,
       disabled: isGenerating || !apiKeyPresent,
       className: "update-characters-button",
-      title: "Process the entire book file in chunks, extract all character information, and update character notes"
+      title: getButtonTooltip("process-entire-book", mode)
     },
     "Process entire book"
-  ), /* @__PURE__ */ import_react6.default.createElement(
+  ), /* @__PURE__ */ import_react8.default.createElement(
     "button",
     {
       onClick: handleChunkSelectedFile,
       disabled: isGenerating || !apiKeyPresent,
       className: "update-characters-button",
-      title: "Split the current note into 500-word chunks and save them in a chunked folder for Smart Connections"
+      title: getButtonTooltip("chunk-current-note", mode)
     },
     "Chunk current note"
-  ))), mode === "chapter" && (generatedText || storyBibleDelta) && /* @__PURE__ */ import_react6.default.createElement("div", { className: "generation-status", style: { marginTop: 8 } }, /* @__PURE__ */ import_react6.default.createElement("button", { onClick: handleSaveStoryBibleAsNew, disabled: isGenerating || !generatedText }, "Save merged story bible"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: handleReplaceStoryBible, disabled: isGenerating || !generatedText, style: { marginLeft: 8 } }, "Replace story bible")), /* @__PURE__ */ import_react6.default.createElement(ModeSelector, { mode, onChange: setMode }))));
+  ))), mode === "chapter" && /* @__PURE__ */ import_react8.default.createElement("div", { className: "button-group story-bible-buttons" }, /* @__PURE__ */ import_react8.default.createElement("h3", null, "Story Bible"), /* @__PURE__ */ import_react8.default.createElement("div", { className: "button-group-buttons" }, /* @__PURE__ */ import_react8.default.createElement(
+    "button",
+    {
+      onClick: handleUpdateStoryBible,
+      disabled: isGenerating || !apiKeyPresent,
+      className: "update-characters-button",
+      title: getButtonTooltip("update-story-bible", mode)
+    },
+    "Update story bible"
+  )))), mode === "chapter" && (generatedText || storyBibleDelta) && /* @__PURE__ */ import_react8.default.createElement("div", { className: "generation-status", style: { marginTop: 8 } }, /* @__PURE__ */ import_react8.default.createElement(
+    "button",
+    {
+      onClick: handleSaveStoryBibleAsNew,
+      disabled: isGenerating || !generatedText,
+      title: getButtonTooltip("save-merged-story-bible", mode)
+    },
+    "Save merged story bible"
+  ), /* @__PURE__ */ import_react8.default.createElement(
+    "button",
+    {
+      onClick: handleReplaceStoryBible,
+      disabled: isGenerating || !generatedText,
+      style: { marginLeft: 8 },
+      title: getButtonTooltip("replace-story-bible", mode)
+    },
+    "Replace story bible"
+  )), /* @__PURE__ */ import_react8.default.createElement(ModeSelector, { mode, onChange: setMode }))));
 };
 
 // ui/DashboardView.ts
 var VIEW_TYPE_DASHBOARD = "writing-dashboard";
-var DashboardView = class extends import_obsidian6.ItemView {
+var DashboardView = class extends import_obsidian7.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.reactRoot = null;
@@ -66100,9 +66479,9 @@ var DashboardView = class extends import_obsidian6.ItemView {
     const container = this.containerEl.children[1];
     container.empty();
     const reactContainer = container.createDiv();
-    this.reactRoot = (0, import_client2.createRoot)(reactContainer);
+    this.reactRoot = (0, import_client4.createRoot)(reactContainer);
     this.reactRoot.render(
-      import_react7.default.createElement(DashboardComponent, { plugin: this.plugin })
+      import_react9.default.createElement(DashboardComponent, { plugin: this.plugin })
     );
     return Promise.resolve();
   }
@@ -66119,9 +66498,9 @@ var DashboardView = class extends import_obsidian6.ItemView {
 var import_obsidian10 = require("obsidian");
 
 // ui/SetupWizard.tsx
-var import_react8 = __toESM(require_react());
-var import_client3 = __toESM(require_client());
-var import_obsidian7 = require("obsidian");
+var import_react10 = __toESM(require_react());
+var import_client5 = __toESM(require_client());
+var import_obsidian8 = require("obsidian");
 function getSetupItems(plugin) {
   const bookPath = plugin.settings.book2Path || "Book-Main.md";
   return [
@@ -66171,7 +66550,7 @@ Your active manuscript goes here.
     }
   ];
 }
-var SetupWizardModal = class extends import_obsidian7.Modal {
+var SetupWizardModal = class extends import_obsidian8.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.reactRoot = null;
@@ -66181,9 +66560,9 @@ var SetupWizardModal = class extends import_obsidian7.Modal {
     const { contentEl } = this;
     contentEl.empty();
     const reactContainer = contentEl.createDiv();
-    this.reactRoot = (0, import_client3.createRoot)(reactContainer);
+    this.reactRoot = (0, import_client5.createRoot)(reactContainer);
     this.reactRoot.render(
-      import_react8.default.createElement(SetupWizardComponent, {
+      import_react10.default.createElement(SetupWizardComponent, {
         plugin: this.plugin,
         onClose: () => this.close()
       })
@@ -66197,10 +66576,10 @@ var SetupWizardModal = class extends import_obsidian7.Modal {
   }
 };
 var SetupWizardComponent = ({ plugin, onClose }) => {
-  const [items, setItems] = (0, import_react8.useState)([]);
-  const [isCreating, setIsCreating] = (0, import_react8.useState)(false);
-  const [result, setResult] = (0, import_react8.useState)(null);
-  (0, import_react8.useEffect)(() => {
+  const [items, setItems] = (0, import_react10.useState)([]);
+  const [isCreating, setIsCreating] = (0, import_react10.useState)(false);
+  const [result, setResult] = (0, import_react10.useState)(null);
+  (0, import_react10.useEffect)(() => {
     const checkItems = () => {
       const checkedItems = getSetupItems(plugin).map((item) => {
         const file = plugin.app.vault.getAbstractFileByPath(item.path);
@@ -66279,7 +66658,7 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
           return "[unserializable error]";
         }
       })();
-      new import_obsidian7.Notice(`Error creating files: ${message}`);
+      new import_obsidian8.Notice(`Error creating files: ${message}`);
     } finally {
       setIsCreating(false);
     }
@@ -66302,9 +66681,9 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
     }
   };
   if (result) {
-    return /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react8.default.createElement("h2", null, "Setup complete!"), result.created.length > 0 && /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-success" }, /* @__PURE__ */ import_react8.default.createElement("p", null, /* @__PURE__ */ import_react8.default.createElement("strong", null, "Created:")), /* @__PURE__ */ import_react8.default.createElement("ul", null, result.created.map((path) => /* @__PURE__ */ import_react8.default.createElement("li", { key: path }, path)))), result.skipped.length > 0 && /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-skipped" }, /* @__PURE__ */ import_react8.default.createElement("p", null, /* @__PURE__ */ import_react8.default.createElement("strong", null, "Skipped (already exist):")), /* @__PURE__ */ import_react8.default.createElement("ul", null, result.skipped.map((path) => /* @__PURE__ */ import_react8.default.createElement("li", { key: path }, path)))), /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react8.default.createElement("button", { onClick: handleRunGuidedDemo, className: "mod-cta" }, "Run guided demo"), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: onClose, className: "mod-secondary" }, "Close")));
+    return /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react10.default.createElement("h2", null, "Setup complete!"), result.created.length > 0 && /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-success" }, /* @__PURE__ */ import_react10.default.createElement("p", null, /* @__PURE__ */ import_react10.default.createElement("strong", null, "Created:")), /* @__PURE__ */ import_react10.default.createElement("ul", null, result.created.map((path) => /* @__PURE__ */ import_react10.default.createElement("li", { key: path }, path)))), result.skipped.length > 0 && /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-skipped" }, /* @__PURE__ */ import_react10.default.createElement("p", null, /* @__PURE__ */ import_react10.default.createElement("strong", null, "Skipped (already exist):")), /* @__PURE__ */ import_react10.default.createElement("ul", null, result.skipped.map((path) => /* @__PURE__ */ import_react10.default.createElement("li", { key: path }, path)))), /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react10.default.createElement("button", { onClick: handleRunGuidedDemo, className: "mod-cta" }, "Run guided demo"), /* @__PURE__ */ import_react10.default.createElement("button", { onClick: onClose, className: "mod-secondary" }, "Close")));
   }
-  return /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react8.default.createElement("h2", null, "Welcome to writing dashboard"), /* @__PURE__ */ import_react8.default.createElement("p", null, "Set up your writing workspace by selecting which files and folders to create:"), /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-items" }, items.map((item, index) => /* @__PURE__ */ import_react8.default.createElement("div", { key: item.path, className: "setup-item" }, /* @__PURE__ */ import_react8.default.createElement("label", { className: item.exists ? "disabled" : "" }, /* @__PURE__ */ import_react8.default.createElement(
+  return /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react10.default.createElement("h2", null, "Welcome to writing dashboard"), /* @__PURE__ */ import_react10.default.createElement("p", null, "Set up your writing workspace by selecting which files and folders to create:"), /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-items" }, items.map((item, index) => /* @__PURE__ */ import_react10.default.createElement("div", { key: item.path, className: "setup-item" }, /* @__PURE__ */ import_react10.default.createElement("label", { className: item.exists ? "disabled" : "" }, /* @__PURE__ */ import_react10.default.createElement(
     "input",
     {
       type: "checkbox",
@@ -66312,7 +66691,27 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
       disabled: item.exists || isCreating,
       onChange: () => handleToggle(index)
     }
-  ), /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-item-content" }, /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-item-header" }, /* @__PURE__ */ import_react8.default.createElement("strong", null, item.path), item.exists && /* @__PURE__ */ import_react8.default.createElement("span", { className: "exists-badge" }, "\u2713 Already exists")), /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-item-description" }, item.description)))))), /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react8.default.createElement("button", { onClick: onClose, disabled: isCreating, className: "mod-secondary" }, "Cancel"), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: handleDontShowAgain, disabled: isCreating, className: "mod-secondary" }, "Don't show again"), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: handleRunGuidedDemo, disabled: isCreating, className: "mod-secondary" }, "Run guided demo"), /* @__PURE__ */ import_react8.default.createElement(
+  ), /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-item-content" }, /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-item-header" }, /* @__PURE__ */ import_react10.default.createElement("strong", null, item.path), item.exists && /* @__PURE__ */ import_react10.default.createElement("span", { className: "exists-badge" }, "\u2713 Already exists")), /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-item-description" }, item.description), item.type === "file" && !item.exists && /* @__PURE__ */ import_react10.default.createElement("div", { style: { marginTop: "8px" } }, /* @__PURE__ */ import_react10.default.createElement(
+    "button",
+    {
+      onClick: () => {
+        const modal = new FileTreePickerModal(plugin, {
+          title: `Select ${item.path}`,
+          currentPath: item.path,
+          onPick: async (filePath) => {
+            const newItems = [...items];
+            newItems[index].path = filePath;
+            setItems(newItems);
+          }
+        });
+        modal.open();
+      },
+      className: "mod-secondary",
+      style: { fontSize: "11px", marginTop: "4px" },
+      disabled: isCreating
+    },
+    "Browse existing file"
+  ))))))), /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react10.default.createElement("button", { onClick: onClose, disabled: isCreating, className: "mod-secondary" }, "Cancel"), /* @__PURE__ */ import_react10.default.createElement("button", { onClick: handleDontShowAgain, disabled: isCreating, className: "mod-secondary" }, "Don't show again"), /* @__PURE__ */ import_react10.default.createElement("button", { onClick: handleRunGuidedDemo, disabled: isCreating, className: "mod-secondary" }, "Run guided demo"), /* @__PURE__ */ import_react10.default.createElement(
     "button",
     {
       onClick: handleCreate,
@@ -66321,123 +66720,6 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
     },
     isCreating ? "Creating..." : "Create Selected"
   )));
-};
-
-// ui/FileTreePickerModal.tsx
-var import_obsidian8 = require("obsidian");
-var import_react9 = __toESM(require_react());
-var import_client4 = __toESM(require_client());
-var FileTreePickerModal = class extends import_obsidian8.Modal {
-  constructor(plugin, opts) {
-    super(plugin.app);
-    this.reactRoot = null;
-    this.plugin = plugin;
-    this.onPick = opts.onPick;
-    this.currentPath = opts.currentPath;
-  }
-  onOpen() {
-    this.titleEl.setText("Select book file");
-    this.contentEl.empty();
-    const container = this.contentEl.createDiv();
-    this.reactRoot = (0, import_client4.createRoot)(container);
-    this.reactRoot.render(
-      import_react9.default.createElement(FileTreePickerComponent, {
-        plugin: this.plugin,
-        currentPath: this.currentPath,
-        onPick: (path) => {
-          void this.onPick(path);
-          this.close();
-        },
-        onClose: () => this.close()
-      })
-    );
-  }
-  onClose() {
-    if (this.reactRoot) {
-      this.reactRoot.unmount();
-      this.reactRoot = null;
-    }
-    this.contentEl.empty();
-  }
-};
-var FileTreePickerComponent = ({ plugin, currentPath, onPick, onClose }) => {
-  const [structure, setStructure] = (0, import_react9.useState)([]);
-  const [expandedFolders, setExpandedFolders] = (0, import_react9.useState)(/* @__PURE__ */ new Set([""]));
-  (0, import_react9.useEffect)(() => {
-    const vaultStructure = plugin.vaultService.getVaultStructure();
-    const filtered = vaultStructure.filter(
-      (item) => item.type === "folder" || item.type === "file" && item.path.endsWith(".md")
-    );
-    setStructure(filtered);
-    const expanded = /* @__PURE__ */ new Set([""]);
-    if (currentPath) {
-      const parts = currentPath.split("/");
-      for (let i = 1; i < parts.length; i++) {
-        expanded.add(parts.slice(0, i).join("/"));
-      }
-    }
-    setExpandedFolders(expanded);
-  }, [currentPath, plugin]);
-  const toggleFolder = (path) => {
-    const newExpanded = new Set(expandedFolders);
-    if (newExpanded.has(path)) {
-      newExpanded.delete(path);
-    } else {
-      newExpanded.add(path);
-    }
-    setExpandedFolders(newExpanded);
-  };
-  const renderItem = (item, depth = 0) => {
-    if (item.type === "folder") {
-      const isExpanded = expandedFolders.has(item.path);
-      const children = structure.filter(
-        (s) => s.path.startsWith(item.path + "/") && s.path.split("/").length === item.path.split("/").length + 1
-      );
-      if (children.length === 0)
-        return null;
-      return /* @__PURE__ */ import_react9.default.createElement("div", { key: item.path, className: "vault-item folder", style: { paddingLeft: `${depth * 20}px` } }, /* @__PURE__ */ import_react9.default.createElement(
-        "span",
-        {
-          className: "folder-toggle",
-          onClick: () => toggleFolder(item.path),
-          style: { cursor: "pointer", userSelect: "none" }
-        },
-        isExpanded ? "\u{1F4C2}" : "\u{1F4C1}",
-        " ",
-        item.name
-      ), isExpanded && children.map((child) => renderItem(child, depth + 1)));
-    } else {
-      const isSelected = item.path === currentPath;
-      return /* @__PURE__ */ import_react9.default.createElement(
-        "div",
-        {
-          key: item.path,
-          className: `vault-item file ${isSelected ? "selected" : ""}`,
-          style: {
-            paddingLeft: `${depth * 20}px`,
-            cursor: "pointer",
-            padding: "4px 8px",
-            borderRadius: "4px",
-            backgroundColor: isSelected ? "var(--background-modifier-hover)" : "transparent"
-          },
-          onClick: () => onPick(item.path),
-          onMouseEnter: (e) => {
-            if (!isSelected)
-              e.currentTarget.style.backgroundColor = "var(--background-modifier-hover)";
-          },
-          onMouseLeave: (e) => {
-            if (!isSelected)
-              e.currentTarget.style.backgroundColor = "transparent";
-          }
-        },
-        "\u{1F4C4} ",
-        item.name,
-        isSelected && /* @__PURE__ */ import_react9.default.createElement("span", { style: { marginLeft: "8px", color: "var(--text-accent)" } }, "\u2713")
-      );
-    }
-  };
-  const rootItems = structure.filter((item) => !item.path.includes("/"));
-  return /* @__PURE__ */ import_react9.default.createElement("div", { className: "file-tree-picker", style: { padding: "12px", maxHeight: "60vh", overflowY: "auto" } }, /* @__PURE__ */ import_react9.default.createElement("div", { className: "vault-tree" }, rootItems.length === 0 ? /* @__PURE__ */ import_react9.default.createElement("div", { style: { padding: "12px", color: "var(--text-muted)" } }, "No markdown files found in vault") : rootItems.map((item) => renderItem(item))));
 };
 
 // services/StressTestService.ts
@@ -67504,7 +67786,7 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         );
       }
     }
-    new import_obsidian10.Setting(containerEl).setName("Enable BM25 retrieval").setDesc("Use a search-engine style relevance ranking (BM25). Recommended for names, places, and exact terms.").addToggle(
+    new import_obsidian10.Setting(containerEl).setName("Enable bm25 retrieval").setDesc("Use a search-engine style relevance ranking (BM25). Recommended for names, places, and exact terms.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableBm25)).onChange(async (value) => {
         this.plugin.settings.retrievalEnableBm25 = value;
         await this.plugin.saveSettings();
@@ -67759,7 +68041,7 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
       });
       modal.open();
     }));
-    const bookFileSetting = new import_obsidian10.Setting(containerEl).setName("Book main file").setDesc(`Current: ${this.plugin.settings.book2Path || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.book2Path ? this.plugin.settings.book2Path.split("/").pop() || "Select book file" : "Select book file").onClick(() => {
+    new import_obsidian10.Setting(containerEl).setName("Book main file").setDesc(`Current: ${this.plugin.settings.book2Path || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.book2Path ? this.plugin.settings.book2Path.split("/").pop() || "Select book file" : "Select book file").onClick(() => {
       const modal = new FileTreePickerModal(this.plugin, {
         currentPath: this.plugin.settings.book2Path,
         onPick: async (filePath) => {
@@ -71077,28 +71359,36 @@ ${appendix}`);
 };
 
 // ui/BookMainSelectorModal.ts
-var BookMainSelectorModal = class extends FileTreePickerModal {
+var import_obsidian19 = require("obsidian");
+var BookMainSelectorModal = class extends import_obsidian19.Modal {
   constructor(plugin) {
-    super(plugin, {
-      currentPath: plugin.settings.book2Path,
+    super(plugin.app);
+    this.plugin = plugin;
+  }
+  onOpen() {
+    const modal = new FileTreePickerModal(this.plugin, {
+      currentPath: this.plugin.settings.book2Path,
+      title: "Select your main book file",
       onPick: async (filePath) => {
-        plugin.settings.book2Path = filePath;
-        plugin.settings.setupCompleted = true;
-        await plugin.saveSettings();
+        this.plugin.settings.book2Path = filePath;
+        this.plugin.settings.setupCompleted = true;
+        await this.plugin.saveSettings();
+        this.close();
       }
     });
-    this.titleEl.setText("Select your manuscript file");
+    modal.open();
+    this.close();
   }
 };
 
 // ui/PublishWizardModal.tsx
-var import_react10 = __toESM(require_react());
-var import_client5 = __toESM(require_client());
-var import_obsidian22 = require("obsidian");
+var import_react11 = __toESM(require_react());
+var import_client6 = __toESM(require_client());
+var import_obsidian23 = require("obsidian");
 
 // ui/FolderPickerModal.ts
-var import_obsidian19 = require("obsidian");
-var FolderPickerModal = class extends import_obsidian19.FuzzySuggestModal {
+var import_obsidian20 = require("obsidian");
+var FolderPickerModal = class extends import_obsidian20.FuzzySuggestModal {
   constructor(opts) {
     super(opts.app);
     this.folders = opts.folders;
@@ -71118,8 +71408,8 @@ var FolderPickerModal = class extends import_obsidian19.FuzzySuggestModal {
 };
 
 // ui/BinaryFilePickerModal.ts
-var import_obsidian20 = require("obsidian");
-var BinaryFilePickerModal = class extends import_obsidian20.FuzzySuggestModal {
+var import_obsidian21 = require("obsidian");
+var BinaryFilePickerModal = class extends import_obsidian21.FuzzySuggestModal {
   constructor(opts) {
     super(opts.app);
     this.files = opts.files;
@@ -71139,7 +71429,7 @@ var BinaryFilePickerModal = class extends import_obsidian20.FuzzySuggestModal {
 };
 
 // services/publish/MarkdownCompile.ts
-var import_obsidian21 = require("obsidian");
+var import_obsidian22 = require("obsidian");
 function trimBom(s) {
   return s.charCodeAt(0) === 65279 ? s.slice(1) : s;
 }
@@ -71224,13 +71514,13 @@ function resolveLinkToFilePath(app, linkTarget, fromPath) {
   if (!t)
     return null;
   const direct = app.vault.getAbstractFileByPath(t);
-  if (direct instanceof import_obsidian21.TFile)
+  if (direct instanceof import_obsidian22.TFile)
     return direct.path;
   const directMd = app.vault.getAbstractFileByPath(`${t}.md`);
-  if (directMd instanceof import_obsidian21.TFile)
+  if (directMd instanceof import_obsidian22.TFile)
     return directMd.path;
   const dest = app.metadataCache.getFirstLinkpathDest(t, fromPath);
-  if (dest instanceof import_obsidian21.TFile)
+  if (dest instanceof import_obsidian22.TFile)
     return dest.path;
   return null;
 }
@@ -71240,7 +71530,7 @@ var MarkdownCompile = class {
   }
   async compileFromBookMain(sourcePath) {
     const file = this.app.vault.getAbstractFileByPath(sourcePath);
-    if (!(file instanceof import_obsidian21.TFile)) {
+    if (!(file instanceof import_obsidian22.TFile)) {
       throw new Error(`Book main file not found: ${sourcePath}`);
     }
     const text2 = await this.app.vault.read(file);
@@ -71249,7 +71539,7 @@ var MarkdownCompile = class {
   }
   async compileFromTocNote(tocPath) {
     const file = this.app.vault.getAbstractFileByPath(tocPath);
-    if (!(file instanceof import_obsidian21.TFile))
+    if (!(file instanceof import_obsidian22.TFile))
       throw new Error(`TOC note not found: ${tocPath}`);
     const text2 = await this.app.vault.read(file);
     const lines = trimBom(text2).split(/\r?\n/);
@@ -71265,7 +71555,7 @@ var MarkdownCompile = class {
       if (!destPath)
         continue;
       const dest = this.app.vault.getAbstractFileByPath(destPath);
-      if (!(dest instanceof import_obsidian21.TFile))
+      if (!(dest instanceof import_obsidian22.TFile))
         continue;
       const md2 = await this.app.vault.read(dest);
       const title = (() => {
@@ -77372,7 +77662,7 @@ function sanitizeFileName2(name2) {
 function ensureEpubExt2(name2) {
   return name2.toLowerCase().endsWith(".epub") ? name2 : `${name2}.epub`;
 }
-var PublishWizardModal = class extends import_obsidian22.Modal {
+var PublishWizardModal = class extends import_obsidian23.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.reactRoot = null;
@@ -77382,8 +77672,8 @@ var PublishWizardModal = class extends import_obsidian22.Modal {
     this.titleEl.setText("Export to epub");
     this.contentEl.empty();
     const container = this.contentEl.createDiv();
-    this.reactRoot = (0, import_client5.createRoot)(container);
-    this.reactRoot.render(import_react10.default.createElement(PublishWizardComponent, { plugin: this.plugin, onClose: () => this.close() }));
+    this.reactRoot = (0, import_client6.createRoot)(container);
+    this.reactRoot.render(import_react11.default.createElement(PublishWizardComponent, { plugin: this.plugin, onClose: () => this.close() }));
   }
   onClose() {
     this.reactRoot?.unmount();
@@ -77395,34 +77685,34 @@ var PublishWizardComponent = ({
   plugin,
   onClose
 }) => {
-  const [step, setStep] = (0, import_react10.useState)(1);
-  const [mode, setMode] = (0, import_react10.useState)("book-main");
-  const [sourcePath, setSourcePath] = (0, import_react10.useState)(plugin.settings.book2Path || "Book-Main.md");
-  const [tocPath, setTocPath] = (0, import_react10.useState)("");
-  const [title, setTitle] = (0, import_react10.useState)("Untitled");
-  const [subtitle, setSubtitle] = (0, import_react10.useState)("");
-  const [author, setAuthor] = (0, import_react10.useState)("");
-  const [language, setLanguage] = (0, import_react10.useState)("en");
-  const [includeTitlePage, setIncludeTitlePage] = (0, import_react10.useState)(true);
-  const [includeCopyrightPage, setIncludeCopyrightPage] = (0, import_react10.useState)(true);
-  const [licenseTemplateId, setLicenseTemplateId] = (0, import_react10.useState)("all-rights-reserved");
-  const [copyrightYear, setCopyrightYear] = (0, import_react10.useState)(currentYear());
-  const [copyrightHolder, setCopyrightHolder] = (0, import_react10.useState)("");
-  const [embedFonts, setEmbedFonts] = (0, import_react10.useState)(false);
-  const [fontRegular, setFontRegular] = (0, import_react10.useState)("");
-  const [fontBold, setFontBold] = (0, import_react10.useState)("");
-  const [fontItalic, setFontItalic] = (0, import_react10.useState)("");
-  const [fontBoldItalic, setFontBoldItalic] = (0, import_react10.useState)("");
-  const [outputFolder, setOutputFolder] = (0, import_react10.useState)("Exports");
-  const [outputFormat, setOutputFormat] = (0, import_react10.useState)("epub");
-  const [subsetMode, setSubsetMode] = (0, import_react10.useState)("all");
-  const [subsetChaptersCount, setSubsetChaptersCount] = (0, import_react10.useState)("3");
-  const [subsetWordsCount, setSubsetWordsCount] = (0, import_react10.useState)("5000");
-  const [outputFileName, setOutputFileName] = (0, import_react10.useState)("Untitled.epub");
-  const [isExporting, setIsExporting] = (0, import_react10.useState)(false);
-  const [progress, setProgress] = (0, import_react10.useState)("");
-  const [error2, setError] = (0, import_react10.useState)(null);
-  (0, import_react10.useEffect)(() => {
+  const [step, setStep] = (0, import_react11.useState)(1);
+  const [mode, setMode] = (0, import_react11.useState)("book-main");
+  const [sourcePath, setSourcePath] = (0, import_react11.useState)(plugin.settings.book2Path || "Book-Main.md");
+  const [tocPath, setTocPath] = (0, import_react11.useState)("");
+  const [title, setTitle] = (0, import_react11.useState)("Untitled");
+  const [subtitle, setSubtitle] = (0, import_react11.useState)("");
+  const [author, setAuthor] = (0, import_react11.useState)("");
+  const [language, setLanguage] = (0, import_react11.useState)("en");
+  const [includeTitlePage, setIncludeTitlePage] = (0, import_react11.useState)(true);
+  const [includeCopyrightPage, setIncludeCopyrightPage] = (0, import_react11.useState)(true);
+  const [licenseTemplateId, setLicenseTemplateId] = (0, import_react11.useState)("all-rights-reserved");
+  const [copyrightYear, setCopyrightYear] = (0, import_react11.useState)(currentYear());
+  const [copyrightHolder, setCopyrightHolder] = (0, import_react11.useState)("");
+  const [embedFonts, setEmbedFonts] = (0, import_react11.useState)(false);
+  const [fontRegular, setFontRegular] = (0, import_react11.useState)("");
+  const [fontBold, setFontBold] = (0, import_react11.useState)("");
+  const [fontItalic, setFontItalic] = (0, import_react11.useState)("");
+  const [fontBoldItalic, setFontBoldItalic] = (0, import_react11.useState)("");
+  const [outputFolder, setOutputFolder] = (0, import_react11.useState)("Exports");
+  const [outputFormat, setOutputFormat] = (0, import_react11.useState)("epub");
+  const [subsetMode, setSubsetMode] = (0, import_react11.useState)("all");
+  const [subsetChaptersCount, setSubsetChaptersCount] = (0, import_react11.useState)("3");
+  const [subsetWordsCount, setSubsetWordsCount] = (0, import_react11.useState)("5000");
+  const [outputFileName, setOutputFileName] = (0, import_react11.useState)("Untitled.epub");
+  const [isExporting, setIsExporting] = (0, import_react11.useState)(false);
+  const [progress, setProgress] = (0, import_react11.useState)("");
+  const [error2, setError] = (0, import_react11.useState)(null);
+  (0, import_react11.useEffect)(() => {
     const base2 = sanitizeFileName2(title || "Untitled");
     if (outputFormat === "epub")
       setOutputFileName(ensureEpubExt2(base2));
@@ -77459,7 +77749,7 @@ var PublishWizardComponent = ({
     }
     return out;
   };
-  const canNext = (0, import_react10.useMemo)(() => {
+  const canNext = (0, import_react11.useMemo)(() => {
     if (step === 1) {
       if (mode === "book-main")
         return Boolean(sourcePath.trim());
@@ -77473,18 +77763,18 @@ var PublishWizardComponent = ({
     }
     return true;
   }, [step, mode, sourcePath, tocPath, embedFonts, fontRegular, outputFolder, outputFileName]);
-  const pickMarkdownFile = (placeholder, onPick) => {
-    const files = plugin.app.vault.getMarkdownFiles();
-    const modal = new FilePickerModal({
-      app: plugin.app,
-      files,
-      placeholder,
-      onPick
+  const pickMarkdownFile = (title2, onPick, currentPath) => {
+    const modal = new FileTreePickerModal(plugin, {
+      currentPath,
+      title: title2,
+      onPick: async (filePath) => {
+        await onPick(filePath);
+      }
     });
     modal.open();
   };
   const pickFolder = (onPick) => {
-    const folders = plugin.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian22.TFolder);
+    const folders = plugin.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian23.TFolder);
     const modal = new FolderPickerModal({
       app: plugin.app,
       folders,
@@ -77586,7 +77876,7 @@ ${markdownToPlainText(c.markdown || "")}
         outputPath = out;
       }
       setProgress("");
-      new import_obsidian22.Notice(`Exported: ${outputPath}`);
+      new import_obsidian23.Notice(`Exported: ${outputPath}`);
       onClose();
     } catch (e) {
       const message = e instanceof Error ? e.message : (() => {
@@ -77602,7 +77892,7 @@ ${markdownToPlainText(c.markdown || "")}
       setIsExporting(false);
     }
   };
-  return /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-wizard" }, /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-steps" }, "Step ", step, " of 6"), step === 1 && /* @__PURE__ */ import_react10.default.createElement("div", null, /* @__PURE__ */ import_react10.default.createElement("h2", null, "Source"), /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("label", null, /* @__PURE__ */ import_react10.default.createElement(
+  return /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-wizard" }, /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-steps" }, "Step ", step, " of 6"), step === 1 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Source"), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("label", null, /* @__PURE__ */ import_react11.default.createElement(
     "input",
     {
       type: "radio",
@@ -77610,7 +77900,7 @@ ${markdownToPlainText(c.markdown || "")}
       onChange: () => setMode("book-main"),
       disabled: isExporting
     }
-  ), "Book main (H1 chapters)"), /* @__PURE__ */ import_react10.default.createElement("label", { style: { marginLeft: 12 } }, /* @__PURE__ */ import_react10.default.createElement(
+  ), "Book main (H1 chapters)"), /* @__PURE__ */ import_react11.default.createElement("label", { style: { marginLeft: 12 } }, /* @__PURE__ */ import_react11.default.createElement(
     "input",
     {
       type: "radio",
@@ -77618,40 +77908,40 @@ ${markdownToPlainText(c.markdown || "")}
       onChange: () => setMode("toc-note"),
       disabled: isExporting
     }
-  ), "TOC note")), mode === "book-main" && /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "Book main file"), /* @__PURE__ */ import_react10.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react10.default.createElement("input", { value: sourcePath, onChange: (e) => setSourcePath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react10.default.createElement(
+  ), "TOC note")), mode === "book-main" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Book main file"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: sourcePath, onChange: (e) => setSourcePath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement(
     "button",
     {
-      onClick: () => pickMarkdownFile("Pick your manuscript note", (file) => {
-        setSourcePath(file.path);
-      }),
+      onClick: () => pickMarkdownFile("Pick your manuscript note", (filePath) => {
+        setSourcePath(filePath);
+      }, sourcePath),
       disabled: isExporting
     },
     "Browse"
-  ))), mode === "toc-note" && /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "TOC note"), /* @__PURE__ */ import_react10.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react10.default.createElement("input", { value: tocPath, onChange: (e) => setTocPath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react10.default.createElement(
+  ))), mode === "toc-note" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "TOC note"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: tocPath, onChange: (e) => setTocPath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement(
     "button",
     {
-      onClick: () => pickMarkdownFile("Pick your TOC note", (file) => {
-        setTocPath(file.path);
-      }),
+      onClick: () => pickMarkdownFile("Pick your TOC note", (filePath) => {
+        setTocPath(filePath);
+      }, tocPath),
       disabled: isExporting
     },
     "Browse"
-  )))), step === 2 && /* @__PURE__ */ import_react10.default.createElement("div", null, /* @__PURE__ */ import_react10.default.createElement("h2", null, "Metadata"), /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "Title"), /* @__PURE__ */ import_react10.default.createElement("input", { value: title, onChange: (e) => setTitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "Subtitle (optional)"), /* @__PURE__ */ import_react10.default.createElement("input", { value: subtitle, onChange: (e) => setSubtitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "Author"), /* @__PURE__ */ import_react10.default.createElement("input", { value: author, onChange: (e) => setAuthor(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "Language"), /* @__PURE__ */ import_react10.default.createElement("input", { value: language, onChange: (e) => setLanguage(e.target.value), disabled: isExporting, placeholder: "en" }))), step === 3 && /* @__PURE__ */ import_react10.default.createElement("div", null, /* @__PURE__ */ import_react10.default.createElement("h2", null, "Front matter"), /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("label", null, /* @__PURE__ */ import_react10.default.createElement("input", { type: "checkbox", checked: includeTitlePage, onChange: (e) => setIncludeTitlePage(e.target.checked) }), "Title page")), /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("label", null, /* @__PURE__ */ import_react10.default.createElement(
+  )))), step === 2 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Metadata"), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Title"), /* @__PURE__ */ import_react11.default.createElement("input", { value: title, onChange: (e) => setTitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Subtitle (optional)"), /* @__PURE__ */ import_react11.default.createElement("input", { value: subtitle, onChange: (e) => setSubtitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Author"), /* @__PURE__ */ import_react11.default.createElement("input", { value: author, onChange: (e) => setAuthor(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Language"), /* @__PURE__ */ import_react11.default.createElement("input", { value: language, onChange: (e) => setLanguage(e.target.value), disabled: isExporting, placeholder: "en" }))), step === 3 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Front matter"), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("label", null, /* @__PURE__ */ import_react11.default.createElement("input", { type: "checkbox", checked: includeTitlePage, onChange: (e) => setIncludeTitlePage(e.target.checked) }), "Title page")), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("label", null, /* @__PURE__ */ import_react11.default.createElement(
     "input",
     {
       type: "checkbox",
       checked: includeCopyrightPage,
       onChange: (e) => setIncludeCopyrightPage(e.target.checked)
     }
-  ), "Copyright page")), /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "License template"), /* @__PURE__ */ import_react10.default.createElement(
+  ), "Copyright page")), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "License template"), /* @__PURE__ */ import_react11.default.createElement(
     "select",
     {
       value: licenseTemplateId,
       onChange: (e) => setLicenseTemplateId(e.target.value),
       disabled: isExporting
     },
-    LICENSE_TEMPLATES.map((t) => /* @__PURE__ */ import_react10.default.createElement("option", { key: t.id, value: t.id }, t.label))
-  )), /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "Copyright year"), /* @__PURE__ */ import_react10.default.createElement("input", { value: copyrightYear, onChange: (e) => setCopyrightYear(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "Copyright holder"), /* @__PURE__ */ import_react10.default.createElement("input", { value: copyrightHolder, onChange: (e) => setCopyrightHolder(e.target.value), disabled: isExporting }))), step === 4 && /* @__PURE__ */ import_react10.default.createElement("div", null, /* @__PURE__ */ import_react10.default.createElement("h2", null, "Typography"), /* @__PURE__ */ import_react10.default.createElement("p", null, "Default styling uses Literata if available on the reader device. You can embed your own font files to guarantee the look."), /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("label", null, /* @__PURE__ */ import_react10.default.createElement("input", { type: "checkbox", checked: embedFonts, onChange: (e) => setEmbedFonts(e.target.checked), disabled: isExporting }), "Embed custom fonts")), embedFonts && /* @__PURE__ */ import_react10.default.createElement("div", null, /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "Regular (required)"), /* @__PURE__ */ import_react10.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react10.default.createElement("input", { value: fontRegular, onChange: (e) => setFontRegular(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react10.default.createElement("button", { onClick: () => pickFontFile((f) => setFontRegular(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "Bold"), /* @__PURE__ */ import_react10.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react10.default.createElement("input", { value: fontBold, onChange: (e) => setFontBold(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react10.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBold(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "Italic"), /* @__PURE__ */ import_react10.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react10.default.createElement("input", { value: fontItalic, onChange: (e) => setFontItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react10.default.createElement("button", { onClick: () => pickFontFile((f) => setFontItalic(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "Bold italic"), /* @__PURE__ */ import_react10.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react10.default.createElement("input", { value: fontBoldItalic, onChange: (e) => setFontBoldItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react10.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBoldItalic(f.path)), disabled: isExporting }, "Browse"))))), step === 5 && /* @__PURE__ */ import_react10.default.createElement("div", null, /* @__PURE__ */ import_react10.default.createElement("h2", null, "Output"), /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "Format"), /* @__PURE__ */ import_react10.default.createElement("select", { value: outputFormat, onChange: (e) => setOutputFormat(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react10.default.createElement("option", { value: "epub" }, "Epub"), /* @__PURE__ */ import_react10.default.createElement("option", { value: "docx" }, "Docx"), /* @__PURE__ */ import_react10.default.createElement("option", { value: "rtf" }, "Rtf"), /* @__PURE__ */ import_react10.default.createElement("option", { value: "copy" }, "Plain text"))), /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "Export subset"), /* @__PURE__ */ import_react10.default.createElement("select", { value: subsetMode, onChange: (e) => setSubsetMode(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react10.default.createElement("option", { value: "all" }, "All chapters"), /* @__PURE__ */ import_react10.default.createElement("option", { value: "first-chapters" }, "First N chapters"), /* @__PURE__ */ import_react10.default.createElement("option", { value: "first-words" }, "First N words"))), subsetMode === "first-chapters" && /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "Chapters"), /* @__PURE__ */ import_react10.default.createElement("input", { value: subsetChaptersCount, onChange: (e) => setSubsetChaptersCount(e.target.value), disabled: isExporting })), subsetMode === "first-words" && /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "Words"), /* @__PURE__ */ import_react10.default.createElement("input", { value: subsetWordsCount, onChange: (e) => setSubsetWordsCount(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "Folder"), /* @__PURE__ */ import_react10.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react10.default.createElement("input", { value: outputFolder, onChange: (e) => setOutputFolder(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react10.default.createElement("button", { onClick: () => pickFolder((f) => setOutputFolder(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react10.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react10.default.createElement("div", null, "File name"), /* @__PURE__ */ import_react10.default.createElement("input", { value: outputFileName, onChange: (e) => setOutputFileName(e.target.value), disabled: isExporting }))), step === 6 && /* @__PURE__ */ import_react10.default.createElement("div", null, /* @__PURE__ */ import_react10.default.createElement("h2", null, "Export"), /* @__PURE__ */ import_react10.default.createElement("p", null, "When you click Export, the plugin will compile your notes and write the output into your vault."), progress && /* @__PURE__ */ import_react10.default.createElement("div", { className: "generation-status" }, progress), error2 && /* @__PURE__ */ import_react10.default.createElement("div", { className: "error-message" }, "\u274C ", error2)), /* @__PURE__ */ import_react10.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 16 } }, /* @__PURE__ */ import_react10.default.createElement("div", null, /* @__PURE__ */ import_react10.default.createElement("button", { onClick: onClose, className: "mod-secondary", disabled: isExporting }, "Close")), /* @__PURE__ */ import_react10.default.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ import_react10.default.createElement("button", { onClick: goBack, disabled: isExporting || step === 1 }, "Back"), step < 6 && /* @__PURE__ */ import_react10.default.createElement("button", { onClick: goNext, disabled: isExporting || !canNext, className: "mod-cta" }, "Next"), step === 6 && /* @__PURE__ */ import_react10.default.createElement("button", { onClick: doExport, disabled: isExporting, className: "mod-cta" }, "Export"))));
+    LICENSE_TEMPLATES.map((t) => /* @__PURE__ */ import_react11.default.createElement("option", { key: t.id, value: t.id }, t.label))
+  )), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Copyright year"), /* @__PURE__ */ import_react11.default.createElement("input", { value: copyrightYear, onChange: (e) => setCopyrightYear(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Copyright holder"), /* @__PURE__ */ import_react11.default.createElement("input", { value: copyrightHolder, onChange: (e) => setCopyrightHolder(e.target.value), disabled: isExporting }))), step === 4 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Typography"), /* @__PURE__ */ import_react11.default.createElement("p", null, "Default styling uses Literata if available on the reader device. You can embed your own font files to guarantee the look."), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("label", null, /* @__PURE__ */ import_react11.default.createElement("input", { type: "checkbox", checked: embedFonts, onChange: (e) => setEmbedFonts(e.target.checked), disabled: isExporting }), "Embed custom fonts")), embedFonts && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Regular (required)"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontRegular, onChange: (e) => setFontRegular(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontRegular(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Bold"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontBold, onChange: (e) => setFontBold(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBold(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Italic"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontItalic, onChange: (e) => setFontItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontItalic(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Bold italic"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontBoldItalic, onChange: (e) => setFontBoldItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBoldItalic(f.path)), disabled: isExporting }, "Browse"))))), step === 5 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Output"), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Format"), /* @__PURE__ */ import_react11.default.createElement("select", { value: outputFormat, onChange: (e) => setOutputFormat(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react11.default.createElement("option", { value: "epub" }, "Epub"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "docx" }, "Docx"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "rtf" }, "Rtf"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "copy" }, "Plain text"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Export subset"), /* @__PURE__ */ import_react11.default.createElement("select", { value: subsetMode, onChange: (e) => setSubsetMode(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react11.default.createElement("option", { value: "all" }, "All chapters"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "first-chapters" }, "First N chapters"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "first-words" }, "First N words"))), subsetMode === "first-chapters" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Chapters"), /* @__PURE__ */ import_react11.default.createElement("input", { value: subsetChaptersCount, onChange: (e) => setSubsetChaptersCount(e.target.value), disabled: isExporting })), subsetMode === "first-words" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Words"), /* @__PURE__ */ import_react11.default.createElement("input", { value: subsetWordsCount, onChange: (e) => setSubsetWordsCount(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Folder"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: outputFolder, onChange: (e) => setOutputFolder(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFolder((f) => setOutputFolder(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "File name"), /* @__PURE__ */ import_react11.default.createElement("input", { value: outputFileName, onChange: (e) => setOutputFileName(e.target.value), disabled: isExporting }))), step === 6 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Export"), /* @__PURE__ */ import_react11.default.createElement("p", null, "When you click Export, the plugin will compile your notes and write the output into your vault."), progress && /* @__PURE__ */ import_react11.default.createElement("div", { className: "generation-status" }, progress), error2 && /* @__PURE__ */ import_react11.default.createElement("div", { className: "error-message" }, "\u274C ", error2)), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 16 } }, /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("button", { onClick: onClose, className: "mod-secondary", disabled: isExporting }, "Close")), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ import_react11.default.createElement("button", { onClick: goBack, disabled: isExporting || step === 1 }, "Back"), step < 6 && /* @__PURE__ */ import_react11.default.createElement("button", { onClick: goNext, disabled: isExporting || !canNext, className: "mod-cta" }, "Next"), step === 6 && /* @__PURE__ */ import_react11.default.createElement("button", { onClick: doExport, disabled: isExporting, className: "mod-cta" }, "Export"))));
 };
 
 // main.ts
@@ -77734,7 +78024,7 @@ Output format (required):
   guidedDemoShownOnce: false,
   fileState: {}
 };
-var WritingDashboardPlugin = class extends import_obsidian23.Plugin {
+var WritingDashboardPlugin = class extends import_obsidian24.Plugin {
   constructor() {
     super(...arguments);
     /**
@@ -77769,11 +78059,11 @@ var WritingDashboardPlugin = class extends import_obsidian23.Plugin {
         const newNorm = file.path.replace(/\\/g, "/");
         let changed = false;
         const logsFolder = (this.settings.generationLogsFolder || "").replace(/\\/g, "/").replace(/\/+$/, "");
-        if (logsFolder && file instanceof import_obsidian23.TFolder && oldNorm === logsFolder) {
+        if (logsFolder && file instanceof import_obsidian24.TFolder && oldNorm === logsFolder) {
           this.settings.generationLogsFolder = newNorm;
           changed = true;
         }
-        if (!(file instanceof import_obsidian23.TFile) || file.extension !== "md") {
+        if (!(file instanceof import_obsidian24.TFile) || file.extension !== "md") {
           if (changed)
             await this.saveSettings();
           return;
@@ -77834,21 +78124,21 @@ var WritingDashboardPlugin = class extends import_obsidian23.Plugin {
     };
     this.registerEvent(
       this.app.vault.on("create", (file) => {
-        if (file instanceof import_obsidian23.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian24.TFile && file.extension === "md") {
           maybeQueueIndex(file.path);
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
-        if (file instanceof import_obsidian23.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian24.TFile && file.extension === "md") {
           maybeQueueIndex(file.path);
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
-        if (file instanceof import_obsidian23.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian24.TFile && file.extension === "md") {
           this.embeddingsIndex.queueRemoveFile(file.path);
           this.bm25Index.queueRemoveFile(file.path);
         }
@@ -77856,7 +78146,7 @@ var WritingDashboardPlugin = class extends import_obsidian23.Plugin {
     );
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
-        if (!(file instanceof import_obsidian23.TFile) || file.extension !== "md")
+        if (!(file instanceof import_obsidian24.TFile) || file.extension !== "md")
           return;
         this.embeddingsIndex.queueRemoveFile(oldPath);
         this.bm25Index.queueRemoveFile(oldPath);

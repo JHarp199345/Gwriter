@@ -285,7 +285,7 @@ export class SettingsTab extends PluginSettingTab {
 		}
 
 		new Setting(containerEl)
-			.setName('Enable BM25 retrieval')
+			.setName('Enable bm25 retrieval')
 			.setDesc('Use a search-engine style relevance ranking (BM25). Recommended for names, places, and exact terms.')
 			.addToggle((toggle) =>
 				toggle.setValue(Boolean(this.plugin.settings.retrievalEnableBm25)).onChange(async (value) => {
@@ -681,7 +681,7 @@ export class SettingsTab extends PluginSettingTab {
 					modal.open();
 				}));
 
-		const bookFileSetting = new Setting(containerEl)
+		new Setting(containerEl)
 			.setName('Book main file')
 			.setDesc(`Current: ${this.plugin.settings.book2Path || '(none selected)'}`)
 			.addButton(button => button

@@ -10,15 +10,65 @@ import { fnv1a32 } from '../services/ContentHash';
 import { estimateTokens } from '../services/TokenEstimate';
 import { FilePickerModal } from './FilePickerModal';
 import { FolderTreePickerModal } from './FolderTreePickerModal';
+import { FileTreePickerModal } from './FileTreePickerModal';
 import { parseCharacterRoster, rosterToBulletList } from '../services/CharacterRoster';
 import { showConfirmModal } from './ConfirmModal';
 import { PromptPreviewModal } from './PromptPreviewModal';
+import { ButtonHelpModal } from './ButtonHelpModal';
 
 type Mode = 'chapter' | 'micro-edit' | 'character-update' | 'continuity-check';
 type DemoStep = 'off' | 'chapter' | 'micro-edit' | 'character-update' | 'done';
 
 const DEFAULT_REWRITE_INSTRUCTIONS =
 	'[INSTRUCTION: The Scene Summary is a rough summary OR directions. Rewrite it into a fully detailed dramatic scene. Include dialogue, sensory details, and action. Do not summarize; write the prose. Match the tone, rhythm, and pacing of the provided context.]';
+
+// Helper function to get workflow tooltip text for buttons
+const getButtonTooltip = (buttonId: string, mode?: Mode): string => {
+	const workflows: Record<string, Record<string, string>> = {
+		'export-epub': {
+			'': 'Workflow: 1) Click to open export wizard, 2) Select source (book main or TOC), 3) Enter metadata, 4) Configure front matter, 5) Choose typography, 6) Select output folder and export'
+		},
+		'preview-prompt': {
+			'': 'Workflow: 1) Configure all inputs (scene summary, selected text, etc.), 2) Click to preview the full prompt that will be sent to AI, 3) Review token estimates and retrieved context'
+		},
+		'generate-chapter': {
+			'chapter': 'Workflow: 1) Write Scene Summary / Directions, 2) Set target word range (Min → Max), 3) Optional: Review/edit Rewrite Instructions, 4) Click to generate, 5) Review output and copy to manuscript'
+		},
+		'generate-edit': {
+			'micro-edit': 'Workflow: 1) Paste problematic passage in "Selected Text", 2) Enter grievances/directives, 3) Click to generate refined alternative, 4) Copy the result into your manuscript'
+		},
+		'run-continuity-check': {
+			'continuity-check': 'Workflow: 1) Paste draft text to check (or use last generated output), 2) Optional: Adjust focus toggles (Knowledge, Timeline, POV, Naming), 3) Click to run check, 4) Review violations report with suggested patches'
+		},
+		'update-characters': {
+			'character-update': 'Workflow: 1) Paste character-relevant text in "Selected Text" field, 2) Click to automatically update character notes with timestamped entries in the Characters/ folder'
+		},
+		'select-file-process': {
+			'character-update': 'Workflow: 1) Click to select a manuscript file for bulk character extraction, 2) Selected file will be used by "Process entire book" button'
+		},
+		'use-book-main-path': {
+			'character-update': 'Workflow: Resets the source file back to your main book file (configured in settings) for character extraction'
+		},
+		'process-entire-book': {
+			'character-update': 'Workflow: 1) Optional: Select custom file with "Select file to process", 2) Click to perform 2-pass scan (roster + per-chapter extraction), 3) Character notes updated from entire manuscript'
+		},
+		'chunk-current-note': {
+			'character-update': 'Workflow: 1) Select a file to process, 2) Click to chunk it into smaller sections for processing'
+		},
+		'update-story-bible': {
+			'chapter': 'Workflow: 1) Write or generate a chapter, 2) Click to extract story bible updates from the text, 3) Review merged output, 4) Save as new version or replace existing story bible'
+		},
+		'save-merged-story-bible': {
+			'chapter': 'Workflow: After updating story bible, click to save merged output as a new versioned file in Story bibles/ folder'
+		},
+		'replace-story-bible': {
+			'chapter': 'Workflow: After updating story bible, click to save new version and automatically update the active story bible path in settings'
+		}
+	};
+	
+	const modeKey = mode || '';
+	return workflows[buttonId]?.[modeKey] || workflows[buttonId]?.[''] || '';
+};
 
 export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = ({ plugin }) => {
 	const formatUnknownForUi = (value: unknown): string => {
@@ -191,11 +241,11 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		`## Continuity report\n` +
 		`- Severity: Medium\n` +
 		`- Issue: Naming consistency\n` +
-		`- Evidence (draft): \"Dr. Priya Armintastani\"\n` +
-		`- Evidence (canon/context): \"Priya Armintastani\" (character note)\n` +
+		`- Evidence (draft): "Dr. Priya Armintastani"\n` +
+		`- Evidence (canon/context): "Priya Armintastani" (character note)\n` +
 		`- Suggested fix: Use one canonical name consistently.\n\n` +
 		`## Suggested patches (optional)\n` +
-		`- Replace \"Dr. Priya Armintastani\" with \"Priya Armintastani\" if that matches canon.\n`;
+		`- Replace "Dr. Priya Armintastani" with "Priya Armintastani" if that matches canon.\n`;
 
 	const DEMO_CHARACTER_EXTRACTION_OUTPUT =
 		`## Ava\n` +
@@ -1056,15 +1106,13 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	};
 
 	const handleSelectCharacterExtractionSource = () => {
-		const files = plugin.app.vault.getMarkdownFiles();
-		const modal = new FilePickerModal({
-			app: plugin.app,
-			files,
-			placeholder: 'Pick the manuscript to process for bulk character extraction (Book 1, Book 2, etc.)',
-			onPick: async (file) => {
-				plugin.settings.characterExtractionSourcePath = file.path;
+		const modal = new FileTreePickerModal(plugin, {
+			currentPath: plugin.settings.characterExtractionSourcePath,
+			title: 'Select file to process for character extraction',
+			onPick: async (filePath: string) => {
+				plugin.settings.characterExtractionSourcePath = filePath;
 				await plugin.saveSettings();
-				setBulkSourcePath(file.path);
+				setBulkSourcePath(filePath);
 			}
 		});
 		modal.open();
@@ -1664,103 +1712,149 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 						</div>
 					)}
 					<div className="controls">
-						<button 
-							onClick={openPublishWizard} 
-							disabled={isGenerating} 
-							className="update-characters-button"
-							title="Export your manuscript to EPUB format for publishing"
-						>
-							Export to epub
-						</button>
-						<button
-							onClick={handlePreviewPrompt}
-							disabled={isGenerating}
-							className="update-characters-button"
-							title="Preview the full AI prompt that will be sent (useful for debugging)"
-						>
-							Preview prompt
-						</button>
-						{mode === 'chapter' && (
-							<button
-								onClick={handleUpdateStoryBible}
-								disabled={isGenerating || !apiKeyPresent}
-								className="update-characters-button"
-								title="Extract story bible updates from the generated chapter text"
-							>
-								Update story bible
-							</button>
-						)}
-						{mode !== 'character-update' && (
-							<button 
-								onClick={handleGenerate}
-								disabled={isGenerating || (!apiKeyPresent && !isGuidedDemoActive)}
-								className="generate-button"
-								title={mode === 'chapter' 
-									? 'Generate a new chapter based on your scene summary and instructions'
-									: mode === 'micro-edit'
-									? 'Generate a refined version of the selected passage'
-									: 'Check the draft text for continuity issues'}
-							>
-								{isGenerating
-									? 'Generating...'
-									: mode === 'chapter'
-									? 'Generate chapter'
-									: mode === 'micro-edit'
-									? 'Generate edit'
-									: 'Run continuity check'}
-							</button>
-						)}
-						{mode === 'character-update' && (
-							<>
+						{/* Utilities (always visible) */}
+						<div className="button-group utility-buttons">
+							<div className="button-group-header">
+								<h3>Utilities</h3>
 								<button 
-									onClick={handleUpdateCharacters}
-									disabled={isGenerating || !selectedText || (!apiKeyPresent && !isGuidedDemoActive)}
-									className="update-characters-button"
-									title="Extract character information from the selected text and update character notes"
+									onClick={() => {
+										const modal = new ButtonHelpModal(plugin.app);
+										modal.open();
+									}}
+									className="help-button update-characters-button"
+									title="View button workflows and usage guide"
 								>
-									Update characters
+									?
+								</button>
+							</div>
+							<div className="button-group-buttons">
+								<button 
+									onClick={openPublishWizard} 
+									disabled={isGenerating} 
+									className="update-characters-button"
+									title={getButtonTooltip('export-epub')}
+								>
+									Export to epub
 								</button>
 								<button
-									onClick={handleSelectCharacterExtractionSource}
+									onClick={handlePreviewPrompt}
 									disabled={isGenerating}
 									className="update-characters-button"
-									title="Choose a different file to process for bulk character extraction (defaults to book main file)"
+									title={getButtonTooltip('preview-prompt')}
 								>
-									Select file to process
+									Preview prompt
 								</button>
-								<button
-									onClick={handleClearCharacterExtractionSource}
-									disabled={isGenerating || !plugin.settings.characterExtractionSourcePath}
-									className="update-characters-button"
-									title="Reset to use the book main file for bulk processing"
-								>
-									Use book main path
-								</button>
-								<button 
-									onClick={handleProcessEntireBook}
-									disabled={isGenerating || !apiKeyPresent}
-									className="update-characters-button"
-									title="Process the entire book file in chunks, extract all character information, and update character notes"
-								>
-									Process entire book
-								</button>
-								<button 
-									onClick={handleChunkSelectedFile}
-									disabled={isGenerating || !apiKeyPresent}
-									className="update-characters-button"
-									title="Split the current note into 500-word chunks and save them in a chunked folder for Smart Connections"
-								>
-									Chunk current note
-								</button>
-							</>
+							</div>
+						</div>
+
+						{/* Content Generation (mode-specific) */}
+						{mode !== 'character-update' && (
+							<div className="button-group generation-buttons">
+								<h3>Content Generation</h3>
+								<div className="button-group-buttons">
+									<button 
+										onClick={handleGenerate}
+										disabled={isGenerating || (!apiKeyPresent && !isGuidedDemoActive)}
+										className="generate-button"
+										title={
+											mode === 'chapter' ? getButtonTooltip('generate-chapter', mode) :
+											mode === 'micro-edit' ? getButtonTooltip('generate-edit', mode) :
+											getButtonTooltip('run-continuity-check', mode)
+										}
+									>
+										{isGenerating
+											? 'Generating...'
+											: mode === 'chapter'
+											? 'Generate chapter'
+											: mode === 'micro-edit'
+											? 'Generate edit'
+											: 'Run continuity check'}
+									</button>
+								</div>
+							</div>
+						)}
+
+						{/* Character Management (character-update mode) */}
+						{mode === 'character-update' && (
+							<div className="button-group character-buttons">
+								<h3>Character Management</h3>
+								<div className="button-group-buttons">
+									<button 
+										onClick={handleUpdateCharacters}
+										disabled={isGenerating || !selectedText || (!apiKeyPresent && !isGuidedDemoActive)}
+										className="update-characters-button"
+										title={getButtonTooltip('update-characters', mode)}
+									>
+										Update characters
+									</button>
+									<button
+										onClick={handleSelectCharacterExtractionSource}
+										disabled={isGenerating}
+										className="update-characters-button"
+										title={getButtonTooltip('select-file-process', mode)}
+									>
+										Select file to process
+									</button>
+									<button
+										onClick={handleClearCharacterExtractionSource}
+										disabled={isGenerating || !plugin.settings.characterExtractionSourcePath}
+										className="update-characters-button"
+										title={getButtonTooltip('use-book-main-path', mode)}
+									>
+										Use book main path
+									</button>
+									<button 
+										onClick={handleProcessEntireBook}
+										disabled={isGenerating || !apiKeyPresent}
+										className="update-characters-button"
+										title={getButtonTooltip('process-entire-book', mode)}
+									>
+										Process entire book
+									</button>
+									<button 
+										onClick={handleChunkSelectedFile}
+										disabled={isGenerating || !apiKeyPresent}
+										className="update-characters-button"
+										title={getButtonTooltip('chunk-current-note', mode)}
+									>
+										Chunk current note
+									</button>
+								</div>
+							</div>
+						)}
+
+						{/* Story Bible (chapter mode) */}
+						{mode === 'chapter' && (
+							<div className="button-group story-bible-buttons">
+								<h3>Story Bible</h3>
+								<div className="button-group-buttons">
+									<button
+										onClick={handleUpdateStoryBible}
+										disabled={isGenerating || !apiKeyPresent}
+										className="update-characters-button"
+										title={getButtonTooltip('update-story-bible', mode)}
+									>
+										Update story bible
+									</button>
+								</div>
+							</div>
 						)}
 					</div>
 					{mode === 'chapter' && (generatedText || storyBibleDelta) && (
 						<div className="generation-status" style={{ marginTop: 8 }}>
-							<button onClick={handleSaveStoryBibleAsNew} disabled={isGenerating || !generatedText}>
+							<button 
+								onClick={handleSaveStoryBibleAsNew} 
+								disabled={isGenerating || !generatedText}
+								title={getButtonTooltip('save-merged-story-bible', mode)}
+							>
 								Save merged story bible
 							</button>
-							<button onClick={handleReplaceStoryBible} disabled={isGenerating || !generatedText} style={{ marginLeft: 8 }}>
+							<button 
+								onClick={handleReplaceStoryBible} 
+								disabled={isGenerating || !generatedText} 
+								style={{ marginLeft: 8 }}
+								title={getButtonTooltip('replace-story-bible', mode)}
+							>
 								Replace story bible
 							</button>
 						</div>

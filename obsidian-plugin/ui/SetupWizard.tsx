@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import WritingDashboardPlugin from '../main';
 import { Modal, Notice } from 'obsidian';
+import { FileTreePickerModal } from './FileTreePickerModal';
 
 interface SetupItem {
 	type: 'file' | 'folder';
@@ -273,6 +274,29 @@ export const SetupWizardComponent: React.FC<SetupWizardComponentProps> = ({ plug
 									{item.exists && <span className="exists-badge">✓ Already exists</span>}
 								</div>
 								<div className="setup-item-description">{item.description}</div>
+								{item.type === 'file' && !item.exists && (
+									<div style={{ marginTop: '8px' }}>
+										<button
+											onClick={() => {
+												const modal = new FileTreePickerModal(plugin, {
+													title: `Select ${item.path}`,
+													currentPath: item.path,
+													onPick: async (filePath: string) => {
+														const newItems = [...items];
+														newItems[index].path = filePath;
+														setItems(newItems);
+													}
+												});
+												modal.open();
+											}}
+											className="mod-secondary"
+											style={{ fontSize: '11px', marginTop: '4px' }}
+											disabled={isCreating}
+										>
+											Browse existing file
+										</button>
+									</div>
+								)}
 							</div>
 						</label>
 					</div>
