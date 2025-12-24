@@ -2,11 +2,32 @@ import type { Vault } from 'obsidian';
 import WritingDashboardPlugin from '../../main';
 
 // Helper to get pipeline function with proper error handling
-async function getPipeline(): Promise<any> {
-	const mod: any = await import('@xenova/transformers');
+// Uses vendored transformers.js to avoid bundling issues
+async function getPipeline(plugin: WritingDashboardPlugin): Promise<any> {
+	// Import the vendored transformers library first
+	const mod: any = await import('../../lib/transformers.js');
+	
+	// Configure WASM paths - the library needs to know where to find WASM files
+	// In Obsidian, plugin files are served from .obsidian/plugins/plugin-name/
+	// We need to use the full path to the plugin's lib directory
+	if (mod.env) {
+		// Initialize env structure if needed
+		if (!mod.env.backends) mod.env.backends = {};
+		if (!mod.env.backends.onnx) mod.env.backends.onnx = {};
+		if (!mod.env.backends.onnx.wasm) mod.env.backends.onnx.wasm = {};
+		
+		// Configure WASM path - in Obsidian, plugin files are served from the plugin directory
+		// Since transformers.js is bundled into main.js, we need a path relative to the plugin root
+		// The library will resolve this relative to where it's loaded, so we use a relative path
+		// In Obsidian's plugin structure, './lib/' should resolve to the plugin's lib directory
+		const wasmPath = './lib/';
+		mod.env.backends.onnx.wasm.wasmPaths = wasmPath;
+		console.log(`[LocalEmbeddingModel] Configured WASM path: ${wasmPath}`);
+	}
+	
 	const pipeline = mod.pipeline || (mod.default && mod.default.pipeline);
 	if (!pipeline || typeof pipeline !== 'function') {
-		throw new Error('Pipeline not found in @xenova/transformers module');
+		throw new Error('Pipeline not found in transformers module');
 	}
 	return pipeline;
 }
@@ -71,17 +92,17 @@ export class MiniLmLocalEmbeddingModel implements LocalEmbeddingModel {
 		this.loading = (async () => {
 			try {
 				// Get pipeline function - using helper to ensure proper initialization
-				console.log(`[LocalEmbeddingModel] Loading @xenova/transformers pipeline...`);
+				console.log(`[LocalEmbeddingModel] Loading vendored transformers pipeline...`);
 				let pipeline: any;
 				try {
-					pipeline = await getPipeline();
+					pipeline = await getPipeline(this.plugin);
 					if (!pipeline || typeof pipeline !== 'function') {
 						throw new Error('Pipeline is not a function');
 					}
 					console.log(`[LocalEmbeddingModel] ✓ Pipeline function loaded`);
 				} catch (importErr) {
-					this.logError('ensureLoaded.import', 'Loading @xenova/transformers pipeline', importErr);
-					throw new Error(`Failed to load @xenova/transformers pipeline: ${importErr instanceof Error ? importErr.message : String(importErr)}`);
+					this.logError('ensureLoaded.import', 'Loading vendored transformers pipeline', importErr);
+					throw new Error(`Failed to load transformers pipeline: ${importErr instanceof Error ? importErr.message : String(importErr)}`);
 				}
 
 				// Cache models inside plugin data to avoid re-downloading if possible.

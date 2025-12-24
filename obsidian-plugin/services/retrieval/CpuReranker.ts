@@ -28,7 +28,16 @@ class TransformersCrossEncoder implements CpuRerankerModel {
 		if (this.loading !== null) return this.loading;
 
 		this.loading = (async () => {
-			const transformersModule: any = await import('@xenova/transformers');
+			// Import the vendored transformers library
+			const transformersModule: any = await import('../../lib/transformers.js');
+			
+			// Configure WASM paths - use a relative path from the plugin directory
+			// The library will resolve this relative to where it's loaded
+			if (transformersModule.env && transformersModule.env.backends && transformersModule.env.backends.onnx && transformersModule.env.backends.onnx.wasm) {
+				// Use relative path - the library should resolve it from the plugin directory
+				transformersModule.env.backends.onnx.wasm.wasmPaths = './lib/';
+			}
+			
 			// @xenova/transformers exports pipeline as a named export
 			// It might be on the default export or as a named export
 			const pipeline = transformersModule.pipeline || transformersModule.default?.pipeline;
