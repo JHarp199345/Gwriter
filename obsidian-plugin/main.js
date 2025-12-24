@@ -70068,115 +70068,88 @@ async function getPipeline(plugin) {
     }
   }
   console.log(`[LocalEmbeddingModel] [STEP 4] Attempting to configure WASM paths...`);
+  const wasmBasePath = "./lib/";
   if (env) {
-    const wasmBasePath = "./lib/";
+    let onnxBackendEnv = null;
+    let onnxBackendPath = "none";
+    if (mod2?.ONNX) {
+      console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Found ONNX export in module`);
+      const onnx = mod2.ONNX;
+      if (onnx?.env?.wasm) {
+        onnxBackendEnv = onnx.env.wasm;
+        onnxBackendPath = "mod.ONNX.env.wasm";
+        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Found ONNX env.wasm via mod.ONNX`);
+      } else if (onnx?.env) {
+        onnxBackendEnv = onnx.env;
+        onnxBackendPath = "mod.ONNX.env";
+        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Found ONNX env via mod.ONNX`);
+      }
+    }
+    if (!onnxBackendEnv && env.backends?.onnx) {
+      const onnxBackend = env.backends.onnx;
+      console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 ONNX backend found via env.backends.onnx`);
+      if (onnxBackend.env?.wasm) {
+        onnxBackendEnv = onnxBackend.env.wasm;
+        onnxBackendPath = "env.backends.onnx.env.wasm";
+        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Found WASM env at onnxBackend.env.wasm`);
+      } else if (onnxBackend.wasm) {
+        onnxBackendEnv = onnxBackend.wasm;
+        onnxBackendPath = "onnxBackend.wasm";
+        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Found WASM env at onnxBackend.wasm`);
+      } else if (onnxBackend.env) {
+        onnxBackendEnv = onnxBackend.env;
+        onnxBackendPath = "onnxBackend.env";
+        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Found env at onnxBackend.env`);
+      }
+    }
+    if (onnxBackendEnv) {
+      console.log(`[LocalEmbeddingModel] [STEP 4] Configuring WASM paths at: ${onnxBackendPath}`);
+      try {
+        if ("wasmPaths" in onnxBackendEnv) {
+          const currentPaths = onnxBackendEnv.wasmPaths;
+          console.log(`[LocalEmbeddingModel] [STEP 4] Current wasmPaths: ${JSON.stringify(currentPaths)}`);
+          onnxBackendEnv.wasmPaths = wasmBasePath;
+          console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Updated wasmPaths to: ${wasmBasePath}`);
+          console.log(`[LocalEmbeddingModel] [STEP 4] Verified wasmPaths: ${JSON.stringify(onnxBackendEnv.wasmPaths)}`);
+        } else {
+          Object.defineProperty(onnxBackendEnv, "wasmPaths", {
+            value: wasmBasePath,
+            writable: true,
+            enumerable: true,
+            configurable: true
+          });
+          console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Created and set wasmPaths to: ${wasmBasePath}`);
+        }
+      } catch (pathErr) {
+        console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to set wasmPaths at ${onnxBackendPath}:`, pathErr);
+      }
+    } else {
+      console.warn(`[LocalEmbeddingModel] [STEP 4] \u26A0 ONNX backend environment not found via standard paths`);
+      console.warn(`[LocalEmbeddingModel] [STEP 4] Attempting fallback: setting on env.backends.onnx directly...`);
+      if (!env.backends) {
+        try {
+          env.backends = {};
+          console.log(`[LocalEmbeddingModel] [STEP 4] Created env.backends object`);
+        } catch (e) {
+          console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to create env.backends:`, e);
+        }
+      }
+      if (env.backends && !env.backends.onnx) {
+        console.warn(`[LocalEmbeddingModel] [STEP 4] env.backends.onnx is still undefined - ONNX backend may not be initialized yet`);
+        console.warn(`[LocalEmbeddingModel] [STEP 4] This is expected if ONNX backend initializes lazily`);
+      }
+      captureEnvSnapshot(mod2, env, "wasm-config-attempt");
+      if (lastEnvSnapshot) {
+        console.log("[LocalEmbeddingModel] [ENV SNAPSHOT]", JSON.stringify(lastEnvSnapshot, null, 2));
+      }
+    }
     try {
-      if (!("wasmPaths" in env)) {
-        Object.defineProperty(env, "wasmPaths", {
-          value: wasmBasePath,
-          writable: true,
-          enumerable: true,
-          configurable: true
-        });
-        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Set env.wasmPaths to: ${wasmBasePath}`);
-      } else {
+      if ("wasmPaths" in env) {
         env.wasmPaths = wasmBasePath;
-        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Updated env.wasmPaths to: ${wasmBasePath}`);
+        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Also set env.wasmPaths to: ${wasmBasePath}`);
       }
     } catch (envPathErr) {
-      console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to set env.wasmPaths:`, envPathErr);
-    }
-    const onnxKeyExists = env.backends && "onnx" in env.backends;
-    const onnxValue = env.backends?.onnx;
-    console.log(`[LocalEmbeddingModel] [STEP 4] onnx key exists: ${onnxKeyExists}`);
-    console.log(`[LocalEmbeddingModel] [STEP 4] onnx value is: ${onnxValue !== void 0 ? "defined" : "undefined"}`);
-    if (typeof env.useWasm === "function") {
-      try {
-        console.log(`[LocalEmbeddingModel] [STEP 4] Attempting env.useWasm()...`);
-        env.useWasm();
-        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Called env.useWasm()`);
-        const onnxAfterUseWasm = env.backends?.onnx;
-        console.log(`[LocalEmbeddingModel] [STEP 4] After useWasm(), onnx backend: ${onnxAfterUseWasm !== void 0 ? "exists" : "still undefined"}`);
-      } catch (useWasmErr) {
-        console.warn(`[LocalEmbeddingModel] [STEP 4] env.useWasm() failed:`, useWasmErr);
-      }
-    } else {
-      console.log(`[LocalEmbeddingModel] [STEP 4] env.useWasm is not available (type: ${typeof env.useWasm})`);
-    }
-    if (env.backends?.onnx) {
-      const onnxBackend = env.backends.onnx;
-      console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 ONNX backend found via ${envSource}`);
-      let wasmEnv = null;
-      let wasmEnvPath = "none";
-      if (onnxBackend.env?.wasm) {
-        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Found WASM env at onnxBackend.env.wasm`);
-        wasmEnv = onnxBackend.env.wasm;
-        wasmEnvPath = "onnxBackend.env.wasm";
-      } else if (onnxBackend.wasm) {
-        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Found WASM env at onnxBackend.wasm`);
-        wasmEnv = onnxBackend.wasm;
-        wasmEnvPath = "onnxBackend.wasm";
-      } else if (onnxBackend.env) {
-        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Found env at onnxBackend.env (trying as WASM env)`);
-        wasmEnv = onnxBackend.env;
-        wasmEnvPath = "onnxBackend.env";
-      } else {
-        console.warn(`[LocalEmbeddingModel] [STEP 4] \u2717 WASM environment not found at expected paths`);
-        console.warn(`[LocalEmbeddingModel] [STEP 4] onnxBackend.env exists:`, onnxBackend.env !== void 0);
-        console.warn(`[LocalEmbeddingModel] [STEP 4] onnxBackend.wasm exists:`, onnxBackend.wasm !== void 0);
-        console.warn(`[LocalEmbeddingModel] [STEP 4] onnxBackend keys:`, Object.keys(onnxBackend).slice(0, 30));
-        if (onnxBackend.env) {
-          console.log(`[LocalEmbeddingModel] [STEP 4] onnxBackend.env structure:`, deepInspect(onnxBackend.env, 2));
-        }
-      }
-      if (wasmEnv) {
-        console.log(`[LocalEmbeddingModel] [STEP 4] Configuring WASM paths at: ${wasmEnvPath}`);
-        const wasmBasePath2 = "./lib/";
-        if ("wasmPaths" in wasmEnv) {
-          const currentPaths = wasmEnv.wasmPaths;
-          console.log(`[LocalEmbeddingModel] [STEP 4] Current wasmPaths value:`, currentPaths);
-          console.log(`[LocalEmbeddingModel] [STEP 4] Current wasmPaths type:`, typeof currentPaths);
-          try {
-            wasmEnv.wasmPaths = wasmBasePath2;
-            console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Set wasmPaths to: ${wasmBasePath2}`);
-            console.log(`[LocalEmbeddingModel] [STEP 4] Verified wasmPaths after setting:`, wasmEnv.wasmPaths);
-          } catch (pathErr) {
-            console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to set wasmPaths:`, pathErr);
-          }
-        } else {
-          try {
-            Object.defineProperty(wasmEnv, "wasmPaths", {
-              value: wasmBasePath2,
-              writable: true,
-              enumerable: true,
-              configurable: true
-            });
-            console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Created and set wasmPaths to: ${wasmBasePath2}`);
-          } catch (defineErr) {
-            console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to define wasmPaths:`, defineErr);
-          }
-        }
-      }
-    } else {
-      console.warn(`[LocalEmbeddingModel] [STEP 4] \u2717 ONNX backend not available`);
-      console.warn(`[LocalEmbeddingModel] [STEP 4] env.backends exists: ${!!env.backends}`);
-      console.warn(`[LocalEmbeddingModel] [STEP 4] env.backends keys:`, env.backends ? Object.keys(env.backends) : "N/A");
-      console.warn(`[LocalEmbeddingModel] [STEP 4] onnx key exists but value undefined: ${onnxKeyExists && onnxValue === void 0}`);
-      console.warn(`[LocalEmbeddingModel] [STEP 4] This will cause constructSession to fail - ONNX Runtime not initialized`);
-      captureEnvSnapshot(mod2, env, "onnx-backend-unavailable");
-      if (lastEnvSnapshot) {
-        console.log("[LocalEmbeddingModel] [ENV SNAPSHOT - FORCED LOG]", JSON.stringify(lastEnvSnapshot, null, 2));
-      }
-    }
-    if ("wasmPaths" in env) {
-      try {
-        const wasmBasePath2 = "./lib/";
-        console.log(`[LocalEmbeddingModel] [STEP 4] Found env.wasmPaths, setting to: ${wasmBasePath2}`);
-        env.wasmPaths = wasmBasePath2;
-        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Set env.wasmPaths to: ${wasmBasePath2}`);
-      } catch (envPathErr) {
-        console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to set env.wasmPaths:`, envPathErr);
-      }
+      console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to set top-level env.wasmPaths:`, envPathErr);
     }
   } else {
     console.warn(`[LocalEmbeddingModel] [STEP 4] \u2717 Cannot configure WASM paths - env not found`);
@@ -71478,68 +71451,65 @@ var TransformersCrossEncoder = class {
         console.warn(`[CpuReranker] [STEP 2] \u2717 Could not find env structure`);
       }
       console.log(`[CpuReranker] [STEP 3] Attempting to configure WASM paths...`);
+      const wasmBasePath = "./lib/";
       if (env) {
-        if (typeof env.useWasm === "function") {
-          try {
-            console.log(`[CpuReranker] [STEP 3] Attempting env.useWasm()...`);
-            env.useWasm();
-            console.log(`[CpuReranker] [STEP 3] \u2713 Called env.useWasm()`);
-          } catch (useWasmErr) {
-            console.warn(`[CpuReranker] [STEP 3] env.useWasm() failed:`, useWasmErr);
+        let onnxBackendEnv = null;
+        let onnxBackendPath = "none";
+        if (transformersModule?.ONNX) {
+          console.log(`[CpuReranker] [STEP 3] \u2713 Found ONNX export in module`);
+          const onnx = transformersModule.ONNX;
+          if (onnx?.env?.wasm) {
+            onnxBackendEnv = onnx.env.wasm;
+            onnxBackendPath = "transformersModule.ONNX.env.wasm";
+            console.log(`[CpuReranker] [STEP 3] \u2713 Found ONNX env.wasm via transformersModule.ONNX`);
+          } else if (onnx?.env) {
+            onnxBackendEnv = onnx.env;
+            onnxBackendPath = "transformersModule.ONNX.env";
+            console.log(`[CpuReranker] [STEP 3] \u2713 Found ONNX env via transformersModule.ONNX`);
           }
         }
-        if (env.backends?.onnx) {
+        if (!onnxBackendEnv && env.backends?.onnx) {
           const onnxBackend = env.backends.onnx;
-          console.log(`[CpuReranker] [STEP 3] \u2713 ONNX backend found via ${envSource}`);
-          let wasmEnv = null;
-          let wasmEnvPath = "none";
+          console.log(`[CpuReranker] [STEP 3] \u2713 ONNX backend found via env.backends.onnx`);
           if (onnxBackend.env?.wasm) {
-            console.log(`[CpuReranker] [STEP 3] \u2713 Found WASM env at onnxBackend.env.wasm`);
-            wasmEnv = onnxBackend.env.wasm;
-            wasmEnvPath = "onnxBackend.env.wasm";
+            onnxBackendEnv = onnxBackend.env.wasm;
+            onnxBackendPath = "env.backends.onnx.env.wasm";
           } else if (onnxBackend.wasm) {
-            console.log(`[CpuReranker] [STEP 3] \u2713 Found WASM env at onnxBackend.wasm`);
-            wasmEnv = onnxBackend.wasm;
-            wasmEnvPath = "onnxBackend.wasm";
+            onnxBackendEnv = onnxBackend.wasm;
+            onnxBackendPath = "onnxBackend.wasm";
           } else if (onnxBackend.env) {
-            console.log(`[CpuReranker] [STEP 3] \u2713 Found env at onnxBackend.env (trying as WASM env)`);
-            wasmEnv = onnxBackend.env;
-            wasmEnvPath = "onnxBackend.env";
-          }
-          if (wasmEnv) {
-            const wasmBasePath = "./lib/";
-            console.log(`[CpuReranker] [STEP 3] Configuring WASM paths at: ${wasmEnvPath}`);
-            if ("wasmPaths" in wasmEnv) {
-              try {
-                wasmEnv.wasmPaths = wasmBasePath;
-                console.log(`[CpuReranker] [STEP 3] \u2713 Set wasmPaths to: ${wasmBasePath}`);
-              } catch (pathErr) {
-                console.warn(`[CpuReranker] [STEP 3] Failed to set wasmPaths:`, pathErr);
-              }
-            } else {
-              try {
-                Object.defineProperty(wasmEnv, "wasmPaths", {
-                  value: wasmBasePath,
-                  writable: true,
-                  enumerable: true,
-                  configurable: true
-                });
-                console.log(`[CpuReranker] [STEP 3] \u2713 Created and set wasmPaths to: ${wasmBasePath}`);
-              } catch (defineErr) {
-                console.warn(`[CpuReranker] [STEP 3] Failed to define wasmPaths:`, defineErr);
-              }
-            }
+            onnxBackendEnv = onnxBackend.env;
+            onnxBackendPath = "onnxBackend.env";
           }
         }
-        if ("wasmPaths" in env) {
+        if (onnxBackendEnv) {
+          console.log(`[CpuReranker] [STEP 3] Configuring WASM paths at: ${onnxBackendPath}`);
           try {
-            const wasmBasePath = "./lib/";
-            console.log(`[CpuReranker] [STEP 3] Found env.wasmPaths, setting to: ${wasmBasePath}`);
-            env.wasmPaths = wasmBasePath;
-            console.log(`[CpuReranker] [STEP 3] \u2713 Set env.wasmPaths to: ${wasmBasePath}`);
-          } catch (envPathErr) {
-            console.warn(`[CpuReranker] [STEP 3] Failed to set env.wasmPaths:`, envPathErr);
+            if ("wasmPaths" in onnxBackendEnv) {
+              onnxBackendEnv.wasmPaths = wasmBasePath;
+              console.log(`[CpuReranker] [STEP 3] \u2713 Updated wasmPaths to: ${wasmBasePath}`);
+            } else {
+              Object.defineProperty(onnxBackendEnv, "wasmPaths", {
+                value: wasmBasePath,
+                writable: true,
+                enumerable: true,
+                configurable: true
+              });
+              console.log(`[CpuReranker] [STEP 3] \u2713 Created and set wasmPaths to: ${wasmBasePath}`);
+            }
+          } catch (pathErr) {
+            console.warn(`[CpuReranker] [STEP 3] Failed to set wasmPaths at ${onnxBackendPath}:`, pathErr);
           }
+        } else {
+          console.warn(`[CpuReranker] [STEP 3] \u26A0 ONNX backend environment not found - may initialize lazily`);
+        }
+        try {
+          if ("wasmPaths" in env) {
+            env.wasmPaths = wasmBasePath;
+            console.log(`[CpuReranker] [STEP 3] \u2713 Also set env.wasmPaths to: ${wasmBasePath}`);
+          }
+        } catch (envPathErr) {
+          console.warn(`[CpuReranker] [STEP 3] Failed to set top-level env.wasmPaths:`, envPathErr);
         }
       } else {
         console.warn(`[CpuReranker] [STEP 3] \u2717 Cannot configure WASM paths - env not found`);
