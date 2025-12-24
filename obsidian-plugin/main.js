@@ -70069,6 +70069,23 @@ async function getPipeline(plugin) {
   }
   console.log(`[LocalEmbeddingModel] [STEP 4] Attempting to configure WASM paths...`);
   if (env) {
+    const wasmBasePath = "./lib/";
+    try {
+      if (!("wasmPaths" in env)) {
+        Object.defineProperty(env, "wasmPaths", {
+          value: wasmBasePath,
+          writable: true,
+          enumerable: true,
+          configurable: true
+        });
+        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Set env.wasmPaths to: ${wasmBasePath}`);
+      } else {
+        env.wasmPaths = wasmBasePath;
+        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Updated env.wasmPaths to: ${wasmBasePath}`);
+      }
+    } catch (envPathErr) {
+      console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to set env.wasmPaths:`, envPathErr);
+    }
     const onnxKeyExists = env.backends && "onnx" in env.backends;
     const onnxValue = env.backends?.onnx;
     console.log(`[LocalEmbeddingModel] [STEP 4] onnx key exists: ${onnxKeyExists}`);
@@ -70114,14 +70131,14 @@ async function getPipeline(plugin) {
       }
       if (wasmEnv) {
         console.log(`[LocalEmbeddingModel] [STEP 4] Configuring WASM paths at: ${wasmEnvPath}`);
-        const wasmBasePath = "./lib/";
+        const wasmBasePath2 = "./lib/";
         if ("wasmPaths" in wasmEnv) {
           const currentPaths = wasmEnv.wasmPaths;
           console.log(`[LocalEmbeddingModel] [STEP 4] Current wasmPaths value:`, currentPaths);
           console.log(`[LocalEmbeddingModel] [STEP 4] Current wasmPaths type:`, typeof currentPaths);
           try {
-            wasmEnv.wasmPaths = wasmBasePath;
-            console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Set wasmPaths to: ${wasmBasePath}`);
+            wasmEnv.wasmPaths = wasmBasePath2;
+            console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Set wasmPaths to: ${wasmBasePath2}`);
             console.log(`[LocalEmbeddingModel] [STEP 4] Verified wasmPaths after setting:`, wasmEnv.wasmPaths);
           } catch (pathErr) {
             console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to set wasmPaths:`, pathErr);
@@ -70129,12 +70146,12 @@ async function getPipeline(plugin) {
         } else {
           try {
             Object.defineProperty(wasmEnv, "wasmPaths", {
-              value: wasmBasePath,
+              value: wasmBasePath2,
               writable: true,
               enumerable: true,
               configurable: true
             });
-            console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Created and set wasmPaths to: ${wasmBasePath}`);
+            console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Created and set wasmPaths to: ${wasmBasePath2}`);
           } catch (defineErr) {
             console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to define wasmPaths:`, defineErr);
           }
@@ -70146,16 +70163,17 @@ async function getPipeline(plugin) {
       console.warn(`[LocalEmbeddingModel] [STEP 4] env.backends keys:`, env.backends ? Object.keys(env.backends) : "N/A");
       console.warn(`[LocalEmbeddingModel] [STEP 4] onnx key exists but value undefined: ${onnxKeyExists && onnxValue === void 0}`);
       console.warn(`[LocalEmbeddingModel] [STEP 4] This will cause constructSession to fail - ONNX Runtime not initialized`);
-      if (!lastEnvSnapshot) {
-        captureEnvSnapshot(mod2, env, "onnx-backend-unavailable");
+      captureEnvSnapshot(mod2, env, "onnx-backend-unavailable");
+      if (lastEnvSnapshot) {
+        console.log("[LocalEmbeddingModel] [ENV SNAPSHOT - FORCED LOG]", JSON.stringify(lastEnvSnapshot, null, 2));
       }
     }
     if ("wasmPaths" in env) {
       try {
-        const wasmBasePath = "./lib/";
-        console.log(`[LocalEmbeddingModel] [STEP 4] Found env.wasmPaths, setting to: ${wasmBasePath}`);
-        env.wasmPaths = wasmBasePath;
-        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Set env.wasmPaths to: ${wasmBasePath}`);
+        const wasmBasePath2 = "./lib/";
+        console.log(`[LocalEmbeddingModel] [STEP 4] Found env.wasmPaths, setting to: ${wasmBasePath2}`);
+        env.wasmPaths = wasmBasePath2;
+        console.log(`[LocalEmbeddingModel] [STEP 4] \u2713 Set env.wasmPaths to: ${wasmBasePath2}`);
       } catch (envPathErr) {
         console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to set env.wasmPaths:`, envPathErr);
       }

@@ -152,6 +152,26 @@ async function getPipeline(plugin: WritingDashboardPlugin): Promise<any> {
 	console.log(`[LocalEmbeddingModel] [STEP 4] Attempting to configure WASM paths...`);
 	
 	if (env) {
+		// CRITICAL: Set WASM paths at env level FIRST, before backend initialization
+		// This ensures transformers.js can find WASM files when it needs them
+		const wasmBasePath = './lib/';
+		try {
+			if (!('wasmPaths' in env)) {
+				Object.defineProperty(env, 'wasmPaths', {
+					value: wasmBasePath,
+					writable: true,
+					enumerable: true,
+					configurable: true
+				});
+				console.log(`[LocalEmbeddingModel] [STEP 4] ✓ Set env.wasmPaths to: ${wasmBasePath}`);
+			} else {
+				env.wasmPaths = wasmBasePath;
+				console.log(`[LocalEmbeddingModel] [STEP 4] ✓ Updated env.wasmPaths to: ${wasmBasePath}`);
+			}
+		} catch (envPathErr) {
+			console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to set env.wasmPaths:`, envPathErr);
+		}
+		
 		// Check if onnx key exists but value is undefined
 		const onnxKeyExists = env.backends && 'onnx' in env.backends;
 		const onnxValue = env.backends?.onnx;
@@ -253,9 +273,11 @@ async function getPipeline(plugin: WritingDashboardPlugin): Promise<any> {
 			console.warn(`[LocalEmbeddingModel] [STEP 4] onnx key exists but value undefined: ${onnxKeyExists && onnxValue === undefined}`);
 			console.warn(`[LocalEmbeddingModel] [STEP 4] This will cause constructSession to fail - ONNX Runtime not initialized`);
 			
-			// Capture snapshot for diagnostics
-			if (!lastEnvSnapshot) {
-				captureEnvSnapshot(mod, env, 'onnx-backend-unavailable');
+			// Always capture and log snapshot for diagnostics (even if previously captured)
+			captureEnvSnapshot(mod, env, 'onnx-backend-unavailable');
+			// Force log even if it was captured before
+			if (lastEnvSnapshot) {
+				console.log('[LocalEmbeddingModel] [ENV SNAPSHOT - FORCED LOG]', JSON.stringify(lastEnvSnapshot, null, 2));
 			}
 		}
 		
