@@ -42,61 +42,110 @@ class TransformersCrossEncoder implements CpuRerankerModel {
 				throw new Error(`Failed to import transformers.js: ${importErr instanceof Error ? importErr.message : String(importErr)}`);
 			}
 			
-			// Try multiple ways to access the environment - DON'T CREATE FAKE ONES
-			console.log(`[CpuReranker] [STEP 2] Locating ONNX environment structure...`);
+			// Try multiple ways to access the environment
+			console.log(`[CpuReranker] [STEP 2] Locating environment structure...`);
 			let env: any = null;
 			let envSource = 'none';
 			
 			// Method 1: Direct env (standard)
-			if (transformersModule.env?.backends?.onnx) {
-				console.log(`[CpuReranker] [STEP 2] ✓ Found env via transformersModule.env.backends.onnx`);
+			if (transformersModule.env) {
+				console.log(`[CpuReranker] [STEP 2] ✓ Found env via transformersModule.env`);
 				env = transformersModule.env;
 				envSource = 'transformersModule.env';
 			}
 			// Method 2: default.env (if default export)
-			else if (transformersModule.default?.env?.backends?.onnx) {
-				console.log(`[CpuReranker] [STEP 2] ✓ Found env via transformersModule.default.env.backends.onnx`);
+			else if (transformersModule.default?.env) {
+				console.log(`[CpuReranker] [STEP 2] ✓ Found env via transformersModule.default.env`);
 				env = transformersModule.default.env;
 				envSource = 'transformersModule.default.env';
 			}
-			else {
-				console.warn(`[CpuReranker] [STEP 2] ✗ Could not find ONNX environment structure`);
+			
+			if (env) {
+				console.log(`[CpuReranker] [STEP 2] env.backends exists:`, 'backends' in env);
+				console.log(`[CpuReranker] [STEP 2] env.backends.onnx exists:`, env.backends?.onnx !== undefined);
+				console.log(`[CpuReranker] [STEP 2] env.useWasm exists:`, typeof env.useWasm === 'function');
+			} else {
+				console.warn(`[CpuReranker] [STEP 2] ✗ Could not find env structure`);
 			}
 			
-			// Configure WASM paths ONLY if the real ONNX environment exists
+			// Configure WASM paths - try multiple approaches
 			console.log(`[CpuReranker] [STEP 3] Attempting to configure WASM paths...`);
 			
-			if (env && env.backends && env.backends.onnx) {
-				const onnxBackend = env.backends.onnx;
-				console.log(`[CpuReranker] [STEP 3] ✓ ONNX backend found via ${envSource}`);
-				
-				// Try to find the actual ONNX Runtime environment
-				let wasmEnv: any = null;
-				let wasmEnvPath = 'none';
-				
-				if (onnxBackend.env?.wasm) {
-					console.log(`[CpuReranker] [STEP 3] ✓ Found WASM env at onnxBackend.env.wasm`);
-					wasmEnv = onnxBackend.env.wasm;
-					wasmEnvPath = 'onnxBackend.env.wasm';
-				} else if (onnxBackend.wasm) {
-					console.log(`[CpuReranker] [STEP 3] ✓ Found WASM env at onnxBackend.wasm`);
-					wasmEnv = onnxBackend.wasm;
-					wasmEnvPath = 'onnxBackend.wasm';
-				} else {
-					console.warn(`[CpuReranker] [STEP 3] ✗ WASM environment not found`);
+			if (env) {
+				// Approach 1: Try env.useWasm() if available (transformers.js API)
+				if (typeof env.useWasm === 'function') {
+					try {
+						console.log(`[CpuReranker] [STEP 3] Attempting env.useWasm()...`);
+						env.useWasm();
+						console.log(`[CpuReranker] [STEP 3] ✓ Called env.useWasm()`);
+					} catch (useWasmErr) {
+						console.warn(`[CpuReranker] [STEP 3] env.useWasm() failed:`, useWasmErr);
+					}
 				}
 				
-				if (wasmEnv) {
-					// Use string-based path (base directory) like transformers.js does
-					const wasmBasePath = './lib/';
-					console.log(`[CpuReranker] [STEP 3] Setting wasmPaths to: ${wasmBasePath}`);
-					wasmEnv.wasmPaths = wasmBasePath;
-					console.log(`[CpuReranker] [STEP 3] ✓ WASM paths configured at ${wasmEnvPath}`);
-				} else {
-					console.error(`[CpuReranker] [STEP 3] ✗ Cannot configure WASM paths - WASM environment not found`);
+				// Approach 2: Try to configure WASM paths via backends.onnx.env.wasm
+				if (env.backends?.onnx) {
+					const onnxBackend = env.backends.onnx;
+					console.log(`[CpuReranker] [STEP 3] ✓ ONNX backend found via ${envSource}`);
+					
+					// Try to find the actual ONNX Runtime environment
+					let wasmEnv: any = null;
+					let wasmEnvPath = 'none';
+					
+					if (onnxBackend.env?.wasm) {
+						console.log(`[CpuReranker] [STEP 3] ✓ Found WASM env at onnxBackend.env.wasm`);
+						wasmEnv = onnxBackend.env.wasm;
+						wasmEnvPath = 'onnxBackend.env.wasm';
+					} else if (onnxBackend.wasm) {
+						console.log(`[CpuReranker] [STEP 3] ✓ Found WASM env at onnxBackend.wasm`);
+						wasmEnv = onnxBackend.wasm;
+						wasmEnvPath = 'onnxBackend.wasm';
+					} else if (onnxBackend.env) {
+						console.log(`[CpuReranker] [STEP 3] ✓ Found env at onnxBackend.env (trying as WASM env)`);
+						wasmEnv = onnxBackend.env;
+						wasmEnvPath = 'onnxBackend.env';
+					}
+					
+					if (wasmEnv) {
+						const wasmBasePath = './lib/';
+						console.log(`[CpuReranker] [STEP 3] Configuring WASM paths at: ${wasmEnvPath}`);
+						
+						if ('wasmPaths' in wasmEnv) {
+							try {
+								wasmEnv.wasmPaths = wasmBasePath;
+								console.log(`[CpuReranker] [STEP 3] ✓ Set wasmPaths to: ${wasmBasePath}`);
+							} catch (pathErr) {
+								console.warn(`[CpuReranker] [STEP 3] Failed to set wasmPaths:`, pathErr);
+							}
+						} else {
+							try {
+								Object.defineProperty(wasmEnv, 'wasmPaths', {
+									value: wasmBasePath,
+									writable: true,
+									enumerable: true,
+									configurable: true
+								});
+								console.log(`[CpuReranker] [STEP 3] ✓ Created and set wasmPaths to: ${wasmBasePath}`);
+							} catch (defineErr) {
+								console.warn(`[CpuReranker] [STEP 3] Failed to define wasmPaths:`, defineErr);
+							}
+						}
+					}
+				}
+				
+				// Approach 3: Try to set env.wasmPaths directly if available
+				if ('wasmPaths' in env) {
+					try {
+						const wasmBasePath = './lib/';
+						console.log(`[CpuReranker] [STEP 3] Found env.wasmPaths, setting to: ${wasmBasePath}`);
+						env.wasmPaths = wasmBasePath;
+						console.log(`[CpuReranker] [STEP 3] ✓ Set env.wasmPaths to: ${wasmBasePath}`);
+					} catch (envPathErr) {
+						console.warn(`[CpuReranker] [STEP 3] Failed to set env.wasmPaths:`, envPathErr);
+					}
 				}
 			} else {
-				console.error(`[CpuReranker] [STEP 3] ✗ Cannot configure WASM paths - ONNX backend not found`);
+				console.warn(`[CpuReranker] [STEP 3] ✗ Cannot configure WASM paths - env not found`);
 			}
 			
 			// Get pipeline function
