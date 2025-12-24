@@ -31,9 +31,34 @@ class TransformersCrossEncoder implements CpuRerankerModel {
 			// Import the vendored transformers library
 			const transformersModule: any = await import('../../lib/transformers.js');
 			
-			// Configure WASM paths - use object mapping for individual files
+			// Try multiple ways to access the environment
+			let env: any = null;
+			
+			// Method 1: Direct env (standard)
 			if (transformersModule.env && transformersModule.env.backends && transformersModule.env.backends.onnx) {
-				const onnxEnv = transformersModule.env.backends.onnx;
+				env = transformersModule.env;
+			}
+			// Method 2: default.env (if default export)
+			else if (transformersModule.default && transformersModule.default.env && transformersModule.default.env.backends && transformersModule.default.env.backends.onnx) {
+				env = transformersModule.default.env;
+			}
+			// Method 3: Create structure if it doesn't exist
+			else if (transformersModule && typeof transformersModule === 'object') {
+				if (!transformersModule.env) {
+					transformersModule.env = {};
+				}
+				if (!transformersModule.env.backends) {
+					transformersModule.env.backends = {};
+				}
+				if (!transformersModule.env.backends.onnx) {
+					transformersModule.env.backends.onnx = {};
+				}
+				env = transformersModule.env;
+			}
+			
+			// Configure WASM paths if we found/created the environment
+			if (env && env.backends && env.backends.onnx) {
+				const onnxEnv = env.backends.onnx;
 				if (!onnxEnv.wasm) onnxEnv.wasm = {};
 				
 				const wasmFiles = [
@@ -50,6 +75,8 @@ class TransformersCrossEncoder implements CpuRerankerModel {
 				
 				onnxEnv.wasm.wasmPaths = wasmPaths;
 				console.log(`[CpuReranker] Configured WASM paths:`, wasmPaths);
+			} else {
+				console.error(`[CpuReranker] Could not configure WASM paths - env structure not found`);
 			}
 			
 			// @xenova/transformers exports pipeline as a named export

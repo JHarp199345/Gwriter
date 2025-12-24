@@ -7,18 +7,41 @@ async function getPipeline(plugin: WritingDashboardPlugin): Promise<any> {
 	// Import the vendored transformers library first
 	const mod: any = await import('../../lib/transformers.js');
 	
-	// Configure WASM paths - need absolute URLs that Obsidian can serve
+	// Try multiple ways to access the environment
+	// The bundled transformers.js might expose env differently
+	let env: any = null;
+	
+	// Method 1: Direct mod.env (standard)
 	if (mod.env && mod.env.backends && mod.env.backends.onnx) {
-		const onnxEnv = mod.env.backends.onnx;
+		env = mod.env;
+	}
+	// Method 2: mod.default.env (if default export)
+	else if (mod.default && mod.default.env && mod.default.env.backends && mod.default.env.backends.onnx) {
+		env = mod.default.env;
+	}
+	// Method 3: Try to construct the structure if it doesn't exist
+	else if (mod && typeof mod === 'object') {
+		// Create env structure if it doesn't exist
+		if (!mod.env) {
+			mod.env = {};
+		}
+		if (!mod.env.backends) {
+			mod.env.backends = {};
+		}
+		if (!mod.env.backends.onnx) {
+			mod.env.backends.onnx = {};
+		}
+		env = mod.env;
+	}
+	
+	// Configure WASM paths if we found/created the environment
+	if (env && env.backends && env.backends.onnx) {
+		const onnxEnv = env.backends.onnx;
 		if (!onnxEnv.wasm) onnxEnv.wasm = {};
 		
-		// Construct absolute paths to WASM files
-		// Obsidian serves plugin files from the plugin directory
-		// @ts-ignore - basePath exists but not in types
 		const vaultBase = (plugin.app.vault.adapter as any).basePath || '';
 		const pluginId = plugin.manifest.id;
 		
-		// WASM files that need to be accessible
 		const wasmFiles = [
 			'ort-wasm.wasm',
 			'ort-wasm-simd.wasm',
@@ -26,44 +49,35 @@ async function getPipeline(plugin: WritingDashboardPlugin): Promise<any> {
 			'ort-wasm-simd-threaded.wasm'
 		];
 		
-		// Strategy: Use object mapping with paths relative to plugin root
-		// The library will try to fetch these, so they need to be accessible via HTTP
-		// In Obsidian, plugin files are served from .obsidian/plugins/plugin-name/
 		const wasmPaths: Record<string, string> = {};
-		
-		// Try relative path from plugin root - Obsidian should serve files from plugin directory
-		// The path should be relative to where the plugin is installed
 		for (const wasmFile of wasmFiles) {
-			// Use relative path - library will resolve from plugin root
 			wasmPaths[wasmFile] = `./lib/${wasmFile}`;
 		}
 		
-		// Set as object mapping (library supports this format)
 		onnxEnv.wasm.wasmPaths = wasmPaths;
 		
-		// Enhanced logging for diagnostics
 		console.log(`[LocalEmbeddingModel] === WASM PATH CONFIGURATION ===`);
 		console.log(`[LocalEmbeddingModel] Vault base: ${vaultBase}`);
 		console.log(`[LocalEmbeddingModel] Plugin ID: ${pluginId}`);
 		console.log(`[LocalEmbeddingModel] WASM paths configured:`, wasmPaths);
 		console.log(`[LocalEmbeddingModel] ONNX env structure:`, {
-			hasEnv: !!mod.env,
-			hasBackends: !!mod.env?.backends,
-			hasOnnx: !!mod.env?.backends?.onnx,
-			hasWasm: !!mod.env?.backends?.onnx?.wasm,
+			hasEnv: !!env,
+			hasBackends: !!env?.backends,
+			hasOnnx: !!env?.backends?.onnx,
+			hasWasm: !!env?.backends?.onnx?.wasm,
 			wasmPathsType: typeof onnxEnv.wasm.wasmPaths,
 			wasmPathsIsObject: typeof onnxEnv.wasm.wasmPaths === 'object',
 			wasmPathsKeys: typeof onnxEnv.wasm.wasmPaths === 'object' ? Object.keys(onnxEnv.wasm.wasmPaths) : 'N/A'
 		});
 		console.log(`[LocalEmbeddingModel] === END WASM CONFIGURATION ===`);
 	} else {
-		console.error(`[LocalEmbeddingModel] ERROR: mod.env structure not found:`, {
-			hasMod: !!mod,
-			hasEnv: !!mod?.env,
-			hasBackends: !!mod?.env?.backends,
-			hasOnnx: !!mod?.env?.backends?.onnx,
-			modKeys: mod ? Object.keys(mod) : []
-		});
+		// Enhanced error logging to see what mod actually contains
+		console.error(`[LocalEmbeddingModel] ERROR: Could not find or create mod.env structure`);
+		console.error(`[LocalEmbeddingModel] mod type:`, typeof mod);
+		console.error(`[LocalEmbeddingModel] mod keys:`, mod ? Object.keys(mod) : 'null');
+		console.error(`[LocalEmbeddingModel] mod.env:`, mod?.env);
+		console.error(`[LocalEmbeddingModel] mod.default:`, mod?.default);
+		console.error(`[LocalEmbeddingModel] mod.pipeline:`, typeof mod?.pipeline);
 	}
 	
 	const pipeline = mod.pipeline || (mod.default && mod.default.pipeline);
