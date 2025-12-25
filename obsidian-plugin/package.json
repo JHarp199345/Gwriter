@@ -8,7 +8,7 @@
     "build": "tsc -b && node esbuild.config.mjs production"
   },
   "keywords": [],
-  "author": "",
+  "author": "JHarp199345",
   "license": "MIT",
   "devDependencies": {
     "@types/markdown-it": "^14.1.2",
