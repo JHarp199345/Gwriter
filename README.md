@@ -284,6 +284,35 @@ Character notes are stored in markdown with timestamped updates:
 
 This plugin includes whole-vault retrieval to keep prompts relevant without manual curation. This is how the plugin maintains continuity across large manuscripts - instead of sending full book files, it retrieves relevant chunks from your entire vault.
 
+### Default: Local Retrieval (Hash + BM25)
+
+By default, the plugin uses fast, local, deterministic retrieval:
+- **Hash-based embeddings**: Lightweight hashed bag-of-words for semantic matching
+- **BM25**: Lexical search engine scoring for keyword relevance
+- **Hybrid fusion**: Combines both using reciprocal rank fusion (RRF) and diversity selection (MMR)
+- **No API keys required**: Works entirely offline
+
+### Optional: External Embedding API (Hybrid)
+
+For higher-quality semantic retrieval, you can optionally use an external embedding API:
+- **Supported providers**: OpenAI, Cohere, Google Gemini
+- **Hybrid approach**: External embeddings + local BM25, combined with RRF
+- **Default models**: 
+  - OpenAI: `text-embedding-3-small`
+  - Cohere: `embed-english-v3.0`
+  - Google Gemini: `gemini-embedding-001`
+- **Batch embeddings**: Google Gemini supports batch endpoint for efficiency
+- **Fallback**: Automatically falls back to local retrieval if API fails
+
+### Optional: Smart Connections Context
+
+If you have the Smart Connections plugin installed, you can optionally include its context:
+- **Via Bases**: Reads Smart Connections Bases files automatically
+- **Via copied note**: Reads a specific note containing Smart Connections context
+- **Best-effort**: Never required - retrieval works perfectly without it
+
+### Configuration
+
 - You can exclude non-story folders in Settings → Writing dashboard → Retrieval.
 - You can use retrieval profiles to include only specific folders (for example: story-only vs research-heavy).
 - Semantic retrieval builds a local index in the background (the dashboard shows index status).

@@ -96,5 +96,8 @@ Tip: model names change frequently. Use a current model id from your provider (f
 - Check vault path is correct
 
 ### Retrieval and indexing
-- If retrieval feels noisy, open Settings → Writing dashboard → Retrieval and exclude non-story folders.
-- If semantic retrieval feels slow, let indexing finish (the dashboard shows index status) or pause indexing temporarily.
+- **Default retrieval**: The plugin uses hash + BM25 by default (fast, local, no API keys required)
+- **External embedding API (optional)**: For higher-quality semantic retrieval, you can configure an external embedding API (OpenAI, Cohere, Google Gemini) in Settings → Writing dashboard → Retrieval
+- **Smart Connections context (optional)**: If you have Smart Connections installed, you can optionally include its context via Bases or a copied context note
+- If retrieval feels noisy, open Settings → Writing dashboard → Retrieval and exclude non-story folders
+- If semantic retrieval feels slow, let indexing finish (the dashboard shows index status) or pause indexing temporarily
