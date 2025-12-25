@@ -591,6 +591,270 @@ export class SettingsTab extends PluginSettingTab {
 			}
 		}
 
+		// Smart Connections cache settings
+		new Setting(containerEl).setName('Smart Connections cache').setHeading();
+
+		new Setting(containerEl)
+			.setName('Use Smart Connections cache')
+			.setDesc('Enable retrieval from cached Smart Connections results. Cache captures Smart Connections results **at the time you capture**.')
+			.addToggle((toggle) =>
+				toggle.setValue(Boolean(this.plugin.settings.smartConnectionsCacheEnabled)).onChange(async (value) => {
+					this.plugin.settings.smartConnectionsCacheEnabled = value;
+					await this.plugin.saveSettings();
+					this.display(); // Refresh to show/hide Smart Connections options
+				})
+			);
+
+		if (this.plugin.settings.smartConnectionsCacheEnabled) {
+			// Cache status display
+			const scProvider = this.plugin.smartConnectionsProvider;
+			const cacheStatus = scProvider?.getCacheStatus() || { exists: false, enabled: false, count: 0, fresh: false };
+			
+			const statusDesc = cacheStatus.exists
+				? `Cached: ${cacheStatus.count} notes • ${cacheStatus.age || 'unknown'} ago • method: ${cacheStatus.method || 'unknown'}${cacheStatus.sourceNote ? ` • from: ${cacheStatus.sourceNote}` : ''}`
+				: 'No cache available. Capture results to enable Smart Connections retrieval.';
+
+			new Setting(containerEl)
+				.setName('Cache status')
+				.setDesc(statusDesc)
+				.setDisabled(true);
+
+			// Capture buttons
+			const captureContainer = containerEl.createDiv();
+			new Setting(captureContainer)
+				.setName('Capture from Smart Connections (DOM)')
+				.setDesc('Capture results from Smart Connections view if open. Only enabled if SC view is detected with results.')
+				.addButton((btn) => {
+					if (scProvider) {
+						const viewCheck = scProvider.checkViewAvailable();
+						btn.setButtonText('Capture')
+							.setDisabled(!viewCheck.available)
+							.setTooltip(viewCheck.available ? 'Click to capture Smart Connections results' : viewCheck.message || 'Smart Connections view not available')
+							.onClick(async () => {
+								btn.setButtonText('Capturing...').setDisabled(true);
+								try {
+									const activeFile = this.app.workspace.getActiveFile();
+									const sourceNotePath = activeFile?.path;
+									const result = await scProvider.captureAndSaveFromDom(sourceNotePath);
+									
+									if (result.success) {
+										new Notice(`Captured ${result.count} notes from Smart Connections`, 3000);
+										this.display(); // Refresh to show updated status
+									} else {
+										new Notice(result.message || 'Capture failed', 5000);
+									}
+								} catch (error) {
+									new Notice(`Capture failed: ${error instanceof Error ? error.message : String(error)}`, 5000);
+								} finally {
+									btn.setButtonText('Capture').setDisabled(false);
+								}
+							});
+					} else {
+						btn.setButtonText('Capture').setDisabled(true);
+					}
+				});
+
+			new Setting(captureContainer)
+				.setName('Capture from Clipboard')
+				.setDesc('Capture results from clipboard. Ensure clipboard contains Smart Connections results with markdown links.')
+				.addButton((btn) => {
+					if (scProvider) {
+						btn.setButtonText('Capture')
+							.onClick(async () => {
+								btn.setButtonText('Capturing...').setDisabled(true);
+								try {
+									const activeFile = this.app.workspace.getActiveFile();
+									const sourceNotePath = activeFile?.path;
+									const result = await scProvider.captureAndSaveFromClipboard(sourceNotePath);
+									
+									if (result.success) {
+										new Notice(`Captured ${result.count} notes from clipboard`, 3000);
+										this.display(); // Refresh to show updated status
+									} else {
+										new Notice(result.message || 'Capture failed', 5000);
+									}
+								} catch (error) {
+									new Notice(`Capture failed: ${error instanceof Error ? error.message : String(error)}`, 5000);
+								} finally {
+									btn.setButtonText('Capture').setDisabled(false);
+								}
+							});
+					} else {
+						btn.setButtonText('Capture').setDisabled(true);
+					}
+				});
+
+			// Clear cache button
+			new Setting(containerEl)
+				.setName('Clear cache')
+				.setDesc('Remove all cached Smart Connections results.')
+				.addButton((btn) => {
+					if (scProvider) {
+						btn.setButtonText('Clear')
+							.setWarning()
+							.onClick(async () => {
+								await scProvider.clearCache();
+								new Notice('Smart Connections cache cleared', 3000);
+								this.display(); // Refresh to show updated status
+							});
+					} else {
+						btn.setButtonText('Clear').setDisabled(true);
+					}
+				});
+
+			// View cached items expander
+			if (cacheStatus.exists && cacheStatus.count > 0) {
+				const cache = this.plugin.settings.smartConnectionsCache;
+				if (cache) {
+					const expanderContainer = containerEl.createDiv();
+					new Setting(expanderContainer)
+						.setName('View cached items')
+						.setDesc(`Showing ${cache.results.length} cached items.`)
+						.addToggle((toggle) => {
+							toggle.setValue(false);
+							const itemsContainer = expanderContainer.createDiv({ cls: 'writing-dashboard-cached-items' });
+							itemsContainer.style.display = 'none';
+							
+							toggle.onChange((value) => {
+								itemsContainer.style.display = value ? 'block' : 'none';
+								
+								if (value && itemsContainer.children.length === 0) {
+									// Populate items list
+									for (const item of cache.results) {
+										const itemSetting = new Setting(itemsContainer)
+											.setName(item.path)
+											.setDesc(`Score: ${(item.score || 0.5).toFixed(2)} • Captured: ${item.capturedAt ? new Date(item.capturedAt).toLocaleString() : 'unknown'}`)
+											.addButton((btn) => {
+												btn.setButtonText('Remove')
+													.setWarning()
+													.onClick(async () => {
+														cache.results = cache.results.filter(r => r.path !== item.path);
+														this.plugin.settings.smartConnectionsCache = cache;
+														await this.plugin.saveSettings();
+														this.display(); // Refresh to update list
+													});
+											});
+									}
+								}
+							});
+						});
+				}
+			}
+
+			// Settings for filters and limits
+			new Setting(containerEl)
+				.setName('Max capture files')
+				.setDesc('Maximum number of files to capture (default: 200).')
+				.addText((text) => {
+					text.setPlaceholder('200')
+						.setValue(String(this.plugin.settings.smartConnectionsMaxCaptureFiles ?? 200))
+						.inputEl.type = 'number';
+					text.onChange(async (value) => {
+						const num = parseInt(value, 10);
+						if (!isNaN(num) && num > 0) {
+							this.plugin.settings.smartConnectionsMaxCaptureFiles = num;
+							await this.plugin.saveSettings();
+						}
+					});
+				});
+
+			new Setting(containerEl)
+				.setName('Max score files')
+				.setDesc('Maximum number of files to score per query (default: 50).')
+				.addText((text) => {
+					text.setPlaceholder('50')
+						.setValue(String(this.plugin.settings.smartConnectionsMaxScoreFiles ?? 50))
+						.inputEl.type = 'number';
+					text.onChange(async (value) => {
+						const num = parseInt(value, 10);
+						if (!isNaN(num) && num > 0) {
+							this.plugin.settings.smartConnectionsMaxScoreFiles = num;
+							await this.plugin.saveSettings();
+						}
+					});
+				});
+
+			new Setting(containerEl)
+				.setName('Max context chars')
+				.setDesc('Maximum total context characters for excerpts (default: 30000).')
+				.addText((text) => {
+					text.setPlaceholder('30000')
+						.setValue(String(this.plugin.settings.smartConnectionsMaxContextChars ?? 30000))
+						.inputEl.type = 'number';
+					text.onChange(async (value) => {
+						const num = parseInt(value, 10);
+						if (!isNaN(num) && num > 0) {
+							this.plugin.settings.smartConnectionsMaxContextChars = num;
+							await this.plugin.saveSettings();
+						}
+					});
+				});
+
+			new Setting(containerEl)
+				.setName('Keying mode')
+				.setDesc('Strict: only use cache if source note matches. Soft: prefer match, allow manual override (default).')
+				.addDropdown((dropdown) => {
+					dropdown.addOption('soft', 'Soft (prefer match, allow override)');
+					dropdown.addOption('strict', 'Strict (only use if source matches)');
+					dropdown.setValue(this.plugin.settings.smartConnectionsKeyingMode ?? 'soft');
+					dropdown.onChange(async (value) => {
+						this.plugin.settings.smartConnectionsKeyingMode = value as 'strict' | 'soft';
+						await this.plugin.saveSettings();
+					});
+				});
+
+			new Setting(containerEl)
+				.setName('Cache TTL (hours)')
+				.setDesc('Cache expiration time in hours. Leave empty for no expiration.')
+				.addText((text) => {
+					text.setPlaceholder('24 (or empty for no expiration)')
+						.setValue(this.plugin.settings.smartConnectionsCacheTTL ? String(this.plugin.settings.smartConnectionsCacheTTL) : '');
+					text.inputEl.type = 'number';
+					text.onChange(async (value) => {
+						if (value.trim() === '') {
+							this.plugin.settings.smartConnectionsCacheTTL = undefined;
+						} else {
+							const num = parseFloat(value);
+							if (!isNaN(num) && num > 0) {
+								this.plugin.settings.smartConnectionsCacheTTL = num;
+							}
+						}
+						await this.plugin.saveSettings();
+					});
+				});
+
+			// Folder filters (simplified - could be enhanced with multi-select)
+			new Setting(containerEl)
+				.setName('Allowed folders (comma-separated)')
+				.setDesc('Folders to include. Leave empty to allow all folders (except blocked).')
+				.addText((text) => {
+					text.setPlaceholder('Characters, Notes')
+						.setValue((this.plugin.settings.smartConnectionsAllowedFolders || []).join(', '))
+						.onChange(async (value) => {
+							const folders = value.split(',').map(f => f.trim()).filter(f => f.length > 0);
+							this.plugin.settings.smartConnectionsAllowedFolders = folders;
+							await this.plugin.saveSettings();
+						});
+				});
+
+			new Setting(containerEl)
+				.setName('Blocked folders (comma-separated)')
+				.setDesc('Folders to exclude from Smart Connections cache.')
+				.addText((text) => {
+					text.setPlaceholder('Private, Journal')
+						.setValue((this.plugin.settings.smartConnectionsBlockedFolders || []).join(', '))
+						.onChange(async (value) => {
+							const folders = value.split(',').map(f => f.trim()).filter(f => f.length > 0);
+							this.plugin.settings.smartConnectionsBlockedFolders = folders;
+							await this.plugin.saveSettings();
+						});
+				});
+
+			// UX wording
+			containerEl.createDiv({ cls: 'writing-dashboard-info-box' })
+				.createEl('p', { text: 'Review/remove cached notes before generation.' });
+		}
+
 		// Generation logs
 		new Setting(containerEl).setName('Generation logs').setHeading();
 

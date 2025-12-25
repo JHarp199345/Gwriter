@@ -67790,105 +67790,94 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         }
       })
     );
-    new import_obsidian10.Setting(containerEl).setName("Retrieval source").setDesc("Choose between local retrieval (hash + BM25) or external embedding API (hybrid with BM25).").addDropdown((dropdown) => {
-      dropdown.addOption("local", "Local (hash + BM25)");
-      dropdown.addOption("external-api", "External embedding API (hybrid)");
-      dropdown.setValue(this.plugin.settings.retrievalSource ?? "local");
+    new import_obsidian10.Setting(containerEl).setName("External embedding provider").setDesc("Choose which external embedding API to use. If configured, external embeddings will be used automatically instead of local hash embeddings.").addDropdown((dropdown) => {
+      dropdown.addOption("openai", "OpenAI");
+      dropdown.addOption("cohere", "Cohere");
+      dropdown.addOption("google", "Google (Gemini)");
+      dropdown.addOption("custom", "Custom");
+      dropdown.setValue(this.plugin.settings.externalEmbeddingProvider ?? "openai");
       dropdown.onChange(async (value) => {
-        this.plugin.settings.retrievalSource = value;
+        this.plugin.settings.externalEmbeddingProvider = value;
+        if (value === "openai") {
+          this.plugin.settings.externalEmbeddingModel = "text-embedding-3-small";
+        } else if (value === "cohere") {
+          this.plugin.settings.externalEmbeddingModel = "embed-english-v3.0";
+        } else if (value === "google") {
+          this.plugin.settings.externalEmbeddingModel = "gemini-embedding-001";
+        } else {
+          this.plugin.settings.externalEmbeddingModel = "";
+        }
         await this.plugin.saveSettings();
         await this.plugin.recreateRetrievalService();
         this.display();
       });
     });
-    if (this.plugin.settings.retrievalSource === "external-api") {
-      new import_obsidian10.Setting(containerEl).setName("External embedding provider").setDesc("Choose which external embedding API to use.").addDropdown((dropdown) => {
-        dropdown.addOption("openai", "OpenAI");
-        dropdown.addOption("cohere", "Cohere");
-        dropdown.addOption("google", "Google (Gemini)");
-        dropdown.addOption("custom", "Custom");
-        dropdown.setValue(this.plugin.settings.externalEmbeddingProvider ?? "openai");
-        dropdown.onChange(async (value) => {
-          this.plugin.settings.externalEmbeddingProvider = value;
-          if (value === "openai") {
-            this.plugin.settings.externalEmbeddingModel = "text-embedding-3-small";
-          } else if (value === "cohere") {
-            this.plugin.settings.externalEmbeddingModel = "embed-english-v3.0";
-          } else if (value === "google") {
-            this.plugin.settings.externalEmbeddingModel = "gemini-embedding-001";
-          } else {
-            this.plugin.settings.externalEmbeddingModel = "";
-          }
-          await this.plugin.saveSettings();
-          this.display();
-        });
+    new import_obsidian10.Setting(containerEl).setName("External embedding API key").setDesc("Your API key for the external embedding provider.").addText((text2) => {
+      text2.setPlaceholder("Enter API key").setValue(this.plugin.settings.externalEmbeddingApiKey ?? "");
+      text2.inputEl.type = "password";
+      text2.onChange(async (value) => {
+        this.plugin.settings.externalEmbeddingApiKey = value;
+        await this.plugin.saveSettings();
+        await this.plugin.recreateRetrievalService();
       });
-      new import_obsidian10.Setting(containerEl).setName("External embedding API key").setDesc("Your API key for the external embedding provider.").addText((text2) => {
-        text2.setPlaceholder("Enter API key").setValue(this.plugin.settings.externalEmbeddingApiKey ?? "");
-        text2.inputEl.type = "password";
-        text2.onChange(async (value) => {
-          this.plugin.settings.externalEmbeddingApiKey = value;
+    });
+    const provider = this.plugin.settings.externalEmbeddingProvider ?? "openai";
+    const defaultModel = provider === "openai" ? "text-embedding-3-small" : provider === "cohere" ? "embed-english-v3.0" : provider === "google" ? "gemini-embedding-001" : "";
+    new import_obsidian10.Setting(containerEl).setName("External embedding model").setDesc(`Model name for ${provider} (e.g., ${defaultModel}).`).addText(
+      (text2) => text2.setPlaceholder(defaultModel).setValue(this.plugin.settings.externalEmbeddingModel ?? defaultModel).onChange(async (value) => {
+        this.plugin.settings.externalEmbeddingModel = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    if (provider === "google") {
+      new import_obsidian10.Setting(containerEl).setName("Use batch embeddings (Google Gemini)").setDesc("Use batch endpoint for more efficient embedding of multiple queries.").addToggle(
+        (toggle) => toggle.setValue(Boolean(this.plugin.settings.externalEmbeddingUseBatch)).onChange(async (value) => {
+          this.plugin.settings.externalEmbeddingUseBatch = value;
           await this.plugin.saveSettings();
-        });
-      });
-      const provider = this.plugin.settings.externalEmbeddingProvider ?? "openai";
-      const defaultModel = provider === "openai" ? "text-embedding-3-small" : provider === "cohere" ? "embed-english-v3.0" : provider === "google" ? "gemini-embedding-001" : "";
-      new import_obsidian10.Setting(containerEl).setName("External embedding model").setDesc(`Model name for ${provider} (e.g., ${defaultModel}).`).addText(
-        (text2) => text2.setPlaceholder(defaultModel).setValue(this.plugin.settings.externalEmbeddingModel ?? defaultModel).onChange(async (value) => {
-          this.plugin.settings.externalEmbeddingModel = value;
-          await this.plugin.saveSettings();
-        })
-      );
-      if (provider === "google") {
-        new import_obsidian10.Setting(containerEl).setName("Use batch embeddings (Google Gemini)").setDesc("Use batch endpoint for more efficient embedding of multiple queries.").addToggle(
-          (toggle) => toggle.setValue(Boolean(this.plugin.settings.externalEmbeddingUseBatch)).onChange(async (value) => {
-            this.plugin.settings.externalEmbeddingUseBatch = value;
-            await this.plugin.saveSettings();
-          })
-        );
-      }
-      if (provider === "custom") {
-        new import_obsidian10.Setting(containerEl).setName("Custom API URL").setDesc("Endpoint URL for your custom embedding API.").addText(
-          (text2) => text2.setPlaceholder("https://api.example.com/embeddings").setValue(this.plugin.settings.externalEmbeddingApiUrl ?? "").onChange(async (value) => {
-            this.plugin.settings.externalEmbeddingApiUrl = value;
-            await this.plugin.saveSettings();
-          })
-        );
-      }
-      new import_obsidian10.Setting(containerEl).setName("Test connection").setDesc("Test the external embedding API connection.").addButton(
-        (btn) => btn.setButtonText("Test").onClick(async () => {
-          btn.setDisabled(true);
-          btn.setButtonText("Testing...");
-          try {
-            const testQuery = "test";
-            const response = await fetch(
-              provider === "openai" ? "https://api.openai.com/v1/embeddings" : provider === "cohere" ? "https://api.cohere.ai/v1/embed" : provider === "google" ? `https://generativelanguage.googleapis.com/v1beta/models/${this.plugin.settings.externalEmbeddingModel || "gemini-embedding-001"}:embedContent?key=${this.plugin.settings.externalEmbeddingApiKey}` : this.plugin.settings.externalEmbeddingApiUrl || "",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  ...provider !== "google" && provider !== "custom" ? { Authorization: `Bearer ${this.plugin.settings.externalEmbeddingApiKey}` } : {}
-                },
-                body: JSON.stringify(
-                  provider === "openai" ? { model: this.plugin.settings.externalEmbeddingModel || "text-embedding-3-small", input: testQuery } : provider === "cohere" ? { model: this.plugin.settings.externalEmbeddingModel || "embed-english-v3.0", texts: [testQuery] } : provider === "google" ? { content: { parts: [{ text: testQuery }] } } : { text: testQuery }
-                )
-              }
-            );
-            if (response.ok) {
-              new import_obsidian10.Notice("External embedding API connection successful!", 3e3);
-            } else {
-              const error2 = await response.text();
-              new import_obsidian10.Notice(`External embedding API test failed: ${response.status} ${error2}`, 5e3);
-            }
-          } catch (error2) {
-            new import_obsidian10.Notice(`External embedding API test failed: ${error2 instanceof Error ? error2.message : String(error2)}`, 5e3);
-          } finally {
-            btn.setDisabled(false);
-            btn.setButtonText("Test");
-          }
         })
       );
     }
+    if (provider === "custom") {
+      new import_obsidian10.Setting(containerEl).setName("Custom API URL").setDesc("Endpoint URL for your custom embedding API.").addText(
+        (text2) => text2.setPlaceholder("https://api.example.com/embeddings").setValue(this.plugin.settings.externalEmbeddingApiUrl ?? "").onChange(async (value) => {
+          this.plugin.settings.externalEmbeddingApiUrl = value;
+          await this.plugin.saveSettings();
+        })
+      );
+    }
+    new import_obsidian10.Setting(containerEl).setName("Test connection").setDesc("Test the external embedding API connection.").addButton(
+      (btn) => btn.setButtonText("Test").onClick(async () => {
+        btn.setDisabled(true);
+        btn.setButtonText("Testing...");
+        try {
+          const testQuery = "test";
+          const response = await fetch(
+            provider === "openai" ? "https://api.openai.com/v1/embeddings" : provider === "cohere" ? "https://api.cohere.ai/v1/embed" : provider === "google" ? `https://generativelanguage.googleapis.com/v1beta/models/${this.plugin.settings.externalEmbeddingModel || "gemini-embedding-001"}:embedContent?key=${this.plugin.settings.externalEmbeddingApiKey}` : this.plugin.settings.externalEmbeddingApiUrl || "",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...provider !== "google" && provider !== "custom" ? { Authorization: `Bearer ${this.plugin.settings.externalEmbeddingApiKey}` } : {}
+              },
+              body: JSON.stringify(
+                provider === "openai" ? { model: this.plugin.settings.externalEmbeddingModel || "text-embedding-3-small", input: testQuery } : provider === "cohere" ? { model: this.plugin.settings.externalEmbeddingModel || "embed-english-v3.0", texts: [testQuery] } : provider === "google" ? { content: { parts: [{ text: testQuery }] } } : { text: testQuery }
+              )
+            }
+          );
+          if (response.ok) {
+            new import_obsidian10.Notice("External embedding API connection successful!", 3e3);
+          } else {
+            const error2 = await response.text();
+            new import_obsidian10.Notice(`External embedding API test failed: ${response.status} ${error2}`, 5e3);
+          }
+        } catch (error2) {
+          new import_obsidian10.Notice(`External embedding API test failed: ${error2 instanceof Error ? error2.message : String(error2)}`, 5e3);
+        } finally {
+          btn.setDisabled(false);
+          btn.setButtonText("Test");
+        }
+      })
+    );
     new import_obsidian10.Setting(containerEl).setName("Use Smart Connections context (optional)").setDesc("Include Smart Connections context in prompts. Requires Smart Connections plugin to be installed.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableSmartConnectionsContext)).onChange(async (value) => {
         this.plugin.settings.retrievalEnableSmartConnectionsContext = value;
@@ -78414,13 +78403,14 @@ var WritingDashboardPlugin = class extends import_obsidian24.Plugin {
       new HeuristicProvider(this.app.vault, this.vaultService),
       new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path))
     ];
-    if (this.settings.retrievalSource === "external-api") {
+    const hasExternalConfig = Boolean(this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey);
+    if (hasExternalConfig) {
       providers.push(
         new ExternalEmbeddingsProvider(
           this,
           this.embeddingsIndex,
           this.bm25Index,
-          () => Boolean(this.settings.retrievalSource === "external-api" && this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey),
+          () => Boolean(this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey),
           (path) => !this.vaultService.isExcludedPath(path)
         )
       );

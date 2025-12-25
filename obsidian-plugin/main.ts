@@ -175,6 +175,54 @@ export interface DashboardSettings {
 		};
 	};
 	/**
+	 * Smart Connections cache for captured results.
+	 */
+	smartConnectionsCache?: {
+		sourceNotePath?: string; // Note path when captured
+		vaultId?: string; // vaultName + (adapter.basePath || '')
+		results: Array<{
+			path: string;
+			score?: number; // Rank-based: 1.0, 0.98, 0.96...
+			capturedSnippet?: string; // Optional, for reference only
+			capturedAt?: number; // Timestamp when captured
+		}>;
+		capturedAt: number; // Overall cache timestamp
+		method: 'dom' | 'clipboard';
+		sessionId: string; // Capture session ID for log grouping
+	};
+	/**
+	 * Enable Smart Connections cache for retrieval.
+	 */
+	smartConnectionsCacheEnabled?: boolean;
+	/**
+	 * Cache TTL in hours (optional, default: no expiry).
+	 */
+	smartConnectionsCacheTTL?: number;
+	/**
+	 * Allowed folders for Smart Connections cache (empty = all allowed).
+	 */
+	smartConnectionsAllowedFolders?: string[];
+	/**
+	 * Blocked folders for Smart Connections cache.
+	 */
+	smartConnectionsBlockedFolders?: string[];
+	/**
+	 * Max files to capture in Smart Connections cache (default: 200).
+	 */
+	smartConnectionsMaxCaptureFiles?: number;
+	/**
+	 * Max files to score per query in Smart Connections cache (default: 50).
+	 */
+	smartConnectionsMaxScoreFiles?: number;
+	/**
+	 * Max total context chars for Smart Connections excerpts (default: 30000).
+	 */
+	smartConnectionsMaxContextChars?: number;
+	/**
+	 * Keying mode: strict (only use cache if source note matches) or soft (prefer match, allow override).
+	 */
+	smartConnectionsKeyingMode?: 'strict' | 'soft';
+	/**
 	 * Folder-based retrieval profiles (safety rails).
 	 * The active profile controls which folders are included for retrieval/indexing.
 	 */
@@ -292,7 +340,15 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 	setupCompleted: false,
 	guidedDemoDismissed: false,
 	guidedDemoShownOnce: false,
-	fileState: {}
+	fileState: {},
+	smartConnectionsCacheEnabled: false,
+	smartConnectionsCacheTTL: undefined,
+	smartConnectionsAllowedFolders: [],
+	smartConnectionsBlockedFolders: [],
+	smartConnectionsMaxCaptureFiles: 200,
+	smartConnectionsMaxScoreFiles: 50,
+	smartConnectionsMaxContextChars: 30000,
+	smartConnectionsKeyingMode: 'soft'
 };
 
 export default class WritingDashboardPlugin extends Plugin {
@@ -304,6 +360,7 @@ export default class WritingDashboardPlugin extends Plugin {
 	characterExtractor: CharacterExtractor;
 	queryBuilder: QueryBuilder;
 	retrievalService: RetrievalService;
+	smartConnectionsProvider?: import('./services/retrieval/SmartConnectionsProvider').SmartConnectionsProvider;
 	embeddingsIndex: EmbeddingsIndex;
 	bm25Index: Bm25Index;
 	cpuReranker: CpuReranker;
@@ -404,9 +461,13 @@ export default class WritingDashboardPlugin extends Plugin {
 		this.cpuReranker = new CpuReranker();
 		this.generationLogService = new GenerationLogService(this.app, this);
 		// Note: Folder validation happens when logs are enabled via settings toggle
+		const scProvider = new SmartConnectionsProvider(this.app, this, this.app.vault, (path) => !this.vaultService.isExcludedPath(path));
+		this.smartConnectionsProvider = scProvider;
+		
 		const providers: Array<import('./services/retrieval/types').RetrievalProvider> = [
 			new HeuristicProvider(this.app.vault, this.vaultService),
-			new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path))
+			new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path)),
+			scProvider
 		];
 		
 		// Add semantic provider - automatically use external if configured, otherwise use local
@@ -564,10 +625,13 @@ export default class WritingDashboardPlugin extends Plugin {
 	 * Called when retrievalSource or other retrieval settings change.
 	 */
 	async recreateRetrievalService(): Promise<void> {
+		const scProvider = new SmartConnectionsProvider(this.app, this, this.app.vault, (path) => !this.vaultService.isExcludedPath(path));
+		this.smartConnectionsProvider = scProvider;
+		
 		const providers: Array<import('./services/retrieval/types').RetrievalProvider> = [
 			new HeuristicProvider(this.app.vault, this.vaultService),
 			new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path)),
-			new SmartConnectionsProvider(this.app.vault, (path) => !this.vaultService.isExcludedPath(path))
+			scProvider
 		];
 		
 		if (this.settings.retrievalSource === 'external-api') {
