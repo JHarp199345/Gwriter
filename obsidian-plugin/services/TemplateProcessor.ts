@@ -21,6 +21,12 @@ export class TemplateProcessor {
 			const appWithPlugins = this.app as any;
 		
 		console.log('[TemplateProcessor] 🔧 Starting hook registration...');
+		console.log('[TemplateProcessor] 🔍 Plugin system state check:');
+		console.log(`  - app.plugins exists: ${!!appWithPlugins.plugins}`);
+		console.log(`  - app.plugins.plugins exists: ${!!appWithPlugins.plugins?.plugins}`);
+		console.log(`  - Smart Connections installed: ${!!appWithPlugins.plugins?.plugins?.['smart-connections']}`);
+		console.log(`  - Smart Connections loaded: ${!!appWithPlugins.plugins?.plugins?.['smart-connections']?.instance}`);
+		console.log(`  - Smart Connections enabled: ${appWithPlugins.plugins?.plugins?.['smart-connections']?.enabled === true}`);
 		
 		// FIRST: Check if Text Generator is installed and see how it registers
 		const textGeneratorPlugin = appWithPlugins.plugins?.plugins?.['text-generator'];
@@ -122,10 +128,8 @@ export class TemplateProcessor {
 		this.logHookAttempt('window template-process event listeners');
 		
 		// Hook Method 7: Expose via app.templates (if exists)
-		if (appWithPlugins.templates) {
-			if (!appWithPlugins.templates.processors) {
-				appWithPlugins.templates.processors = [];
-			}
+		// SAFE: Only add if it already exists - never create it
+		if (appWithPlugins.templates && appWithPlugins.templates.processors && Array.isArray(appWithPlugins.templates.processors)) {
 			appWithPlugins.templates.processors.push({
 				id: 'writing-dashboard',
 				name: 'Writing Dashboard',
@@ -133,16 +137,12 @@ export class TemplateProcessor {
 				processTemplate: this.processTemplate.bind(this)
 			});
 			this.logHookAttempt('app.templates.processors');
+		} else {
+			console.warn('[TemplateProcessor] ⚠️ app.templates.processors not available or not an array - skipping');
 		}
 		
-		// Hook Method 8: Register in app.plugins.plugins['writing-dashboard']
-		const ourPlugin = appWithPlugins.plugins?.plugins?.['writing-dashboard'];
-		if (ourPlugin) {
-			ourPlugin.templateProcessor = this.processTemplate.bind(this);
-			ourPlugin.processTemplate = this.processTemplate.bind(this);
-			ourPlugin.renderTemplate = this.processTemplate.bind(this);
-		}
-		this.logHookAttempt('app.plugins.plugins[writing-dashboard]');
+		// REMOVED: Hook Method 8 - app.plugins.plugins['writing-dashboard']
+		// DANGEROUS: Modifying plugin instances breaks the plugin system
 		
 		// Hook Method 9: Emit registration event
 		window.dispatchEvent(new CustomEvent('template-processor-registered', {
@@ -414,24 +414,27 @@ export class TemplateProcessor {
 			diagnostics.push('✓ Our template processor WAS called (hook registration succeeded)');
 			diagnostics.push('✓ Template processing events were emitted (template-processing, template-process)');
 			
-			// Check if Smart Connections has template processing capabilities
-			const scInstance = scPlugin.instance || scPlugin;
-			const scMethods = Object.keys(scInstance).filter(k => 
-				k.toLowerCase().includes('template') || 
-				k.toLowerCase().includes('process') ||
-				k.toLowerCase().includes('similar')
-			);
-			if (scMethods.length > 0) {
-				diagnostics.push(`✓ Smart Connections has methods: ${scMethods.join(', ')}`);
-			} else {
-				diagnostics.push('⚠️ Smart Connections template processing methods not detected');
+				// Check if Smart Connections has template processing capabilities (read-only access)
+				const scInstance = scPlugin.instance;
+				if (scInstance) {
+					const scMethods = Object.keys(scInstance).filter(k => 
+						k.toLowerCase().includes('template') || 
+						k.toLowerCase().includes('process') ||
+						k.toLowerCase().includes('similar')
+					);
+					if (scMethods.length > 0) {
+						diagnostics.push(`✓ Smart Connections has methods: ${scMethods.join(', ')}`);
+					} else {
+						diagnostics.push('⚠️ Smart Connections template processing methods not detected');
+					}
+				}
+				
+				// The real issue: Smart Connections may not be listening to our events
+				diagnostics.push('ROOT CAUSE: Smart Connections is not listening to our template-processing events');
+				diagnostics.push('WHY THIS FAILED: Smart Connections likely hooks into Text Generator\'s template system, not generic events');
+				diagnostics.push('WHAT HAPPENED: We emitted events but Smart Connections did not respond because it uses a different hook mechanism');
+				diagnostics.push('SOLUTION: Smart Connections may need to be called via Obsidian\'s native template insertion (which we tried) or Text Generator\'s API');
 			}
-			
-			// The real issue: Smart Connections may not be listening to our events
-			diagnostics.push('ROOT CAUSE: Smart Connections is not listening to our template-processing events');
-			diagnostics.push('WHY THIS FAILED: Smart Connections likely hooks into Text Generator\'s template system, not generic events');
-			diagnostics.push('WHAT HAPPENED: We emitted events but Smart Connections did not respond because it uses a different hook mechanism');
-			diagnostics.push('SOLUTION: Smart Connections may need to be called via Obsidian\'s native template insertion (which we tried) or Text Generator\'s API');
 		}
 		
 		return diagnostics.join(' | ');
