@@ -21,12 +21,15 @@ export class TemplateProcessor {
 			const appWithPlugins = this.app as any;
 		
 		console.log('[TemplateProcessor] 🔧 Starting hook registration...');
-		console.log('[TemplateProcessor] 🔍 Plugin system state check:');
-		console.log(`  - app.plugins exists: ${!!appWithPlugins.plugins}`);
-		console.log(`  - app.plugins.plugins exists: ${!!appWithPlugins.plugins?.plugins}`);
-		console.log(`  - Smart Connections installed: ${!!appWithPlugins.plugins?.plugins?.['smart-connections']}`);
-		console.log(`  - Smart Connections loaded: ${!!appWithPlugins.plugins?.plugins?.['smart-connections']?.instance}`);
-		console.log(`  - Smart Connections enabled: ${appWithPlugins.plugins?.plugins?.['smart-connections']?.enabled === true}`);
+		const scPlugin = appWithPlugins.plugins?.plugins?.['smart-connections'];
+		console.log(
+			`[TemplateProcessor] Plugin system state: ` +
+			`app.plugins=${!!appWithPlugins.plugins} | ` +
+			`app.plugins.plugins=${!!appWithPlugins.plugins?.plugins} | ` +
+			`SC installed=${!!scPlugin} | ` +
+			`SC loaded=${!!scPlugin?.instance} | ` +
+			`SC enabled=${scPlugin?.enabled === true}`
+		);
 		
 		// FIRST: Check if Text Generator is installed and see how it registers
 		const textGeneratorPlugin = appWithPlugins.plugins?.plugins?.['text-generator'];
