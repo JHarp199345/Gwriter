@@ -65,37 +65,23 @@ export class TemplateProcessor {
 		}
 		
 		// Hook Method 1: Register in app.templateProcessors array
-		if (!appWithPlugins.templateProcessors) {
-			appWithPlugins.templateProcessors = [];
-		}
-		appWithPlugins.templateProcessors.push({
-			id: 'writing-dashboard',
-			name: 'Writing Dashboard',
-			process: this.processTemplate.bind(this),
-			processTemplate: this.processTemplate.bind(this),
-			renderTemplate: this.processTemplate.bind(this),
-			plugin: this.plugin
-		});
-		this.logHookAttempt('app.templateProcessors array');
-		
-		// Hook Method 2: Register in app.plugins.templateProcessors object
-		// CRITICAL: Never create app.plugins if it doesn't exist - it would destroy the plugin system!
-		if (appWithPlugins.plugins) {
-			if (!appWithPlugins.plugins.templateProcessors) {
-				appWithPlugins.plugins.templateProcessors = {};
-			}
-			appWithPlugins.plugins.templateProcessors['writing-dashboard'] = {
+		// SAFE: Only add if it already exists - never create it
+		if (appWithPlugins.templateProcessors && Array.isArray(appWithPlugins.templateProcessors)) {
+			appWithPlugins.templateProcessors.push({
 				id: 'writing-dashboard',
 				name: 'Writing Dashboard',
 				process: this.processTemplate.bind(this),
 				processTemplate: this.processTemplate.bind(this),
-				renderTemplate: this.processTemplate.bind(this)
-			};
-			this.logHookAttempt('app.plugins.templateProcessors object');
+				renderTemplate: this.processTemplate.bind(this),
+				plugin: this.plugin
+			});
+			this.logHookAttempt('app.templateProcessors array');
 		} else {
-			console.warn('[TemplateProcessor] ⚠️ app.plugins not available - skipping this registration method');
-			console.warn('[TemplateProcessor] 🔍 Plugin system may not be initialized yet');
+			console.warn('[TemplateProcessor] ⚠️ app.templateProcessors not available or not an array - skipping');
 		}
+		
+		// REMOVED: Hook Method 2 - app.plugins.templateProcessors
+		// DANGEROUS: Modifying app.plugins structures breaks the plugin system
 		
 		// Hook Method 3: Register in window.templateProcessors array
 		if (!(window as any).templateProcessors) {
@@ -155,39 +141,15 @@ export class TemplateProcessor {
 		}));
 		this.logHookAttempt('template-processor-registered event');
 		
-		// Hook Method 10: Register in app.plugins.enabledPlugins template processors
-		// CRITICAL: Only access if plugins system exists
-		if (appWithPlugins.plugins?.enabledPlugins) {
-			if (!appWithPlugins.plugins.enabledPlugins.templateProcessors) {
-				appWithPlugins.plugins.enabledPlugins.templateProcessors = [];
-			}
-			appWithPlugins.plugins.enabledPlugins.templateProcessors.push({
-				id: 'writing-dashboard',
-				name: 'Writing Dashboard',
-				process: this.processTemplate.bind(this)
-			});
-			this.logHookAttempt('app.plugins.enabledPlugins.templateProcessors');
-		} else {
-			console.warn('[TemplateProcessor] ⚠️ app.plugins.enabledPlugins not available - skipping this registration method');
-		}
+		// REMOVED: Hook Method 10 - app.plugins.enabledPlugins.templateProcessors
+		// DANGEROUS: Modifying enabledPlugins breaks the plugin system
 		
 		// Hook Method 11: Register as global function
 		(window as any).writingDashboardProcessTemplate = this.processTemplate.bind(this);
 		this.logHookAttempt('window.writingDashboardProcessTemplate function');
 		
-		// Hook Method 12: Register in app.plugins.plugins namespace with different key
-		// CRITICAL: Only access if plugins system exists
-		if (appWithPlugins.plugins?.plugins) {
-			appWithPlugins.plugins.plugins['writing-dashboard-template'] = {
-				id: 'writing-dashboard',
-				name: 'Writing Dashboard',
-				process: this.processTemplate.bind(this),
-				processTemplate: this.processTemplate.bind(this)
-			};
-			this.logHookAttempt('app.plugins.plugins[writing-dashboard-template]');
-		} else {
-			console.warn('[TemplateProcessor] ⚠️ app.plugins.plugins not available - skipping this registration method');
-		}
+		// REMOVED: Hook Method 12 - app.plugins.plugins['writing-dashboard-template']
+		// DANGEROUS: Creating new plugin entries breaks the plugin system
 		} catch (error) {
 			console.warn('[TemplateProcessor] Error during hook registration:', error);
 			// Don't throw - allow plugin to continue loading even if some hooks fail
@@ -392,28 +354,38 @@ export class TemplateProcessor {
 		const appWithPlugins = this.app as any;
 		const diagnostics: string[] = [];
 		
-		// Check if Smart Connections plugin exists
+		// Check if Smart Connections plugin exists (read-only access)
 		const scPlugin = appWithPlugins.plugins?.plugins?.['smart-connections'];
 		if (!scPlugin) {
 			diagnostics.push('ROOT CAUSE: Smart Connections plugin not installed or not found in app.plugins.plugins');
 			diagnostics.push('WHY THIS FAILED: Smart Connections cannot process templates if the plugin is not installed');
 			diagnostics.push('SOLUTION: Install Smart Connections plugin from Community Plugins');
-		} else if (!scPlugin.enabled) {
-			diagnostics.push('ROOT CAUSE: Smart Connections plugin found but not enabled');
-			diagnostics.push('WHY THIS FAILED: Disabled plugins do not process templates or respond to events');
-			diagnostics.push('SOLUTION: Enable Smart Connections in Settings > Community Plugins');
 		} else {
-			diagnostics.push('✓ Smart Connections plugin is installed and enabled');
+			// Check if plugin is actually LOADED, not just installed
+			const isLoaded = scPlugin.instance !== undefined && scPlugin.instance !== null;
+			const isEnabled = scPlugin.enabled === true;
 			
-			// Check if our hooks were registered
-			const hookStatus = this.getHookStatus();
-			const registeredCount = Object.values(hookStatus).length;
-			diagnostics.push(`✓ ${registeredCount} hook registration methods attempted`);
-			
-			// Check if processTemplate was called (indicates a hook worked)
-			diagnostics.push('✓ Our template processor WAS called (hook registration succeeded)');
-			diagnostics.push('✓ Template processing events were emitted (template-processing, template-process)');
-			
+			if (!isLoaded) {
+				diagnostics.push('ROOT CAUSE: Smart Connections plugin found but instance not loaded yet');
+				diagnostics.push('WHY THIS FAILED: Plugin may still be initializing - our hook registration ran too early');
+				diagnostics.push('SOLUTION: Plugin needs time to fully load. Try again after a few seconds, or delay our hook registration');
+			} else if (!isEnabled) {
+				diagnostics.push('ROOT CAUSE: Smart Connections plugin found but not enabled');
+				diagnostics.push('WHY THIS FAILED: Disabled plugins do not process templates or respond to events');
+				diagnostics.push('SOLUTION: Enable Smart Connections in Settings > Community Plugins');
+			} else {
+				// Plugin is loaded AND enabled - proceed with checks
+				diagnostics.push('✓ Smart Connections plugin is installed, loaded, and enabled');
+				
+				// Check if our hooks were registered
+				const hookStatus = this.getHookStatus();
+				const registeredCount = Object.values(hookStatus).length;
+				diagnostics.push(`✓ ${registeredCount} hook registration methods attempted`);
+				
+				// Check if processTemplate was called (indicates a hook worked)
+				diagnostics.push('✓ Our template processor WAS called (hook registration succeeded)');
+				diagnostics.push('✓ Template processing events were emitted (template-processing, template-process)');
+				
 				// Check if Smart Connections has template processing capabilities (read-only access)
 				const scInstance = scPlugin.instance;
 				if (scInstance) {
