@@ -3,6 +3,7 @@ import WritingDashboardPlugin from '../main';
 import { SetupWizardModal } from './SetupWizard';
 import { FileTreePickerModal } from './FileTreePickerModal';
 import { FolderTreePickerModal } from './FolderTreePickerModal';
+import { FilePickerModal } from './FilePickerModal';
 import { StressTestService } from '../services/StressTestService';
 
 // Model lists for each provider
@@ -607,8 +608,52 @@ export class SettingsTab extends PluginSettingTab {
 			}
 		}
 
-		// Smart Connections cache settings
-		new Setting(containerEl).setName('Smart Connections cache').setHeading();
+		// Smart Connections settings
+		new Setting(containerEl).setName('Smart Connections').setHeading();
+
+		// Smart Connections template settings (template-based approach)
+		new Setting(containerEl)
+			.setName('Smart Connections template')
+			.setDesc('Template file that uses {{smart-connections:similar:128}} to surface semantic matches. Executed automatically before each generation.')
+			.addText((text) => {
+				text.setPlaceholder('Templates/SC-Context.md')
+					.setValue(this.plugin.settings.smartConnectionsTemplatePath || '')
+					.onChange(async (value) => {
+						this.plugin.settings.smartConnectionsTemplatePath = value || undefined;
+						await this.plugin.saveSettings();
+					});
+			})
+			.addButton((btn) => {
+				btn.setButtonText('Browse')
+					.onClick(async () => {
+						// Get all markdown files in vault
+						const files = this.app.vault.getMarkdownFiles();
+						
+						// Use FilePickerModal to select template file
+						const modal = new FilePickerModal({
+							app: this.app,
+							files: files,
+							placeholder: 'Select template file...',
+							onPick: async (file) => {
+								this.plugin.settings.smartConnectionsTemplatePath = file.path;
+								await this.plugin.saveSettings();
+								this.display(); // Refresh
+							}
+						});
+						modal.open();
+					});
+			});
+
+		// Show example template content
+		if (this.plugin.settings.smartConnectionsTemplatePath) {
+			const infoBox = containerEl.createDiv({ cls: 'writing-dashboard-info-box' });
+			infoBox.createEl('p', { 
+				text: 'Template should contain: {{smart-connections:similar:128}}' 
+			});
+		}
+
+		// Smart Connections cache settings (legacy capture-and-cache approach)
+		new Setting(containerEl).setName('Smart Connections cache (legacy)').setHeading();
 
 		new Setting(containerEl)
 			.setName('Use Smart Connections cache')

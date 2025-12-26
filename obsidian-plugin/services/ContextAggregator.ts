@@ -3,11 +3,13 @@ import WritingDashboardPlugin from '../main';
 import { Context } from './PromptEngine';
 import type { ContextItem, RetrievalQuery } from './retrieval/types';
 import { VaultService } from './VaultService';
+import { TemplateExecutor } from './TemplateExecutor';
 
 export class ContextAggregator {
 	private vault: Vault;
 	private plugin: WritingDashboardPlugin;
 	private vaultService: VaultService;
+	private templateExecutor: TemplateExecutor;
 
 	private budgetToChars(tokens: number): number {
 		// estimateTokens uses ~4 chars per token; invert that here
@@ -49,10 +51,28 @@ export class ContextAggregator {
 		this.vault = vault;
 		this.plugin = plugin;
 		this.vaultService = vaultService;
+		this.templateExecutor = new TemplateExecutor(plugin.app);
 	}
 
 	async getChapterContext(retrievalQuery: RetrievalQuery): Promise<Context> {
 		const settings = this.plugin.settings;
+		
+		// Step 1: Execute Smart Connections template if configured
+		let scTemplatePaths: string[] = [];
+		if (settings.smartConnectionsTemplatePath) {
+			try {
+				const activeFile = this.plugin.app.workspace.getActiveFile();
+				const templateOutput = await this.templateExecutor.executeTemplate(
+					settings.smartConnectionsTemplatePath,
+					activeFile
+				);
+				scTemplatePaths = this.templateExecutor.parseTemplateOutput(templateOutput);
+				console.debug(`[ContextAggregator] Smart Connections template returned ${scTemplatePaths.length} paths`);
+			} catch (error) {
+				console.warn(`[ContextAggregator] Template execution failed:`, error);
+				// Continue without SC template results
+			}
+		}
 		
 		// Budget context dynamically based on the configured contextTokenLimit.
 		const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
@@ -60,7 +80,7 @@ export class ContextAggregator {
 
 		// More available tokens => more retrieved chunks to include.
 		const retrievedLimit = Math.min(200, Math.max(24, Math.floor(contextBudget / 12000)));
-		const retrievedContext = await this.getRetrievedContext(retrievalQuery, retrievedLimit);
+		const retrievedContext = await this.getRetrievedContext(retrievalQuery, retrievedLimit, scTemplatePaths);
 		
 		// Read book file only to extract sliding window (last 20k words), not full context
 		// Sliding window is automatically extracted from book2Path by the plugin
@@ -87,6 +107,23 @@ export class ContextAggregator {
 		const settings = this.plugin.settings;
 		const surrounding = await this.getSurroundingContext(selectedText, 500, 500);
 		
+		// Step 1: Execute Smart Connections template if configured
+		let scTemplatePaths: string[] = [];
+		if (settings.smartConnectionsTemplatePath) {
+			try {
+				const activeFile = this.plugin.app.workspace.getActiveFile();
+				const templateOutput = await this.templateExecutor.executeTemplate(
+					settings.smartConnectionsTemplatePath,
+					activeFile
+				);
+				scTemplatePaths = this.templateExecutor.parseTemplateOutput(templateOutput);
+				console.debug(`[ContextAggregator] Smart Connections template returned ${scTemplatePaths.length} paths`);
+			} catch (error) {
+				console.warn(`[ContextAggregator] Template execution failed:`, error);
+				// Continue without SC template results
+			}
+		}
+		
 		// Budget context dynamically based on the configured contextTokenLimit.
 		const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
 		const contextBudget = Math.max(1000, limit - reserveForOutput - reserveForNonContext);
@@ -101,7 +138,7 @@ export class ContextAggregator {
 
 		// Retrieved context in micro-edit is a style/continuity echo; keep it smaller.
 		const retrievedLimit = Math.min(80, Math.max(12, Math.floor(contextBudget / 20000)));
-		const retrievedContext = await this.getRetrievedContext(retrievalQuery, retrievedLimit);
+		const retrievedContext = await this.getRetrievedContext(retrievalQuery, retrievedLimit, scTemplatePaths);
 		
 		// Allocate budget by priority for micro edits.
 		const slidingBudget = Math.floor(contextBudget * 0.03);

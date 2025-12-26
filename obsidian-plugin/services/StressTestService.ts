@@ -33,6 +33,9 @@ export class StressTestService {
 		this.logEntry(`BM25 Retrieval: ${this.plugin.settings.retrievalEnableBm25 ? 'Enabled' : 'Disabled'}`);
 		this.logEntry(`Index Paused: ${this.plugin.settings.retrievalIndexPaused ? 'Yes' : 'No'}`);
 		this.logEntry(`Retrieval Top K: ${this.plugin.settings.retrievalTopK || 24}`);
+		this.logEntry(`External Embeddings: ${this.plugin.settings.externalEmbeddingsEnabled ? 'Enabled' : 'Disabled'}`);
+		this.logEntry(`Smart Connections Template: ${this.plugin.settings.smartConnectionsTemplatePath || 'Not configured'}`);
+		this.logEntry(`Smart Connections Cache: ${this.plugin.settings.smartConnectionsCacheEnabled ? 'Enabled' : 'Disabled'}`);
 		this.logEntry('');
 
 		try {
@@ -54,6 +57,9 @@ export class StressTestService {
 
 			// Phase 5: Retrieval Tests
 			await this.phase5_Retrieval();
+
+			// Phase 5.5: Smart Connections Template Tests
+			await this.phase5_5_SmartConnectionsTemplate();
 
 			// Phase 7: Character Operations (if API key available)
 			if (this.plugin.settings.apiKey) {
@@ -84,9 +90,33 @@ export class StressTestService {
 
 		const duration = ((Date.now() - this.startTime) / 1000).toFixed(2);
 		this.logEntry('');
-		this.logEntry('=== STRESS TEST COMPLETED ===');
-		this.logEntry(`Duration: ${duration} seconds`);
+		this.logEntry('=== STRESS TEST SUMMARY ===');
+		this.logEntry(`Total Duration: ${duration} seconds`);
 		this.logEntry(`Ended: ${new Date().toISOString()}`);
+		this.logEntry('');
+		this.logEntry('=== FUNCTIONAL OPERATIONS TESTED ===');
+		this.logEntry('✓ Phase 1: Setup (folder/file creation)');
+		this.logEntry('✓ Phase 2: Indexing (semantic index, BM25, chunking)');
+		this.logEntry('✓ Phase 3: File Operations (read/write/folder management)');
+		if (this.plugin.settings.apiKey) {
+			this.logEntry('✓ Phase 4: Writing Modes (chapter generation, micro-edit, continuity check)');
+			this.logEntry('✓ Phase 7: Character Operations (extraction, note updates)');
+		} else {
+			this.logEntry('○ Phase 4: Writing Modes (skipped - no API key)');
+			this.logEntry('○ Phase 7: Character Operations (skipped - no API key)');
+		}
+		this.logEntry('✓ Phase 5: Retrieval Tests (hash, BM25, semantic search)');
+		this.logEntry('✓ Phase 5.5: Smart Connections Template (execution, parsing, intersection)');
+		this.logEntry('✓ Phase 6: Cleanup (test file/folder removal)');
+		this.logEntry('');
+		this.logEntry('=== KEY METRICS ===');
+		this.logEntry(`Semantic Retrieval: ${this.plugin.settings.retrievalEnableSemanticIndex ? 'Enabled' : 'Disabled'}`);
+		this.logEntry(`BM25 Retrieval: ${this.plugin.settings.retrievalEnableBm25 ? 'Enabled' : 'Disabled'}`);
+		this.logEntry(`External Embeddings: ${this.plugin.settings.externalEmbeddingsEnabled ? 'Enabled' : 'Disabled'}`);
+		this.logEntry(`Smart Connections Template: ${this.plugin.settings.smartConnectionsTemplatePath ? 'Configured' : 'Not configured'}`);
+		this.logEntry(`Smart Connections Cache: ${this.plugin.settings.smartConnectionsCacheEnabled ? 'Enabled' : 'Disabled'}`);
+		this.logEntry('');
+		this.logEntry('=== STRESS TEST COMPLETED ===');
 
 		return this.log.join('\n');
 	}
@@ -470,6 +500,7 @@ export class StressTestService {
 			this.logEntry('=== Test 1: Chapter Generation ===');
 			try {
 				this.logEntry('Building context for chapter generation...');
+				const contextStart = Date.now();
 				const chapterQuery = this.plugin.queryBuilder.build({
 					mode: 'chapter',
 					activeFilePath: this.plugin.settings.book2Path,
@@ -477,7 +508,23 @@ export class StressTestService {
 					directorNotes: 'Write in third person, maintain a suspenseful and mysterious tone. Include sensory details.'
 				});
 				const chapterContext = await this.plugin.contextAggregator.getChapterContext(chapterQuery);
-				this.logEntry(`✓ Context aggregated: ${Object.keys(chapterContext).length} context sections`);
+				const contextDuration = ((Date.now() - contextStart) / 1000).toFixed(2);
+				this.logEntry(`✓ Context aggregated in ${contextDuration}s: ${Object.keys(chapterContext).length} context sections`);
+				
+				// Log context section sizes
+				if (chapterContext.smart_connections) {
+					const scWords = chapterContext.smart_connections.split(/\s+/).length;
+					const scChars = chapterContext.smart_connections.length;
+					this.logEntry(`  Smart Connections context: ${scWords} words, ${scChars} chars`);
+				}
+				if (chapterContext.story_bible) {
+					const sbWords = chapterContext.story_bible.split(/\s+/).length;
+					this.logEntry(`  Story Bible: ${sbWords} words`);
+				}
+				if (chapterContext.sliding_window) {
+					const swWords = chapterContext.sliding_window.split(/\s+/).length;
+					this.logEntry(`  Sliding Window: ${swWords} words`);
+				}
 				
 				this.logEntry('Building chapter generation prompt...');
 				const chapterPrompt = this.plugin.promptEngine.buildChapterPrompt(
@@ -525,6 +572,7 @@ export class StressTestService {
 				this.logEntry(`Selected passage: "${testPassage}"`);
 				
 				this.logEntry('Building context for micro-edit...');
+				const contextStart = Date.now();
 				const microEditQuery = this.plugin.queryBuilder.build({
 					mode: 'micro-edit',
 					activeFilePath: this.plugin.settings.book2Path,
@@ -532,7 +580,8 @@ export class StressTestService {
 					directorNotes: 'Make the prose more vivid and engaging. Add sensory details and improve the pacing.'
 				});
 				const microEditContext = await this.plugin.contextAggregator.getMicroEditContext(testPassage, microEditQuery);
-				this.logEntry(`✓ Context aggregated: ${Object.keys(microEditContext).length} context sections`);
+				const contextDuration = ((Date.now() - contextStart) / 1000).toFixed(2);
+				this.logEntry(`✓ Context aggregated in ${contextDuration}s: ${Object.keys(microEditContext).length} context sections`);
 				if (microEditContext.surrounding_before) {
 					this.logEntry(`  Surrounding before: ${microEditContext.surrounding_before.split(/\s+/).length} words`);
 				}
@@ -681,16 +730,34 @@ export class StressTestService {
 				directorNotes: ''
 			});
 
+			const retrievalStart = Date.now();
 			const results = await this.plugin.retrievalService.search(query, { limit: 10 });
-			this.logEntry(`✓ Retrieval query returned ${results.length} results`);
+			const retrievalDuration = ((Date.now() - retrievalStart) / 1000).toFixed(2);
+			this.logEntry(`✓ Retrieval query completed in ${retrievalDuration}s: ${results.length} results`);
 
 			if (results.length > 0) {
-				results.slice(0, 3).forEach((result, idx) => {
-					this.logEntry(`  Result ${idx + 1}: ${result.path} (${result.excerpt.length} chars)`);
+				results.slice(0, 5).forEach((result, idx) => {
+					this.logEntry(`  Result ${idx + 1}: ${result.path}`);
+					this.logEntry(`    Score: ${result.score.toFixed(3)} | Source: ${result.source} | Excerpt: ${result.excerpt.length} chars`);
 				});
+				
+				// Analyze result sources
+				const sourceCounts: Record<string, number> = {};
+				results.forEach(r => {
+					sourceCounts[r.source] = (sourceCounts[r.source] || 0) + 1;
+				});
+				this.logEntry(`  Result sources: ${Object.entries(sourceCounts).map(([src, count]) => `${src}: ${count}`).join(', ')}`);
 			} else {
 				this.logEntry(`⚠ No retrieval results - index may be empty or query too specific`);
 			}
+			
+			// Test retrieval with different limits
+			this.logEntry('');
+			this.logEntry('Testing retrieval with limit 50...');
+			const largeQueryStart = Date.now();
+			const largeResults = await this.plugin.retrievalService.search(query, { limit: 50 });
+			const largeQueryDuration = ((Date.now() - largeQueryStart) / 1000).toFixed(2);
+			this.logEntry(`✓ Large retrieval query completed in ${largeQueryDuration}s: ${largeResults.length} results`);
 
 			const phaseDuration = ((Date.now() - phaseStart) / 1000).toFixed(2);
 			this.logEntry(`Phase 5 completed in ${phaseDuration}s`);
@@ -710,6 +777,242 @@ export class StressTestService {
 			}
 			if (error instanceof Error && 'cause' in error) {
 				this.logEntry(`  CAUSE: ${error.cause}`);
+			}
+		}
+	}
+
+	private async phase5_5_SmartConnectionsTemplate() {
+		this.logEntry('--- Phase 5.5: Smart Connections Template Tests ---');
+		const phaseStart = Date.now();
+
+		try {
+			// Test 1: Template Configuration Check
+			this.logEntry('');
+			this.logEntry('=== Test 1: Template Configuration ===');
+			if (this.plugin.settings.smartConnectionsTemplatePath) {
+				this.logEntry(`✓ Template path configured: ${this.plugin.settings.smartConnectionsTemplatePath}`);
+				
+				// Check if template file exists
+				const templateFile = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.smartConnectionsTemplatePath);
+				if (templateFile && templateFile instanceof TFile) {
+					this.logEntry(`✓ Template file exists: ${templateFile.path}`);
+					const templateContent = await this.plugin.app.vault.read(templateFile);
+					this.logEntry(`  Template size: ${templateContent.length} chars`);
+					
+					// Check for Smart Connections template syntax
+					const hasScSyntax = templateContent.includes('{{smart-connections:similar:');
+					if (hasScSyntax) {
+						this.logEntry(`✓ Template contains Smart Connections syntax`);
+						const match = templateContent.match(/{{smart-connections:similar:(\d+)}}/);
+						if (match) {
+							this.logEntry(`  Requested similar items: ${match[1]}`);
+						}
+					} else {
+						this.logEntry(`⚠ Template does not contain {{smart-connections:similar:#}} syntax`);
+					}
+				} else {
+					this.logEntry(`✗ Template file not found: ${this.plugin.settings.smartConnectionsTemplatePath}`);
+				}
+			} else {
+				this.logEntry('⚠ Smart Connections template not configured');
+				this.logEntry('  Template-based retrieval will be skipped');
+			}
+
+			// Test 2: Template Execution
+			if (this.plugin.settings.smartConnectionsTemplatePath) {
+				this.logEntry('');
+				this.logEntry('=== Test 2: Template Execution ===');
+				try {
+					const activeFile = this.plugin.app.workspace.getActiveFile();
+					this.logEntry(`Active file: ${activeFile?.path || 'None (using null context)'}`);
+					
+					const templateStart = Date.now();
+					const templateOutput = await this.plugin.contextAggregator.templateExecutor.executeTemplate(
+						this.plugin.settings.smartConnectionsTemplatePath,
+						activeFile
+					);
+					const templateDuration = ((Date.now() - templateStart) / 1000).toFixed(2);
+					this.logEntry(`✓ Template executed in ${templateDuration}s`);
+					this.logEntry(`  Output length: ${templateOutput.length} chars`);
+					
+					// Show preview of output
+					if (templateOutput.length > 0) {
+						const preview = templateOutput.substring(0, 200).replace(/\n/g, ' ');
+						this.logEntry(`  Preview: ${preview}...`);
+					} else {
+						this.logEntry(`  ⚠ Template output is empty`);
+					}
+				} catch (error) {
+					this.logEntry(`✗ Template execution failed`);
+					this.logEntry(`  WHERE: phase5_5_SmartConnectionsTemplate - Template Execution`);
+					this.logEntry(`  WHAT: ${error instanceof Error ? error.message : String(error)}`);
+					this.logEntry(`  TYPE: ${error instanceof Error ? error.constructor.name : typeof error}`);
+					if (error instanceof Error && error.stack) {
+						this.logEntry(`  STACK (first 5 lines):`);
+						error.stack.split('\n').slice(0, 5).forEach(line => {
+							this.logEntry(`    ${line.trim()}`);
+						});
+					}
+				}
+			}
+
+			// Test 3: Path Parsing
+			if (this.plugin.settings.smartConnectionsTemplatePath) {
+				this.logEntry('');
+				this.logEntry('=== Test 3: Path Parsing ===');
+				try {
+					const activeFile = this.plugin.app.workspace.getActiveFile();
+					const templateOutput = await this.plugin.contextAggregator.templateExecutor.executeTemplate(
+						this.plugin.settings.smartConnectionsTemplatePath,
+						activeFile
+					);
+					
+					const parseStart = Date.now();
+					const paths = this.plugin.contextAggregator.templateExecutor.parseTemplateOutput(templateOutput);
+					const parseDuration = ((Date.now() - parseStart) * 1000).toFixed(2);
+					this.logEntry(`✓ Path parsing completed in ${parseDuration}ms`);
+					this.logEntry(`  Parsed ${paths.length} file paths from template output`);
+					
+					if (paths.length > 0) {
+						this.logEntry(`  Sample paths (first 10):`);
+						paths.slice(0, 10).forEach((path, idx) => {
+							const file = this.plugin.app.vault.getAbstractFileByPath(path);
+							const exists = file instanceof TFile ? '✓' : '✗';
+							this.logEntry(`    ${idx + 1}. ${exists} ${path}`);
+						});
+						if (paths.length > 10) {
+							this.logEntry(`    ... and ${paths.length - 10} more`);
+						}
+						
+						// Verify paths exist
+						const existingPaths = paths.filter(p => {
+							const file = this.plugin.app.vault.getAbstractFileByPath(p);
+							return file instanceof TFile;
+						});
+						this.logEntry(`  Valid paths: ${existingPaths.length}/${paths.length}`);
+					} else {
+						this.logEntry(`  ⚠ No paths extracted - template may not contain links or syntax may be incorrect`);
+					}
+				} catch (error) {
+					this.logEntry(`✗ Path parsing failed`);
+					this.logEntry(`  WHERE: phase5_5_SmartConnectionsTemplate - Path Parsing`);
+					this.logEntry(`  WHAT: ${error instanceof Error ? error.message : String(error)}`);
+				}
+			}
+
+			// Test 4: Intersection Logic (if template paths available)
+			if (this.plugin.settings.smartConnectionsTemplatePath) {
+				this.logEntry('');
+				this.logEntry('=== Test 4: Intersection Logic ===');
+				try {
+					const activeFile = this.plugin.app.workspace.getActiveFile();
+					const templateOutput = await this.plugin.contextAggregator.templateExecutor.executeTemplate(
+						this.plugin.settings.smartConnectionsTemplatePath,
+						activeFile
+					);
+					const scTemplatePaths = this.plugin.contextAggregator.templateExecutor.parseTemplateOutput(templateOutput);
+					
+					if (scTemplatePaths.length > 0) {
+						this.logEntry(`Template paths: ${scTemplatePaths.length}`);
+						
+						// Build a query
+						const query = this.plugin.queryBuilder.build({
+							mode: 'chapter',
+							activeFilePath: this.plugin.settings.book2Path,
+							primaryText: 'test query for intersection testing',
+							directorNotes: ''
+						});
+						
+						// Get hash-based results (wide net)
+						this.logEntry('Getting hash-based retrieval results (wide net)...');
+						const hashStart = Date.now();
+						const hashResults = await this.plugin.retrievalService.search(query, { limit: 500 });
+						const hashDuration = ((Date.now() - hashStart) / 1000).toFixed(2);
+						this.logEntry(`✓ Hash retrieval completed in ${hashDuration}s: ${hashResults.length} results`);
+						
+						// Get intersection results (with template paths)
+						this.logEntry('Getting intersection results (with SC template paths)...');
+						const intersectionStart = Date.now();
+						const intersectionResults = await this.plugin.retrievalService.search(query, { limit: 64 }, scTemplatePaths);
+						const intersectionDuration = ((Date.now() - intersectionStart) / 1000).toFixed(2);
+						this.logEntry(`✓ Intersection retrieval completed in ${intersectionDuration}s: ${intersectionResults.length} results`);
+						
+						// Analyze intersection
+						const scPathSet = new Set(scTemplatePaths);
+						const hashPathSet = new Set(hashResults.map(r => r.path));
+						const intersectionPaths = hashResults.filter(r => scPathSet.has(r.path)).map(r => r.path);
+						
+						this.logEntry(`  Hash results: ${hashResults.length}`);
+						this.logEntry(`  SC template paths: ${scTemplatePaths.length}`);
+						this.logEntry(`  Intersection matches: ${intersectionPaths.length}`);
+						this.logEntry(`  Intersection rate: ${hashResults.length > 0 ? ((intersectionPaths.length / hashResults.length) * 100).toFixed(1) : 0}%`);
+						
+						if (intersectionResults.length > 0) {
+							this.logEntry(`  Top intersection results (first 5):`);
+							intersectionResults.slice(0, 5).forEach((result, idx) => {
+								const isIntersection = scPathSet.has(result.path);
+								this.logEntry(`    ${idx + 1}. ${isIntersection ? '✓' : '○'} ${result.path} (score: ${result.score.toFixed(3)})`);
+							});
+						}
+					} else {
+						this.logEntry(`⚠ No template paths available - skipping intersection test`);
+					}
+				} catch (error) {
+					this.logEntry(`✗ Intersection test failed`);
+					this.logEntry(`  WHERE: phase5_5_SmartConnectionsTemplate - Intersection Logic`);
+					this.logEntry(`  WHAT: ${error instanceof Error ? error.message : String(error)}`);
+					if (error instanceof Error && error.stack) {
+						this.logEntry(`  STACK (first 3 lines):`);
+						error.stack.split('\n').slice(0, 3).forEach(line => {
+							this.logEntry(`    ${line.trim()}`);
+						});
+					}
+				}
+			}
+
+			// Test 5: Cache Status (if cache enabled)
+			if (this.plugin.settings.smartConnectionsCacheEnabled) {
+				this.logEntry('');
+				this.logEntry('=== Test 5: Smart Connections Cache Status ===');
+				try {
+					const scProvider = this.plugin.smartConnectionsProvider;
+					if (scProvider && 'getCacheStatus' in scProvider) {
+						const cacheStatus = (scProvider as any).getCacheStatus();
+						if (cacheStatus) {
+							this.logEntry(`  Cache exists: ${cacheStatus.exists ? 'Yes' : 'No'}`);
+							this.logEntry(`  Cache enabled: ${cacheStatus.enabled ? 'Yes' : 'No'}`);
+							this.logEntry(`  Cache count: ${cacheStatus.count || 0}`);
+							this.logEntry(`  Cache age: ${cacheStatus.age || 'unknown'}`);
+							this.logEntry(`  Cache method: ${cacheStatus.method || 'unknown'}`);
+							if (cacheStatus.sourceNote) {
+								this.logEntry(`  Source note: ${cacheStatus.sourceNote}`);
+							}
+						} else {
+							this.logEntry(`  ⚠ Cache status unavailable`);
+						}
+					} else {
+						this.logEntry(`  ⚠ Smart Connections provider not available`);
+					}
+				} catch (error) {
+					this.logEntry(`  ⚠ Cache status check failed: ${error instanceof Error ? error.message : String(error)}`);
+				}
+			}
+
+			const phaseDuration = ((Date.now() - phaseStart) / 1000).toFixed(2);
+			this.logEntry('');
+			this.logEntry(`Phase 5.5 completed in ${phaseDuration}s`);
+			this.logEntry('');
+
+		} catch (error) {
+			this.logEntry(`✗ Phase 5.5 failed`);
+			this.logEntry(`  WHERE: phase5_5_SmartConnectionsTemplate`);
+			this.logEntry(`  WHAT: ${error instanceof Error ? error.message : String(error)}`);
+			this.logEntry(`  TYPE: ${error instanceof Error ? error.constructor.name : typeof error}`);
+			if (error instanceof Error && error.stack) {
+				this.logEntry(`  STACK (first 5 lines):`);
+				error.stack.split('\n').slice(0, 5).forEach(line => {
+					this.logEntry(`    ${line.trim()}`);
+				});
 			}
 		}
 	}

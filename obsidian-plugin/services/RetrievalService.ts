@@ -16,7 +16,11 @@ export class RetrievalService {
 		this.getVector = opts?.getVector;
 	}
 
-	async search(query: RetrievalQuery, opts: RetrievalOptions): Promise<ContextItem[]> {
+	async search(
+		query: RetrievalQuery, 
+		opts: RetrievalOptions,
+		scTemplatePaths?: string[] // Optional: paths from SC template
+	): Promise<ContextItem[]> {
 		const limit = normalizeLimit(opts.limit);
 		const candidateLimit = Math.max(limit, Math.min(500, limit * 8)); // Wider net for hybrid
 		
@@ -34,18 +38,26 @@ export class RetrievalService {
 		
 		const scProvider = this.providers.find(p => p.id === 'smart-connections');
 		
-		// Step 1: Get Smart Connections cache paths directly (NO API CALL)
-		const scCachePaths = new Set<string>();
-		if (scProvider && 'getCachePaths' in scProvider) {
-			try {
-				const paths = await (scProvider as any).getCachePaths();
-				paths.forEach((path: string) => scCachePaths.add(path));
-			} catch {
-				// Cache not available or not enabled - that's fine
+		// Step 1: Get Smart Connections paths from template OR cache
+		const scPaths = new Set<string>();
+		
+		// Priority: Use template paths if provided (template-based approach)
+		if (scTemplatePaths && scTemplatePaths.length > 0) {
+			scTemplatePaths.forEach(path => scPaths.add(path));
+			console.debug(`[RetrievalService] Using ${scTemplatePaths.length} paths from SC template`);
+		} else {
+			// Fallback: Use cache paths (legacy capture-and-cache approach)
+			if (scProvider && 'getCachePaths' in scProvider) {
+				try {
+					const paths = await (scProvider as any).getCachePaths();
+					paths.forEach((path: string) => scPaths.add(path));
+				} catch {
+					// Cache not available or not enabled - that's fine
+				}
 			}
 		}
 		
-		// Step 2: Get wide net from LOCAL providers (Hash, BM25, Heuristic)
+		// Step 2: Get wide net from LOCAL providers (Hash, BM25, Heuristic) - top 500
 		// These are all fast, local, zero-cost operations
 		const localResults = await Promise.all(
 			localProviders.map(async (p) => {
@@ -57,20 +69,24 @@ export class RetrievalService {
 			})
 		);
 		
-		// Step 3: Boost items that appear in Smart Connections cache
-		// This is the "voting system" - if both local search AND SC agree, boost it
-		const boostedResults = localResults.map(({ providerId, items }) => ({
-			providerId,
-			items: items.map(item => {
-				if (scCachePaths.has(item.path)) {
-					// Both local search AND Smart Connections found this - high confidence
-					// Boost score based on how many SC cache items exist (more = stronger signal)
-					const boostFactor = scCachePaths.size > 50 ? 2.5 : 2.0;
-					return { ...item, score: item.score * boostFactor };
-				}
-				return item;
-			})
-		}));
+		// Step 3: If SC template paths provided, find intersection (items in both lists)
+		// This is the "voting system" - if both hash AND SC template agree, it's high confidence
+		let finalResults = localResults;
+		if (scPaths.size > 0) {
+			// Find intersection: items that appear in both SC template AND hash results
+			finalResults = localResults.map(({ providerId, items }) => ({
+				providerId,
+				items: items
+					.filter(item => scPaths.has(item.path)) // Only keep items in SC template
+					.map(item => ({ ...item, score: item.score * 2.0 })) // Boost intersection items
+			}));
+			
+			const intersectionCount = finalResults.reduce((sum, r) => sum + r.items.length, 0);
+			console.debug(`[RetrievalService] SC template intersection: ${scPaths.size} SC paths, ${intersectionCount} matches with hash results`);
+		} else {
+			// No SC paths: use hash results as-is (no intersection filtering)
+			finalResults = localResults;
+		}
 		
 		// Step 4: If external embeddings are enabled, get their results
 		// (This might make API calls, but it's optional and user-controlled)
@@ -85,7 +101,7 @@ export class RetrievalService {
 		);
 		
 		// Step 5: Combine all results for RRF fusion
-		const allResults = [...boostedResults, ...externalResults];
+		const allResults = [...finalResults, ...externalResults];
 		const nonEmpty = allResults.filter((b) => b.items.length > 0);
 		
 		if (nonEmpty.length === 0) return [];

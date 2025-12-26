@@ -354,7 +354,8 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 	smartConnectionsMaxCaptureFiles: 200,
 	smartConnectionsMaxScoreFiles: 50,
 	smartConnectionsMaxContextChars: 30000,
-	smartConnectionsKeyingMode: 'soft'
+	smartConnectionsKeyingMode: 'soft',
+	smartConnectionsTemplatePath: undefined // User must configure template
 };
 
 export default class WritingDashboardPlugin extends Plugin {
