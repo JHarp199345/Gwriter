@@ -69032,64 +69032,88 @@ var TemplateExecutor = class {
   }
   /**
    * Diagnose why native template insertion failed
+   * Returns detailed explanation of what happened and why
    */
   diagnoseNativeTemplateFailure(error2) {
     const errorMsg = error2 instanceof Error ? error2.message : String(error2);
     const appWithPlugins = this.app;
     const diagnostics = [];
+    diagnostics.push(`EVENT: Native template insertion failed with error: "${errorMsg}"`);
     const templatesPlugin = appWithPlugins.internalPlugins?.plugins?.templates;
     if (!templatesPlugin) {
-      diagnostics.push("Templates plugin not found in internalPlugins");
+      diagnostics.push("ROOT CAUSE: Templates plugin not found in internalPlugins");
+      diagnostics.push("WHY THIS FAILED: Cannot insert templates without the Templates core plugin");
+      diagnostics.push("SOLUTION: Templates is a core plugin - if missing, this may be an Obsidian installation issue");
     } else if (!templatesPlugin.enabled) {
-      diagnostics.push("Templates plugin exists but is not enabled");
+      diagnostics.push("ROOT CAUSE: Templates plugin exists but is not enabled");
+      diagnostics.push("WHY THIS FAILED: Disabled core plugins do not provide their functionality");
+      diagnostics.push("SOLUTION: Enable Templates plugin in Settings > Core plugins");
     } else if (!templatesPlugin.instance) {
-      diagnostics.push("Templates plugin enabled but instance not available");
+      diagnostics.push("ROOT CAUSE: Templates plugin enabled but instance not available");
+      diagnostics.push("WHY THIS FAILED: Plugin instance is required to call insertTemplate method");
+      diagnostics.push("SOLUTION: This may be a timing issue - plugin may not be fully initialized yet");
     } else if (!templatesPlugin.instance.insertTemplate) {
-      diagnostics.push("Templates plugin instance exists but insertTemplate method not found");
+      diagnostics.push("ROOT CAUSE: Templates plugin instance exists but insertTemplate method not found");
+      diagnostics.push("WHY THIS FAILED: The method we need to call does not exist on the plugin instance");
+      diagnostics.push("SOLUTION: Obsidian version may be incompatible or plugin API changed");
+    } else {
+      diagnostics.push("\u2713 Templates plugin is available and has insertTemplate method");
     }
     if (!appWithPlugins.commands) {
-      diagnostics.push("App commands API not available");
+      diagnostics.push("\u26A0\uFE0F App commands API not available (fallback method unavailable)");
     } else if (!appWithPlugins.commands.executeCommandById) {
-      diagnostics.push("Command execution method not available");
+      diagnostics.push("\u26A0\uFE0F Command execution method not available (fallback method unavailable)");
     }
     const scPlugin = appWithPlugins.plugins?.plugins?.["smart-connections"];
     if (!scPlugin) {
-      diagnostics.push("Smart Connections plugin not detected (may not be installed)");
+      diagnostics.push("\u26A0\uFE0F Smart Connections plugin not detected (may not be installed)");
     } else if (!scPlugin.enabled) {
-      diagnostics.push("Smart Connections plugin found but not enabled");
+      diagnostics.push("\u26A0\uFE0F Smart Connections plugin found but not enabled");
+    } else {
+      diagnostics.push("\u2713 Smart Connections plugin is installed and enabled");
     }
     if (errorMsg.includes("not available")) {
-      diagnostics.push("Required API or method is not available in current Obsidian version");
+      diagnostics.push("WHY THIS FAILED: Required API or method is not available in current Obsidian version");
     } else if (errorMsg.includes("not enabled")) {
-      diagnostics.push("Required plugin is not enabled in settings");
+      diagnostics.push("WHY THIS FAILED: Required plugin is not enabled in settings");
     } else if (errorMsg.includes("not found")) {
-      diagnostics.push("Required plugin or component not found");
+      diagnostics.push("WHY THIS FAILED: Required plugin or component not found");
     }
-    return diagnostics.length > 0 ? `Possible causes: ${diagnostics.join("; ")}` : `Unknown error: ${errorMsg}`;
+    return diagnostics.length > 0 ? diagnostics.join(" | ") : `Unknown error: ${errorMsg}`;
   }
   /**
    * Diagnose why template insertion method failed
+   * Returns detailed explanation of what happened and why
    */
   diagnoseTemplateInsertionFailure(error2, templatesPlugin) {
     const errorMsg = error2 instanceof Error ? error2.message : String(error2);
     const diagnostics = [];
+    diagnostics.push(`EVENT: Template insertion method failed with error: "${errorMsg}"`);
     if (!templatesPlugin.instance) {
-      diagnostics.push("Templates plugin instance is null or undefined");
+      diagnostics.push("ROOT CAUSE: Templates plugin instance is null or undefined");
+      diagnostics.push("WHY THIS FAILED: Cannot call methods on a null/undefined instance");
+      diagnostics.push("SOLUTION: Plugin may not be fully initialized - try again or check plugin status");
     } else {
       const instanceMethods = Object.keys(templatesPlugin.instance).filter(
         (k) => typeof templatesPlugin.instance[k] === "function"
       );
-      diagnostics.push(`Available instance methods: ${instanceMethods.join(", ") || "none"}`);
+      diagnostics.push(`\u2713 Available instance methods: ${instanceMethods.join(", ") || "none"}`);
       if (!templatesPlugin.instance.insertTemplate) {
-        diagnostics.push("insertTemplate method not found on instance");
+        diagnostics.push("ROOT CAUSE: insertTemplate method not found on instance");
+        diagnostics.push("WHY THIS FAILED: The method we need does not exist on the plugin instance");
+        diagnostics.push("SOLUTION: Obsidian version may be incompatible or plugin API changed");
       } else {
-        diagnostics.push("insertTemplate method exists but call failed");
+        diagnostics.push("\u2713 insertTemplate method exists but call failed");
+        diagnostics.push("WHY THIS FAILED: Method exists but threw an error when called");
+        diagnostics.push("POSSIBLE REASONS: Invalid parameters, file permissions, or internal plugin error");
       }
     }
     if (errorMsg.includes("user interaction")) {
-      diagnostics.push("Command requires manual user selection of template");
+      diagnostics.push("ROOT CAUSE: Command requires manual user selection of template");
+      diagnostics.push("WHY THIS FAILED: Templates command opens a modal that requires user input");
+      diagnostics.push("SOLUTION: This approach cannot be automated - use direct insertTemplate method instead");
     }
-    return diagnostics.length > 0 ? diagnostics.join("; ") : `Error: ${errorMsg}`;
+    return diagnostics.length > 0 ? diagnostics.join(" | ") : `Error: ${errorMsg}`;
   }
   /**
    * Execute template using Obsidian's native template insertion command.
@@ -79712,20 +79736,22 @@ var TemplateProcessor = class {
         plugin: this.plugin
       });
       this.logHookAttempt("app.templateProcessors array");
-      if (!appWithPlugins.plugins) {
-        appWithPlugins.plugins = {};
+      if (appWithPlugins.plugins) {
+        if (!appWithPlugins.plugins.templateProcessors) {
+          appWithPlugins.plugins.templateProcessors = {};
+        }
+        appWithPlugins.plugins.templateProcessors["writing-dashboard"] = {
+          id: "writing-dashboard",
+          name: "Writing Dashboard",
+          process: this.processTemplate.bind(this),
+          processTemplate: this.processTemplate.bind(this),
+          renderTemplate: this.processTemplate.bind(this)
+        };
+        this.logHookAttempt("app.plugins.templateProcessors object");
+      } else {
+        console.warn("[TemplateProcessor] \u26A0\uFE0F app.plugins not available - skipping this registration method");
+        console.warn("[TemplateProcessor] \u{1F50D} Plugin system may not be initialized yet");
       }
-      if (!appWithPlugins.plugins.templateProcessors) {
-        appWithPlugins.plugins.templateProcessors = {};
-      }
-      appWithPlugins.plugins.templateProcessors["writing-dashboard"] = {
-        id: "writing-dashboard",
-        name: "Writing Dashboard",
-        process: this.processTemplate.bind(this),
-        processTemplate: this.processTemplate.bind(this),
-        renderTemplate: this.processTemplate.bind(this)
-      };
-      this.logHookAttempt("app.plugins.templateProcessors object");
       if (!window.templateProcessors) {
         window.templateProcessors = [];
       }
@@ -79786,6 +79812,8 @@ var TemplateProcessor = class {
           process: this.processTemplate.bind(this)
         });
         this.logHookAttempt("app.plugins.enabledPlugins.templateProcessors");
+      } else {
+        console.warn("[TemplateProcessor] \u26A0\uFE0F app.plugins.enabledPlugins not available - skipping this registration method");
       }
       window.writingDashboardProcessTemplate = this.processTemplate.bind(this);
       this.logHookAttempt("window.writingDashboardProcessTemplate function");
@@ -79796,8 +79824,10 @@ var TemplateProcessor = class {
           process: this.processTemplate.bind(this),
           processTemplate: this.processTemplate.bind(this)
         };
+        this.logHookAttempt("app.plugins.plugins[writing-dashboard-template]");
+      } else {
+        console.warn("[TemplateProcessor] \u26A0\uFE0F app.plugins.plugins not available - skipping this registration method");
       }
-      this.logHookAttempt("app.plugins.plugins[writing-dashboard-template]");
     } catch (error2) {
       console.warn("[TemplateProcessor] Error during hook registration:", error2);
     }
@@ -79953,36 +79983,42 @@ var TemplateProcessor = class {
   }
   /**
    * Diagnose why Smart Connections didn't process the template
+   * Returns a detailed explanation of what happened and why
    */
   diagnoseSmartConnectionsFailure() {
     const appWithPlugins = this.app;
     const diagnostics = [];
     const scPlugin = appWithPlugins.plugins?.plugins?.["smart-connections"];
     if (!scPlugin) {
-      diagnostics.push("Smart Connections plugin not installed or not found");
+      diagnostics.push("ROOT CAUSE: Smart Connections plugin not installed or not found in app.plugins.plugins");
+      diagnostics.push("WHY THIS FAILED: Smart Connections cannot process templates if the plugin is not installed");
+      diagnostics.push("SOLUTION: Install Smart Connections plugin from Community Plugins");
     } else if (!scPlugin.enabled) {
-      diagnostics.push("Smart Connections plugin found but not enabled");
+      diagnostics.push("ROOT CAUSE: Smart Connections plugin found but not enabled");
+      diagnostics.push("WHY THIS FAILED: Disabled plugins do not process templates or respond to events");
+      diagnostics.push("SOLUTION: Enable Smart Connections in Settings > Community Plugins");
     } else {
-      diagnostics.push("Smart Connections plugin is installed and enabled");
+      diagnostics.push("\u2713 Smart Connections plugin is installed and enabled");
       const hookStatus = this.getHookStatus();
       const registeredCount = Object.values(hookStatus).length;
-      diagnostics.push(`${registeredCount} hook registration methods attempted`);
-      diagnostics.push("Our template processor WAS called (hook registration succeeded)");
-      const hasEventListeners = window.addEventListener.toString().includes("native code");
-      diagnostics.push(`Window event system available: ${hasEventListeners ? "yes" : "unknown"}`);
+      diagnostics.push(`\u2713 ${registeredCount} hook registration methods attempted`);
+      diagnostics.push("\u2713 Our template processor WAS called (hook registration succeeded)");
+      diagnostics.push("\u2713 Template processing events were emitted (template-processing, template-process)");
       const scInstance = scPlugin.instance || scPlugin;
       const scMethods = Object.keys(scInstance).filter(
         (k) => k.toLowerCase().includes("template") || k.toLowerCase().includes("process") || k.toLowerCase().includes("similar")
       );
       if (scMethods.length > 0) {
-        diagnostics.push(`Smart Connections has methods: ${scMethods.join(", ")}`);
+        diagnostics.push(`\u2713 Smart Connections has methods: ${scMethods.join(", ")}`);
       } else {
-        diagnostics.push("Smart Connections template processing methods not detected");
+        diagnostics.push("\u26A0\uFE0F Smart Connections template processing methods not detected");
       }
+      diagnostics.push("ROOT CAUSE: Smart Connections is not listening to our template-processing events");
+      diagnostics.push("WHY THIS FAILED: Smart Connections likely hooks into Text Generator's template system, not generic events");
+      diagnostics.push("WHAT HAPPENED: We emitted events but Smart Connections did not respond because it uses a different hook mechanism");
+      diagnostics.push("SOLUTION: Smart Connections may need to be called via Obsidian's native template insertion (which we tried) or Text Generator's API");
     }
-    diagnostics.push("Template processing events were emitted (template-processing, template-process)");
-    diagnostics.push("Smart Connections may not be listening to these events or may use a different hook mechanism");
-    return diagnostics.join("; ");
+    return diagnostics.join(" | ");
   }
   /**
    * Get status of which hooks were registered (for debugging)

@@ -89,82 +89,106 @@ export class TemplateExecutor {
 
 	/**
 	 * Diagnose why native template insertion failed
+	 * Returns detailed explanation of what happened and why
 	 */
 	private diagnoseNativeTemplateFailure(error: unknown): string {
 		const errorMsg = error instanceof Error ? error.message : String(error);
 		const appWithPlugins = this.app as any;
 		
 		const diagnostics: string[] = [];
+		diagnostics.push(`EVENT: Native template insertion failed with error: "${errorMsg}"`);
 		
 		// Check Templates plugin
 		const templatesPlugin = appWithPlugins.internalPlugins?.plugins?.templates;
 		if (!templatesPlugin) {
-			diagnostics.push('Templates plugin not found in internalPlugins');
+			diagnostics.push('ROOT CAUSE: Templates plugin not found in internalPlugins');
+			diagnostics.push('WHY THIS FAILED: Cannot insert templates without the Templates core plugin');
+			diagnostics.push('SOLUTION: Templates is a core plugin - if missing, this may be an Obsidian installation issue');
 		} else if (!templatesPlugin.enabled) {
-			diagnostics.push('Templates plugin exists but is not enabled');
+			diagnostics.push('ROOT CAUSE: Templates plugin exists but is not enabled');
+			diagnostics.push('WHY THIS FAILED: Disabled core plugins do not provide their functionality');
+			diagnostics.push('SOLUTION: Enable Templates plugin in Settings > Core plugins');
 		} else if (!templatesPlugin.instance) {
-			diagnostics.push('Templates plugin enabled but instance not available');
+			diagnostics.push('ROOT CAUSE: Templates plugin enabled but instance not available');
+			diagnostics.push('WHY THIS FAILED: Plugin instance is required to call insertTemplate method');
+			diagnostics.push('SOLUTION: This may be a timing issue - plugin may not be fully initialized yet');
 		} else if (!templatesPlugin.instance.insertTemplate) {
-			diagnostics.push('Templates plugin instance exists but insertTemplate method not found');
+			diagnostics.push('ROOT CAUSE: Templates plugin instance exists but insertTemplate method not found');
+			diagnostics.push('WHY THIS FAILED: The method we need to call does not exist on the plugin instance');
+			diagnostics.push('SOLUTION: Obsidian version may be incompatible or plugin API changed');
+		} else {
+			diagnostics.push('✓ Templates plugin is available and has insertTemplate method');
 		}
 		
 		// Check commands
 		if (!appWithPlugins.commands) {
-			diagnostics.push('App commands API not available');
+			diagnostics.push('⚠️ App commands API not available (fallback method unavailable)');
 		} else if (!appWithPlugins.commands.executeCommandById) {
-			diagnostics.push('Command execution method not available');
+			diagnostics.push('⚠️ Command execution method not available (fallback method unavailable)');
 		}
 		
 		// Check Smart Connections
 		const scPlugin = appWithPlugins.plugins?.plugins?.['smart-connections'];
 		if (!scPlugin) {
-			diagnostics.push('Smart Connections plugin not detected (may not be installed)');
+			diagnostics.push('⚠️ Smart Connections plugin not detected (may not be installed)');
 		} else if (!scPlugin.enabled) {
-			diagnostics.push('Smart Connections plugin found but not enabled');
+			diagnostics.push('⚠️ Smart Connections plugin found but not enabled');
+		} else {
+			diagnostics.push('✓ Smart Connections plugin is installed and enabled');
 		}
 		
 		// Error-specific diagnostics
 		if (errorMsg.includes('not available')) {
-			diagnostics.push('Required API or method is not available in current Obsidian version');
+			diagnostics.push('WHY THIS FAILED: Required API or method is not available in current Obsidian version');
 		} else if (errorMsg.includes('not enabled')) {
-			diagnostics.push('Required plugin is not enabled in settings');
+			diagnostics.push('WHY THIS FAILED: Required plugin is not enabled in settings');
 		} else if (errorMsg.includes('not found')) {
-			diagnostics.push('Required plugin or component not found');
+			diagnostics.push('WHY THIS FAILED: Required plugin or component not found');
 		}
 		
 		return diagnostics.length > 0 
-			? `Possible causes: ${diagnostics.join('; ')}`
+			? diagnostics.join(' | ')
 			: `Unknown error: ${errorMsg}`;
 	}
 
 	/**
 	 * Diagnose why template insertion method failed
+	 * Returns detailed explanation of what happened and why
 	 */
 	private diagnoseTemplateInsertionFailure(error: unknown, templatesPlugin: any): string {
 		const errorMsg = error instanceof Error ? error.message : String(error);
 		const diagnostics: string[] = [];
+		diagnostics.push(`EVENT: Template insertion method failed with error: "${errorMsg}"`);
 		
 		if (!templatesPlugin.instance) {
-			diagnostics.push('Templates plugin instance is null or undefined');
+			diagnostics.push('ROOT CAUSE: Templates plugin instance is null or undefined');
+			diagnostics.push('WHY THIS FAILED: Cannot call methods on a null/undefined instance');
+			diagnostics.push('SOLUTION: Plugin may not be fully initialized - try again or check plugin status');
 		} else {
 			const instanceMethods = Object.keys(templatesPlugin.instance).filter(k => 
 				typeof templatesPlugin.instance[k] === 'function'
 			);
-			diagnostics.push(`Available instance methods: ${instanceMethods.join(', ') || 'none'}`);
+			diagnostics.push(`✓ Available instance methods: ${instanceMethods.join(', ') || 'none'}`);
 			
 			if (!templatesPlugin.instance.insertTemplate) {
-				diagnostics.push('insertTemplate method not found on instance');
+				diagnostics.push('ROOT CAUSE: insertTemplate method not found on instance');
+				diagnostics.push('WHY THIS FAILED: The method we need does not exist on the plugin instance');
+				diagnostics.push('SOLUTION: Obsidian version may be incompatible or plugin API changed');
 			} else {
-				diagnostics.push('insertTemplate method exists but call failed');
+				diagnostics.push('✓ insertTemplate method exists but call failed');
+				diagnostics.push('WHY THIS FAILED: Method exists but threw an error when called');
+				diagnostics.push('POSSIBLE REASONS: Invalid parameters, file permissions, or internal plugin error');
 			}
 		}
 		
 		if (errorMsg.includes('user interaction')) {
-			diagnostics.push('Command requires manual user selection of template');
+			diagnostics.push('ROOT CAUSE: Command requires manual user selection of template');
+			diagnostics.push('WHY THIS FAILED: Templates command opens a modal that requires user input');
+			diagnostics.push('SOLUTION: This approach cannot be automated - use direct insertTemplate method instead');
 		}
 		
 		return diagnostics.length > 0 
-			? diagnostics.join('; ')
+			? diagnostics.join(' | ')
 			: `Error: ${errorMsg}`;
 	}
 
