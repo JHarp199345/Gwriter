@@ -757,35 +757,14 @@ export default class WritingDashboardPlugin extends Plugin {
 
 	/**
 	 * Auto-generate Smart Connections template file if it doesn't exist.
-	 * Creates the template in Obsidian's configured templates folder.
+	 * Creates the template in a visible root-level folder.
 	 * Returns the path to the template file.
 	 */
 	async ensureSmartConnectionsTemplate(): Promise<string> {
-		// Get Obsidian's templates folder from settings
-		// Access via internalPlugins API (templates plugin)
-		const appWithPlugins = this.app as any;
-		let templatesFolder = '';
+		// Use a visible folder at root level - no dot prefix, obviously apparent
+		const templatesFolder = 'Writing Dashboard Templates';
 		
-		try {
-			// Try to get templates folder from Obsidian's templates plugin settings
-			if (appWithPlugins.internalPlugins?.plugins?.templates?.instance?.options?.folder) {
-				templatesFolder = appWithPlugins.internalPlugins.plugins.templates.instance.options.folder;
-			} else if (appWithPlugins.internalPlugins?.plugins?.templates?.enabled) {
-				// If templates plugin is enabled but folder not set, use default "Templates"
-				templatesFolder = 'Templates';
-			} else {
-				// Templates plugin not enabled, create in default location
-				templatesFolder = 'Templates';
-			}
-		} catch (error) {
-			// Fallback to default if we can't access settings
-			templatesFolder = 'Templates';
-		}
-		
-		// Normalize folder path (remove leading/trailing slashes)
-		templatesFolder = templatesFolder.replace(/^\/+|\/+$/g, '') || 'Templates';
-		
-		// Create templates folder if it doesn't exist
+		// Create folder if it doesn't exist
 		await this.vaultService.createFolderIfNotExists(templatesFolder);
 		
 		// Template file path

@@ -616,7 +616,7 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Smart Connections template')
 			.setDesc('Template file that uses {{smart-connections:similar:128}} to surface semantic matches. Executed automatically before each generation.')
 			.addText((text) => {
-				text.setPlaceholder('.writing-dashboard/SC-Template.md')
+				text.setPlaceholder('Writing Dashboard Templates/SC-Template.md')
 					.setValue(this.plugin.settings.smartConnectionsTemplatePath || '')
 					.setDisabled(true); // Make read-only since we auto-generate
 					text.inputEl.style.opacity = '0.7';
@@ -669,7 +669,7 @@ export class SettingsTab extends PluginSettingTab {
 		} else {
 			const infoBox = containerEl.createDiv({ cls: 'writing-dashboard-info-box' });
 			infoBox.createEl('p', { 
-				text: 'Click "Auto-generate" to create the template file automatically. The template will be created in Obsidian\'s templates folder (configured in Settings > Core plugins > Templates).' 
+				text: 'Click "Auto-generate" to create the template file automatically. The template will be created at Writing Dashboard Templates/SC-Template.md in your vault root.' 
 			});
 		}
 

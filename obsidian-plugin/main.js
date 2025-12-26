@@ -68252,7 +68252,7 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
     }
     new import_obsidian11.Setting(containerEl).setName("Smart Connections").setHeading();
     const templateSetting = new import_obsidian11.Setting(containerEl).setName("Smart Connections template").setDesc("Template file that uses {{smart-connections:similar:128}} to surface semantic matches. Executed automatically before each generation.").addText((text2) => {
-      text2.setPlaceholder(".writing-dashboard/SC-Template.md").setValue(this.plugin.settings.smartConnectionsTemplatePath || "").setDisabled(true);
+      text2.setPlaceholder("Writing Dashboard Templates/SC-Template.md").setValue(this.plugin.settings.smartConnectionsTemplatePath || "").setDisabled(true);
       text2.inputEl.style.opacity = "0.7";
     }).addButton((btn) => {
       btn.setButtonText("Auto-generate").setCta().onClick(async () => {
@@ -68290,7 +68290,7 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
     } else {
       const infoBox = containerEl.createDiv({ cls: "writing-dashboard-info-box" });
       infoBox.createEl("p", {
-        text: `Click "Auto-generate" to create the template file automatically. The template will be created in Obsidian's templates folder (configured in Settings > Core plugins > Templates).`
+        text: 'Click "Auto-generate" to create the template file automatically. The template will be created at Writing Dashboard Templates/SC-Template.md in your vault root.'
       });
     }
     new import_obsidian11.Setting(containerEl).setName("Generation logs").setHeading();
@@ -79899,24 +79899,11 @@ var WritingDashboardPlugin = class extends import_obsidian28.Plugin {
   }
   /**
    * Auto-generate Smart Connections template file if it doesn't exist.
-   * Creates the template in Obsidian's configured templates folder.
+   * Creates the template in a visible root-level folder.
    * Returns the path to the template file.
    */
   async ensureSmartConnectionsTemplate() {
-    const appWithPlugins = this.app;
-    let templatesFolder = "";
-    try {
-      if (appWithPlugins.internalPlugins?.plugins?.templates?.instance?.options?.folder) {
-        templatesFolder = appWithPlugins.internalPlugins.plugins.templates.instance.options.folder;
-      } else if (appWithPlugins.internalPlugins?.plugins?.templates?.enabled) {
-        templatesFolder = "Templates";
-      } else {
-        templatesFolder = "Templates";
-      }
-    } catch (error2) {
-      templatesFolder = "Templates";
-    }
-    templatesFolder = templatesFolder.replace(/^\/+|\/+$/g, "") || "Templates";
+    const templatesFolder = "Writing Dashboard Templates";
     await this.vaultService.createFolderIfNotExists(templatesFolder);
     const templatePath = `${templatesFolder}/SC-Template.md`;
     const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
