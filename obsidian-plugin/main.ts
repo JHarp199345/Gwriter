@@ -757,17 +757,42 @@ export default class WritingDashboardPlugin extends Plugin {
 
 	/**
 	 * Auto-generate Smart Connections template file if it doesn't exist.
-	 * Creates .writing-dashboard/SC-Template.md with Smart Connections syntax.
+	 * Creates the template in Obsidian's configured templates folder.
 	 * Returns the path to the template file.
 	 */
 	async ensureSmartConnectionsTemplate(): Promise<string> {
-		const templatePath = '.writing-dashboard/SC-Template.md';
+		// Get Obsidian's templates folder from settings
+		// Access via internalPlugins API (templates plugin)
+		const appWithPlugins = this.app as any;
+		let templatesFolder = '';
+		
+		try {
+			// Try to get templates folder from Obsidian's templates plugin settings
+			if (appWithPlugins.internalPlugins?.plugins?.templates?.instance?.options?.folder) {
+				templatesFolder = appWithPlugins.internalPlugins.plugins.templates.instance.options.folder;
+			} else if (appWithPlugins.internalPlugins?.plugins?.templates?.enabled) {
+				// If templates plugin is enabled but folder not set, use default "Templates"
+				templatesFolder = 'Templates';
+			} else {
+				// Templates plugin not enabled, create in default location
+				templatesFolder = 'Templates';
+			}
+		} catch (error) {
+			// Fallback to default if we can't access settings
+			templatesFolder = 'Templates';
+		}
+		
+		// Normalize folder path (remove leading/trailing slashes)
+		templatesFolder = templatesFolder.replace(/^\/+|\/+$/g, '') || 'Templates';
+		
+		// Create templates folder if it doesn't exist
+		await this.vaultService.createFolderIfNotExists(templatesFolder);
+		
+		// Template file path
+		const templatePath = `${templatesFolder}/SC-Template.md`;
 		const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
 		
 		if (!(templateFile instanceof TFile)) {
-			// Create folder if it doesn't exist
-			await this.vaultService.createFolderIfNotExists('.writing-dashboard');
-			
 			// Create template file with Smart Connections syntax
 			const templateContent = '{{smart-connections:similar:128}}';
 			await this.vaultService.writeFile(templatePath, templateContent);

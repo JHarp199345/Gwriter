@@ -68290,7 +68290,7 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
     } else {
       const infoBox = containerEl.createDiv({ cls: "writing-dashboard-info-box" });
       infoBox.createEl("p", {
-        text: 'Click "Auto-generate" to create the template file automatically. The template will be created at .writing-dashboard/SC-Template.md'
+        text: `Click "Auto-generate" to create the template file automatically. The template will be created in Obsidian's templates folder (configured in Settings > Core plugins > Templates).`
       });
     }
     new import_obsidian11.Setting(containerEl).setName("Generation logs").setHeading();
@@ -79899,14 +79899,28 @@ var WritingDashboardPlugin = class extends import_obsidian28.Plugin {
   }
   /**
    * Auto-generate Smart Connections template file if it doesn't exist.
-   * Creates .writing-dashboard/SC-Template.md with Smart Connections syntax.
+   * Creates the template in Obsidian's configured templates folder.
    * Returns the path to the template file.
    */
   async ensureSmartConnectionsTemplate() {
-    const templatePath = ".writing-dashboard/SC-Template.md";
+    const appWithPlugins = this.app;
+    let templatesFolder = "";
+    try {
+      if (appWithPlugins.internalPlugins?.plugins?.templates?.instance?.options?.folder) {
+        templatesFolder = appWithPlugins.internalPlugins.plugins.templates.instance.options.folder;
+      } else if (appWithPlugins.internalPlugins?.plugins?.templates?.enabled) {
+        templatesFolder = "Templates";
+      } else {
+        templatesFolder = "Templates";
+      }
+    } catch (error2) {
+      templatesFolder = "Templates";
+    }
+    templatesFolder = templatesFolder.replace(/^\/+|\/+$/g, "") || "Templates";
+    await this.vaultService.createFolderIfNotExists(templatesFolder);
+    const templatePath = `${templatesFolder}/SC-Template.md`;
     const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
     if (!(templateFile instanceof import_obsidian28.TFile)) {
-      await this.vaultService.createFolderIfNotExists(".writing-dashboard");
       const templateContent = "{{smart-connections:similar:128}}";
       await this.vaultService.writeFile(templatePath, templateContent);
       this.settings.smartConnectionsTemplatePath = templatePath;

@@ -669,7 +669,7 @@ export class SettingsTab extends PluginSettingTab {
 		} else {
 			const infoBox = containerEl.createDiv({ cls: 'writing-dashboard-info-box' });
 			infoBox.createEl('p', { 
-				text: 'Click "Auto-generate" to create the template file automatically. The template will be created at .writing-dashboard/SC-Template.md' 
+				text: 'Click "Auto-generate" to create the template file automatically. The template will be created in Obsidian\'s templates folder (configured in Settings > Core plugins > Templates).' 
 			});
 		}
 
