@@ -20,6 +20,44 @@ export class TemplateProcessor {
 		try {
 			const appWithPlugins = this.app as any;
 		
+		console.log('[TemplateProcessor] 🔧 Starting hook registration...');
+		
+		// FIRST: Check if Text Generator is installed and see how it registers
+		const textGeneratorPlugin = appWithPlugins.plugins?.plugins?.['text-generator'];
+		if (textGeneratorPlugin) {
+			console.log('[TemplateProcessor] 📦 Text Generator plugin found!');
+			console.log('[TemplateProcessor] 🔍 Inspecting Text Generator template processor...');
+			
+			// Check how Text Generator exposes its template processor
+			const tgInstance = textGeneratorPlugin.instance || textGeneratorPlugin;
+			const tgProcessor = tgInstance?.templateProcessor || 
+			                   tgInstance?.processTemplate ||
+			                   textGeneratorPlugin.templateProcessor ||
+			                   textGeneratorPlugin.processTemplate;
+			
+			if (tgProcessor) {
+				console.log('[TemplateProcessor] ✅ Found Text Generator template processor:', typeof tgProcessor);
+				if (typeof tgProcessor === 'object') {
+					console.log('[TemplateProcessor] 📋 Text Generator processor keys:', Object.keys(tgProcessor || {}));
+				}
+				// Check where Text Generator registered itself
+				if (appWithPlugins.templateProcessors) {
+					const tgInArray = appWithPlugins.templateProcessors.find((p: any) => 
+						p.id === 'text-generator' || p.name === 'Text Generator' || p.plugin === textGeneratorPlugin
+					);
+					if (tgInArray) {
+						console.log('[TemplateProcessor] 📍 Text Generator found in app.templateProcessors array');
+						console.log('[TemplateProcessor] 📋 Text Generator registration:', Object.keys(tgInArray));
+					}
+				}
+			} else {
+				console.log('[TemplateProcessor] ⚠️ Text Generator found but no template processor detected');
+				console.log('[TemplateProcessor] 🔍 Text Generator plugin structure:', Object.keys(textGeneratorPlugin));
+			}
+		} else {
+			console.log('[TemplateProcessor] ℹ️ Text Generator plugin not found');
+		}
+		
 		// Hook Method 1: Register in app.templateProcessors array
 		if (!appWithPlugins.templateProcessors) {
 			appWithPlugins.templateProcessors = [];
@@ -150,6 +188,7 @@ export class TemplateProcessor {
 	private logHookAttempt(method: string): void {
 		this.hookAttempts.set(method, false); // Will be set to true if used
 		console.debug(`[TemplateProcessor] Registered hook via: ${method}`);
+		console.log(`[TemplateProcessor] ✓ Registered hook via: ${method}`);
 	}
 
 	private handleTemplateProcess(event: CustomEvent): void {
@@ -167,32 +206,44 @@ export class TemplateProcessor {
 	 */
 	async processTemplate(templateContent: string, context: { file?: TFile }): Promise<string> {
 		// Log that our processor was called
+		console.log('[TemplateProcessor] 🚀 processTemplate called!');
 		console.debug('[TemplateProcessor] processTemplate called!');
+		console.log('[TemplateProcessor] 📄 Template content length:', templateContent.length);
 		console.debug('[TemplateProcessor] Template content length:', templateContent.length);
+		console.log('[TemplateProcessor] 📁 Active file:', context.file?.path || 'None');
 		console.debug('[TemplateProcessor] Active file:', context.file?.path);
 		
 		// Track that our processor is being used
 		// Log call stack to see which registration method worked
 		try {
 			const stack = new Error().stack;
+			console.log('[TemplateProcessor] 📚 Call stack (first 10 lines):');
+			const stackLines = stack?.split('\n').slice(0, 10) || [];
+			stackLines.forEach((line, i) => {
+				console.log(`[TemplateProcessor]   ${i + 1}. ${line.trim()}`);
+			});
 			console.debug('[TemplateProcessor] Call stack:', stack?.split('\n').slice(0, 10).join('\n'));
 		} catch (e) {
-			// Stack trace not available
+			console.warn('[TemplateProcessor] ⚠️ Stack trace not available:', e);
 		}
 		
 		let processed = templateContent;
 		
 		// Step 1: Process {{read "path"}} syntax
+		console.log('[TemplateProcessor] 🔍 Processing {{read}} placeholders...');
 		processed = await this.processReadPlaceholders(processed);
 		
 		// Step 2: Process {{clipboard}} syntax
+		console.log('[TemplateProcessor] 📋 Processing {{clipboard}} placeholder...');
 		processed = await this.processClipboardPlaceholder(processed);
 		
 		// Step 3: Process {{cursor}} syntax
+		console.log('[TemplateProcessor] 📍 Processing {{cursor}} placeholder...');
 		processed = this.processCursorPlaceholder(processed, context.file);
 		
 		// Step 4: Emit template processing event for Smart Connections to hook into
 		// This is the critical moment - Smart Connections should detect this and process {{smart-connections:similar:N}}
+		console.log('[TemplateProcessor] 📡 Emitting template-processing event for Smart Connections...');
 		console.debug('[TemplateProcessor] Emitting template-processing event for Smart Connections');
 		window.dispatchEvent(new CustomEvent('template-processing', {
 			detail: { 
@@ -204,6 +255,7 @@ export class TemplateProcessor {
 		}));
 		
 		// Also emit other possible event names
+		console.log('[TemplateProcessor] 📡 Emitting template-process event...');
 		window.dispatchEvent(new CustomEvent('template-process', {
 			detail: { 
 				content: processed, 
@@ -214,6 +266,7 @@ export class TemplateProcessor {
 		
 		// Step 5: Wait for Smart Connections to process {{smart-connections:similar:N}}
 		// Smart Connections should have hooked into the event and processed the syntax
+		console.log('[TemplateProcessor] ⏳ Waiting 2 seconds for Smart Connections to process syntax...');
 		console.debug('[TemplateProcessor] Waiting for Smart Connections to process syntax...');
 		await new Promise(resolve => setTimeout(resolve, 2000));
 		
@@ -223,9 +276,18 @@ export class TemplateProcessor {
 		const hasUnprocessedSC = scRegex.test(processed);
 		
 		if (hasUnprocessedSC) {
-			console.warn('[TemplateProcessor] Smart Connections syntax not processed - hooks may not be working');
-			console.warn('[TemplateProcessor] Unprocessed syntax found in content');
+			const matches = processed.match(scRegex);
+			console.warn('[TemplateProcessor] ❌ Smart Connections syntax not processed - hooks may not be working');
+			console.warn(`[TemplateProcessor] ⚠️ Unprocessed syntax found: ${matches?.length || 0} placeholders still present`);
+			if (matches) {
+				console.warn('[TemplateProcessor] Unprocessed placeholders:', matches);
+			}
+			
+			// Diagnose why Smart Connections didn't process
+			const diagnosis = this.diagnoseSmartConnectionsFailure();
+			console.warn(`[TemplateProcessor] 🔍 Diagnostic: ${diagnosis}`);
 		} else {
+			console.log('[TemplateProcessor] ✅ Smart Connections syntax appears to have been processed');
 			console.debug('[TemplateProcessor] Smart Connections syntax appears to have been processed');
 		}
 		
@@ -233,6 +295,7 @@ export class TemplateProcessor {
 		// (Smart Connections might modify the content directly via the event)
 		const finalContent = processed;
 		
+		console.log('[TemplateProcessor] ✅ Final processed content length:', finalContent.length);
 		console.debug('[TemplateProcessor] Final processed content length:', finalContent.length);
 		
 		return finalContent;
@@ -310,6 +373,56 @@ export class TemplateProcessor {
 			}
 		}
 		return content;
+	}
+
+	/**
+	 * Diagnose why Smart Connections didn't process the template
+	 */
+	private diagnoseSmartConnectionsFailure(): string {
+		const appWithPlugins = this.app as any;
+		const diagnostics: string[] = [];
+		
+		// Check if Smart Connections plugin exists
+		const scPlugin = appWithPlugins.plugins?.plugins?.['smart-connections'];
+		if (!scPlugin) {
+			diagnostics.push('Smart Connections plugin not installed or not found');
+		} else if (!scPlugin.enabled) {
+			diagnostics.push('Smart Connections plugin found but not enabled');
+		} else {
+			diagnostics.push('Smart Connections plugin is installed and enabled');
+			
+			// Check if our hooks were registered
+			const hookStatus = this.getHookStatus();
+			const registeredCount = Object.values(hookStatus).length;
+			diagnostics.push(`${registeredCount} hook registration methods attempted`);
+			
+			// Check if processTemplate was called (indicates a hook worked)
+			// This is tracked by checking if we got here (processTemplate was called)
+			diagnostics.push('Our template processor WAS called (hook registration succeeded)');
+			
+			// Check if Smart Connections listens to events
+			const hasEventListeners = window.addEventListener.toString().includes('native code');
+			diagnostics.push(`Window event system available: ${hasEventListeners ? 'yes' : 'unknown'}`);
+			
+			// Check if Smart Connections has template processing capabilities
+			const scInstance = scPlugin.instance || scPlugin;
+			const scMethods = Object.keys(scInstance).filter(k => 
+				k.toLowerCase().includes('template') || 
+				k.toLowerCase().includes('process') ||
+				k.toLowerCase().includes('similar')
+			);
+			if (scMethods.length > 0) {
+				diagnostics.push(`Smart Connections has methods: ${scMethods.join(', ')}`);
+			} else {
+				diagnostics.push('Smart Connections template processing methods not detected');
+			}
+		}
+		
+		// Check if events were emitted
+		diagnostics.push('Template processing events were emitted (template-processing, template-process)');
+		diagnostics.push('Smart Connections may not be listening to these events or may use a different hook mechanism');
+		
+		return diagnostics.join('; ');
 	}
 
 	/**

@@ -12,7 +12,9 @@ export class TemplateExecutor {
 
 	/**
 	 * Execute a template file and return the rendered output.
-	 * Uses our TemplateProcessor which registers hooks for Smart Connections.
+	 * Tries multiple approaches:
+	 * 1. Native Obsidian template insertion (for Smart Connections compatibility)
+	 * 2. Custom TemplateProcessor (fallback)
 	 */
 	async executeTemplate(templatePath: string, activeFile: TFile | null): Promise<string> {
 		const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
@@ -20,42 +22,232 @@ export class TemplateExecutor {
 			throw new Error(`Template file not found: ${templatePath}`);
 		}
 
-		// Get the template processor from the plugin
+		console.log(`[TemplateExecutor] 🚀 Executing template: ${templatePath}`);
+		
+		// APPROACH 1: Try native Obsidian template insertion (Smart Connections likely hooks here)
+		console.log('[TemplateExecutor] 📝 Attempting native template insertion (Smart Connections compatible)...');
+		try {
+			const nativeResult = await this.executeNativeTemplate(templateFile, activeFile);
+			if (nativeResult) {
+				// Check if Smart Connections processed the syntax
+				const hasUnprocessedSC = /\{\{smart-connections:similar:(\d+)\}\}/g.test(nativeResult);
+				if (!hasUnprocessedSC) {
+					console.log('[TemplateExecutor] ✅ Native template insertion succeeded and Smart Connections processed it!');
+					return nativeResult;
+				} else {
+					const scMatches = nativeResult.match(/\{\{smart-connections:similar:(\d+)\}\}/g);
+					console.log(`[TemplateExecutor] ⚠️ Native template insertion succeeded but Smart Connections syntax still present`);
+					console.log(`[TemplateExecutor] 🔍 Diagnostic: Found ${scMatches?.length || 0} unprocessed Smart Connections placeholders`);
+					console.log(`[TemplateExecutor] 🔍 Diagnostic: Smart Connections plugin may not be installed, enabled, or hooking into template insertion`);
+					console.log('[TemplateExecutor] 🔄 Falling back to custom processor...');
+				}
+			} else {
+				console.log('[TemplateExecutor] ⚠️ Native template insertion returned empty result');
+				console.log('[TemplateExecutor] 🔍 Diagnostic: Template may not have been inserted or file was empty');
+				console.log('[TemplateExecutor] 🔄 Falling back to custom processor...');
+			}
+		} catch (error) {
+			const errorMsg = error instanceof Error ? error.message : String(error);
+			console.warn(`[TemplateExecutor] ⚠️ Native template insertion failed: ${errorMsg}`);
+			console.log(`[TemplateExecutor] 🔍 Diagnostic: ${this.diagnoseNativeTemplateFailure(error)}`);
+			console.log('[TemplateExecutor] 🔄 Falling back to custom processor...');
+		}
+		
+		// APPROACH 2: Fallback to custom TemplateProcessor
+		console.log('[TemplateExecutor] 🔄 Using custom TemplateProcessor...');
 		const processor = (this.plugin as any).templateProcessorInstance;
 		if (!processor) {
 			throw new Error('TemplateProcessor not initialized. Please ensure the plugin has loaded.');
 		}
 
-		// Read template content
 		const templateContent = await this.app.vault.read(templateFile);
-		
-		console.debug(`[TemplateExecutor] Executing template: ${templatePath}`);
+		console.log(`[TemplateExecutor] 📄 Template content: ${templateContent.substring(0, 200)}...`);
 		console.debug(`[TemplateExecutor] Template content: ${templateContent.substring(0, 200)}...`);
 		
-		// Process template using our processor (which Smart Connections can hook into)
 		const rendered = await processor.processTemplate(templateContent, { file: activeFile });
 		
-		// Log hook status for debugging
 		const hookStatus = processor.getHookStatus();
+		console.log('[TemplateExecutor] 📊 Hook registration status:', hookStatus);
 		console.debug('[TemplateExecutor] Hook registration status:', hookStatus);
 		
-		// Create a visible test note at root level to see the rendered output
+		// Create test file
 		const testPath = `Template-Render-Test.md`;
 		const existingFile = this.app.vault.getAbstractFileByPath(testPath);
+		if (existingFile instanceof TFile) {
+			await this.app.vault.delete(existingFile);
+		}
+		const testFile = await this.app.vault.create(testPath, rendered);
+		await this.app.workspace.openLinkText(testPath, '', true);
 		
-		// Delete existing test file if it exists
+		console.log(`[TemplateExecutor] ✅ Template rendered: ${rendered.length} chars`);
+		console.log(`[TemplateExecutor] 📄 Rendered preview: ${rendered.substring(0, 500)}...`);
+		console.debug(`[TemplateExecutor] Template rendered: ${rendered.length} chars`);
+		console.debug(`[TemplateExecutor] Rendered content preview: ${rendered.substring(0, 500)}...`);
+		
+		return rendered;
+	}
+
+	/**
+	 * Diagnose why native template insertion failed
+	 */
+	private diagnoseNativeTemplateFailure(error: unknown): string {
+		const errorMsg = error instanceof Error ? error.message : String(error);
+		const appWithPlugins = this.app as any;
+		
+		const diagnostics: string[] = [];
+		
+		// Check Templates plugin
+		const templatesPlugin = appWithPlugins.internalPlugins?.plugins?.templates;
+		if (!templatesPlugin) {
+			diagnostics.push('Templates plugin not found in internalPlugins');
+		} else if (!templatesPlugin.enabled) {
+			diagnostics.push('Templates plugin exists but is not enabled');
+		} else if (!templatesPlugin.instance) {
+			diagnostics.push('Templates plugin enabled but instance not available');
+		} else if (!templatesPlugin.instance.insertTemplate) {
+			diagnostics.push('Templates plugin instance exists but insertTemplate method not found');
+		}
+		
+		// Check commands
+		if (!appWithPlugins.commands) {
+			diagnostics.push('App commands API not available');
+		} else if (!appWithPlugins.commands.executeCommandById) {
+			diagnostics.push('Command execution method not available');
+		}
+		
+		// Check Smart Connections
+		const scPlugin = appWithPlugins.plugins?.plugins?.['smart-connections'];
+		if (!scPlugin) {
+			diagnostics.push('Smart Connections plugin not detected (may not be installed)');
+		} else if (!scPlugin.enabled) {
+			diagnostics.push('Smart Connections plugin found but not enabled');
+		}
+		
+		// Error-specific diagnostics
+		if (errorMsg.includes('not available')) {
+			diagnostics.push('Required API or method is not available in current Obsidian version');
+		} else if (errorMsg.includes('not enabled')) {
+			diagnostics.push('Required plugin is not enabled in settings');
+		} else if (errorMsg.includes('not found')) {
+			diagnostics.push('Required plugin or component not found');
+		}
+		
+		return diagnostics.length > 0 
+			? `Possible causes: ${diagnostics.join('; ')}`
+			: `Unknown error: ${errorMsg}`;
+	}
+
+	/**
+	 * Diagnose why template insertion method failed
+	 */
+	private diagnoseTemplateInsertionFailure(error: unknown, templatesPlugin: any): string {
+		const errorMsg = error instanceof Error ? error.message : String(error);
+		const diagnostics: string[] = [];
+		
+		if (!templatesPlugin.instance) {
+			diagnostics.push('Templates plugin instance is null or undefined');
+		} else {
+			const instanceMethods = Object.keys(templatesPlugin.instance).filter(k => 
+				typeof templatesPlugin.instance[k] === 'function'
+			);
+			diagnostics.push(`Available instance methods: ${instanceMethods.join(', ') || 'none'}`);
+			
+			if (!templatesPlugin.instance.insertTemplate) {
+				diagnostics.push('insertTemplate method not found on instance');
+			} else {
+				diagnostics.push('insertTemplate method exists but call failed');
+			}
+		}
+		
+		if (errorMsg.includes('user interaction')) {
+			diagnostics.push('Command requires manual user selection of template');
+		}
+		
+		return diagnostics.length > 0 
+			? diagnostics.join('; ')
+			: `Error: ${errorMsg}`;
+	}
+
+	/**
+	 * Execute template using Obsidian's native template insertion command.
+	 * This is how Text Generator likely does it, and Smart Connections hooks into this.
+	 */
+	private async executeNativeTemplate(templateFile: TFile, activeFile: TFile | null): Promise<string> {
+		// Create a temporary file to insert template into
+		const testPath = `Template-Render-Test.md`;
+		const existingFile = this.app.vault.getAbstractFileByPath(testPath);
 		if (existingFile instanceof TFile) {
 			await this.app.vault.delete(existingFile);
 		}
 		
-		// Create new test file with rendered content
-		const testFile = await this.app.vault.create(testPath, rendered);
+		// Create empty file
+		const testFile = await this.app.vault.create(testPath, '');
 		
-		// Open in a new leaf so user can see it
-		await this.app.workspace.openLinkText(testPath, '', true);
+		// Open file in a new leaf
+		const leaf = await this.app.workspace.openLinkText(testPath, '', true);
+		await new Promise(resolve => setTimeout(resolve, 500));
 		
-		console.debug(`[TemplateExecutor] Template rendered: ${rendered.length} chars`);
-		console.debug(`[TemplateExecutor] Rendered content preview: ${rendered.substring(0, 500)}...`);
+		// Get the Templates plugin
+		const templatesPlugin = (this.app as any).internalPlugins?.plugins?.templates;
+		if (!templatesPlugin) {
+			throw new Error('Templates plugin not found in internalPlugins');
+		}
+		if (!templatesPlugin.enabled) {
+			throw new Error('Templates plugin is not enabled (enable it in Settings > Core plugins)');
+		}
+		if (!templatesPlugin.instance) {
+			throw new Error('Templates plugin instance not available');
+		}
+		
+		console.log('[TemplateExecutor] 📝 Inserting template via Templates plugin...');
+		console.log(`[TemplateExecutor] 🔍 Diagnostic: Template file: ${templateFile.path}`);
+		console.log(`[TemplateExecutor] 🔍 Diagnostic: Target file: ${testFile.path}`);
+		
+		// Try to insert template - Smart Connections should hook into this
+		try {
+			// Method 1: Direct insertTemplate call (if available)
+			if (templatesPlugin.instance.insertTemplate) {
+				console.log('[TemplateExecutor] 🔧 Using insertTemplate method...');
+				console.log(`[TemplateExecutor] 🔍 Diagnostic: insertTemplate method signature: ${typeof templatesPlugin.instance.insertTemplate}`);
+				await templatesPlugin.instance.insertTemplate(testFile, templateFile.path);
+				console.log('[TemplateExecutor] ✅ Template inserted via insertTemplate method');
+			} 
+			// Method 2: Try via command (but this requires user interaction, so may not work)
+			else if ((this.app as any).commands?.executeCommandById) {
+				console.log('[TemplateExecutor] 🔧 Attempting via command palette...');
+				console.log('[TemplateExecutor] 🔍 Diagnostic: insertTemplate method not found, trying command approach');
+				// This is tricky - the command expects user to select template
+				// We'll try to programmatically trigger it
+				await (this.app as any).commands.executeCommandById('templates:insert-template');
+				// Wait a bit for the modal to appear and process
+				await new Promise(resolve => setTimeout(resolve, 1000));
+				console.log('[TemplateExecutor] ⚠️ Command executed (may require user interaction)');
+				console.log('[TemplateExecutor] 🔍 Diagnostic: Command-based insertion requires user to select template manually');
+			} else {
+				const availableMethods = Object.keys(templatesPlugin.instance || {}).filter(k => 
+					k.toLowerCase().includes('template') || k.toLowerCase().includes('insert')
+				);
+				throw new Error(`No template insertion method available. Available methods: ${availableMethods.join(', ') || 'none found'}`);
+			}
+		} catch (error) {
+			const errorMsg = error instanceof Error ? error.message : String(error);
+			console.warn(`[TemplateExecutor] ⚠️ Template insertion method failed: ${errorMsg}`);
+			console.log(`[TemplateExecutor] 🔍 Diagnostic: ${this.diagnoseTemplateInsertionFailure(error, templatesPlugin)}`);
+			throw error;
+		}
+		
+		// Wait for Smart Connections to process (it hooks into template insertion)
+		console.log('[TemplateExecutor] ⏳ Waiting 5 seconds for Smart Connections to process...');
+		await new Promise(resolve => setTimeout(resolve, 5000));
+		
+		// Read the rendered content
+		const rendered = await this.app.vault.read(testFile);
+		
+		// Keep file open for user inspection
+		console.log('[TemplateExecutor] 📄 Native template rendered:', rendered.length, 'chars');
+		if (rendered.length > 0) {
+			console.log('[TemplateExecutor] 📄 Preview:', rendered.substring(0, 300));
+		}
 		
 		return rendered;
 	}
