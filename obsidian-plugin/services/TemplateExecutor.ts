@@ -6,6 +6,7 @@ export class TemplateExecutor {
 	/**
 	 * Execute an Obsidian template file and return the rendered output.
 	 * The template is rendered with the active file as context.
+	 * For testing: creates a visible note at root level to see rendered output.
 	 */
 	async executeTemplate(templatePath: string, activeFile: TFile | null): Promise<string> {
 		const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
@@ -13,25 +14,53 @@ export class TemplateExecutor {
 			throw new Error(`Template file not found: ${templatePath}`);
 		}
 
-		const templateContent = await this.app.vault.read(templateFile);
+		const appWithPlugins = this.app as any;
+		const templatesPlugin = appWithPlugins.internalPlugins?.plugins?.templates?.instance;
 		
-		// Use Obsidian's built-in template rendering
-		// Note: Obsidian's template system may require the file to be in a specific location
-		// We'll use app.templates.renderTemplate() if available, or manual rendering
+		if (!templatesPlugin) {
+			throw new Error('Templates plugin not available. Please enable it in Settings > Core plugins.');
+		}
+
+		// Create a visible test note at root level (not temporary, for testing)
+		const testPath = `Template-Render-Test.md`;
+		const existingFile = this.app.vault.getAbstractFileByPath(testPath);
+		
+		// Delete existing test file if it exists
+		if (existingFile instanceof TFile) {
+			await this.app.vault.delete(existingFile);
+		}
+		
+		// Create new test file
+		const testFile = await this.app.vault.create(testPath, '');
+		
 		try {
-			// Try Obsidian's native template rendering
-			// Note: app.templates may not be in TypeScript definitions, so we use type assertion
-			const appWithTemplates = this.app as any;
-			if (appWithTemplates.templates && typeof appWithTemplates.templates.renderTemplate === 'function') {
-				return await appWithTemplates.templates.renderTemplate(templateContent, activeFile);
+			// Use Templates plugin's insertTemplate method to render the template
+			// This will process Smart Connections syntax automatically
+			if (templatesPlugin.insertTemplate && typeof templatesPlugin.insertTemplate === 'function') {
+				// Try different method signatures
+				try {
+					await templatesPlugin.insertTemplate(testFile, templateFile.path);
+				} catch (e) {
+					// Try alternative signature
+					await templatesPlugin.insertTemplate(templateFile.path);
+				}
+			} else {
+				throw new Error('Templates plugin insertTemplate method not found');
 			}
 			
-			// Fallback: Manual template processing (if native API not available)
-			// This would require parsing {{smart-connections:similar:128}} ourselves
-			// For now, we'll assume Obsidian's template system handles it
-			throw new Error('Template rendering API not available');
+			// Wait for Smart Connections to process its syntax
+			await new Promise(resolve => setTimeout(resolve, 2000));
+			
+			// Read the rendered content
+			const rendered = await this.app.vault.read(testFile);
+			
+			// Note: Not deleting the test file so user can inspect it
+			// File will be visible at root: Template-Render-Test.md
+			
+			return rendered;
 		} catch (error) {
 			console.error('[TemplateExecutor] Failed to render template:', error);
+			// Don't delete test file on error - user can inspect what happened
 			throw error;
 		}
 	}

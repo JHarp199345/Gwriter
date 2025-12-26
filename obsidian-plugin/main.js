@@ -68969,19 +68969,37 @@ var TemplateExecutor = class {
   /**
    * Execute an Obsidian template file and return the rendered output.
    * The template is rendered with the active file as context.
+   * For testing: creates a visible note at root level to see rendered output.
    */
   async executeTemplate(templatePath, activeFile) {
     const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
     if (!(templateFile instanceof import_obsidian15.TFile)) {
       throw new Error(`Template file not found: ${templatePath}`);
     }
-    const templateContent = await this.app.vault.read(templateFile);
+    const appWithPlugins = this.app;
+    const templatesPlugin = appWithPlugins.internalPlugins?.plugins?.templates?.instance;
+    if (!templatesPlugin) {
+      throw new Error("Templates plugin not available. Please enable it in Settings > Core plugins.");
+    }
+    const testPath = `Template-Render-Test.md`;
+    const existingFile = this.app.vault.getAbstractFileByPath(testPath);
+    if (existingFile instanceof import_obsidian15.TFile) {
+      await this.app.vault.delete(existingFile);
+    }
+    const testFile = await this.app.vault.create(testPath, "");
     try {
-      const appWithTemplates = this.app;
-      if (appWithTemplates.templates && typeof appWithTemplates.templates.renderTemplate === "function") {
-        return await appWithTemplates.templates.renderTemplate(templateContent, activeFile);
+      if (templatesPlugin.insertTemplate && typeof templatesPlugin.insertTemplate === "function") {
+        try {
+          await templatesPlugin.insertTemplate(testFile, templateFile.path);
+        } catch (e) {
+          await templatesPlugin.insertTemplate(templateFile.path);
+        }
+      } else {
+        throw new Error("Templates plugin insertTemplate method not found");
       }
-      throw new Error("Template rendering API not available");
+      await new Promise((resolve) => setTimeout(resolve, 2e3));
+      const rendered = await this.app.vault.read(testFile);
+      return rendered;
     } catch (error2) {
       console.error("[TemplateExecutor] Failed to render template:", error2);
       throw error2;
