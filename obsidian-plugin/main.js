@@ -68962,6 +68962,26 @@ var import_obsidian16 = require("obsidian");
 
 // services/TemplateExecutor.ts
 var import_obsidian15 = require("obsidian");
+var TemplateInsertPrompt = class extends import_obsidian15.Modal {
+  constructor(app, onRun) {
+    super(app);
+    this.onRun = onRun;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl("h3", { text: "Run Smart Connections template" });
+    contentEl.createEl("p", {
+      text: "Click below to run Templates: Insert Template so Smart Connections can process {{smart-connections:similar:#}}."
+    });
+    new import_obsidian15.Setting(contentEl).addButton((btn) => btn.setButtonText("Run Templates: Insert Template").setCta().onClick(async () => {
+      try {
+        await this.onRun();
+      } finally {
+        this.close();
+      }
+    })).addExtraButton((btn) => btn.setIcon("cross").setTooltip("Cancel").onClick(() => this.close()));
+  }
+};
 var TemplateExecutor = class {
   constructor(app, plugin) {
     this.app = app;
@@ -68979,29 +68999,51 @@ var TemplateExecutor = class {
       throw new Error(`Template file not found: ${templatePath}`);
     }
     console.log(`[TemplateExecutor] \u{1F680} Executing template: ${templatePath}`);
-    console.log("[TemplateExecutor] \u{1F4DD} Attempting native template insertion (Smart Connections compatible)...");
+    console.log("[TemplateExecutor] \u{1F4DD} Prompting user to run Templates: Insert Template...");
+    try {
+      const userResult = await this.executeNativeTemplateWithPrompt(templateFile);
+      if (userResult) {
+        const hasUnprocessedSC = /\{\{smart-connections:similar:(\d+)\}\}/g.test(userResult);
+        if (!hasUnprocessedSC) {
+          console.log("[TemplateExecutor] \u2705 User-driven template insertion succeeded and Smart Connections processed it!");
+          return userResult;
+        } else {
+          const scMatches = userResult.match(/\{\{smart-connections:similar:(\d+)\}\}/g);
+          console.log("[TemplateExecutor] \u26A0\uFE0F User-driven insertion succeeded but Smart Connections syntax still present");
+          console.log(`[TemplateExecutor] \u{1F50D} Diagnostic: Found ${scMatches?.length || 0} unprocessed Smart Connections placeholders`);
+          console.log("[TemplateExecutor] \u{1F504} Trying automated native insertion next...");
+        }
+      } else {
+        console.log("[TemplateExecutor] \u26A0\uFE0F User-driven insertion returned empty result");
+        console.log("[TemplateExecutor] \u{1F504} Trying automated native insertion next...");
+      }
+    } catch (error2) {
+      const errorMsg = error2 instanceof Error ? error2.message : String(error2);
+      console.warn(`[TemplateExecutor] \u26A0\uFE0F User-driven insertion failed: ${errorMsg}`);
+      console.log("[TemplateExecutor] \u{1F504} Trying automated native insertion next...");
+    }
+    console.log("[TemplateExecutor] \u{1F4DD} Attempting automated native template insertion...");
     try {
       const nativeResult = await this.executeNativeTemplate(templateFile, activeFile);
       if (nativeResult) {
         const hasUnprocessedSC = /\{\{smart-connections:similar:(\d+)\}\}/g.test(nativeResult);
         if (!hasUnprocessedSC) {
-          console.log("[TemplateExecutor] \u2705 Native template insertion succeeded and Smart Connections processed it!");
+          console.log("[TemplateExecutor] \u2705 Automated native insertion succeeded and Smart Connections processed it!");
           return nativeResult;
         } else {
           const scMatches = nativeResult.match(/\{\{smart-connections:similar:(\d+)\}\}/g);
-          console.log(`[TemplateExecutor] \u26A0\uFE0F Native template insertion succeeded but Smart Connections syntax still present`);
+          console.log("[TemplateExecutor] \u26A0\uFE0F Automated native insertion succeeded but Smart Connections syntax still present");
           console.log(`[TemplateExecutor] \u{1F50D} Diagnostic: Found ${scMatches?.length || 0} unprocessed Smart Connections placeholders`);
-          console.log(`[TemplateExecutor] \u{1F50D} Diagnostic: Smart Connections plugin may not be installed, enabled, or hooking into template insertion`);
           console.log("[TemplateExecutor] \u{1F504} Falling back to custom processor...");
         }
       } else {
-        console.log("[TemplateExecutor] \u26A0\uFE0F Native template insertion returned empty result");
+        console.log("[TemplateExecutor] \u26A0\uFE0F Automated native insertion returned empty result");
         console.log("[TemplateExecutor] \u{1F50D} Diagnostic: Template may not have been inserted or file was empty");
         console.log("[TemplateExecutor] \u{1F504} Falling back to custom processor...");
       }
     } catch (error2) {
       const errorMsg = error2 instanceof Error ? error2.message : String(error2);
-      console.warn(`[TemplateExecutor] \u26A0\uFE0F Native template insertion failed: ${errorMsg}`);
+      console.warn(`[TemplateExecutor] \u26A0\uFE0F Automated native insertion failed: ${errorMsg}`);
       console.log(`[TemplateExecutor] \u{1F50D} Diagnostic: ${this.diagnoseNativeTemplateFailure(error2)}`);
       console.log("[TemplateExecutor] \u{1F504} Falling back to custom processor...");
     }
@@ -69114,6 +69156,47 @@ var TemplateExecutor = class {
       diagnostics.push("SOLUTION: This approach cannot be automated - use direct insertTemplate method instead");
     }
     return diagnostics.length > 0 ? diagnostics.join(" | ") : `Error: ${errorMsg}`;
+  }
+  /**
+   * User-driven native template insertion: prompts user to run the Templates command,
+   * then reads the rendered file.
+   */
+  async executeNativeTemplateWithPrompt(templateFile) {
+    const testPath = `Template-Render-Test.md`;
+    const existingFile = this.app.vault.getAbstractFileByPath(testPath);
+    if (existingFile instanceof import_obsidian15.TFile) {
+      await this.app.vault.delete(existingFile);
+    }
+    const testFile = await this.app.vault.create(testPath, "");
+    await this.app.workspace.openLinkText(testPath, "", true);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const runTemplatesCommand = async () => {
+      const appWithCommands = this.app;
+      if (appWithCommands.commands?.executeCommandById) {
+        await appWithCommands.commands.executeCommandById("templates:insert-template");
+      } else {
+        throw new Error("Commands API not available");
+      }
+    };
+    await new Promise((resolve, reject) => {
+      const modal = new TemplateInsertPrompt(this.app, async () => {
+        try {
+          await runTemplatesCommand();
+          resolve();
+        } catch (e) {
+          reject(e);
+        }
+      });
+      modal.open();
+    });
+    console.log("[TemplateExecutor] \u23F3 Waiting 5 seconds for Smart Connections to process (user-driven)...");
+    await new Promise((resolve) => setTimeout(resolve, 5e3));
+    const rendered = await this.app.vault.read(testFile);
+    console.log("[TemplateExecutor] \u{1F4C4} User-driven native template rendered:", rendered.length, "chars");
+    if (rendered.length > 0) {
+      console.log("[TemplateExecutor] \u{1F4C4} Preview:", rendered.substring(0, 300));
+    }
+    return rendered;
   }
   /**
    * Execute template using Obsidian's native template insertion command.
