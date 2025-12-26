@@ -204,6 +204,19 @@ export class SettingsTab extends PluginSettingTab {
 					})
 			);
 
+		new Setting(containerEl)
+			.setName('Open Ollama setup wizard')
+			.setDesc('Step-by-step instructions to install Ollama, pull the model, and verify connectivity.')
+			.addButton((btn) =>
+				btn
+					.setButtonText('Open wizard')
+					.onClick(() => {
+						const { OllamaSetupWizardModal } = require('./OllamaSetupWizardModal');
+						const modal = new OllamaSetupWizardModal(this.app, this.plugin);
+						modal.open();
+					})
+			);
+
 		// Retrieval / indexing settings
 		new Setting(containerEl).setName('Retrieval').setHeading();
 
