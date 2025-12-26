@@ -68968,18 +68968,13 @@ var TemplateExecutor = class {
   }
   /**
    * Execute an Obsidian template file and return the rendered output.
-   * The template is rendered with the active file as context.
-   * For testing: creates a visible note at root level to see rendered output.
+   * Uses command palette to trigger template insertion so Smart Connections processes it.
+   * Creates a new leaf at root level that can be saved and evaluated.
    */
   async executeTemplate(templatePath, activeFile) {
     const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
     if (!(templateFile instanceof import_obsidian15.TFile)) {
       throw new Error(`Template file not found: ${templatePath}`);
-    }
-    const appWithPlugins = this.app;
-    const templatesPlugin = appWithPlugins.internalPlugins?.plugins?.templates?.instance;
-    if (!templatesPlugin) {
-      throw new Error("Templates plugin not available. Please enable it in Settings > Core plugins.");
     }
     const testPath = `Template-Render-Test.md`;
     const existingFile = this.app.vault.getAbstractFileByPath(testPath);
@@ -68988,16 +68983,15 @@ var TemplateExecutor = class {
     }
     const testFile = await this.app.vault.create(testPath, "");
     try {
-      if (templatesPlugin.insertTemplate && typeof templatesPlugin.insertTemplate === "function") {
-        try {
-          await templatesPlugin.insertTemplate(testFile, templateFile.path);
-        } catch (e) {
-          await templatesPlugin.insertTemplate(templateFile.path);
-        }
+      const leaf = await this.app.workspace.openLinkText(testPath, "", true);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const appWithCommands = this.app;
+      if (appWithCommands.commands && appWithCommands.commands.executeCommandById) {
+        await appWithCommands.commands.executeCommandById("templates:insert-template");
       } else {
-        throw new Error("Templates plugin insertTemplate method not found");
+        throw new Error("Command system not available");
       }
-      await new Promise((resolve) => setTimeout(resolve, 2e3));
+      await new Promise((resolve) => setTimeout(resolve, 4e3));
       const rendered = await this.app.vault.read(testFile);
       return rendered;
     } catch (error2) {

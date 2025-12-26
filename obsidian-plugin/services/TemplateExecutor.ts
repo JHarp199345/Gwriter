@@ -5,8 +5,8 @@ export class TemplateExecutor {
 
 	/**
 	 * Execute an Obsidian template file and return the rendered output.
-	 * The template is rendered with the active file as context.
-	 * For testing: creates a visible note at root level to see rendered output.
+	 * Uses command palette to trigger template insertion so Smart Connections processes it.
+	 * Creates a new leaf at root level that can be saved and evaluated.
 	 */
 	async executeTemplate(templatePath: string, activeFile: TFile | null): Promise<string> {
 		const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
@@ -14,14 +14,7 @@ export class TemplateExecutor {
 			throw new Error(`Template file not found: ${templatePath}`);
 		}
 
-		const appWithPlugins = this.app as any;
-		const templatesPlugin = appWithPlugins.internalPlugins?.plugins?.templates?.instance;
-		
-		if (!templatesPlugin) {
-			throw new Error('Templates plugin not available. Please enable it in Settings > Core plugins.');
-		}
-
-		// Create a visible test note at root level (not temporary, for testing)
+		// Create a visible test note at root level
 		const testPath = `Template-Render-Test.md`;
 		const existingFile = this.app.vault.getAbstractFileByPath(testPath);
 		
@@ -30,31 +23,35 @@ export class TemplateExecutor {
 			await this.app.vault.delete(existingFile);
 		}
 		
-		// Create new test file
+		// Create new empty test file
 		const testFile = await this.app.vault.create(testPath, '');
 		
 		try {
-			// Use Templates plugin's insertTemplate method to render the template
-			// This will process Smart Connections syntax automatically
-			if (templatesPlugin.insertTemplate && typeof templatesPlugin.insertTemplate === 'function') {
-				// Try different method signatures
-				try {
-					await templatesPlugin.insertTemplate(testFile, templateFile.path);
-				} catch (e) {
-					// Try alternative signature
-					await templatesPlugin.insertTemplate(templateFile.path);
-				}
+			// Open the test file in a new leaf (required for template command to work)
+			const leaf = await this.app.workspace.openLinkText(testPath, '', true);
+			
+			// Wait a moment for the file to be fully opened and focused
+			await new Promise(resolve => setTimeout(resolve, 500));
+			
+			// Execute the template insertion command via command palette
+			// This will trigger Smart Connections to process {{smart-connections:similar:128}}
+			// The command will open a template picker - we need to handle that
+			const appWithCommands = this.app as any;
+			if (appWithCommands.commands && appWithCommands.commands.executeCommandById) {
+				await appWithCommands.commands.executeCommandById('templates:insert-template');
 			} else {
-				throw new Error('Templates plugin insertTemplate method not found');
+				throw new Error('Command system not available');
 			}
 			
-			// Wait for Smart Connections to process its syntax
-			await new Promise(resolve => setTimeout(resolve, 2000));
+			// Wait for user to select template (or if it auto-selects, wait for processing)
+			// Then wait longer for Smart Connections to process its syntax
+			// Smart Connections may need time to query embeddings and render results
+			await new Promise(resolve => setTimeout(resolve, 4000));
 			
 			// Read the rendered content
 			const rendered = await this.app.vault.read(testFile);
 			
-			// Note: Not deleting the test file so user can inspect it
+			// Note: Not closing the leaf - user can see and evaluate the rendered template
 			// File will be visible at root: Template-Render-Test.md
 			
 			return rendered;
