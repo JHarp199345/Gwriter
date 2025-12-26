@@ -63986,7 +63986,7 @@ __export(main_exports, {
   default: () => WritingDashboardPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian28 = require("obsidian");
+var import_obsidian29 = require("obsidian");
 
 // ui/DashboardView.ts
 var import_obsidian7 = require("obsidian");
@@ -68963,41 +68963,39 @@ var import_obsidian16 = require("obsidian");
 // services/TemplateExecutor.ts
 var import_obsidian15 = require("obsidian");
 var TemplateExecutor = class {
-  constructor(app) {
+  constructor(app, plugin) {
     this.app = app;
+    this.plugin = plugin;
   }
   /**
-   * Execute an Obsidian template file and return the rendered output.
-   * Uses command palette to trigger template insertion so Smart Connections processes it.
-   * Creates a new leaf at root level that can be saved and evaluated.
+   * Execute a template file and return the rendered output.
+   * Uses our TemplateProcessor which registers hooks for Smart Connections.
    */
   async executeTemplate(templatePath, activeFile) {
     const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
     if (!(templateFile instanceof import_obsidian15.TFile)) {
       throw new Error(`Template file not found: ${templatePath}`);
     }
+    const processor = this.plugin.templateProcessorInstance;
+    if (!processor) {
+      throw new Error("TemplateProcessor not initialized. Please ensure the plugin has loaded.");
+    }
+    const templateContent = await this.app.vault.read(templateFile);
+    console.debug(`[TemplateExecutor] Executing template: ${templatePath}`);
+    console.debug(`[TemplateExecutor] Template content: ${templateContent.substring(0, 200)}...`);
+    const rendered = await processor.processTemplate(templateContent, { file: activeFile });
+    const hookStatus = processor.getHookStatus();
+    console.debug("[TemplateExecutor] Hook registration status:", hookStatus);
     const testPath = `Template-Render-Test.md`;
     const existingFile = this.app.vault.getAbstractFileByPath(testPath);
     if (existingFile instanceof import_obsidian15.TFile) {
       await this.app.vault.delete(existingFile);
     }
-    const testFile = await this.app.vault.create(testPath, "");
-    try {
-      const leaf = await this.app.workspace.openLinkText(testPath, "", true);
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const appWithCommands = this.app;
-      if (appWithCommands.commands && appWithCommands.commands.executeCommandById) {
-        await appWithCommands.commands.executeCommandById("templates:insert-template");
-      } else {
-        throw new Error("Command system not available");
-      }
-      await new Promise((resolve) => setTimeout(resolve, 4e3));
-      const rendered = await this.app.vault.read(testFile);
-      return rendered;
-    } catch (error2) {
-      console.error("[TemplateExecutor] Failed to render template:", error2);
-      throw error2;
-    }
+    const testFile = await this.app.vault.create(testPath, rendered);
+    await this.app.workspace.openLinkText(testPath, "", true);
+    console.debug(`[TemplateExecutor] Template rendered: ${rendered.length} chars`);
+    console.debug(`[TemplateExecutor] Rendered content preview: ${rendered.substring(0, 500)}...`);
+    return rendered;
   }
   /**
    * Parse template output to extract file paths from Smart Connections results.
@@ -69067,7 +69065,7 @@ var ContextAggregator = class {
     this.vault = vault;
     this.plugin = plugin;
     this.vaultService = vaultService;
-    this.templateExecutor = new TemplateExecutor(plugin.app);
+    this.templateExecutor = new TemplateExecutor(plugin.app, plugin);
   }
   async getChapterContext(retrievalQuery) {
     const settings = this.plugin.settings;
@@ -79504,6 +79502,245 @@ ${markdownToPlainText(c.markdown || "")}
   )), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Copyright year"), /* @__PURE__ */ import_react11.default.createElement("input", { value: copyrightYear, onChange: (e) => setCopyrightYear(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Copyright holder"), /* @__PURE__ */ import_react11.default.createElement("input", { value: copyrightHolder, onChange: (e) => setCopyrightHolder(e.target.value), disabled: isExporting }))), step === 4 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Typography"), /* @__PURE__ */ import_react11.default.createElement("p", null, "Default styling uses Literata if available on the reader device. You can embed your own font files to guarantee the look."), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("label", null, /* @__PURE__ */ import_react11.default.createElement("input", { type: "checkbox", checked: embedFonts, onChange: (e) => setEmbedFonts(e.target.checked), disabled: isExporting }), "Embed custom fonts")), embedFonts && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Regular (required)"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontRegular, onChange: (e) => setFontRegular(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontRegular(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Bold"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontBold, onChange: (e) => setFontBold(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBold(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Italic"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontItalic, onChange: (e) => setFontItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontItalic(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Bold italic"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontBoldItalic, onChange: (e) => setFontBoldItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBoldItalic(f.path)), disabled: isExporting }, "Browse"))))), step === 5 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Output"), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Format"), /* @__PURE__ */ import_react11.default.createElement("select", { value: outputFormat, onChange: (e) => setOutputFormat(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react11.default.createElement("option", { value: "epub" }, "Epub"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "docx" }, "Docx"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "rtf" }, "Rtf"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "copy" }, "Plain text"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Export subset"), /* @__PURE__ */ import_react11.default.createElement("select", { value: subsetMode, onChange: (e) => setSubsetMode(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react11.default.createElement("option", { value: "all" }, "All chapters"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "first-chapters" }, "First N chapters"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "first-words" }, "First N words"))), subsetMode === "first-chapters" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Chapters"), /* @__PURE__ */ import_react11.default.createElement("input", { value: subsetChaptersCount, onChange: (e) => setSubsetChaptersCount(e.target.value), disabled: isExporting })), subsetMode === "first-words" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Words"), /* @__PURE__ */ import_react11.default.createElement("input", { value: subsetWordsCount, onChange: (e) => setSubsetWordsCount(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Folder"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: outputFolder, onChange: (e) => setOutputFolder(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFolder((f) => setOutputFolder(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "File name"), /* @__PURE__ */ import_react11.default.createElement("input", { value: outputFileName, onChange: (e) => setOutputFileName(e.target.value), disabled: isExporting }))), step === 6 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Export"), /* @__PURE__ */ import_react11.default.createElement("p", null, "When you click Export, the plugin will compile your notes and write the output into your vault."), progress && /* @__PURE__ */ import_react11.default.createElement("div", { className: "generation-status" }, progress), error2 && /* @__PURE__ */ import_react11.default.createElement("div", { className: "error-message" }, "\u274C ", error2)), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 16 } }, /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("button", { onClick: onClose, className: "mod-secondary", disabled: isExporting }, "Close")), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ import_react11.default.createElement("button", { onClick: goBack, disabled: isExporting || step === 1 }, "Back"), step < 6 && /* @__PURE__ */ import_react11.default.createElement("button", { onClick: goNext, disabled: isExporting || !canNext, className: "mod-cta" }, "Next"), step === 6 && /* @__PURE__ */ import_react11.default.createElement("button", { onClick: doExport, disabled: isExporting, className: "mod-cta" }, "Export"))));
 };
 
+// services/TemplateProcessor.ts
+var import_obsidian28 = require("obsidian");
+var TemplateProcessor = class {
+  constructor(app, plugin) {
+    this.hookAttempts = /* @__PURE__ */ new Map();
+    this.app = app;
+    this.plugin = plugin;
+    this.registerAllPossibleHooks();
+  }
+  /**
+   * Register hooks in every possible way Smart Connections might look for template processors.
+   * We'll track which one actually gets used.
+   */
+  registerAllPossibleHooks() {
+    const appWithPlugins = this.app;
+    if (!appWithPlugins.templateProcessors) {
+      appWithPlugins.templateProcessors = [];
+    }
+    appWithPlugins.templateProcessors.push({
+      id: "writing-dashboard",
+      process: this.processTemplate.bind(this),
+      processTemplate: this.processTemplate.bind(this),
+      renderTemplate: this.processTemplate.bind(this),
+      plugin: this.plugin
+    });
+    this.logHookAttempt("app.templateProcessors array");
+    if (!appWithPlugins.plugins) {
+      appWithPlugins.plugins = {};
+    }
+    if (!appWithPlugins.plugins.templateProcessors) {
+      appWithPlugins.plugins.templateProcessors = {};
+    }
+    appWithPlugins.plugins.templateProcessors["writing-dashboard"] = {
+      process: this.processTemplate.bind(this),
+      processTemplate: this.processTemplate.bind(this),
+      renderTemplate: this.processTemplate.bind(this)
+    };
+    this.logHookAttempt("app.plugins.templateProcessors object");
+    if (!window.templateProcessors) {
+      window.templateProcessors = [];
+    }
+    window.templateProcessors.push({
+      id: "writing-dashboard",
+      process: this.processTemplate.bind(this),
+      processTemplate: this.processTemplate.bind(this)
+    });
+    this.logHookAttempt("window.templateProcessors array");
+    if (!window.templateProcessor) {
+      window.templateProcessor = {};
+    }
+    window.templateProcessor["writing-dashboard"] = this.processTemplate.bind(this);
+    this.logHookAttempt("window.templateProcessor object");
+    this.plugin.templateProcessor = this.processTemplate.bind(this);
+    this.plugin.processTemplate = this.processTemplate.bind(this);
+    this.plugin.renderTemplate = this.processTemplate.bind(this);
+    this.logHookAttempt("plugin instance methods");
+    window.addEventListener("template-process", this.handleTemplateProcess.bind(this));
+    window.addEventListener("template-processing", this.handleTemplateProcessing.bind(this));
+    this.logHookAttempt("window template-process event listeners");
+    if (appWithPlugins.templates) {
+      if (!appWithPlugins.templates.processors) {
+        appWithPlugins.templates.processors = [];
+      }
+      appWithPlugins.templates.processors.push({
+        id: "writing-dashboard",
+        process: this.processTemplate.bind(this),
+        processTemplate: this.processTemplate.bind(this)
+      });
+      this.logHookAttempt("app.templates.processors");
+    }
+    const ourPlugin = appWithPlugins.plugins?.plugins?.["writing-dashboard"];
+    if (ourPlugin) {
+      ourPlugin.templateProcessor = this.processTemplate.bind(this);
+      ourPlugin.processTemplate = this.processTemplate.bind(this);
+      ourPlugin.renderTemplate = this.processTemplate.bind(this);
+    }
+    this.logHookAttempt("app.plugins.plugins[writing-dashboard]");
+    window.dispatchEvent(new CustomEvent("template-processor-registered", {
+      detail: {
+        id: "writing-dashboard",
+        process: this.processTemplate.bind(this),
+        processTemplate: this.processTemplate.bind(this),
+        plugin: this.plugin
+      }
+    }));
+    this.logHookAttempt("template-processor-registered event");
+    if (appWithPlugins.plugins?.enabledPlugins) {
+      if (!appWithPlugins.plugins.enabledPlugins.templateProcessors) {
+        appWithPlugins.plugins.enabledPlugins.templateProcessors = [];
+      }
+      appWithPlugins.plugins.enabledPlugins.templateProcessors.push({
+        id: "writing-dashboard",
+        process: this.processTemplate.bind(this)
+      });
+      this.logHookAttempt("app.plugins.enabledPlugins.templateProcessors");
+    }
+    window.writingDashboardProcessTemplate = this.processTemplate.bind(this);
+    this.logHookAttempt("window.writingDashboardProcessTemplate function");
+    if (appWithPlugins.plugins?.plugins) {
+      appWithPlugins.plugins.plugins["writing-dashboard-template"] = {
+        process: this.processTemplate.bind(this),
+        processTemplate: this.processTemplate.bind(this)
+      };
+    }
+    this.logHookAttempt("app.plugins.plugins[writing-dashboard-template]");
+  }
+  logHookAttempt(method) {
+    this.hookAttempts.set(method, false);
+    console.debug(`[TemplateProcessor] Registered hook via: ${method}`);
+  }
+  handleTemplateProcess(event) {
+    console.debug(`[TemplateProcessor] Template process event received:`, event.type, event.detail);
+  }
+  handleTemplateProcessing(event) {
+    console.debug(`[TemplateProcessor] Template processing event received:`, event.type, event.detail);
+  }
+  /**
+   * Main template processing method that Smart Connections should hook into.
+   * This processes our template placeholders and emits events for Smart Connections.
+   */
+  async processTemplate(templateContent, context) {
+    console.debug("[TemplateProcessor] processTemplate called!");
+    console.debug("[TemplateProcessor] Template content length:", templateContent.length);
+    console.debug("[TemplateProcessor] Active file:", context.file?.path);
+    try {
+      const stack = new Error().stack;
+      console.debug("[TemplateProcessor] Call stack:", stack?.split("\n").slice(0, 10).join("\n"));
+    } catch (e) {
+    }
+    let processed = templateContent;
+    processed = await this.processReadPlaceholders(processed);
+    processed = await this.processClipboardPlaceholder(processed);
+    processed = this.processCursorPlaceholder(processed, context.file);
+    console.debug("[TemplateProcessor] Emitting template-processing event for Smart Connections");
+    window.dispatchEvent(new CustomEvent("template-processing", {
+      detail: {
+        content: processed,
+        context,
+        processor: "writing-dashboard",
+        originalContent: templateContent
+      }
+    }));
+    window.dispatchEvent(new CustomEvent("template-process", {
+      detail: {
+        content: processed,
+        context,
+        processor: "writing-dashboard"
+      }
+    }));
+    console.debug("[TemplateProcessor] Waiting for Smart Connections to process syntax...");
+    await new Promise((resolve) => setTimeout(resolve, 2e3));
+    const scRegex = /\{\{smart-connections:similar:(\d+)\}\}/g;
+    const hasUnprocessedSC = scRegex.test(processed);
+    if (hasUnprocessedSC) {
+      console.warn("[TemplateProcessor] Smart Connections syntax not processed - hooks may not be working");
+      console.warn("[TemplateProcessor] Unprocessed syntax found in content");
+    } else {
+      console.debug("[TemplateProcessor] Smart Connections syntax appears to have been processed");
+    }
+    const finalContent = processed;
+    console.debug("[TemplateProcessor] Final processed content length:", finalContent.length);
+    return finalContent;
+  }
+  /**
+   * Process {{read "file.md"}} placeholders
+   */
+  async processReadPlaceholders(content) {
+    const readRegex = /\{\{read\s+"([^"]+)"\}\}/g;
+    let match2;
+    const replacements = [];
+    while ((match2 = readRegex.exec(content)) !== null) {
+      const filePath = match2[1];
+      const file = this.app.vault.getAbstractFileByPath(filePath);
+      if (file instanceof import_obsidian28.TFile) {
+        try {
+          const fileContent = await this.app.vault.read(file);
+          replacements.push({ placeholder: match2[0], content: fileContent });
+          console.debug(`[TemplateProcessor] Processed {{read "${filePath}"}} - ${fileContent.length} chars`);
+        } catch (error2) {
+          console.warn(`[TemplateProcessor] Failed to read file: ${filePath}`, error2);
+          replacements.push({ placeholder: match2[0], content: `[Error reading file: ${filePath}]` });
+        }
+      } else {
+        console.warn(`[TemplateProcessor] File not found: ${filePath}`);
+        replacements.push({ placeholder: match2[0], content: `[File not found: ${filePath}]` });
+      }
+    }
+    for (const { placeholder, content: fileContent } of replacements) {
+      content = content.replace(placeholder, fileContent);
+    }
+    return content;
+  }
+  /**
+   * Process {{clipboard}} placeholder
+   */
+  async processClipboardPlaceholder(content) {
+    if (content.includes("{{clipboard}}")) {
+      try {
+        const clipboardText = await navigator.clipboard.readText();
+        content = content.replace(/\{\{clipboard\}\}/g, clipboardText);
+        console.debug(`[TemplateProcessor] Processed {{clipboard}} - ${clipboardText.length} chars`);
+      } catch (error2) {
+        console.warn("[TemplateProcessor] Failed to read clipboard:", error2);
+        content = content.replace(/\{\{clipboard\}\}/g, "");
+      }
+    }
+    return content;
+  }
+  /**
+   * Process {{cursor}} placeholder
+   */
+  processCursorPlaceholder(content, activeFile) {
+    if (content.includes("{{cursor}}")) {
+      try {
+        const activeLeaf = this.app.workspace.getActiveViewOfType(import_obsidian28.MarkdownView);
+        if (activeLeaf) {
+          const editor = activeLeaf.editor;
+          const selection = editor.getSelection();
+          const cursorContent = selection || `[Cursor in ${activeFile?.basename || "active file"}]`;
+          content = content.replace(/\{\{cursor\}\}/g, cursorContent);
+          console.debug(`[TemplateProcessor] Processed {{cursor}} - ${cursorContent.length} chars`);
+        } else {
+          content = content.replace(/\{\{cursor\}\}/g, "");
+        }
+      } catch (error2) {
+        console.warn("[TemplateProcessor] Failed to process {{cursor}}:", error2);
+        content = content.replace(/\{\{cursor\}\}/g, "");
+      }
+    }
+    return content;
+  }
+  /**
+   * Get status of which hooks were registered (for debugging)
+   */
+  getHookStatus() {
+    return Object.fromEntries(this.hookAttempts);
+  }
+};
+
 // main.ts
 var DEFAULT_SETTINGS = {
   apiKey: "",
@@ -79602,7 +79839,7 @@ Output format (required):
   smartConnectionsTemplatePath: void 0
   // User must configure template
 };
-var WritingDashboardPlugin = class extends import_obsidian28.Plugin {
+var WritingDashboardPlugin = class extends import_obsidian29.Plugin {
   constructor() {
     super(...arguments);
     /**
@@ -79637,11 +79874,11 @@ var WritingDashboardPlugin = class extends import_obsidian28.Plugin {
         const newNorm = file.path.replace(/\\/g, "/");
         let changed = false;
         const logsFolder = (this.settings.generationLogsFolder || "").replace(/\\/g, "/").replace(/\/+$/, "");
-        if (logsFolder && file instanceof import_obsidian28.TFolder && oldNorm === logsFolder) {
+        if (logsFolder && file instanceof import_obsidian29.TFolder && oldNorm === logsFolder) {
           this.settings.generationLogsFolder = newNorm;
           changed = true;
         }
-        if (!(file instanceof import_obsidian28.TFile) || file.extension !== "md") {
+        if (!(file instanceof import_obsidian29.TFile) || file.extension !== "md") {
           if (changed)
             await this.saveSettings();
           return;
@@ -79671,6 +79908,7 @@ var WritingDashboardPlugin = class extends import_obsidian28.Plugin {
       await this.saveSettings();
     }
     this.vaultService = new VaultService(this.app.vault, this);
+    this.templateProcessorInstance = new TemplateProcessor(this.app, this);
     this.contextAggregator = new ContextAggregator(this.app.vault, this, this.vaultService);
     this.promptEngine = new PromptEngine();
     this.aiClient = new AIClient();
@@ -79719,21 +79957,21 @@ var WritingDashboardPlugin = class extends import_obsidian28.Plugin {
     };
     this.registerEvent(
       this.app.vault.on("create", (file) => {
-        if (file instanceof import_obsidian28.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian29.TFile && file.extension === "md") {
           maybeQueueIndex(file.path);
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
-        if (file instanceof import_obsidian28.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian29.TFile && file.extension === "md") {
           maybeQueueIndex(file.path);
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
-        if (file instanceof import_obsidian28.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian29.TFile && file.extension === "md") {
           this.embeddingsIndex.queueRemoveFile(file.path);
           this.bm25Index.queueRemoveFile(file.path);
         }
@@ -79741,7 +79979,7 @@ var WritingDashboardPlugin = class extends import_obsidian28.Plugin {
     );
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
-        if (!(file instanceof import_obsidian28.TFile) || file.extension !== "md")
+        if (!(file instanceof import_obsidian29.TFile) || file.extension !== "md")
           return;
         this.embeddingsIndex.queueRemoveFile(oldPath);
         this.bm25Index.queueRemoveFile(oldPath);
@@ -79919,7 +80157,7 @@ var WritingDashboardPlugin = class extends import_obsidian28.Plugin {
     await this.vaultService.createFolderIfNotExists(templatesFolder);
     const templatePath = `${templatesFolder}/SC-Template.md`;
     const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
-    if (!(templateFile instanceof import_obsidian28.TFile)) {
+    if (!(templateFile instanceof import_obsidian29.TFile)) {
       const templateContent = "{{smart-connections:similar:128}}";
       await this.vaultService.writeFile(templatePath, templateContent);
       this.settings.smartConnectionsTemplatePath = templatePath;

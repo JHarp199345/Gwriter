@@ -51,7 +51,7 @@ export class ContextAggregator {
 		this.vault = vault;
 		this.plugin = plugin;
 		this.vaultService = vaultService;
-		this.templateExecutor = new TemplateExecutor(plugin.app);
+		this.templateExecutor = new TemplateExecutor(plugin.app, plugin);
 	}
 
 	async getChapterContext(retrievalQuery: RetrievalQuery): Promise<Context> {

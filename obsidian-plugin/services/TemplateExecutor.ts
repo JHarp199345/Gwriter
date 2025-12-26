@@ -1,12 +1,18 @@
 import { App, TFile } from 'obsidian';
+import WritingDashboardPlugin from '../main';
+import { TemplateProcessor } from './TemplateProcessor';
 
 export class TemplateExecutor {
-	constructor(private app: App) {}
+	private templateProcessor: TemplateProcessor;
+	
+	constructor(private app: App, private plugin: WritingDashboardPlugin) {
+		// TemplateProcessor will be initialized in main.ts
+		// We'll get it from the plugin instance
+	}
 
 	/**
-	 * Execute an Obsidian template file and return the rendered output.
-	 * Uses command palette to trigger template insertion so Smart Connections processes it.
-	 * Creates a new leaf at root level that can be saved and evaluated.
+	 * Execute a template file and return the rendered output.
+	 * Uses our TemplateProcessor which registers hooks for Smart Connections.
 	 */
 	async executeTemplate(templatePath: string, activeFile: TFile | null): Promise<string> {
 		const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
@@ -14,7 +20,26 @@ export class TemplateExecutor {
 			throw new Error(`Template file not found: ${templatePath}`);
 		}
 
-		// Create a visible test note at root level
+		// Get the template processor from the plugin
+		const processor = (this.plugin as any).templateProcessorInstance;
+		if (!processor) {
+			throw new Error('TemplateProcessor not initialized. Please ensure the plugin has loaded.');
+		}
+
+		// Read template content
+		const templateContent = await this.app.vault.read(templateFile);
+		
+		console.debug(`[TemplateExecutor] Executing template: ${templatePath}`);
+		console.debug(`[TemplateExecutor] Template content: ${templateContent.substring(0, 200)}...`);
+		
+		// Process template using our processor (which Smart Connections can hook into)
+		const rendered = await processor.processTemplate(templateContent, { file: activeFile });
+		
+		// Log hook status for debugging
+		const hookStatus = processor.getHookStatus();
+		console.debug('[TemplateExecutor] Hook registration status:', hookStatus);
+		
+		// Create a visible test note at root level to see the rendered output
 		const testPath = `Template-Render-Test.md`;
 		const existingFile = this.app.vault.getAbstractFileByPath(testPath);
 		
@@ -23,43 +48,16 @@ export class TemplateExecutor {
 			await this.app.vault.delete(existingFile);
 		}
 		
-		// Create new empty test file
-		const testFile = await this.app.vault.create(testPath, '');
+		// Create new test file with rendered content
+		const testFile = await this.app.vault.create(testPath, rendered);
 		
-		try {
-			// Open the test file in a new leaf (required for template command to work)
-			const leaf = await this.app.workspace.openLinkText(testPath, '', true);
-			
-			// Wait a moment for the file to be fully opened and focused
-			await new Promise(resolve => setTimeout(resolve, 500));
-			
-			// Execute the template insertion command via command palette
-			// This will trigger Smart Connections to process {{smart-connections:similar:128}}
-			// The command will open a template picker - we need to handle that
-			const appWithCommands = this.app as any;
-			if (appWithCommands.commands && appWithCommands.commands.executeCommandById) {
-				await appWithCommands.commands.executeCommandById('templates:insert-template');
-			} else {
-				throw new Error('Command system not available');
-			}
-			
-			// Wait for user to select template (or if it auto-selects, wait for processing)
-			// Then wait longer for Smart Connections to process its syntax
-			// Smart Connections may need time to query embeddings and render results
-			await new Promise(resolve => setTimeout(resolve, 4000));
-			
-			// Read the rendered content
-			const rendered = await this.app.vault.read(testFile);
-			
-			// Note: Not closing the leaf - user can see and evaluate the rendered template
-			// File will be visible at root: Template-Render-Test.md
-			
-			return rendered;
-		} catch (error) {
-			console.error('[TemplateExecutor] Failed to render template:', error);
-			// Don't delete test file on error - user can inspect what happened
-			throw error;
-		}
+		// Open in a new leaf so user can see it
+		await this.app.workspace.openLinkText(testPath, '', true);
+		
+		console.debug(`[TemplateExecutor] Template rendered: ${rendered.length} chars`);
+		console.debug(`[TemplateExecutor] Rendered content preview: ${rendered.substring(0, 500)}...`);
+		
+		return rendered;
 	}
 
 	/**

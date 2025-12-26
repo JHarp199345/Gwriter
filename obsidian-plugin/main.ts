@@ -20,6 +20,7 @@ import { GenerationLogService } from './services/GenerationLogService';
 import { SetupWizardModal } from './ui/SetupWizard';
 import { BookMainSelectorModal } from './ui/BookMainSelectorModal';
 import { PublishWizardModal } from './ui/PublishWizardModal';
+import { TemplateProcessor } from './services/TemplateProcessor';
 
 export interface DashboardSettings {
 	apiKey: string;
@@ -378,6 +379,7 @@ export default class WritingDashboardPlugin extends Plugin {
 	bm25Index: Bm25Index;
 	cpuReranker: CpuReranker;
 	generationLogService: GenerationLogService;
+	templateProcessorInstance?: TemplateProcessor;
 	/**
 	 * When true, the next time the dashboard UI mounts it will start the guided demo flow.
 	 * This avoids wiring additional cross-component state management.
@@ -462,6 +464,10 @@ export default class WritingDashboardPlugin extends Plugin {
 		}
 		
 		this.vaultService = new VaultService(this.app.vault, this);
+		
+		// Initialize TemplateProcessor early so hooks are registered before Smart Connections needs them
+		this.templateProcessorInstance = new TemplateProcessor(this.app, this);
+		
 		this.contextAggregator = new ContextAggregator(this.app.vault, this, this.vaultService);
 		this.promptEngine = new PromptEngine();
 		this.aiClient = new AIClient();
