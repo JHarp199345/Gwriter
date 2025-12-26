@@ -174,6 +174,36 @@ export class SettingsTab extends PluginSettingTab {
 				});
 			});
 
+		// Local AI Setup (Ollama)
+		new Setting(containerEl).setName('Local AI Setup (Ollama)').setHeading();
+		containerEl.createEl('p', {
+			text: 'Install Ollama and pull the nomic-embed-text model to enable local semantic search. The plugin falls back to lexical search if Ollama is not available.'
+		});
+		new Setting(containerEl)
+			.setName('Check Ollama connection')
+			.setDesc('Verify that Ollama is running and the model nomic-embed-text is available.')
+			.addButton((btn) =>
+				btn
+					.setButtonText('Check Connection')
+					.onClick(async () => {
+						try {
+							const isRunning = await (this.plugin as any).ollama?.isAvailable?.();
+							if (!isRunning) {
+								new Notice('❌ Ollama not found at http://127.0.0.1:11434');
+								return;
+							}
+							const hasModel = await (this.plugin as any).ollama?.hasModel?.('nomic-embed-text');
+							if (!hasModel) {
+								new Notice('⚠️ Ollama is running, but \"nomic-embed-text\" is missing. Run \"ollama pull nomic-embed-text\" in terminal.');
+								return;
+							}
+							new Notice('✅ Success! Local AI is ready.');
+						} catch (err) {
+							new Notice(`❌ Ollama check failed: ${err instanceof Error ? err.message : String(err)}`);
+						}
+					})
+			);
+
 		// Retrieval / indexing settings
 		new Setting(containerEl).setName('Retrieval').setHeading();
 

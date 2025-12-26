@@ -375,6 +375,7 @@ export default class WritingDashboardPlugin extends Plugin {
 	cpuReranker: CpuReranker;
 	generationLogService: GenerationLogService;
 	templateProcessorInstance?: TemplateProcessor;
+	ollama: import('./services/retrieval/OllamaEmbeddingProvider').OllamaEmbeddingProvider;
 	/**
 	 * When true, the next time the dashboard UI mounts it will start the guided demo flow.
 	 * This avoids wiring additional cross-component state management.
@@ -477,8 +478,8 @@ export default class WritingDashboardPlugin extends Plugin {
 
 		// Retrieval / local indexing
 		this.queryBuilder = new QueryBuilder();
-		const ollamaProvider = new OllamaEmbeddingProvider(this.app);
-		this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this, ollamaProvider);
+		this.ollama = new OllamaEmbeddingProvider(this.app);
+		this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this, this.ollama);
 		this.cpuReranker = new CpuReranker();
 		this.generationLogService = new GenerationLogService(this.app, this);
 		

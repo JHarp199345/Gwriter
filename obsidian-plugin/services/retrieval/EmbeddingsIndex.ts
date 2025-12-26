@@ -205,6 +205,12 @@ export class EmbeddingsIndex {
 
 	private async _runWorker(): Promise<void> {
 		await this.ensureLoaded();
+		// If Ollama is not available, skip semantic indexing to avoid failures.
+		if (!(await this.embeddingProvider.isAvailable())) {
+			console.warn('[EmbeddingsIndex] Ollama not available; skipping semantic indexing');
+			this.workerRunning = false;
+			return;
+		}
 
 		let processedCount = 0;
 		let skippedExcluded = 0;
@@ -281,6 +287,12 @@ export class EmbeddingsIndex {
 
 	private async _reindexFile(path: string, content: string): Promise<void> {
 		this._removePath(path);
+
+		// If Ollama is not available, skip semantic indexing for this file.
+		if (!(await this.embeddingProvider.isAvailable())) {
+			console.warn(`[EmbeddingsIndex] Ollama not available; skipping file: ${path}`);
+			return;
+		}
 
 		// Skip empty files
 		if (!content || content.trim().length === 0) {

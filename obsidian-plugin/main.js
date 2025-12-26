@@ -67913,6 +67913,29 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
+    new import_obsidian11.Setting(containerEl).setName("Local AI Setup (Ollama)").setHeading();
+    containerEl.createEl("p", {
+      text: "Install Ollama and pull the nomic-embed-text model to enable local semantic search. The plugin falls back to lexical search if Ollama is not available."
+    });
+    new import_obsidian11.Setting(containerEl).setName("Check Ollama connection").setDesc("Verify that Ollama is running and the model nomic-embed-text is available.").addButton(
+      (btn) => btn.setButtonText("Check Connection").onClick(async () => {
+        try {
+          const isRunning = await this.plugin.ollama?.isAvailable?.();
+          if (!isRunning) {
+            new import_obsidian11.Notice("\u274C Ollama not found at http://127.0.0.1:11434");
+            return;
+          }
+          const hasModel = await this.plugin.ollama?.hasModel?.("nomic-embed-text");
+          if (!hasModel) {
+            new import_obsidian11.Notice('\u26A0\uFE0F Ollama is running, but "nomic-embed-text" is missing. Run "ollama pull nomic-embed-text" in terminal.');
+            return;
+          }
+          new import_obsidian11.Notice("\u2705 Success! Local AI is ready.");
+        } catch (err) {
+          new import_obsidian11.Notice(`\u274C Ollama check failed: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      })
+    );
     new import_obsidian11.Setting(containerEl).setName("Retrieval").setHeading();
     const profiles = Array.isArray(this.plugin.settings.retrievalProfiles) ? this.plugin.settings.retrievalProfiles : [];
     const activeProfileId = this.plugin.settings.retrievalActiveProfileId;
@@ -70798,6 +70821,11 @@ var EmbeddingsIndex = class {
   }
   async _runWorker() {
     await this.ensureLoaded();
+    if (!await this.embeddingProvider.isAvailable()) {
+      console.warn("[EmbeddingsIndex] Ollama not available; skipping semantic indexing");
+      this.workerRunning = false;
+      return;
+    }
     let processedCount = 0;
     let skippedExcluded = 0;
     let skippedNotMarkdown = 0;
@@ -70857,6 +70885,10 @@ var EmbeddingsIndex = class {
   }
   async _reindexFile(path, content) {
     this._removePath(path);
+    if (!await this.embeddingProvider.isAvailable()) {
+      console.warn(`[EmbeddingsIndex] Ollama not available; skipping file: ${path}`);
+      return;
+    }
     if (!content || content.trim().length === 0) {
       console.warn(`[EmbeddingsIndex] Skipping empty file: ${path}`);
       return;
@@ -71334,6 +71366,23 @@ var OllamaEmbeddingProvider = class {
       return res.status === 200;
     } catch (e) {
       console.warn("[Ollama] Not detected. Ensure 'ollama serve' is running.");
+      return false;
+    }
+  }
+  /**
+   * Check if a specific model is present in the local Ollama registry.
+   */
+  async hasModel(modelName = this.model) {
+    try {
+      const res = await (0, import_obsidian19.requestUrl)({ url: `${this.baseUrl}/api/tags`, method: "GET" });
+      if (res.status !== 200)
+        return false;
+      const tags = res.json?.models || res.json?.modelsList || res.json?.data;
+      if (Array.isArray(tags)) {
+        return tags.some((m) => m?.name === modelName || m?.model === modelName || m === modelName);
+      }
+      return false;
+    } catch {
       return false;
     }
   }
@@ -78687,8 +78736,8 @@ var WritingDashboardPlugin = class extends import_obsidian27.Plugin {
     this.aiClient = new AIClient();
     this.characterExtractor = new CharacterExtractor();
     this.queryBuilder = new QueryBuilder();
-    const ollamaProvider = new OllamaEmbeddingProvider(this.app);
-    this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this, ollamaProvider);
+    this.ollama = new OllamaEmbeddingProvider(this.app);
+    this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this, this.ollama);
     this.cpuReranker = new CpuReranker();
     this.generationLogService = new GenerationLogService(this.app, this);
     const providers = [
