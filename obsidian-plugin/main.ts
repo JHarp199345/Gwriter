@@ -115,6 +115,11 @@ export interface DashboardSettings {
 	 */
 	retrievalSource: 'local' | 'external-api';
 	/**
+	 * Enable external embedding API for retrieval (default: false).
+	 * When disabled, only local hash/BM25 embeddings are used.
+	 */
+	externalEmbeddingsEnabled?: boolean;
+	/**
 	 * External embedding API provider (OpenAI, Cohere, Google Gemini, or custom).
 	 */
 	externalEmbeddingProvider?: 'openai' | 'cohere' | 'google' | 'custom';
@@ -307,6 +312,7 @@ const DEFAULT_SETTINGS: DashboardSettings = {
 	retrievalEnableBm25: true,
 	retrievalEnableReranker: false,
 	retrievalSource: 'local',
+	externalEmbeddingsEnabled: false, // Default: disabled to prevent accidental API usage
 	externalEmbeddingProvider: undefined,
 	externalEmbeddingApiKey: undefined,
 	externalEmbeddingModel: undefined,
@@ -470,16 +476,18 @@ export default class WritingDashboardPlugin extends Plugin {
 			scProvider
 		];
 		
-		// Add semantic provider - automatically use external if configured, otherwise use local
-		const hasExternalConfig = Boolean(this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey);
-		if (hasExternalConfig) {
-			// Use external embeddings API automatically if configured (hybrid with BM25)
+		// Only add ExternalEmbeddingsProvider if explicitly enabled
+		if (this.settings.externalEmbeddingsEnabled && 
+			this.settings.externalEmbeddingProvider && 
+			this.settings.externalEmbeddingApiKey) {
 			providers.push(
 				new ExternalEmbeddingsProvider(
 					this,
 					this.embeddingsIndex,
 					this.bm25Index,
-					() => Boolean(this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey),
+					() => Boolean(this.settings.externalEmbeddingsEnabled && 
+								this.settings.externalEmbeddingProvider && 
+								this.settings.externalEmbeddingApiKey),
 					(path) => !this.vaultService.isExcludedPath(path)
 				)
 			);
@@ -624,7 +632,7 @@ export default class WritingDashboardPlugin extends Plugin {
 	 * Recreate the retrieval service with the current settings.
 	 * Called when retrievalSource or other retrieval settings change.
 	 */
-	async recreateRetrievalService(): Promise<void> {
+	recreateRetrievalService(): void {
 		const scProvider = new SmartConnectionsProvider(this.app, this, this.app.vault, (path) => !this.vaultService.isExcludedPath(path));
 		this.smartConnectionsProvider = scProvider;
 		
@@ -634,16 +642,25 @@ export default class WritingDashboardPlugin extends Plugin {
 			scProvider
 		];
 		
-		if (this.settings.retrievalSource === 'external-api') {
+		// Only add ExternalEmbeddingsProvider if explicitly enabled
+		if (this.settings.externalEmbeddingsEnabled && 
+			this.settings.externalEmbeddingProvider && 
+			this.settings.externalEmbeddingApiKey) {
 			providers.push(
 				new ExternalEmbeddingsProvider(
 					this,
 					this.embeddingsIndex,
 					this.bm25Index,
-					() => Boolean(this.settings.retrievalSource === 'external-api' && this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey),
+					() => Boolean(this.settings.externalEmbeddingsEnabled && 
+								this.settings.externalEmbeddingProvider && 
+								this.settings.externalEmbeddingApiKey),
 					(path) => !this.vaultService.isExcludedPath(path)
 				)
 			);
+		}
+		
+		if (this.settings.retrievalSource === 'external-api') {
+			// This branch is now handled above - keeping for backward compatibility
 		} else {
 			providers.push(
 				new LocalEmbeddingsProvider(

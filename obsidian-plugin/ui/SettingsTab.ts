@@ -342,10 +342,25 @@ export class SettingsTab extends PluginSettingTab {
 					})
 			);
 
-		// External embedding API settings (always shown - automatically used if configured)
+		// External embedding API settings
 		new Setting(containerEl)
-			.setName('External embedding provider')
-			.setDesc('Choose which external embedding API to use. If configured, external embeddings will be used automatically instead of local hash embeddings.')
+			.setName('Enable external embeddings')
+			.setDesc('⚠️ WARNING: Enabling this will make API calls during retrieval. Keep disabled to use only local hash/BM25 search (recommended).')
+			.addToggle((toggle) => {
+				toggle.setValue(Boolean(this.plugin.settings.externalEmbeddingsEnabled ?? false));
+				toggle.onChange(async (value) => {
+					this.plugin.settings.externalEmbeddingsEnabled = value;
+					await this.plugin.saveSettings();
+					this.plugin.recreateRetrievalService();
+					this.display(); // Refresh to show/hide settings
+				});
+			});
+
+		// Only show other external embedding settings if enabled
+		if (this.plugin.settings.externalEmbeddingsEnabled) {
+			new Setting(containerEl)
+				.setName('External embedding provider')
+				.setDesc('Choose which external embedding API to use. If configured, external embeddings will be used automatically instead of local hash embeddings.')
 				.addDropdown((dropdown) => {
 					dropdown.addOption('openai', 'OpenAI');
 					dropdown.addOption('cohere', 'Cohere');
@@ -365,7 +380,7 @@ export class SettingsTab extends PluginSettingTab {
 							this.plugin.settings.externalEmbeddingModel = '';
 						}
 						await this.plugin.saveSettings();
-						await this.plugin.recreateRetrievalService(); // Recreate to use new provider
+						this.plugin.recreateRetrievalService(); // Recreate to use new provider
 						this.display(); // Refresh to show provider-specific settings
 					});
 				});
@@ -380,7 +395,7 @@ export class SettingsTab extends PluginSettingTab {
 					text.onChange(async (value) => {
 						this.plugin.settings.externalEmbeddingApiKey = value;
 						await this.plugin.saveSettings();
-						await this.plugin.recreateRetrievalService(); // Recreate to use new API key
+						this.plugin.recreateRetrievalService(); // Recreate to use new API key
 					});
 				});
 
@@ -476,6 +491,7 @@ export class SettingsTab extends PluginSettingTab {
 						}
 					})
 				);
+		}
 
 		new Setting(containerEl)
 			.setName('Index chunk size (words)')

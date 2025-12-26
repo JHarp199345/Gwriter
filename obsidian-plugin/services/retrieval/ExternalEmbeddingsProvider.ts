@@ -1,6 +1,7 @@
 import type { ContextItem, RetrievalOptions, RetrievalProvider, RetrievalQuery } from './types';
 import type { EmbeddingsIndex } from './EmbeddingsIndex';
 import type { Bm25Index } from './Bm25Index';
+import { requestUrl } from 'obsidian';
 import WritingDashboardPlugin from '../../main';
 
 function dot(a: number[], b: number[]): number {
@@ -29,6 +30,19 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 	// Cache for embedding vectors (query text -> vector)
 	private readonly embeddingCache = new Map<string, { vector: number[]; timestamp: number }>();
 	private readonly cacheTtl = 3600000; // 1 hour
+	
+	// Rate limiting infrastructure
+	private readonly requestQueue: Array<{ resolve: (value: number[]) => void; reject: (error: Error) => void; query: string }> = [];
+	private requestInFlight = false;
+	private readonly maxConcurrentRequests = 1; // Serialize requests to avoid bursts
+	private readonly minRequestInterval = 100; // Minimum 100ms between requests
+	private lastRequestTime = 0;
+	private readonly retryConfig = {
+		maxRetries: 3,
+		baseDelay: 1000, // 1 second
+		maxDelay: 10000, // 10 seconds
+		backoffMultiplier: 2
+	};
 
 	constructor(
 		plugin: WritingDashboardPlugin,
@@ -51,6 +65,13 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 			return cached.vector;
 		}
 
+		// Rate limiting: ensure minimum interval between requests
+		const now = Date.now();
+		const timeSinceLastRequest = now - this.lastRequestTime;
+		if (timeSinceLastRequest < this.minRequestInterval) {
+			await new Promise(resolve => setTimeout(resolve, this.minRequestInterval - timeSinceLastRequest));
+		}
+
 		const settings = this.plugin.settings;
 		const provider = settings.externalEmbeddingProvider;
 		const apiKey = settings.externalEmbeddingApiKey;
@@ -61,27 +82,58 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 			throw new Error('External embedding provider or API key not configured');
 		}
 
-		let vector: number[];
-		try {
-			if (provider === 'openai') {
-				vector = await this.callOpenAIEmbedding(apiKey, model, query);
-			} else if (provider === 'cohere') {
-				vector = await this.callCohereEmbedding(apiKey, model, query);
-			} else if (provider === 'google') {
-				vector = await this.callGoogleEmbedding(apiKey, model, query, settings.externalEmbeddingUseBatch || false);
-			} else if (provider === 'custom' && apiUrl) {
-				vector = await this.callCustomEmbedding(apiUrl, query);
-			} else {
-				throw new Error(`Unsupported embedding provider: ${provider}`);
-			}
+		// Retry logic with exponential backoff
+		let lastError: Error | null = null;
+		for (let attempt = 0; attempt <= this.retryConfig.maxRetries; attempt++) {
+			try {
+				this.lastRequestTime = Date.now();
+				
+				let vector: number[];
+				if (provider === 'openai') {
+					vector = await this.callOpenAIEmbedding(apiKey, model, query);
+				} else if (provider === 'cohere') {
+					vector = await this.callCohereEmbedding(apiKey, model, query);
+				} else if (provider === 'google') {
+					vector = await this.callGoogleEmbedding(apiKey, model, query, settings.externalEmbeddingUseBatch || false);
+				} else if (provider === 'custom' && apiUrl) {
+					vector = await this.callCustomEmbedding(apiUrl, query);
+				} else {
+					throw new Error(`Unsupported embedding provider: ${provider}`);
+				}
 
-			// Cache the result
-			this.embeddingCache.set(query, { vector, timestamp: Date.now() });
-			return vector;
-		} catch (error) {
-			console.error(`[ExternalEmbeddingsProvider] Failed to get embedding:`, error);
-			throw error;
+				// Cache the result
+				this.embeddingCache.set(query, { vector, timestamp: Date.now() });
+				return vector;
+				
+			} catch (error) {
+				lastError = error instanceof Error ? error : new Error(String(error));
+				
+				// Check if it's a 429 error
+				const isRateLimit = lastError.message.includes('429') || 
+								   lastError.message.includes('rate limit') ||
+								   lastError.message.includes('too many requests');
+				
+				// If it's a 429 and we have retries left, wait and retry
+				if (isRateLimit && attempt < this.retryConfig.maxRetries) {
+					const delay = Math.min(
+						this.retryConfig.baseDelay * Math.pow(this.retryConfig.backoffMultiplier, attempt),
+						this.retryConfig.maxDelay
+					);
+					console.warn(`[ExternalEmbeddingsProvider] Rate limited (429), retrying in ${delay}ms (attempt ${attempt + 1}/${this.retryConfig.maxRetries + 1})`);
+					await new Promise(resolve => setTimeout(resolve, delay));
+					continue;
+				}
+				
+				// If it's not a 429, or we're out of retries, throw immediately
+				if (!isRateLimit || attempt >= this.retryConfig.maxRetries) {
+					break;
+				}
+			}
 		}
+		
+		// All retries exhausted
+		console.error(`[ExternalEmbeddingsProvider] Failed to get embedding after ${this.retryConfig.maxRetries + 1} attempts:`, lastError);
+		throw lastError || new Error('Failed to get embedding');
 	}
 
 	private getDefaultModel(provider?: string): string {
@@ -98,7 +150,8 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 	}
 
 	private async callOpenAIEmbedding(apiKey: string, model: string, query: string): Promise<number[]> {
-		const response = await fetch('https://api.openai.com/v1/embeddings', {
+		const response = await requestUrl({
+			url: 'https://api.openai.com/v1/embeddings',
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -110,12 +163,17 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 			})
 		});
 
-		if (!response.ok) {
-			const error = await response.text();
-			throw new Error(`OpenAI embedding API error: ${response.status} ${error}`);
+		if (response.status !== 200) {
+			const errorText = response.text || '';
+			// Check for 429 specifically
+			if (response.status === 429) {
+				const retryAfter = response.headers['retry-after'] || response.headers['Retry-After'];
+				throw new Error(`OpenAI rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : 'Please wait before retrying.'}`);
+			}
+			throw new Error(`OpenAI embedding API error: ${response.status} ${errorText}`);
 		}
 
-		const data: EmbeddingApiResponse = await response.json();
+		const data: EmbeddingApiResponse = typeof response.json === 'object' ? response.json : JSON.parse(response.text);
 		if (data.data && data.data[0] && data.data[0].embedding) {
 			return data.data[0].embedding;
 		}
@@ -123,7 +181,8 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 	}
 
 	private async callCohereEmbedding(apiKey: string, model: string, query: string): Promise<number[]> {
-		const response = await fetch('https://api.cohere.ai/v1/embed', {
+		const response = await requestUrl({
+			url: 'https://api.cohere.ai/v1/embed',
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -135,12 +194,17 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 			})
 		});
 
-		if (!response.ok) {
-			const error = await response.text();
-			throw new Error(`Cohere embedding API error: ${response.status} ${error}`);
+		if (response.status !== 200) {
+			const errorText = response.text || '';
+			// Check for 429 specifically
+			if (response.status === 429) {
+				const retryAfter = response.headers['retry-after'] || response.headers['Retry-After'];
+				throw new Error(`Cohere rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : 'Please wait before retrying.'}`);
+			}
+			throw new Error(`Cohere embedding API error: ${response.status} ${errorText}`);
 		}
 
-		const data: EmbeddingApiResponse = await response.json();
+		const data: EmbeddingApiResponse = typeof response.json === 'object' ? response.json : JSON.parse(response.text);
 		if (data.embeddings && data.embeddings[0]) {
 			return data.embeddings[0];
 		}
@@ -149,55 +213,61 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 
 	private async callGoogleEmbedding(apiKey: string, model: string, query: string, useBatch: boolean): Promise<number[]> {
 		if (useBatch) {
-			const response = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents?key=${apiKey}`,
-				{
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify({
-						requests: [{
-							content: {
-								parts: [{ text: query }]
-							}
-						}]
-					})
-				}
-			);
+			const response = await requestUrl({
+				url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents?key=${apiKey}`,
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					requests: [{
+						content: {
+							parts: [{ text: query }]
+						}
+					}]
+				})
+			});
 
-			if (!response.ok) {
-				const error = await response.text();
-				throw new Error(`Google Gemini batch embedding API error: ${response.status} ${error}`);
+			if (response.status !== 200) {
+				const errorText = response.text || '';
+				// Check for 429 specifically
+				if (response.status === 429) {
+					const retryAfter = response.headers['retry-after'] || response.headers['Retry-After'];
+					throw new Error(`Google Gemini rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : 'Please wait before retrying.'}`);
+				}
+				throw new Error(`Google Gemini batch embedding API error: ${response.status} ${errorText}`);
 			}
 
-			const data: { embeddings?: Array<{ values?: number[] }> } = await response.json();
+			const data: { embeddings?: Array<{ values?: number[] }> } = typeof response.json === 'object' ? response.json : JSON.parse(response.text);
 			if (data.embeddings && data.embeddings[0] && data.embeddings[0].values) {
 				return data.embeddings[0].values;
 			}
 			throw new Error('Invalid Google Gemini batch embedding response format');
 		} else {
-			const response = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${apiKey}`,
-				{
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify({
-						content: {
-							parts: [{ text: query }]
-						}
-					})
-				}
-			);
+			const response = await requestUrl({
+				url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${apiKey}`,
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					content: {
+						parts: [{ text: query }]
+					}
+				})
+			});
 
-			if (!response.ok) {
-				const error = await response.text();
-				throw new Error(`Google Gemini embedding API error: ${response.status} ${error}`);
+			if (response.status !== 200) {
+				const errorText = response.text || '';
+				// Check for 429 specifically
+				if (response.status === 429) {
+					const retryAfter = response.headers['retry-after'] || response.headers['Retry-After'];
+					throw new Error(`Google Gemini rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : 'Please wait before retrying.'}`);
+				}
+				throw new Error(`Google Gemini embedding API error: ${response.status} ${errorText}`);
 			}
 
-			const data: { embedding?: { values?: number[] } } = await response.json();
+			const data: { embedding?: { values?: number[] } } = typeof response.json === 'object' ? response.json : JSON.parse(response.text);
 			if (data.embedding && data.embedding.values) {
 				return data.embedding.values;
 			}
@@ -206,7 +276,8 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 	}
 
 	private async callCustomEmbedding(apiUrl: string, query: string): Promise<number[]> {
-		const response = await fetch(apiUrl, {
+		const response = await requestUrl({
+			url: apiUrl,
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
@@ -216,12 +287,17 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 			})
 		});
 
-		if (!response.ok) {
-			const error = await response.text();
-			throw new Error(`Custom embedding API error: ${response.status} ${error}`);
+		if (response.status !== 200) {
+			const errorText = response.text || '';
+			// Check for 429 specifically
+			if (response.status === 429) {
+				const retryAfter = response.headers['retry-after'] || response.headers['Retry-After'];
+				throw new Error(`Custom embedding API rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : 'Please wait before retrying.'}`);
+			}
+			throw new Error(`Custom embedding API error: ${response.status} ${errorText}`);
 		}
 
-		const data = await response.json();
+		const data = typeof response.json === 'object' ? response.json : JSON.parse(response.text);
 		// Try common response formats
 		if (Array.isArray(data)) {
 			return data;

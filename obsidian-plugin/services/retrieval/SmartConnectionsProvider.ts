@@ -91,7 +91,7 @@ export class SmartConnectionsProvider implements RetrievalProvider {
 		} else if (level === 'warn') {
 			console.warn(logMessage);
 		} else {
-			console.log(logMessage);
+			console.debug(logMessage);
 		}
 	}
 
@@ -373,6 +373,7 @@ export class SmartConnectionsProvider implements RetrievalProvider {
 	async captureFromDom(sourceNotePath?: string): Promise<Array<{ path: string; score: number }>> {
 		const sessionId = this.generateSessionId();
 		this.currentSessionId = sessionId;
+		await Promise.resolve(); // Ensure async
 		
 		this.log('info', 'Starting DOM capture', {
 			sourceNotePath: sourceNotePath || '(not provided)',
@@ -601,6 +602,7 @@ export class SmartConnectionsProvider implements RetrievalProvider {
 		query: string,
 		limit: number
 	): Promise<ScoredCacheItem[]> {
+		await Promise.resolve(); // Ensure async
 		const queryTokens = this.tokenize(query);
 		const maxScoreFiles = this.plugin.settings.smartConnectionsMaxScoreFiles ?? 50;
 		const itemsToScore = cache.results.slice(0, Math.min(cache.results.length, maxScoreFiles));
@@ -1130,5 +1132,23 @@ export class SmartConnectionsProvider implements RetrievalProvider {
 		return {
 			available: true
 		};
+	}
+
+	/**
+	 * Get cached file paths directly (no search, no API calls).
+	 * Used for pure boost/filter operations in hybrid retrieval.
+	 */
+	async getCachePaths(): Promise<string[]> {
+		const cache = this.getCache();
+		if (!cache) return [];
+		
+		const enabled = this.plugin.settings.smartConnectionsCacheEnabled ?? false;
+		if (!enabled) return [];
+		
+		// Check freshness
+		if (!this.isCacheFresh(cache)) return [];
+		
+		// Return just the paths - no scoring, no API calls
+		return cache.results.map(r => r.path);
 	}
 }
