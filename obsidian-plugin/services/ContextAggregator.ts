@@ -9,7 +9,7 @@ export class ContextAggregator {
 	private vault: Vault;
 	private plugin: WritingDashboardPlugin;
 	private vaultService: VaultService;
-	private templateExecutor: TemplateExecutor;
+	public templateExecutor: TemplateExecutor;
 
 	private budgetToChars(tokens: number): number {
 		// estimateTokens uses ~4 chars per token; invert that here
@@ -198,11 +198,11 @@ export class ContextAggregator {
 		return lines.join('\n\n---\n\n');
 	}
 
-	private async getRetrievedContext(query: RetrievalQuery, limit: number): Promise<string> {
+	private async getRetrievedContext(query: RetrievalQuery, limit: number, scTemplatePaths?: string[]): Promise<string> {
 		try {
 			let results = await this.plugin.retrievalService.search(query, {
 				limit: Math.max(1, Math.min(200, limit))
-			});
+			}, scTemplatePaths);
 			if (this.plugin.settings.retrievalEnableReranker) {
 				try {
 					results = await this.plugin.cpuReranker.rerank(query.text || '', results, { limit: Math.max(1, Math.min(200, limit)) });

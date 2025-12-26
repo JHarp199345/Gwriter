@@ -20,8 +20,10 @@ export class TemplateExecutor {
 		// We'll use app.templates.renderTemplate() if available, or manual rendering
 		try {
 			// Try Obsidian's native template rendering
-			if (this.app.templates && typeof this.app.templates.renderTemplate === 'function') {
-				return await this.app.templates.renderTemplate(templateContent, activeFile);
+			// Note: app.templates may not be in TypeScript definitions, so we use type assertion
+			const appWithTemplates = this.app as any;
+			if (appWithTemplates.templates && typeof appWithTemplates.templates.renderTemplate === 'function') {
+				return await appWithTemplates.templates.renderTemplate(templateContent, activeFile);
 			}
 			
 			// Fallback: Manual template processing (if native API not available)

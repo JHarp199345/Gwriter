@@ -228,6 +228,12 @@ export interface DashboardSettings {
 	 */
 	smartConnectionsKeyingMode?: 'strict' | 'soft';
 	/**
+	 * Path to Smart Connections template file.
+	 * Template should contain {{smart-connections:similar:128}} to surface semantic matches.
+	 * If not set, Smart Connections template integration is disabled.
+	 */
+	smartConnectionsTemplatePath?: string;
+	/**
 	 * Folder-based retrieval profiles (safety rails).
 	 * The active profile controls which folders are included for retrieval/indexing.
 	 */
