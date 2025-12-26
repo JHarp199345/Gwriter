@@ -43,6 +43,38 @@ export class TemplateExecutor {
 		// We'll get it from the plugin instance
 	}
 
+	private async waitForSmartConnectionsReady(timeoutMs = 20000, intervalMs = 500): Promise<void> {
+		const appWithPlugins = this.app as any;
+		const appWithCommands = this.app as any;
+		const start = Date.now();
+		let nudged = false;
+
+		while (Date.now() - start < timeoutMs) {
+			const sc = appWithPlugins.plugins?.plugins?.['smart-connections'];
+			const loaded = !!sc?.instance;
+			const enabled = sc?.enabled === true;
+			if (sc && loaded && enabled) {
+				console.log('[TemplateExecutor] ✅ Smart Connections is loaded and enabled');
+				return;
+			}
+
+			// Nudge Smart Connections once by opening its view (can help initialize)
+			if (!nudged && appWithCommands.commands?.executeCommandById) {
+				try {
+					console.log('[TemplateExecutor] 🔔 Nudging Smart Connections by opening its view...');
+					await appWithCommands.commands.executeCommandById('smart-connections:smart-connections-view');
+				} catch (err) {
+					console.warn('[TemplateExecutor] ⚠️ Failed to nudge Smart Connections view:', err);
+				}
+				nudged = true;
+			}
+
+			await new Promise(res => setTimeout(res, intervalMs));
+		}
+
+		throw new Error('Smart Connections not loaded/enabled after waiting 20s; cannot process template.');
+	}
+
 	/**
 	 * Execute a template file and return the rendered output.
 	 * Tries multiple approaches:
@@ -56,6 +88,14 @@ export class TemplateExecutor {
 		}
 
 		console.log(`[TemplateExecutor] 🚀 Executing template: ${templatePath}`);
+
+		// Ensure Smart Connections is actually loaded and enabled before proceeding
+		try {
+			await this.waitForSmartConnectionsReady();
+		} catch (err) {
+			console.warn('[TemplateExecutor] ⚠️ Smart Connections not ready:', err);
+			// Continue, but SC processing is unlikely to work
+		}
 		
 		// APPROACH 1: User-driven Templates command (Smart Connections friendly)
 		console.log('[TemplateExecutor] 📝 Prompting user to run Templates: Insert Template...');

@@ -68987,6 +68987,32 @@ var TemplateExecutor = class {
     this.app = app;
     this.plugin = plugin;
   }
+  async waitForSmartConnectionsReady(timeoutMs = 2e4, intervalMs = 500) {
+    const appWithPlugins = this.app;
+    const appWithCommands = this.app;
+    const start = Date.now();
+    let nudged = false;
+    while (Date.now() - start < timeoutMs) {
+      const sc = appWithPlugins.plugins?.plugins?.["smart-connections"];
+      const loaded = !!sc?.instance;
+      const enabled = sc?.enabled === true;
+      if (sc && loaded && enabled) {
+        console.log("[TemplateExecutor] \u2705 Smart Connections is loaded and enabled");
+        return;
+      }
+      if (!nudged && appWithCommands.commands?.executeCommandById) {
+        try {
+          console.log("[TemplateExecutor] \u{1F514} Nudging Smart Connections by opening its view...");
+          await appWithCommands.commands.executeCommandById("smart-connections:smart-connections-view");
+        } catch (err) {
+          console.warn("[TemplateExecutor] \u26A0\uFE0F Failed to nudge Smart Connections view:", err);
+        }
+        nudged = true;
+      }
+      await new Promise((res) => setTimeout(res, intervalMs));
+    }
+    throw new Error("Smart Connections not loaded/enabled after waiting 20s; cannot process template.");
+  }
   /**
    * Execute a template file and return the rendered output.
    * Tries multiple approaches:
@@ -68999,6 +69025,11 @@ var TemplateExecutor = class {
       throw new Error(`Template file not found: ${templatePath}`);
     }
     console.log(`[TemplateExecutor] \u{1F680} Executing template: ${templatePath}`);
+    try {
+      await this.waitForSmartConnectionsReady();
+    } catch (err) {
+      console.warn("[TemplateExecutor] \u26A0\uFE0F Smart Connections not ready:", err);
+    }
     console.log("[TemplateExecutor] \u{1F4DD} Prompting user to run Templates: Insert Template...");
     try {
       const userResult = await this.executeNativeTemplateWithPrompt(templateFile);
