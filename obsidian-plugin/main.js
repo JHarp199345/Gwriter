@@ -68251,10 +68251,20 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
       }
     }
     new import_obsidian11.Setting(containerEl).setName("Smart Connections").setHeading();
-    new import_obsidian11.Setting(containerEl).setName("Smart Connections template").setDesc("Template file that uses {{smart-connections:similar:128}} to surface semantic matches. Executed automatically before each generation.").addText((text2) => {
-      text2.setPlaceholder("Templates/SC-Context.md").setValue(this.plugin.settings.smartConnectionsTemplatePath || "").onChange(async (value) => {
-        this.plugin.settings.smartConnectionsTemplatePath = value || void 0;
-        await this.plugin.saveSettings();
+    const templateSetting = new import_obsidian11.Setting(containerEl).setName("Smart Connections template").setDesc("Template file that uses {{smart-connections:similar:128}} to surface semantic matches. Executed automatically before each generation.").addText((text2) => {
+      text2.setPlaceholder(".writing-dashboard/SC-Template.md").setValue(this.plugin.settings.smartConnectionsTemplatePath || "").setDisabled(true);
+      text2.inputEl.style.opacity = "0.7";
+    }).addButton((btn) => {
+      btn.setButtonText("Auto-generate").setCta().onClick(async () => {
+        btn.setButtonText("Generating...").setDisabled(true);
+        try {
+          const templatePath = await this.plugin.ensureSmartConnectionsTemplate();
+          new import_obsidian11.Notice(`Template created: ${templatePath}`, 3e3);
+          this.display();
+        } catch (error2) {
+          new import_obsidian11.Notice(`Failed to create template: ${error2 instanceof Error ? error2.message : String(error2)}`, 5e3);
+          btn.setButtonText("Auto-generate").setDisabled(false);
+        }
       });
     }).addButton((btn) => {
       btn.setButtonText("Browse").onClick(async () => {
@@ -68273,180 +68283,15 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
       });
     });
     if (this.plugin.settings.smartConnectionsTemplatePath) {
+      const templateFile = this.app.vault.getAbstractFileByPath(this.plugin.settings.smartConnectionsTemplatePath);
+      const statusDesc = templateFile instanceof import_obsidian11.TFile ? `Template file exists and is configured. Contains: {{smart-connections:similar:128}}` : `Template path configured but file not found: ${this.plugin.settings.smartConnectionsTemplatePath}`;
+      const infoBox = containerEl.createDiv({ cls: "writing-dashboard-info-box" });
+      infoBox.createEl("p", { text: statusDesc });
+    } else {
       const infoBox = containerEl.createDiv({ cls: "writing-dashboard-info-box" });
       infoBox.createEl("p", {
-        text: "Template should contain: {{smart-connections:similar:128}}"
+        text: 'Click "Auto-generate" to create the template file automatically. The template will be created at .writing-dashboard/SC-Template.md'
       });
-    }
-    new import_obsidian11.Setting(containerEl).setName("Smart Connections cache (legacy)").setHeading();
-    new import_obsidian11.Setting(containerEl).setName("Use Smart Connections cache").setDesc("Enable retrieval from cached Smart Connections results. Cache captures Smart Connections results **at the time you capture**.").addToggle(
-      (toggle) => toggle.setValue(Boolean(this.plugin.settings.smartConnectionsCacheEnabled)).onChange(async (value) => {
-        this.plugin.settings.smartConnectionsCacheEnabled = value;
-        await this.plugin.saveSettings();
-        this.display();
-      })
-    );
-    if (this.plugin.settings.smartConnectionsCacheEnabled) {
-      const scProvider = this.plugin.smartConnectionsProvider;
-      const cacheStatus = scProvider?.getCacheStatus() || { exists: false, enabled: false, count: 0, fresh: false };
-      const statusDesc = cacheStatus.exists ? `Cached: ${cacheStatus.count} notes \u2022 ${cacheStatus.age || "unknown"} ago \u2022 method: ${cacheStatus.method || "unknown"}${cacheStatus.sourceNote ? ` \u2022 from: ${cacheStatus.sourceNote}` : ""}` : "No cache available. Capture results to enable Smart Connections retrieval.";
-      new import_obsidian11.Setting(containerEl).setName("Cache status").setDesc(statusDesc).setDisabled(true);
-      const captureContainer = containerEl.createDiv();
-      new import_obsidian11.Setting(captureContainer).setName("Capture from Smart Connections (DOM)").setDesc("Capture results from Smart Connections view if open. Only enabled if SC view is detected with results.").addButton((btn) => {
-        if (scProvider) {
-          const viewCheck = scProvider.checkViewAvailable();
-          btn.setButtonText("Capture").setDisabled(!viewCheck.available).setTooltip(viewCheck.available ? "Click to capture Smart Connections results" : viewCheck.message || "Smart Connections view not available").onClick(async () => {
-            btn.setButtonText("Capturing...").setDisabled(true);
-            try {
-              const activeFile = this.app.workspace.getActiveFile();
-              const sourceNotePath = activeFile?.path;
-              const result = await scProvider.captureAndSaveFromDom(sourceNotePath);
-              if (result.success) {
-                new import_obsidian11.Notice(`Captured ${result.count} notes from Smart Connections`, 3e3);
-                this.display();
-              } else {
-                new import_obsidian11.Notice(result.message || "Capture failed", 5e3);
-              }
-            } catch (error2) {
-              new import_obsidian11.Notice(`Capture failed: ${error2 instanceof Error ? error2.message : String(error2)}`, 5e3);
-            } finally {
-              btn.setButtonText("Capture").setDisabled(false);
-            }
-          });
-        } else {
-          btn.setButtonText("Capture").setDisabled(true);
-        }
-      });
-      new import_obsidian11.Setting(captureContainer).setName("Capture from Clipboard").setDesc("Capture results from clipboard. Ensure clipboard contains Smart Connections results with markdown links.").addButton((btn) => {
-        if (scProvider) {
-          btn.setButtonText("Capture").onClick(async () => {
-            btn.setButtonText("Capturing...").setDisabled(true);
-            try {
-              const activeFile = this.app.workspace.getActiveFile();
-              const sourceNotePath = activeFile?.path;
-              const result = await scProvider.captureAndSaveFromClipboard(sourceNotePath);
-              if (result.success) {
-                new import_obsidian11.Notice(`Captured ${result.count} notes from clipboard`, 3e3);
-                this.display();
-              } else {
-                new import_obsidian11.Notice(result.message || "Capture failed", 5e3);
-              }
-            } catch (error2) {
-              new import_obsidian11.Notice(`Capture failed: ${error2 instanceof Error ? error2.message : String(error2)}`, 5e3);
-            } finally {
-              btn.setButtonText("Capture").setDisabled(false);
-            }
-          });
-        } else {
-          btn.setButtonText("Capture").setDisabled(true);
-        }
-      });
-      new import_obsidian11.Setting(containerEl).setName("Clear cache").setDesc("Remove all cached Smart Connections results.").addButton((btn) => {
-        if (scProvider) {
-          btn.setButtonText("Clear").setWarning().onClick(async () => {
-            await scProvider.clearCache();
-            new import_obsidian11.Notice("Smart Connections cache cleared", 3e3);
-            this.display();
-          });
-        } else {
-          btn.setButtonText("Clear").setDisabled(true);
-        }
-      });
-      if (cacheStatus.exists && cacheStatus.count > 0) {
-        const cache = this.plugin.settings.smartConnectionsCache;
-        if (cache) {
-          const expanderContainer = containerEl.createDiv();
-          new import_obsidian11.Setting(expanderContainer).setName("View cached items").setDesc(`Showing ${cache.results.length} cached items.`).addToggle((toggle) => {
-            toggle.setValue(false);
-            const itemsContainer = expanderContainer.createDiv({ cls: "writing-dashboard-cached-items" });
-            itemsContainer.style.display = "none";
-            toggle.onChange((value) => {
-              itemsContainer.style.display = value ? "block" : "none";
-              if (value && itemsContainer.children.length === 0) {
-                for (const item of cache.results) {
-                  const itemSetting = new import_obsidian11.Setting(itemsContainer).setName(item.path).setDesc(`Score: ${(item.score || 0.5).toFixed(2)} \u2022 Captured: ${item.capturedAt ? new Date(item.capturedAt).toLocaleString() : "unknown"}`).addButton((btn) => {
-                    btn.setButtonText("Remove").setWarning().onClick(async () => {
-                      cache.results = cache.results.filter((r) => r.path !== item.path);
-                      this.plugin.settings.smartConnectionsCache = cache;
-                      await this.plugin.saveSettings();
-                      this.display();
-                    });
-                  });
-                }
-              }
-            });
-          });
-        }
-      }
-      new import_obsidian11.Setting(containerEl).setName("Max capture files").setDesc("Maximum number of files to capture (default: 200).").addText((text2) => {
-        text2.setPlaceholder("200").setValue(String(this.plugin.settings.smartConnectionsMaxCaptureFiles ?? 200)).inputEl.type = "number";
-        text2.onChange(async (value) => {
-          const num = parseInt(value, 10);
-          if (!isNaN(num) && num > 0) {
-            this.plugin.settings.smartConnectionsMaxCaptureFiles = num;
-            await this.plugin.saveSettings();
-          }
-        });
-      });
-      new import_obsidian11.Setting(containerEl).setName("Max score files").setDesc("Maximum number of files to score per query (default: 50).").addText((text2) => {
-        text2.setPlaceholder("50").setValue(String(this.plugin.settings.smartConnectionsMaxScoreFiles ?? 50)).inputEl.type = "number";
-        text2.onChange(async (value) => {
-          const num = parseInt(value, 10);
-          if (!isNaN(num) && num > 0) {
-            this.plugin.settings.smartConnectionsMaxScoreFiles = num;
-            await this.plugin.saveSettings();
-          }
-        });
-      });
-      new import_obsidian11.Setting(containerEl).setName("Max context chars").setDesc("Maximum total context characters for excerpts (default: 30000).").addText((text2) => {
-        text2.setPlaceholder("30000").setValue(String(this.plugin.settings.smartConnectionsMaxContextChars ?? 3e4)).inputEl.type = "number";
-        text2.onChange(async (value) => {
-          const num = parseInt(value, 10);
-          if (!isNaN(num) && num > 0) {
-            this.plugin.settings.smartConnectionsMaxContextChars = num;
-            await this.plugin.saveSettings();
-          }
-        });
-      });
-      new import_obsidian11.Setting(containerEl).setName("Keying mode").setDesc("Strict: only use cache if source note matches. Soft: prefer match, allow manual override (default).").addDropdown((dropdown) => {
-        dropdown.addOption("soft", "Soft (prefer match, allow override)");
-        dropdown.addOption("strict", "Strict (only use if source matches)");
-        dropdown.setValue(this.plugin.settings.smartConnectionsKeyingMode ?? "soft");
-        dropdown.onChange(async (value) => {
-          this.plugin.settings.smartConnectionsKeyingMode = value;
-          await this.plugin.saveSettings();
-        });
-      });
-      new import_obsidian11.Setting(containerEl).setName("Cache TTL (hours)").setDesc("Cache expiration time in hours. Leave empty for no expiration.").addText((text2) => {
-        text2.setPlaceholder("24 (or empty for no expiration)").setValue(this.plugin.settings.smartConnectionsCacheTTL ? String(this.plugin.settings.smartConnectionsCacheTTL) : "");
-        text2.inputEl.type = "number";
-        text2.onChange(async (value) => {
-          if (value.trim() === "") {
-            this.plugin.settings.smartConnectionsCacheTTL = void 0;
-          } else {
-            const num = parseFloat(value);
-            if (!isNaN(num) && num > 0) {
-              this.plugin.settings.smartConnectionsCacheTTL = num;
-            }
-          }
-          await this.plugin.saveSettings();
-        });
-      });
-      new import_obsidian11.Setting(containerEl).setName("Allowed folders (comma-separated)").setDesc("Folders to include. Leave empty to allow all folders (except blocked).").addText((text2) => {
-        text2.setPlaceholder("Characters, Notes").setValue((this.plugin.settings.smartConnectionsAllowedFolders || []).join(", ")).onChange(async (value) => {
-          const folders2 = value.split(",").map((f) => f.trim()).filter((f) => f.length > 0);
-          this.plugin.settings.smartConnectionsAllowedFolders = folders2;
-          await this.plugin.saveSettings();
-        });
-      });
-      new import_obsidian11.Setting(containerEl).setName("Blocked folders (comma-separated)").setDesc("Folders to exclude from Smart Connections cache.").addText((text2) => {
-        text2.setPlaceholder("Private, Journal").setValue((this.plugin.settings.smartConnectionsBlockedFolders || []).join(", ")).onChange(async (value) => {
-          const folders2 = value.split(",").map((f) => f.trim()).filter((f) => f.length > 0);
-          this.plugin.settings.smartConnectionsBlockedFolders = folders2;
-          await this.plugin.saveSettings();
-        });
-      });
-      containerEl.createDiv({ cls: "writing-dashboard-info-box" }).createEl("p", { text: "Review/remove cached notes before generation." });
     }
     new import_obsidian11.Setting(containerEl).setName("Generation logs").setHeading();
     new import_obsidian11.Setting(containerEl).setName("Save generation logs").setDesc("Writes a log note per generation run with inputs, retrieved context, and output. Logs are excluded from retrieval.").addToggle(
@@ -80051,6 +79896,23 @@ var WritingDashboardPlugin = class extends import_obsidian28.Plugin {
   async saveSettings() {
     await this.saveData(this.settings);
     this.notifyUi("writing-dashboard:settings-changed");
+  }
+  /**
+   * Auto-generate Smart Connections template file if it doesn't exist.
+   * Creates .writing-dashboard/SC-Template.md with Smart Connections syntax.
+   * Returns the path to the template file.
+   */
+  async ensureSmartConnectionsTemplate() {
+    const templatePath = ".writing-dashboard/SC-Template.md";
+    const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
+    if (!(templateFile instanceof import_obsidian28.TFile)) {
+      await this.vaultService.createFolderIfNotExists(".writing-dashboard");
+      const templateContent = "{{smart-connections:similar:128}}";
+      await this.vaultService.writeFile(templatePath, templateContent);
+      this.settings.smartConnectionsTemplatePath = templatePath;
+      await this.saveSettings();
+    }
+    return templatePath;
   }
   async activateView() {
     const { workspace } = this.app;

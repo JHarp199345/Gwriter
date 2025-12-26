@@ -755,6 +755,31 @@ export default class WritingDashboardPlugin extends Plugin {
 		this.notifyUi('writing-dashboard:settings-changed');
 	}
 
+	/**
+	 * Auto-generate Smart Connections template file if it doesn't exist.
+	 * Creates .writing-dashboard/SC-Template.md with Smart Connections syntax.
+	 * Returns the path to the template file.
+	 */
+	async ensureSmartConnectionsTemplate(): Promise<string> {
+		const templatePath = '.writing-dashboard/SC-Template.md';
+		const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
+		
+		if (!(templateFile instanceof TFile)) {
+			// Create folder if it doesn't exist
+			await this.vaultService.createFolderIfNotExists('.writing-dashboard');
+			
+			// Create template file with Smart Connections syntax
+			const templateContent = '{{smart-connections:similar:128}}';
+			await this.vaultService.writeFile(templatePath, templateContent);
+			
+			// Auto-configure the path in settings
+			this.settings.smartConnectionsTemplatePath = templatePath;
+			await this.saveSettings();
+		}
+		
+		return templatePath;
+	}
+
 	async activateView() {
 		const { workspace } = this.app;
 		let leaf = workspace.getLeavesOfType(VIEW_TYPE_DASHBOARD)[0];
