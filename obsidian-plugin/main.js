@@ -79516,97 +79516,109 @@ var TemplateProcessor = class {
    * We'll track which one actually gets used.
    */
   registerAllPossibleHooks() {
-    const appWithPlugins = this.app;
-    if (!appWithPlugins.templateProcessors) {
-      appWithPlugins.templateProcessors = [];
-    }
-    appWithPlugins.templateProcessors.push({
-      id: "writing-dashboard",
-      process: this.processTemplate.bind(this),
-      processTemplate: this.processTemplate.bind(this),
-      renderTemplate: this.processTemplate.bind(this),
-      plugin: this.plugin
-    });
-    this.logHookAttempt("app.templateProcessors array");
-    if (!appWithPlugins.plugins) {
-      appWithPlugins.plugins = {};
-    }
-    if (!appWithPlugins.plugins.templateProcessors) {
-      appWithPlugins.plugins.templateProcessors = {};
-    }
-    appWithPlugins.plugins.templateProcessors["writing-dashboard"] = {
-      process: this.processTemplate.bind(this),
-      processTemplate: this.processTemplate.bind(this),
-      renderTemplate: this.processTemplate.bind(this)
-    };
-    this.logHookAttempt("app.plugins.templateProcessors object");
-    if (!window.templateProcessors) {
-      window.templateProcessors = [];
-    }
-    window.templateProcessors.push({
-      id: "writing-dashboard",
-      process: this.processTemplate.bind(this),
-      processTemplate: this.processTemplate.bind(this)
-    });
-    this.logHookAttempt("window.templateProcessors array");
-    if (!window.templateProcessor) {
-      window.templateProcessor = {};
-    }
-    window.templateProcessor["writing-dashboard"] = this.processTemplate.bind(this);
-    this.logHookAttempt("window.templateProcessor object");
-    this.plugin.templateProcessor = this.processTemplate.bind(this);
-    this.plugin.processTemplate = this.processTemplate.bind(this);
-    this.plugin.renderTemplate = this.processTemplate.bind(this);
-    this.logHookAttempt("plugin instance methods");
-    window.addEventListener("template-process", this.handleTemplateProcess.bind(this));
-    window.addEventListener("template-processing", this.handleTemplateProcessing.bind(this));
-    this.logHookAttempt("window template-process event listeners");
-    if (appWithPlugins.templates) {
-      if (!appWithPlugins.templates.processors) {
-        appWithPlugins.templates.processors = [];
+    try {
+      const appWithPlugins = this.app;
+      if (!appWithPlugins.templateProcessors) {
+        appWithPlugins.templateProcessors = [];
       }
-      appWithPlugins.templates.processors.push({
+      appWithPlugins.templateProcessors.push({
         id: "writing-dashboard",
-        process: this.processTemplate.bind(this),
-        processTemplate: this.processTemplate.bind(this)
-      });
-      this.logHookAttempt("app.templates.processors");
-    }
-    const ourPlugin = appWithPlugins.plugins?.plugins?.["writing-dashboard"];
-    if (ourPlugin) {
-      ourPlugin.templateProcessor = this.processTemplate.bind(this);
-      ourPlugin.processTemplate = this.processTemplate.bind(this);
-      ourPlugin.renderTemplate = this.processTemplate.bind(this);
-    }
-    this.logHookAttempt("app.plugins.plugins[writing-dashboard]");
-    window.dispatchEvent(new CustomEvent("template-processor-registered", {
-      detail: {
-        id: "writing-dashboard",
+        name: "Writing Dashboard",
         process: this.processTemplate.bind(this),
         processTemplate: this.processTemplate.bind(this),
+        renderTemplate: this.processTemplate.bind(this),
         plugin: this.plugin
-      }
-    }));
-    this.logHookAttempt("template-processor-registered event");
-    if (appWithPlugins.plugins?.enabledPlugins) {
-      if (!appWithPlugins.plugins.enabledPlugins.templateProcessors) {
-        appWithPlugins.plugins.enabledPlugins.templateProcessors = [];
-      }
-      appWithPlugins.plugins.enabledPlugins.templateProcessors.push({
-        id: "writing-dashboard",
-        process: this.processTemplate.bind(this)
       });
-      this.logHookAttempt("app.plugins.enabledPlugins.templateProcessors");
-    }
-    window.writingDashboardProcessTemplate = this.processTemplate.bind(this);
-    this.logHookAttempt("window.writingDashboardProcessTemplate function");
-    if (appWithPlugins.plugins?.plugins) {
-      appWithPlugins.plugins.plugins["writing-dashboard-template"] = {
+      this.logHookAttempt("app.templateProcessors array");
+      if (!appWithPlugins.plugins) {
+        appWithPlugins.plugins = {};
+      }
+      if (!appWithPlugins.plugins.templateProcessors) {
+        appWithPlugins.plugins.templateProcessors = {};
+      }
+      appWithPlugins.plugins.templateProcessors["writing-dashboard"] = {
+        id: "writing-dashboard",
+        name: "Writing Dashboard",
+        process: this.processTemplate.bind(this),
+        processTemplate: this.processTemplate.bind(this),
+        renderTemplate: this.processTemplate.bind(this)
+      };
+      this.logHookAttempt("app.plugins.templateProcessors object");
+      if (!window.templateProcessors) {
+        window.templateProcessors = [];
+      }
+      window.templateProcessors.push({
+        id: "writing-dashboard",
+        name: "Writing Dashboard",
         process: this.processTemplate.bind(this),
         processTemplate: this.processTemplate.bind(this)
-      };
+      });
+      this.logHookAttempt("window.templateProcessors array");
+      if (!window.templateProcessor) {
+        window.templateProcessor = {};
+      }
+      window.templateProcessor["writing-dashboard"] = this.processTemplate.bind(this);
+      this.logHookAttempt("window.templateProcessor object");
+      this.plugin.templateProcessor = this.processTemplate.bind(this);
+      this.plugin.processTemplate = this.processTemplate.bind(this);
+      this.plugin.renderTemplate = this.processTemplate.bind(this);
+      this.logHookAttempt("plugin instance methods");
+      window.addEventListener("template-process", this.handleTemplateProcess.bind(this));
+      window.addEventListener("template-processing", this.handleTemplateProcessing.bind(this));
+      this.logHookAttempt("window template-process event listeners");
+      if (appWithPlugins.templates) {
+        if (!appWithPlugins.templates.processors) {
+          appWithPlugins.templates.processors = [];
+        }
+        appWithPlugins.templates.processors.push({
+          id: "writing-dashboard",
+          name: "Writing Dashboard",
+          process: this.processTemplate.bind(this),
+          processTemplate: this.processTemplate.bind(this)
+        });
+        this.logHookAttempt("app.templates.processors");
+      }
+      const ourPlugin = appWithPlugins.plugins?.plugins?.["writing-dashboard"];
+      if (ourPlugin) {
+        ourPlugin.templateProcessor = this.processTemplate.bind(this);
+        ourPlugin.processTemplate = this.processTemplate.bind(this);
+        ourPlugin.renderTemplate = this.processTemplate.bind(this);
+      }
+      this.logHookAttempt("app.plugins.plugins[writing-dashboard]");
+      window.dispatchEvent(new CustomEvent("template-processor-registered", {
+        detail: {
+          id: "writing-dashboard",
+          process: this.processTemplate.bind(this),
+          processTemplate: this.processTemplate.bind(this),
+          plugin: this.plugin
+        }
+      }));
+      this.logHookAttempt("template-processor-registered event");
+      if (appWithPlugins.plugins?.enabledPlugins) {
+        if (!appWithPlugins.plugins.enabledPlugins.templateProcessors) {
+          appWithPlugins.plugins.enabledPlugins.templateProcessors = [];
+        }
+        appWithPlugins.plugins.enabledPlugins.templateProcessors.push({
+          id: "writing-dashboard",
+          name: "Writing Dashboard",
+          process: this.processTemplate.bind(this)
+        });
+        this.logHookAttempt("app.plugins.enabledPlugins.templateProcessors");
+      }
+      window.writingDashboardProcessTemplate = this.processTemplate.bind(this);
+      this.logHookAttempt("window.writingDashboardProcessTemplate function");
+      if (appWithPlugins.plugins?.plugins) {
+        appWithPlugins.plugins.plugins["writing-dashboard-template"] = {
+          id: "writing-dashboard",
+          name: "Writing Dashboard",
+          process: this.processTemplate.bind(this),
+          processTemplate: this.processTemplate.bind(this)
+        };
+      }
+      this.logHookAttempt("app.plugins.plugins[writing-dashboard-template]");
+    } catch (error2) {
+      console.warn("[TemplateProcessor] Error during hook registration:", error2);
     }
-    this.logHookAttempt("app.plugins.plugins[writing-dashboard-template]");
   }
   logHookAttempt(method) {
     this.hookAttempts.set(method, false);

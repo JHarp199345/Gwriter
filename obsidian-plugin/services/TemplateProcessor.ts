@@ -17,7 +17,8 @@ export class TemplateProcessor {
 	 * We'll track which one actually gets used.
 	 */
 	private registerAllPossibleHooks(): void {
-		const appWithPlugins = this.app as any;
+		try {
+			const appWithPlugins = this.app as any;
 		
 		// Hook Method 1: Register in app.templateProcessors array
 		if (!appWithPlugins.templateProcessors) {
@@ -25,6 +26,7 @@ export class TemplateProcessor {
 		}
 		appWithPlugins.templateProcessors.push({
 			id: 'writing-dashboard',
+			name: 'Writing Dashboard',
 			process: this.processTemplate.bind(this),
 			processTemplate: this.processTemplate.bind(this),
 			renderTemplate: this.processTemplate.bind(this),
@@ -40,6 +42,8 @@ export class TemplateProcessor {
 			appWithPlugins.plugins.templateProcessors = {};
 		}
 		appWithPlugins.plugins.templateProcessors['writing-dashboard'] = {
+			id: 'writing-dashboard',
+			name: 'Writing Dashboard',
 			process: this.processTemplate.bind(this),
 			processTemplate: this.processTemplate.bind(this),
 			renderTemplate: this.processTemplate.bind(this)
@@ -52,6 +56,7 @@ export class TemplateProcessor {
 		}
 		(window as any).templateProcessors.push({
 			id: 'writing-dashboard',
+			name: 'Writing Dashboard',
 			process: this.processTemplate.bind(this),
 			processTemplate: this.processTemplate.bind(this)
 		});
@@ -82,6 +87,7 @@ export class TemplateProcessor {
 			}
 			appWithPlugins.templates.processors.push({
 				id: 'writing-dashboard',
+				name: 'Writing Dashboard',
 				process: this.processTemplate.bind(this),
 				processTemplate: this.processTemplate.bind(this)
 			});
@@ -115,6 +121,7 @@ export class TemplateProcessor {
 			}
 			appWithPlugins.plugins.enabledPlugins.templateProcessors.push({
 				id: 'writing-dashboard',
+				name: 'Writing Dashboard',
 				process: this.processTemplate.bind(this)
 			});
 			this.logHookAttempt('app.plugins.enabledPlugins.templateProcessors');
@@ -127,11 +134,17 @@ export class TemplateProcessor {
 		// Hook Method 12: Register in app.plugins.plugins namespace with different key
 		if (appWithPlugins.plugins?.plugins) {
 			appWithPlugins.plugins.plugins['writing-dashboard-template'] = {
+				id: 'writing-dashboard',
+				name: 'Writing Dashboard',
 				process: this.processTemplate.bind(this),
 				processTemplate: this.processTemplate.bind(this)
 			};
 		}
 		this.logHookAttempt('app.plugins.plugins[writing-dashboard-template]');
+		} catch (error) {
+			console.warn('[TemplateProcessor] Error during hook registration:', error);
+			// Don't throw - allow plugin to continue loading even if some hooks fail
+		}
 	}
 
 	private logHookAttempt(method: string): void {
