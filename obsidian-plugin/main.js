@@ -63986,7 +63986,7 @@ __export(main_exports, {
   default: () => WritingDashboardPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian24 = require("obsidian");
+var import_obsidian25 = require("obsidian");
 
 // ui/DashboardView.ts
 var import_obsidian7 = require("obsidian");
@@ -67878,33 +67878,6 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         }
       })
     );
-    new import_obsidian10.Setting(containerEl).setName("Use Smart Connections context (optional)").setDesc("Include Smart Connections context in prompts. Requires Smart Connections plugin to be installed.").addToggle(
-      (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableSmartConnectionsContext)).onChange(async (value) => {
-        this.plugin.settings.retrievalEnableSmartConnectionsContext = value;
-        await this.plugin.saveSettings();
-        this.display();
-      })
-    );
-    if (this.plugin.settings.retrievalEnableSmartConnectionsContext) {
-      new import_obsidian10.Setting(containerEl).setName("Smart Connections context source").setDesc("How to get Smart Connections context: via Bases files or a copied context note.").addDropdown((dropdown) => {
-        dropdown.addOption("bases", "Via Bases");
-        dropdown.addOption("copied-note", "Via copied context note");
-        dropdown.setValue(this.plugin.settings.smartConnectionsContextSource ?? "bases");
-        dropdown.onChange(async (value) => {
-          this.plugin.settings.smartConnectionsContextSource = value;
-          await this.plugin.saveSettings();
-          this.display();
-        });
-      });
-      if (this.plugin.settings.smartConnectionsContextSource === "copied-note") {
-        new import_obsidian10.Setting(containerEl).setName("Smart Connections context note path").setDesc("Path to the note containing Smart Connections context (e.g., Smart Connections/Context.md).").addText(
-          (text2) => text2.setPlaceholder("Smart Connections/Context.md").setValue(this.plugin.settings.smartConnectionsContextNotePath ?? "").onChange(async (value) => {
-            this.plugin.settings.smartConnectionsContextNotePath = value;
-            await this.plugin.saveSettings();
-          })
-        );
-      }
-    }
     new import_obsidian10.Setting(containerEl).setName("Index chunk size (words)").setDesc("Controls how your notes are chunked for semantic retrieval. Larger chunks add more context but may reduce precision.").addText(
       (text2) => text2.setPlaceholder("500").setValue(String(this.plugin.settings.retrievalChunkWords ?? 500)).onChange(async (value) => {
         const parsed = parseInt(value, 10);
@@ -67980,6 +67953,176 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
           })
         );
       }
+    }
+    new import_obsidian10.Setting(containerEl).setName("Smart Connections cache").setHeading();
+    new import_obsidian10.Setting(containerEl).setName("Use Smart Connections cache").setDesc("Enable retrieval from cached Smart Connections results. Cache captures Smart Connections results **at the time you capture**.").addToggle(
+      (toggle) => toggle.setValue(Boolean(this.plugin.settings.smartConnectionsCacheEnabled)).onChange(async (value) => {
+        this.plugin.settings.smartConnectionsCacheEnabled = value;
+        await this.plugin.saveSettings();
+        this.display();
+      })
+    );
+    if (this.plugin.settings.smartConnectionsCacheEnabled) {
+      const scProvider = this.plugin.smartConnectionsProvider;
+      const cacheStatus = scProvider?.getCacheStatus() || { exists: false, enabled: false, count: 0, fresh: false };
+      const statusDesc = cacheStatus.exists ? `Cached: ${cacheStatus.count} notes \u2022 ${cacheStatus.age || "unknown"} ago \u2022 method: ${cacheStatus.method || "unknown"}${cacheStatus.sourceNote ? ` \u2022 from: ${cacheStatus.sourceNote}` : ""}` : "No cache available. Capture results to enable Smart Connections retrieval.";
+      new import_obsidian10.Setting(containerEl).setName("Cache status").setDesc(statusDesc).setDisabled(true);
+      const captureContainer = containerEl.createDiv();
+      new import_obsidian10.Setting(captureContainer).setName("Capture from Smart Connections (DOM)").setDesc("Capture results from Smart Connections view if open. Only enabled if SC view is detected with results.").addButton((btn) => {
+        if (scProvider) {
+          const viewCheck = scProvider.checkViewAvailable();
+          btn.setButtonText("Capture").setDisabled(!viewCheck.available).setTooltip(viewCheck.available ? "Click to capture Smart Connections results" : viewCheck.message || "Smart Connections view not available").onClick(async () => {
+            btn.setButtonText("Capturing...").setDisabled(true);
+            try {
+              const activeFile = this.app.workspace.getActiveFile();
+              const sourceNotePath = activeFile?.path;
+              const result = await scProvider.captureAndSaveFromDom(sourceNotePath);
+              if (result.success) {
+                new import_obsidian10.Notice(`Captured ${result.count} notes from Smart Connections`, 3e3);
+                this.display();
+              } else {
+                new import_obsidian10.Notice(result.message || "Capture failed", 5e3);
+              }
+            } catch (error2) {
+              new import_obsidian10.Notice(`Capture failed: ${error2 instanceof Error ? error2.message : String(error2)}`, 5e3);
+            } finally {
+              btn.setButtonText("Capture").setDisabled(false);
+            }
+          });
+        } else {
+          btn.setButtonText("Capture").setDisabled(true);
+        }
+      });
+      new import_obsidian10.Setting(captureContainer).setName("Capture from Clipboard").setDesc("Capture results from clipboard. Ensure clipboard contains Smart Connections results with markdown links.").addButton((btn) => {
+        if (scProvider) {
+          btn.setButtonText("Capture").onClick(async () => {
+            btn.setButtonText("Capturing...").setDisabled(true);
+            try {
+              const activeFile = this.app.workspace.getActiveFile();
+              const sourceNotePath = activeFile?.path;
+              const result = await scProvider.captureAndSaveFromClipboard(sourceNotePath);
+              if (result.success) {
+                new import_obsidian10.Notice(`Captured ${result.count} notes from clipboard`, 3e3);
+                this.display();
+              } else {
+                new import_obsidian10.Notice(result.message || "Capture failed", 5e3);
+              }
+            } catch (error2) {
+              new import_obsidian10.Notice(`Capture failed: ${error2 instanceof Error ? error2.message : String(error2)}`, 5e3);
+            } finally {
+              btn.setButtonText("Capture").setDisabled(false);
+            }
+          });
+        } else {
+          btn.setButtonText("Capture").setDisabled(true);
+        }
+      });
+      new import_obsidian10.Setting(containerEl).setName("Clear cache").setDesc("Remove all cached Smart Connections results.").addButton((btn) => {
+        if (scProvider) {
+          btn.setButtonText("Clear").setWarning().onClick(async () => {
+            await scProvider.clearCache();
+            new import_obsidian10.Notice("Smart Connections cache cleared", 3e3);
+            this.display();
+          });
+        } else {
+          btn.setButtonText("Clear").setDisabled(true);
+        }
+      });
+      if (cacheStatus.exists && cacheStatus.count > 0) {
+        const cache = this.plugin.settings.smartConnectionsCache;
+        if (cache) {
+          const expanderContainer = containerEl.createDiv();
+          new import_obsidian10.Setting(expanderContainer).setName("View cached items").setDesc(`Showing ${cache.results.length} cached items.`).addToggle((toggle) => {
+            toggle.setValue(false);
+            const itemsContainer = expanderContainer.createDiv({ cls: "writing-dashboard-cached-items" });
+            itemsContainer.style.display = "none";
+            toggle.onChange((value) => {
+              itemsContainer.style.display = value ? "block" : "none";
+              if (value && itemsContainer.children.length === 0) {
+                for (const item of cache.results) {
+                  const itemSetting = new import_obsidian10.Setting(itemsContainer).setName(item.path).setDesc(`Score: ${(item.score || 0.5).toFixed(2)} \u2022 Captured: ${item.capturedAt ? new Date(item.capturedAt).toLocaleString() : "unknown"}`).addButton((btn) => {
+                    btn.setButtonText("Remove").setWarning().onClick(async () => {
+                      cache.results = cache.results.filter((r) => r.path !== item.path);
+                      this.plugin.settings.smartConnectionsCache = cache;
+                      await this.plugin.saveSettings();
+                      this.display();
+                    });
+                  });
+                }
+              }
+            });
+          });
+        }
+      }
+      new import_obsidian10.Setting(containerEl).setName("Max capture files").setDesc("Maximum number of files to capture (default: 200).").addText((text2) => {
+        text2.setPlaceholder("200").setValue(String(this.plugin.settings.smartConnectionsMaxCaptureFiles ?? 200)).inputEl.type = "number";
+        text2.onChange(async (value) => {
+          const num = parseInt(value, 10);
+          if (!isNaN(num) && num > 0) {
+            this.plugin.settings.smartConnectionsMaxCaptureFiles = num;
+            await this.plugin.saveSettings();
+          }
+        });
+      });
+      new import_obsidian10.Setting(containerEl).setName("Max score files").setDesc("Maximum number of files to score per query (default: 50).").addText((text2) => {
+        text2.setPlaceholder("50").setValue(String(this.plugin.settings.smartConnectionsMaxScoreFiles ?? 50)).inputEl.type = "number";
+        text2.onChange(async (value) => {
+          const num = parseInt(value, 10);
+          if (!isNaN(num) && num > 0) {
+            this.plugin.settings.smartConnectionsMaxScoreFiles = num;
+            await this.plugin.saveSettings();
+          }
+        });
+      });
+      new import_obsidian10.Setting(containerEl).setName("Max context chars").setDesc("Maximum total context characters for excerpts (default: 30000).").addText((text2) => {
+        text2.setPlaceholder("30000").setValue(String(this.plugin.settings.smartConnectionsMaxContextChars ?? 3e4)).inputEl.type = "number";
+        text2.onChange(async (value) => {
+          const num = parseInt(value, 10);
+          if (!isNaN(num) && num > 0) {
+            this.plugin.settings.smartConnectionsMaxContextChars = num;
+            await this.plugin.saveSettings();
+          }
+        });
+      });
+      new import_obsidian10.Setting(containerEl).setName("Keying mode").setDesc("Strict: only use cache if source note matches. Soft: prefer match, allow manual override (default).").addDropdown((dropdown) => {
+        dropdown.addOption("soft", "Soft (prefer match, allow override)");
+        dropdown.addOption("strict", "Strict (only use if source matches)");
+        dropdown.setValue(this.plugin.settings.smartConnectionsKeyingMode ?? "soft");
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.smartConnectionsKeyingMode = value;
+          await this.plugin.saveSettings();
+        });
+      });
+      new import_obsidian10.Setting(containerEl).setName("Cache TTL (hours)").setDesc("Cache expiration time in hours. Leave empty for no expiration.").addText((text2) => {
+        text2.setPlaceholder("24 (or empty for no expiration)").setValue(this.plugin.settings.smartConnectionsCacheTTL ? String(this.plugin.settings.smartConnectionsCacheTTL) : "");
+        text2.inputEl.type = "number";
+        text2.onChange(async (value) => {
+          if (value.trim() === "") {
+            this.plugin.settings.smartConnectionsCacheTTL = void 0;
+          } else {
+            const num = parseFloat(value);
+            if (!isNaN(num) && num > 0) {
+              this.plugin.settings.smartConnectionsCacheTTL = num;
+            }
+          }
+          await this.plugin.saveSettings();
+        });
+      });
+      new import_obsidian10.Setting(containerEl).setName("Allowed folders (comma-separated)").setDesc("Folders to include. Leave empty to allow all folders (except blocked).").addText((text2) => {
+        text2.setPlaceholder("Characters, Notes").setValue((this.plugin.settings.smartConnectionsAllowedFolders || []).join(", ")).onChange(async (value) => {
+          const folders2 = value.split(",").map((f) => f.trim()).filter((f) => f.length > 0);
+          this.plugin.settings.smartConnectionsAllowedFolders = folders2;
+          await this.plugin.saveSettings();
+        });
+      });
+      new import_obsidian10.Setting(containerEl).setName("Blocked folders (comma-separated)").setDesc("Folders to exclude from Smart Connections cache.").addText((text2) => {
+        text2.setPlaceholder("Private, Journal").setValue((this.plugin.settings.smartConnectionsBlockedFolders || []).join(", ")).onChange(async (value) => {
+          const folders2 = value.split(",").map((f) => f.trim()).filter((f) => f.length > 0);
+          this.plugin.settings.smartConnectionsBlockedFolders = folders2;
+          await this.plugin.saveSettings();
+        });
+      });
+      containerEl.createDiv({ cls: "writing-dashboard-info-box" }).createEl("p", { text: "Review/remove cached notes before generation." });
     }
     new import_obsidian10.Setting(containerEl).setName("Generation logs").setHeading();
     new import_obsidian10.Setting(containerEl).setName("Save generation logs").setDesc("Writes a log note per generation run with inputs, retrieved context, and output. Logs are excluded from retrieval.").addToggle(
@@ -68415,38 +68558,6 @@ var VaultService = class {
     });
     return storyBibleFiles[0].path;
   }
-  /**
-   * Detect Smart Connections Bases location and return array of file paths.
-   * Returns empty array if not found (never throws).
-   * Checks common locations: .obsidian/plugins/smart-connections/bases/
-   */
-  async getSmartConnectionsBasesPaths() {
-    const basesPaths = [];
-    const possibleLocations = [
-      ".obsidian/plugins/smart-connections/bases",
-      ".obsidian/plugins/smart-connections/Bases",
-      "Smart Connections/Bases",
-      "Bases"
-    ];
-    for (const location of possibleLocations) {
-      try {
-        const folder = this.vault.getAbstractFileByPath(location);
-        if (folder instanceof import_obsidian13.TFolder) {
-          for (const child of folder.children) {
-            if (child instanceof import_obsidian13.TFile && child.extension === "md") {
-              basesPaths.push(child.path);
-            }
-          }
-          if (basesPaths.length > 0) {
-            return basesPaths;
-          }
-        }
-      } catch {
-        continue;
-      }
-    }
-    return [];
-  }
   async setupDefaultStructure(items) {
     const created = [];
     const skipped = [];
@@ -68716,61 +68827,6 @@ var ContextAggregator = class {
     this.plugin = plugin;
     this.vaultService = vaultService;
   }
-  /**
-   * Get Smart Connections context if enabled (templater/clipboard pattern).
-   * Returns empty string if disabled or if context cannot be retrieved.
-   */
-  async getSmartConnectionsContextIfEnabled() {
-    const settings = this.plugin.settings;
-    if (!settings.retrievalEnableSmartConnectionsContext) {
-      return "";
-    }
-    try {
-      if (settings.smartConnectionsContextSource === "bases") {
-        const basesPaths = await this.vaultService.getSmartConnectionsBasesPaths();
-        if (basesPaths.length === 0) {
-          console.warn("[ContextAggregator] Smart Connections Bases not found");
-          return "";
-        }
-        const basesContent = [];
-        for (const path of basesPaths) {
-          try {
-            const content = await this.readFile(path);
-            basesContent.push(content);
-          } catch (error2) {
-            console.warn(`[ContextAggregator] Failed to read Smart Connections Base: ${path}`, error2);
-          }
-        }
-        if (basesContent.length === 0) {
-          return "";
-        }
-        return `[Smart Connections Bases Context]
-${basesContent.join("\n\n---\n\n")}`;
-      } else if (settings.smartConnectionsContextSource === "copied-note") {
-        const notePath = settings.smartConnectionsContextNotePath;
-        if (!notePath) {
-          console.warn("[ContextAggregator] Smart Connections context note path not configured");
-          return "";
-        }
-        try {
-          const noteContent = await this.readFile(notePath);
-          if (noteContent.startsWith("[File not found:") || noteContent.startsWith("[Error reading file")) {
-            console.warn(`[ContextAggregator] Smart Connections context note not found: ${notePath}`);
-            return "";
-          }
-          return `[Smart Connections Context Note]
-${noteContent}`;
-        } catch (error2) {
-          console.warn(`[ContextAggregator] Failed to read Smart Connections context note: ${notePath}`, error2);
-          return "";
-        }
-      }
-    } catch (error2) {
-      console.warn("[ContextAggregator] Error retrieving Smart Connections context:", error2);
-      return "";
-    }
-    return "";
-  }
   async getChapterContext(retrievalQuery) {
     const settings = this.plugin.settings;
     const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
@@ -68780,9 +68836,7 @@ ${noteContent}`;
     const book2Full = await this.readFile(settings.book2Path);
     const slidingWindow = this.extractWordsFromEnd(book2Full, 2e4);
     const storyBible = await this.readFile(settings.storyBiblePath);
-    const smartConnectionsContext = await this.getSmartConnectionsContextIfEnabled();
-    const smartConnectionsBudget = smartConnectionsContext ? Math.floor(contextBudget * 0.1) : 0;
-    const smartBudget = Math.floor(contextBudget * (smartConnectionsContext ? 0.35 : 0.45));
+    const smartBudget = Math.floor(contextBudget * 0.45);
     const bibleBudget = Math.floor(contextBudget * 0.25);
     const slidingBudget = Math.floor(contextBudget * 0.1);
     const result = {
@@ -68790,9 +68844,6 @@ ${noteContent}`;
       story_bible: this.trimHeadToBudget(storyBible, bibleBudget, "Story bible"),
       sliding_window: this.trimHeadToBudget(slidingWindow, slidingBudget, "Sliding window")
     };
-    if (smartConnectionsContext) {
-      result.smart_connections_context = this.trimHeadToBudget(smartConnectionsContext, smartConnectionsBudget, "Smart Connections context");
-    }
     return result;
   }
   async getMicroEditContext(selectedText, retrievalQuery) {
@@ -68806,12 +68857,10 @@ ${noteContent}`;
     const characterNotes = this.formatCharacterNotes(await this.getAllCharacterNotes());
     const retrievedLimit = Math.min(80, Math.max(12, Math.floor(contextBudget / 2e4)));
     const retrievedContext = await this.getRetrievedContext(retrievalQuery, retrievedLimit);
-    const smartConnectionsContext = await this.getSmartConnectionsContextIfEnabled();
-    const smartConnectionsBudget = smartConnectionsContext ? Math.floor(contextBudget * 0.1) : 0;
     const slidingBudget = Math.floor(contextBudget * 0.03);
     const bibleBudget = Math.floor(contextBudget * 0.25);
     const characterBudget = Math.floor(contextBudget * 0.37);
-    const smartBudget = Math.floor(contextBudget * (smartConnectionsContext ? 0.1 : 0.2));
+    const smartBudget = Math.floor(contextBudget * 0.2);
     const result = {
       sliding_window: this.trimHeadToBudget(slidingWindow, slidingBudget, "Sliding window"),
       story_bible: this.trimHeadToBudget(storyBible, bibleBudget, "Story bible"),
@@ -68820,9 +68869,6 @@ ${noteContent}`;
       surrounding_before: surrounding.before,
       surrounding_after: surrounding.after
     };
-    if (smartConnectionsContext) {
-      result.smart_connections_context = this.trimHeadToBudget(smartConnectionsContext, smartConnectionsBudget, "Smart Connections context");
-    }
     return result;
   }
   async getCharacterNotes() {
@@ -68953,14 +68999,6 @@ RETRIEVED CONTEXT \u2014 RELEVANT NOTES (WHOLE VAULT)
 ${context.smart_connections || ""}
 
 Use these excerpts to maintain continuity, tone, and world consistency.
-${context.smart_connections_context ? `
-
--------------------------------------------------------------
-SMART CONNECTIONS CONTEXT (OPTIONAL)
--------------------------------------------------------------
-${context.smart_connections_context}
-
-Additional context from Smart Connections plugin (if available).` : ""}
 
 -------------------------------------------------------------
 STORY BIBLE \u2014 WORLD + RULESET
@@ -69063,14 +69101,6 @@ RETRIEVED CONTEXT \u2014 STYLE ECHOES
 ${context.smart_connections || ""}
 
 Similar passages for tone and style reference.
-${context.smart_connections_context ? `
-
--------------------------------------------------------------
-SMART CONNECTIONS CONTEXT (OPTIONAL)
--------------------------------------------------------------
-${context.smart_connections_context}
-
-Additional context from Smart Connections plugin (if available).` : ""}
 
 -------------------------------------------------------------
 YOUR TASK
@@ -70918,8 +70948,862 @@ var ExternalEmbeddingsProvider = class {
   }
 };
 
-// services/retrieval/Bm25Index.ts
+// services/retrieval/SmartConnectionsProvider.ts
 var import_obsidian17 = require("obsidian");
+var SmartConnectionsProvider = class {
+  constructor(app, plugin, vault, isAllowedPath) {
+    this.id = "smart-connections";
+    this.currentSessionId = "";
+    this.app = app;
+    this.plugin = plugin;
+    this.vault = vault;
+    this.isAllowedPath = isAllowedPath;
+    this.initializeSession();
+    this.logInitialization();
+  }
+  /**
+   * Generate a new session ID for logging grouping.
+   */
+  generateSessionId() {
+    return Math.random().toString(36).substring(2, 8);
+  }
+  /**
+   * Initialize session ID for this instance.
+   */
+  initializeSession() {
+    this.currentSessionId = this.generateSessionId();
+  }
+  /**
+   * Structured logging helper with session ID support.
+   */
+  log(level, message, context, details) {
+    const timestamp = new Date().toISOString();
+    const methodName = new Error().stack?.split("\n")[2]?.match(/at \w+\.(\w+)/)?.[1] || "unknown";
+    const sessionId = this.currentSessionId;
+    const contextStr = context ? ` | Context: ${JSON.stringify(context)}` : "";
+    const detailsStr = details ? ` | Details: ${JSON.stringify(details)}` : "";
+    const logMessage = `[SmartConnectionsProvider:${methodName}][sid=${sessionId}] ${level.toUpperCase()}: ${message}${contextStr}${detailsStr}`;
+    if (level === "error") {
+      console.error(logMessage);
+    } else if (level === "warn") {
+      console.warn(logMessage);
+    } else {
+      console.log(logMessage);
+    }
+  }
+  /**
+   * Log initialization status.
+   */
+  logInitialization() {
+    const cache = this.plugin.settings.smartConnectionsCache;
+    const enabled = this.plugin.settings.smartConnectionsCacheEnabled ?? false;
+    if (cache) {
+      const age = Date.now() - cache.capturedAt;
+      const ageHours = Math.floor(age / (1e3 * 60 * 60));
+      const ageMinutes = Math.floor(age % (1e3 * 60 * 60) / (1e3 * 60));
+      const ageStr = ageHours > 0 ? `${ageHours}h ${ageMinutes}m` : `${ageMinutes}m`;
+      const isFresh = this.isCacheFresh(cache);
+      this.log("info", "Initialization complete", {
+        cacheEnabled: enabled,
+        cacheExists: true,
+        cacheAge: ageStr,
+        cacheResults: cache.results.length,
+        cacheMethod: cache.method,
+        cacheFresh: isFresh,
+        sourceNote: cache.sourceNotePath,
+        vaultId: cache.vaultId
+      });
+    } else {
+      this.log("info", "Initialization complete", {
+        cacheEnabled: enabled,
+        cacheExists: false
+      });
+    }
+  }
+  /**
+   * Get vault ID (name + optional basePath).
+   */
+  getVaultId() {
+    const vaultName = this.app.vault.getName();
+    const adapter = this.app.vault.adapter;
+    const basePath = adapter.basePath || "";
+    const vaultId = vaultName + (basePath ? `:${basePath}` : "");
+    this.log("info", "Vault ID generated", {
+      vaultName,
+      basePath: basePath || "(not available)",
+      vaultId
+    });
+    return vaultId;
+  }
+  /**
+   * Check if cache is fresh (within TTL if set).
+   */
+  isCacheFresh(cache) {
+    const ttl = this.plugin.settings.smartConnectionsCacheTTL;
+    if (!ttl) {
+      return true;
+    }
+    const age = Date.now() - cache.capturedAt;
+    const ttlMs = ttl * 60 * 60 * 1e3;
+    const fresh = age < ttlMs;
+    this.log("info", "Cache freshness check", {
+      age: `${Math.floor(age / (1e3 * 60 * 60))}h`,
+      ttl: `${ttl}h`,
+      fresh
+    });
+    return fresh;
+  }
+  /**
+   * Normalize folder path for comparison (remove leading slash, ensure trailing slash).
+   */
+  normalizeFolderPath(path) {
+    let normalized = path.replace(/^\/+/, "");
+    if (normalized && !normalized.endsWith("/")) {
+      normalized += "/";
+    }
+    return normalized;
+  }
+  /**
+   * Check if path is allowed based on folder filters.
+   */
+  isPathAllowed(path) {
+    const allowed = this.plugin.settings.smartConnectionsAllowedFolders || [];
+    const blocked = this.plugin.settings.smartConnectionsBlockedFolders || [];
+    const normalizedPath = this.normalizeFolderPath(path);
+    for (const blockedFolder of blocked) {
+      const normalizedBlocked = this.normalizeFolderPath(blockedFolder);
+      if (normalizedPath === normalizedBlocked || normalizedPath.startsWith(normalizedBlocked)) {
+        this.log("info", "Path blocked by filter", {
+          path,
+          blockedFolder,
+          normalizedPath,
+          normalizedBlocked
+        });
+        return false;
+      }
+    }
+    if (allowed.length > 0) {
+      const isAllowed = allowed.some((allowedFolder) => {
+        const normalizedAllowed = this.normalizeFolderPath(allowedFolder);
+        return normalizedPath === normalizedAllowed || normalizedPath.startsWith(normalizedAllowed);
+      });
+      if (!isAllowed) {
+        this.log("info", "Path not in allowed folders", {
+          path,
+          allowedFolders: allowed,
+          normalizedPath
+        });
+        return false;
+      }
+    }
+    return true;
+  }
+  /**
+   * Check cache keying match (soft/strict mode).
+   */
+  checkCacheKeying(cache, currentNotePath) {
+    if (!cache.sourceNotePath) {
+      return { match: true };
+    }
+    if (!currentNotePath) {
+      return { match: true };
+    }
+    const match2 = cache.sourceNotePath === currentNotePath;
+    if (!match2) {
+      const mode = this.plugin.settings.smartConnectionsKeyingMode || "soft";
+      this.log("warn", "Cache keying mismatch", {
+        currentNote: currentNotePath,
+        cacheNote: cache.sourceNotePath,
+        mode
+      });
+    }
+    return { match: match2, currentNote: currentNotePath, cacheNote: cache.sourceNotePath };
+  }
+  /**
+   * Validate and clean cache (remove missing files, in-memory only).
+   */
+  validateAndCleanCache(cache) {
+    const originalCount = cache.results.length;
+    const validResults = cache.results.filter((result) => {
+      const file = this.vault.getAbstractFileByPath(result.path);
+      return file instanceof import_obsidian17.TFile;
+    });
+    const wasModified = validResults.length !== originalCount;
+    if (wasModified) {
+      const dropped = originalCount - validResults.length;
+      this.log("warn", "Cache invalidation", {
+        dropped,
+        originalCount,
+        valid: validResults.length
+      });
+      cache.results = validResults;
+    }
+    return { cache, wasModified };
+  }
+  /**
+   * Save cache to settings (with sanity guard).
+   */
+  async saveCache(cache) {
+    if (cache.results.length === 0) {
+      this.log("warn", "Capture returned 0 results, preserving existing cache", {
+        sessionId: cache.sessionId,
+        method: cache.method
+      });
+      return;
+    }
+    this.plugin.settings.smartConnectionsCache = cache;
+    await this.plugin.saveSettings();
+    this.log("info", "Cache saved", {
+      results: cache.results.length,
+      method: cache.method,
+      sourceNote: cache.sourceNotePath,
+      vaultId: cache.vaultId
+    });
+  }
+  /**
+   * Get cache from settings.
+   */
+  getCache() {
+    return this.plugin.settings.smartConnectionsCache || null;
+  }
+  /**
+   * Find Smart Connections view using heuristic detection.
+   */
+  findSmartConnectionsView() {
+    const leaves = [];
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      leaves.push(leaf);
+    });
+    this.log("info", "Scanning workspace leaves", {
+      totalLeaves: leaves.length
+    });
+    for (let i = 0; i < leaves.length; i++) {
+      const leaf = leaves[i];
+      const viewType = leaf.view.getViewType?.() || "unknown";
+      const containerEl = leaf.view.containerEl;
+      this.log("info", "Checking leaf", {
+        index: i,
+        viewType,
+        containerClasses: Array.from(containerEl.classList || []).join(", ")
+      });
+      let confidence = "none";
+      let marker = "";
+      if (containerEl.classList.contains("smart-connections") || Array.from(containerEl.classList).some((c) => c.includes("smart-connections"))) {
+        confidence = "high";
+        marker = "class contains smart-connections";
+      } else if (containerEl.textContent?.includes("Connections")) {
+        confidence = "medium";
+        marker = "contains text Connections";
+      } else if (containerEl.querySelectorAll("a.internal-link[data-href]").length > 0) {
+        confidence = "high";
+        marker = "results list has internal links";
+      }
+      if (confidence !== "none") {
+        this.log("info", "SC view detected", {
+          leafIndex: i,
+          viewType,
+          marker,
+          confidence
+        });
+        return leaf;
+      }
+    }
+    this.log("info", "SC view not found", {
+      leavesChecked: leaves.length
+    });
+    return null;
+  }
+  /**
+   * Capture results from Smart Connections DOM.
+   */
+  async captureFromDom(sourceNotePath) {
+    const sessionId = this.generateSessionId();
+    this.currentSessionId = sessionId;
+    this.log("info", "Starting DOM capture", {
+      sourceNotePath: sourceNotePath || "(not provided)",
+      sessionId
+    });
+    const scView = this.findSmartConnectionsView();
+    if (!scView) {
+      this.log("warn", "SC view not found for DOM capture", {
+        sessionId
+      });
+      return [];
+    }
+    const internalLinks = scView.view.containerEl.querySelectorAll("a.internal-link[data-href]");
+    const resultsCount = internalLinks.length;
+    this.log("info", "Results detection", {
+      viewFound: true,
+      selector: "a.internal-link[data-href]",
+      count: resultsCount,
+      sessionId
+    });
+    if (resultsCount === 0) {
+      this.log("info", "View found, results missing", {
+        viewFound: true,
+        resultsFound: false,
+        selector: "a.internal-link[data-href]",
+        sessionId
+      });
+      return [];
+    }
+    const results = [];
+    const maxCapture = this.plugin.settings.smartConnectionsMaxCaptureFiles ?? 200;
+    for (let i = 0; i < Math.min(resultsCount, maxCapture); i++) {
+      const link2 = internalLinks[i];
+      const dataHref = link2.getAttribute("data-href");
+      const href = link2.getAttribute("href");
+      const path = dataHref || href || "";
+      if (!path) {
+        this.log("warn", "Link missing path", {
+          index: i,
+          dataHref,
+          href,
+          sessionId
+        });
+        continue;
+      }
+      let normalizedPath = path.replace(/\.md$/, "");
+      if (normalizedPath.startsWith("#")) {
+        continue;
+      }
+      const file = this.vault.getAbstractFileByPath(normalizedPath);
+      if (!(file instanceof import_obsidian17.TFile)) {
+        this.log("warn", "Link resolves to non-file", {
+          path: normalizedPath,
+          index: i,
+          sessionId
+        });
+        continue;
+      }
+      if (!this.isPathAllowed(normalizedPath)) {
+        this.log("info", "Link filtered out", {
+          path: normalizedPath,
+          index: i,
+          sessionId
+        });
+        continue;
+      }
+      const rankScore = Math.max(0.5, 1 - i * 0.02);
+      results.push({
+        path: normalizedPath,
+        score: rankScore
+      });
+      this.log("info", "Link captured", {
+        index: i,
+        path: normalizedPath,
+        score: rankScore,
+        sessionId
+      });
+    }
+    this.log("info", "DOM capture complete", {
+      results: results.length,
+      time: "N/A",
+      // Could add timing if needed
+      sessionId
+    });
+    return results;
+  }
+  /**
+   * Capture results from clipboard.
+   */
+  async captureFromClipboard(sourceNotePath) {
+    const sessionId = this.generateSessionId();
+    this.currentSessionId = sessionId;
+    this.log("info", "Starting clipboard capture", {
+      sourceNotePath: sourceNotePath || "(not provided)",
+      sessionId
+    });
+    try {
+      const clipboardText = await navigator.clipboard.readText();
+      this.log("info", "Clipboard read", {
+        length: clipboardText.length,
+        preview: clipboardText.substring(0, 200),
+        sessionId
+      });
+      const markdownLinkPattern = /\[\[([^\]]+)\]\]|\[([^\]]+)\]\(([^)]+\.md)\)/g;
+      const links = [];
+      let match2;
+      while ((match2 = markdownLinkPattern.exec(clipboardText)) !== null) {
+        const link2 = match2[1] || match2[3] || "";
+        if (link2) {
+          links.push(link2.replace(/\.md$/, ""));
+        }
+      }
+      this.log("info", "Links parsed from clipboard", {
+        found: links.length,
+        links: links.slice(0, 10),
+        // Log first 10
+        sessionId
+      });
+      const results = [];
+      const maxCapture = this.plugin.settings.smartConnectionsMaxCaptureFiles ?? 200;
+      for (let i = 0; i < Math.min(links.length, maxCapture); i++) {
+        const link2 = links[i];
+        const file = this.vault.getAbstractFileByPath(link2);
+        if (!(file instanceof import_obsidian17.TFile)) {
+          this.log("warn", "Clipboard link resolves to non-file", {
+            link: link2,
+            index: i,
+            sessionId
+          });
+          continue;
+        }
+        if (!this.isPathAllowed(link2)) {
+          this.log("info", "Clipboard link filtered out", {
+            link: link2,
+            index: i,
+            sessionId
+          });
+          continue;
+        }
+        const rankScore = Math.max(0.5, 1 - i * 0.02);
+        results.push({
+          path: link2,
+          score: rankScore
+        });
+        this.log("info", "Clipboard link captured", {
+          index: i,
+          link: link2,
+          score: rankScore,
+          sessionId
+        });
+      }
+      this.log("info", "Clipboard capture complete", {
+        results: results.length,
+        sessionId
+      });
+      return results;
+    } catch (error2) {
+      this.log("error", "Clipboard capture failed", {
+        error: error2 instanceof Error ? error2.message : String(error2),
+        stack: error2 instanceof Error ? error2.stack : void 0,
+        sessionId
+      });
+      return [];
+    }
+  }
+  /**
+   * Tokenize text (simple word splitting, lowercase).
+   */
+  tokenize(text2) {
+    return text2.toLowerCase().split(/[^a-z0-9]+/g).map((t) => t.trim()).filter((t) => t.length >= 2);
+  }
+  /**
+   * Score cached items using metadata cache (fast path).
+   */
+  async scoreCachedItemsWithMetadata(cache, query, limit) {
+    const queryTokens = this.tokenize(query);
+    const maxScoreFiles = this.plugin.settings.smartConnectionsMaxScoreFiles ?? 50;
+    const itemsToScore = cache.results.slice(0, Math.min(cache.results.length, maxScoreFiles));
+    this.log("info", "Starting metadata scoring", {
+      queryTokens: queryTokens.slice(0, 10),
+      // Log first 10 tokens
+      itemsToScore: itemsToScore.length,
+      maxScoreFiles,
+      sessionId: this.currentSessionId
+    });
+    const scored = [];
+    for (let i = 0; i < itemsToScore.length; i++) {
+      const item = itemsToScore[i];
+      const file = this.vault.getAbstractFileByPath(item.path);
+      if (!(file instanceof import_obsidian17.TFile)) {
+        continue;
+      }
+      const metadata = this.app.metadataCache.getFileCache(file);
+      if (!metadata) {
+        scored.push({
+          path: item.path,
+          rankScore: item.score ?? 0.5,
+          metadataScore: 0,
+          finalScore: item.score ?? 0.5,
+          capturedAt: item.capturedAt
+        });
+        continue;
+      }
+      const metadataText = [];
+      if (metadata.frontmatter?.tags) {
+        const tags = Array.isArray(metadata.frontmatter.tags) ? metadata.frontmatter.tags : [metadata.frontmatter.tags];
+        metadataText.push(...tags.map((t) => t.toString().toLowerCase()));
+      }
+      if (metadata.headings) {
+        metadataText.push(...metadata.headings.map((h) => h.heading.toLowerCase()));
+      }
+      if (metadata.tags) {
+        metadataText.push(...metadata.tags.map((t) => t.tag.toLowerCase()));
+      }
+      const metadataTokens = this.tokenize(metadataText.join(" "));
+      const overlap = queryTokens.filter((t) => metadataTokens.includes(t)).length;
+      const metadataScore = queryTokens.length > 0 ? overlap / queryTokens.length : 0;
+      const rankScore = item.score ?? Math.max(0.5, 1 - i * 0.02);
+      const finalScore = metadataScore * 0.7 + rankScore * 0.3;
+      scored.push({
+        path: item.path,
+        rankScore,
+        metadataScore,
+        finalScore,
+        capturedAt: item.capturedAt
+      });
+      this.log("info", "Item scored with metadata", {
+        index: i,
+        path: item.path,
+        metadataScore: metadataScore.toFixed(3),
+        rankScore: rankScore.toFixed(3),
+        finalScore: finalScore.toFixed(3),
+        sessionId: this.currentSessionId
+      });
+    }
+    const sorted = scored.sort((a, b) => b.finalScore - a.finalScore);
+    const topN = Math.min(10, limit * 2);
+    this.log("info", "Metadata scoring complete", {
+      scored: sorted.length,
+      topN,
+      sessionId: this.currentSessionId
+    });
+    return sorted.slice(0, topN);
+  }
+  /**
+   * Load full content and re-score top items.
+   */
+  async loadAndScoreTopItems(topItems, query) {
+    const queryTokens = this.tokenize(query);
+    this.log("info", "Loading full content for top items", {
+      count: topItems.length,
+      sessionId: this.currentSessionId
+    });
+    for (let i = 0; i < topItems.length; i++) {
+      const item = topItems[i];
+      const file = this.vault.getAbstractFileByPath(item.path);
+      if (!(file instanceof import_obsidian17.TFile)) {
+        continue;
+      }
+      try {
+        const content = await this.vault.read(file);
+        const contentTokens = this.tokenize(content);
+        const overlap = queryTokens.filter((t) => contentTokens.includes(t)).length;
+        const fullContentScore = queryTokens.length > 0 ? overlap / queryTokens.length : 0;
+        item.fullContentScore = fullContentScore;
+        item.finalScore = fullContentScore * 0.7 + item.rankScore * 0.3;
+        this.log("info", "Item re-scored with full content", {
+          index: i,
+          path: item.path,
+          fullContentScore: fullContentScore.toFixed(3),
+          finalScore: item.finalScore.toFixed(3),
+          contentLength: content.length,
+          sessionId: this.currentSessionId
+        });
+      } catch (error2) {
+        this.log("warn", "Failed to read file for scoring", {
+          path: item.path,
+          error: error2 instanceof Error ? error2.message : String(error2),
+          sessionId: this.currentSessionId
+        });
+      }
+    }
+    return topItems.sort((a, b) => b.finalScore - a.finalScore);
+  }
+  /**
+   * Generate best-matching paragraph excerpt.
+   */
+  async generateBestMatchingExcerpt(path, query) {
+    const file = this.vault.getAbstractFileByPath(path);
+    if (!(file instanceof import_obsidian17.TFile)) {
+      return "[File not found]";
+    }
+    try {
+      const content = await this.vault.read(file);
+      const queryTokens = this.tokenize(query);
+      const paragraphs = content.split("\n\n");
+      this.log("info", "Generating excerpt", {
+        path,
+        paragraphs: paragraphs.length,
+        queryTokens: queryTokens.slice(0, 5),
+        sessionId: this.currentSessionId
+      });
+      if (paragraphs.length === 0) {
+        return content.trim().slice(0, 500) + (content.length > 500 ? "\u2026" : "");
+      }
+      let bestParagraph = paragraphs[0];
+      let bestScore = 0;
+      for (const paragraph2 of paragraphs) {
+        const paraTokens = this.tokenize(paragraph2);
+        const overlap = queryTokens.filter((t) => paraTokens.includes(t)).length;
+        const score = queryTokens.length > 0 ? overlap / queryTokens.length : 0;
+        if (score > bestScore) {
+          bestScore = score;
+          bestParagraph = paragraph2;
+        }
+      }
+      let excerpt = bestParagraph.trim();
+      const targetLength = 1e3;
+      const minLength = 800;
+      const maxLength = 1200;
+      if (excerpt.length > maxLength) {
+        const trimmed = excerpt.slice(0, maxLength);
+        const lastPeriod = trimmed.lastIndexOf(".");
+        if (lastPeriod > minLength) {
+          excerpt = trimmed.slice(0, lastPeriod + 1);
+        } else {
+          excerpt = trimmed + "\u2026";
+        }
+      } else if (excerpt.length < minLength && paragraphs.length > 1) {
+        const paraIndex = paragraphs.indexOf(bestParagraph);
+        if (paraIndex < paragraphs.length - 1) {
+          const combined = bestParagraph + "\n\n" + paragraphs[paraIndex + 1];
+          excerpt = combined.trim().slice(0, maxLength);
+          if (combined.length > maxLength) {
+            excerpt += "\u2026";
+          }
+        }
+      }
+      this.log("info", "Excerpt generated", {
+        path,
+        excerptLength: excerpt.length,
+        bestScore: bestScore.toFixed(3),
+        method: bestScore > 0 ? "best-matching" : "first-paragraph",
+        sessionId: this.currentSessionId
+      });
+      return excerpt;
+    } catch (error2) {
+      this.log("warn", "Failed to generate excerpt", {
+        path,
+        error: error2 instanceof Error ? error2.message : String(error2),
+        sessionId: this.currentSessionId
+      });
+      return "[Error reading file]";
+    }
+  }
+  async search(query, opts) {
+    const sessionId = this.generateSessionId();
+    this.currentSessionId = sessionId;
+    const q = (query.text ?? "").trim();
+    if (!q) {
+      return [];
+    }
+    this.log("info", "Starting search", {
+      query: q,
+      limit: opts.limit,
+      sessionId
+    });
+    const enabled = this.plugin.settings.smartConnectionsCacheEnabled ?? false;
+    if (!enabled) {
+      this.log("info", "Cache disabled, returning empty", {
+        sessionId
+      });
+      return [];
+    }
+    const cache = this.getCache();
+    if (!cache) {
+      this.log("info", "No cache available, returning empty", {
+        sessionId
+      });
+      return [];
+    }
+    if (!this.isCacheFresh(cache)) {
+      this.log("warn", "Cache expired, returning empty", {
+        sessionId
+      });
+      return [];
+    }
+    const currentNotePath = query.activeFilePath;
+    const keyingCheck = this.checkCacheKeying(cache, currentNotePath);
+    const keyingMode = this.plugin.settings.smartConnectionsKeyingMode || "soft";
+    if (!keyingCheck.match && keyingMode === "strict") {
+      this.log("warn", "Cache keying mismatch in strict mode, returning empty", {
+        currentNote: currentNotePath,
+        cacheNote: keyingCheck.cacheNote,
+        sessionId
+      });
+      return [];
+    }
+    if (!keyingCheck.match) {
+      this.log("warn", "Cache keying mismatch in soft mode, allowing use", {
+        currentNote: currentNotePath,
+        cacheNote: keyingCheck.cacheNote,
+        sessionId
+      });
+    }
+    const { cache: cleanedCache, wasModified } = this.validateAndCleanCache(cache);
+    const topItems = await this.scoreCachedItemsWithMetadata(cleanedCache, q, opts.limit);
+    const rescoredItems = await this.loadAndScoreTopItems(topItems, q);
+    const results = [];
+    const maxContextChars = this.plugin.settings.smartConnectionsMaxContextChars ?? 3e4;
+    let totalContextChars = 0;
+    let truncatedCount = 0;
+    for (const item of rescoredItems) {
+      if (results.length >= opts.limit) {
+        break;
+      }
+      const excerpt = await this.generateBestMatchingExcerpt(item.path, q);
+      let finalExcerpt = excerpt;
+      if (totalContextChars + excerpt.length > maxContextChars) {
+        const remaining = maxContextChars - totalContextChars;
+        finalExcerpt = excerpt.slice(0, remaining) + "\u2026";
+        truncatedCount++;
+        this.log("info", "Context cap reached, truncating excerpt", {
+          totalChars: totalContextChars + finalExcerpt.length,
+          remaining,
+          truncated: true,
+          sessionId
+        });
+      }
+      totalContextChars += finalExcerpt.length;
+      results.push({
+        key: item.path,
+        path: item.path,
+        title: item.path.split("/").pop() || item.path,
+        excerpt: finalExcerpt,
+        score: item.finalScore,
+        source: this.id,
+        reasonTags: ["smart-connections-cached"]
+      });
+    }
+    if (truncatedCount > 0) {
+      this.log("info", "Context cap summary", {
+        totalChars: totalContextChars,
+        maxChars: maxContextChars,
+        truncated: truncatedCount,
+        sessionId
+      });
+    }
+    if (wasModified) {
+      await this.saveCache(cleanedCache);
+    }
+    this.log("info", "Search complete", {
+      results: results.length,
+      method: "cached",
+      sessionId
+    });
+    return results;
+  }
+  /**
+   * Public method to capture from DOM and save to cache.
+   */
+  async captureAndSaveFromDom(sourceNotePath) {
+    const results = await this.captureFromDom(sourceNotePath);
+    if (results.length === 0) {
+      return {
+        success: false,
+        count: 0,
+        message: "Smart Connections view is open but no results found. Try running a search in Smart Connections first."
+      };
+    }
+    const vaultId = this.getVaultId();
+    const sessionId = this.generateSessionId();
+    const cache = {
+      sourceNotePath,
+      vaultId,
+      results: results.map((r, i) => ({
+        path: r.path,
+        score: r.score,
+        capturedAt: Date.now()
+      })),
+      capturedAt: Date.now(),
+      method: "dom",
+      sessionId
+    };
+    await this.saveCache(cache);
+    return {
+      success: true,
+      count: results.length
+    };
+  }
+  /**
+   * Public method to capture from clipboard and save to cache.
+   */
+  async captureAndSaveFromClipboard(sourceNotePath) {
+    const results = await this.captureFromClipboard(sourceNotePath);
+    if (results.length === 0) {
+      return {
+        success: false,
+        count: 0,
+        message: "No valid links found in clipboard. Ensure clipboard contains Smart Connections results with markdown links."
+      };
+    }
+    const vaultId = this.getVaultId();
+    const sessionId = this.generateSessionId();
+    const cache = {
+      sourceNotePath,
+      vaultId,
+      results: results.map((r, i) => ({
+        path: r.path,
+        score: r.score,
+        capturedAt: Date.now()
+      })),
+      capturedAt: Date.now(),
+      method: "clipboard",
+      sessionId
+    };
+    await this.saveCache(cache);
+    return {
+      success: true,
+      count: results.length
+    };
+  }
+  /**
+   * Public method to clear cache.
+   */
+  async clearCache() {
+    this.plugin.settings.smartConnectionsCache = void 0;
+    await this.plugin.saveSettings();
+    this.log("info", "Cache cleared", {
+      sessionId: this.currentSessionId
+    });
+  }
+  /**
+   * Public method to get cache status.
+   */
+  getCacheStatus() {
+    const enabled = this.plugin.settings.smartConnectionsCacheEnabled ?? false;
+    const cache = this.getCache();
+    if (!cache) {
+      return {
+        exists: false,
+        enabled,
+        count: 0,
+        fresh: false
+      };
+    }
+    const age = Date.now() - cache.capturedAt;
+    const ageHours = Math.floor(age / (1e3 * 60 * 60));
+    const ageMinutes = Math.floor(age % (1e3 * 60 * 60) / (1e3 * 60));
+    const ageStr = ageHours > 0 ? `${ageHours}h ${ageMinutes}m` : `${ageMinutes}m`;
+    return {
+      exists: true,
+      enabled,
+      count: cache.results.length,
+      age: ageStr,
+      method: cache.method,
+      sourceNote: cache.sourceNotePath,
+      fresh: this.isCacheFresh(cache)
+    };
+  }
+  /**
+   * Public method to check if Smart Connections view is available for capture.
+   */
+  checkViewAvailable() {
+    const scView = this.findSmartConnectionsView();
+    if (!scView) {
+      return {
+        available: false,
+        message: "Smart Connections view not found. Open Smart Connections in a pane first."
+      };
+    }
+    const internalLinks = scView.view.containerEl.querySelectorAll("a.internal-link[data-href]");
+    if (internalLinks.length === 0) {
+      return {
+        available: false,
+        message: "Smart Connections view is open but no results found. Try running a search in Smart Connections first."
+      };
+    }
+    return {
+      available: true
+    };
+  }
+};
+
+// services/retrieval/Bm25Index.ts
+var import_obsidian18 = require("obsidian");
 function clampInt3(value, min, max) {
   if (!Number.isFinite(value))
     return min;
@@ -71096,7 +71980,7 @@ var Bm25Index = class {
         continue;
       }
       const file = this.vault.getAbstractFileByPath(next);
-      if (!(file instanceof import_obsidian17.TFile) || file.extension !== "md") {
+      if (!(file instanceof import_obsidian18.TFile) || file.extension !== "md") {
         this._removePath(next);
         this._schedulePersist();
         continue;
@@ -71532,7 +72416,7 @@ ${it.excerpt}`;
 };
 
 // services/GenerationLogService.ts
-var import_obsidian18 = require("obsidian");
+var import_obsidian19 = require("obsidian");
 function normalizeFolder(folder) {
   const f = (folder || "").replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
   return f.length ? f : "Generation logs";
@@ -71560,7 +72444,7 @@ var GenerationLogService = class {
       return false;
     }
     const existing = this.app.vault.getAbstractFileByPath(folderPath);
-    if (existing instanceof import_obsidian18.TFolder)
+    if (existing instanceof import_obsidian19.TFolder)
       return true;
     try {
       await this.app.vault.createFolder(folderPath);
@@ -71619,7 +72503,7 @@ ${escapeFenceContent(params.finalPrompt)}
       await this.app.vault.create(path, body);
       return path;
     } catch {
-      new import_obsidian18.Notice("Failed to write generation log.");
+      new import_obsidian19.Notice("Failed to write generation log.");
       return null;
     }
   }
@@ -71627,7 +72511,7 @@ ${escapeFenceContent(params.finalPrompt)}
     if (!path)
       return;
     const file = this.app.vault.getAbstractFileByPath(path);
-    if (!(file instanceof import_obsidian18.TFile))
+    if (!(file instanceof import_obsidian19.TFile))
       return;
     const appendix = `## Result
 
@@ -71647,8 +72531,8 @@ ${appendix}`);
 };
 
 // ui/BookMainSelectorModal.ts
-var import_obsidian19 = require("obsidian");
-var BookMainSelectorModal = class extends import_obsidian19.Modal {
+var import_obsidian20 = require("obsidian");
+var BookMainSelectorModal = class extends import_obsidian20.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.plugin = plugin;
@@ -71672,11 +72556,11 @@ var BookMainSelectorModal = class extends import_obsidian19.Modal {
 // ui/PublishWizardModal.tsx
 var import_react11 = __toESM(require_react());
 var import_client6 = __toESM(require_client());
-var import_obsidian23 = require("obsidian");
+var import_obsidian24 = require("obsidian");
 
 // ui/FolderPickerModal.ts
-var import_obsidian20 = require("obsidian");
-var FolderPickerModal = class extends import_obsidian20.FuzzySuggestModal {
+var import_obsidian21 = require("obsidian");
+var FolderPickerModal = class extends import_obsidian21.FuzzySuggestModal {
   constructor(opts) {
     super(opts.app);
     this.folders = opts.folders;
@@ -71696,8 +72580,8 @@ var FolderPickerModal = class extends import_obsidian20.FuzzySuggestModal {
 };
 
 // ui/BinaryFilePickerModal.ts
-var import_obsidian21 = require("obsidian");
-var BinaryFilePickerModal = class extends import_obsidian21.FuzzySuggestModal {
+var import_obsidian22 = require("obsidian");
+var BinaryFilePickerModal = class extends import_obsidian22.FuzzySuggestModal {
   constructor(opts) {
     super(opts.app);
     this.files = opts.files;
@@ -71717,7 +72601,7 @@ var BinaryFilePickerModal = class extends import_obsidian21.FuzzySuggestModal {
 };
 
 // services/publish/MarkdownCompile.ts
-var import_obsidian22 = require("obsidian");
+var import_obsidian23 = require("obsidian");
 function trimBom(s) {
   return s.charCodeAt(0) === 65279 ? s.slice(1) : s;
 }
@@ -71802,13 +72686,13 @@ function resolveLinkToFilePath(app, linkTarget, fromPath) {
   if (!t)
     return null;
   const direct = app.vault.getAbstractFileByPath(t);
-  if (direct instanceof import_obsidian22.TFile)
+  if (direct instanceof import_obsidian23.TFile)
     return direct.path;
   const directMd = app.vault.getAbstractFileByPath(`${t}.md`);
-  if (directMd instanceof import_obsidian22.TFile)
+  if (directMd instanceof import_obsidian23.TFile)
     return directMd.path;
   const dest = app.metadataCache.getFirstLinkpathDest(t, fromPath);
-  if (dest instanceof import_obsidian22.TFile)
+  if (dest instanceof import_obsidian23.TFile)
     return dest.path;
   return null;
 }
@@ -71818,7 +72702,7 @@ var MarkdownCompile = class {
   }
   async compileFromBookMain(sourcePath) {
     const file = this.app.vault.getAbstractFileByPath(sourcePath);
-    if (!(file instanceof import_obsidian22.TFile)) {
+    if (!(file instanceof import_obsidian23.TFile)) {
       throw new Error(`Book main file not found: ${sourcePath}`);
     }
     const text2 = await this.app.vault.read(file);
@@ -71827,7 +72711,7 @@ var MarkdownCompile = class {
   }
   async compileFromTocNote(tocPath) {
     const file = this.app.vault.getAbstractFileByPath(tocPath);
-    if (!(file instanceof import_obsidian22.TFile))
+    if (!(file instanceof import_obsidian23.TFile))
       throw new Error(`TOC note not found: ${tocPath}`);
     const text2 = await this.app.vault.read(file);
     const lines = trimBom(text2).split(/\r?\n/);
@@ -71843,7 +72727,7 @@ var MarkdownCompile = class {
       if (!destPath)
         continue;
       const dest = this.app.vault.getAbstractFileByPath(destPath);
-      if (!(dest instanceof import_obsidian22.TFile))
+      if (!(dest instanceof import_obsidian23.TFile))
         continue;
       const md2 = await this.app.vault.read(dest);
       const title = (() => {
@@ -77950,7 +78834,7 @@ function sanitizeFileName2(name2) {
 function ensureEpubExt2(name2) {
   return name2.toLowerCase().endsWith(".epub") ? name2 : `${name2}.epub`;
 }
-var PublishWizardModal = class extends import_obsidian23.Modal {
+var PublishWizardModal = class extends import_obsidian24.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.reactRoot = null;
@@ -78062,7 +78946,7 @@ var PublishWizardComponent = ({
     modal.open();
   };
   const pickFolder = (onPick) => {
-    const folders = plugin.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian23.TFolder);
+    const folders = plugin.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian24.TFolder);
     const modal = new FolderPickerModal({
       app: plugin.app,
       folders,
@@ -78164,7 +79048,7 @@ ${markdownToPlainText(c.markdown || "")}
         outputPath = out;
       }
       setProgress("");
-      new import_obsidian23.Notice(`Exported: ${outputPath}`);
+      new import_obsidian24.Notice(`Exported: ${outputPath}`);
       onClose();
     } catch (e) {
       const message = e instanceof Error ? e.message : (() => {
@@ -78283,9 +79167,6 @@ Output format (required):
   retrievalEnableBm25: true,
   retrievalEnableReranker: false,
   retrievalSource: "local",
-  retrievalEnableSmartConnectionsContext: false,
-  smartConnectionsContextSource: "bases",
-  smartConnectionsContextNotePath: "",
   externalEmbeddingProvider: void 0,
   externalEmbeddingApiKey: void 0,
   externalEmbeddingModel: void 0,
@@ -78319,9 +79200,17 @@ Output format (required):
   setupCompleted: false,
   guidedDemoDismissed: false,
   guidedDemoShownOnce: false,
-  fileState: {}
+  fileState: {},
+  smartConnectionsCacheEnabled: false,
+  smartConnectionsCacheTTL: void 0,
+  smartConnectionsAllowedFolders: [],
+  smartConnectionsBlockedFolders: [],
+  smartConnectionsMaxCaptureFiles: 200,
+  smartConnectionsMaxScoreFiles: 50,
+  smartConnectionsMaxContextChars: 3e4,
+  smartConnectionsKeyingMode: "soft"
 };
-var WritingDashboardPlugin = class extends import_obsidian24.Plugin {
+var WritingDashboardPlugin = class extends import_obsidian25.Plugin {
   constructor() {
     super(...arguments);
     /**
@@ -78356,11 +79245,11 @@ var WritingDashboardPlugin = class extends import_obsidian24.Plugin {
         const newNorm = file.path.replace(/\\/g, "/");
         let changed = false;
         const logsFolder = (this.settings.generationLogsFolder || "").replace(/\\/g, "/").replace(/\/+$/, "");
-        if (logsFolder && file instanceof import_obsidian24.TFolder && oldNorm === logsFolder) {
+        if (logsFolder && file instanceof import_obsidian25.TFolder && oldNorm === logsFolder) {
           this.settings.generationLogsFolder = newNorm;
           changed = true;
         }
-        if (!(file instanceof import_obsidian24.TFile) || file.extension !== "md") {
+        if (!(file instanceof import_obsidian25.TFile) || file.extension !== "md") {
           if (changed)
             await this.saveSettings();
           return;
@@ -78399,9 +79288,12 @@ var WritingDashboardPlugin = class extends import_obsidian24.Plugin {
     this.bm25Index = new Bm25Index(this.app.vault, this);
     this.cpuReranker = new CpuReranker();
     this.generationLogService = new GenerationLogService(this.app, this);
+    const scProvider = new SmartConnectionsProvider(this.app, this, this.app.vault, (path) => !this.vaultService.isExcludedPath(path));
+    this.smartConnectionsProvider = scProvider;
     const providers = [
       new HeuristicProvider(this.app.vault, this.vaultService),
-      new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path))
+      new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path)),
+      scProvider
     ];
     const hasExternalConfig = Boolean(this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey);
     if (hasExternalConfig) {
@@ -78436,21 +79328,21 @@ var WritingDashboardPlugin = class extends import_obsidian24.Plugin {
     };
     this.registerEvent(
       this.app.vault.on("create", (file) => {
-        if (file instanceof import_obsidian24.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian25.TFile && file.extension === "md") {
           maybeQueueIndex(file.path);
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
-        if (file instanceof import_obsidian24.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian25.TFile && file.extension === "md") {
           maybeQueueIndex(file.path);
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
-        if (file instanceof import_obsidian24.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian25.TFile && file.extension === "md") {
           this.embeddingsIndex.queueRemoveFile(file.path);
           this.bm25Index.queueRemoveFile(file.path);
         }
@@ -78458,7 +79350,7 @@ var WritingDashboardPlugin = class extends import_obsidian24.Plugin {
     );
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
-        if (!(file instanceof import_obsidian24.TFile) || file.extension !== "md")
+        if (!(file instanceof import_obsidian25.TFile) || file.extension !== "md")
           return;
         this.embeddingsIndex.queueRemoveFile(oldPath);
         this.bm25Index.queueRemoveFile(oldPath);
@@ -78536,9 +79428,12 @@ var WritingDashboardPlugin = class extends import_obsidian24.Plugin {
    * Called when retrievalSource or other retrieval settings change.
    */
   async recreateRetrievalService() {
+    const scProvider = new SmartConnectionsProvider(this.app, this, this.app.vault, (path) => !this.vaultService.isExcludedPath(path));
+    this.smartConnectionsProvider = scProvider;
     const providers = [
       new HeuristicProvider(this.app.vault, this.vaultService),
-      new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path))
+      new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path)),
+      scProvider
     ];
     if (this.settings.retrievalSource === "external-api") {
       providers.push(

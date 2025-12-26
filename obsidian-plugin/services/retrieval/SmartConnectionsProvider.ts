@@ -1,5 +1,6 @@
 import type { ContextItem, RetrievalOptions, RetrievalProvider, RetrievalQuery } from './types';
-import type { App, Vault, WorkspaceLeaf, TFile } from 'obsidian';
+import type { App, Vault, WorkspaceLeaf } from 'obsidian';
+import { TFile } from 'obsidian';
 import WritingDashboardPlugin from '../../main';
 
 /**
