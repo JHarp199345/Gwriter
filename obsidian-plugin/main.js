@@ -39418,7 +39418,7 @@ ${t2}`);
             /* harmony export */
             "tokenize": () => (
               /* binding */
-              tokenize
+              tokenize2
             )
             /* harmony export */
           });
@@ -39589,7 +39589,7 @@ ${t2}`);
             }
             return template.replace(/{##}/g, "").replace(/-%}\s*/g, "%}").replace(/\s*{%-/g, "{%").replace(/-}}\s*/g, "}}").replace(/\s*{{-/g, "{{");
           }
-          function tokenize(source, options = {}) {
+          function tokenize2(source, options = {}) {
             const tokens = [];
             const src = preprocess(source, options);
             let cursorPosition = 0;
@@ -41004,7 +41004,7 @@ ${t2}`);
              */
             constructor(template) {
               __publicField(this, "parsed");
-              const tokens = tokenize(template, {
+              const tokens = tokenize2(template, {
                 lstrip_blocks: true,
                 trim_blocks: true
               });
@@ -52757,7 +52757,7 @@ ${t2}`);
             apply_chat_template(conversation, {
               chat_template = null,
               add_generation_prompt = false,
-              tokenize = true,
+              tokenize: tokenize2 = true,
               padding = false,
               truncation = false,
               max_length = null,
@@ -52800,7 +52800,7 @@ ${t2}`);
                 ...special_tokens_map,
                 ...kwargs
               });
-              if (tokenize) {
+              if (tokenize2) {
                 return this._call(rendered, {
                   add_special_tokens: false,
                   padding,
@@ -67522,29 +67522,18 @@ var StressTestService = class {
               primaryText: "test query for intersection testing",
               directorNotes: ""
             });
-            this.logEntry("Getting hash-based retrieval results (wide net)...");
-            const hashStart = Date.now();
-            const hashResults = await this.plugin.retrievalService.search(query, { limit: 500 });
-            const hashDuration = ((Date.now() - hashStart) / 1e3).toFixed(2);
-            this.logEntry(`\u2713 Hash retrieval completed in ${hashDuration}s: ${hashResults.length} results`);
-            this.logEntry("Getting intersection results (with SC template paths)...");
-            const intersectionStart = Date.now();
-            const intersectionResults = await this.plugin.retrievalService.search(query, { limit: 64 }, scTemplatePaths);
-            const intersectionDuration = ((Date.now() - intersectionStart) / 1e3).toFixed(2);
-            this.logEntry(`\u2713 Intersection retrieval completed in ${intersectionDuration}s: ${intersectionResults.length} results`);
-            const scPathSet = new Set(scTemplatePaths);
-            const hashPathSet = new Set(hashResults.map((r) => r.path));
-            const intersectionPaths = hashResults.filter((r) => scPathSet.has(r.path)).map((r) => r.path);
-            this.logEntry(`  Hash results: ${hashResults.length}`);
-            this.logEntry(`  SC template paths: ${scTemplatePaths.length}`);
-            this.logEntry(`  Intersection matches: ${intersectionPaths.length}`);
-            this.logEntry(`  Intersection rate: ${hashResults.length > 0 ? (intersectionPaths.length / hashResults.length * 100).toFixed(1) : 0}%`);
-            if (intersectionResults.length > 0) {
-              this.logEntry(`  Top intersection results (first 5):`);
-              intersectionResults.slice(0, 5).forEach((result, idx) => {
-                const isIntersection = scPathSet.has(result.path);
-                this.logEntry(`    ${idx + 1}. ${isIntersection ? "\u2713" : "\u25CB"} ${result.path} (score: ${result.score.toFixed(3)})`);
+            this.logEntry("Getting hybrid retrieval results (lexical + semantic, fused)...");
+            const hybridStart = Date.now();
+            const hybridResults = await this.plugin.retrievalService.search(query, { limit: 64 });
+            const hybridDuration = ((Date.now() - hybridStart) / 1e3).toFixed(2);
+            this.logEntry(`\u2713 Hybrid retrieval completed in ${hybridDuration}s: ${hybridResults.length} results`);
+            if (hybridResults.length > 0) {
+              this.logEntry(`  Top results (first 5):`);
+              hybridResults.slice(0, 5).forEach((result, idx) => {
+                this.logEntry(`    ${idx + 1}. ${result.path} (score: ${result.score.toFixed(3)})`);
               });
+            } else {
+              this.logEntry("  \u26A0 No hybrid retrieval results found");
             }
           } else {
             this.logEntry(`\u26A0 No template paths available - skipping intersection test`);
@@ -69423,11 +69412,11 @@ Score: ${item.score.toFixed(3)} (${item.source})
     }
     return lines.join("\n\n---\n\n");
   }
-  async getRetrievedContext(query, limit, scTemplatePaths) {
+  async getRetrievedContext(query, limit, _scTemplatePaths) {
     try {
       let results = await this.plugin.retrievalService.search(query, {
         limit: Math.max(1, Math.min(200, limit))
-      }, scTemplatePaths);
+      });
       if (this.plugin.settings.retrievalEnableReranker) {
         try {
           results = await this.plugin.cpuReranker.rerank(query.text || "", results, { limit: Math.max(1, Math.min(200, limit)) });
@@ -70478,67 +70467,34 @@ var RetrievalService = class {
     this.providers = providers;
     this.getVector = opts?.getVector;
   }
-  async search(query, opts, scTemplatePaths) {
+  async search(query, opts) {
     const limit = normalizeLimit(opts.limit);
     const candidateLimit = Math.max(limit, Math.min(500, limit * 8));
-    const localProviders = this.providers.filter(
-      (p) => p.id === "local-embeddings" || p.id === "hash" || p.id === "bm25" || p.id === "heuristic"
-    );
-    const externalProviders = this.providers.filter(
-      (p) => p.id === "external-embeddings"
-    );
-    const scProvider = this.providers.find((p) => p.id === "smart-connections");
-    const scPaths = /* @__PURE__ */ new Set();
-    if (scTemplatePaths && scTemplatePaths.length > 0) {
-      scTemplatePaths.forEach((path) => scPaths.add(path));
-      console.debug(`[RetrievalService] Using ${scTemplatePaths.length} paths from SC template`);
-    } else {
-      if (scProvider && "getCachePaths" in scProvider) {
-        try {
-          const paths = await scProvider.getCachePaths();
-          paths.forEach((path) => scPaths.add(path));
-        } catch {
-        }
-      }
-    }
-    const localResults = await Promise.all(
-      localProviders.map(async (p) => {
+    const lexicalProviders = this.providers.filter((p) => p.id === "heuristic");
+    const semanticProviders = this.providers.filter((p) => p.id === "semantic");
+    const [lexicalBuckets, semanticBuckets] = await Promise.all([
+      Promise.all(lexicalProviders.map(async (p) => {
         try {
           return { providerId: p.id, items: await p.search(query, { limit: candidateLimit }) };
         } catch {
           return { providerId: p.id, items: [] };
         }
-      })
-    );
-    let finalResults = localResults;
-    if (scPaths.size > 0) {
-      finalResults = localResults.map(({ providerId, items }) => ({
-        providerId,
-        items: items.filter((item) => scPaths.has(item.path)).map((item) => ({ ...item, score: item.score * 2 }))
-        // Boost intersection items
-      }));
-      const intersectionCount = finalResults.reduce((sum, r) => sum + r.items.length, 0);
-      console.debug(`[RetrievalService] SC template intersection: ${scPaths.size} SC paths, ${intersectionCount} matches with hash results`);
-    } else {
-      finalResults = localResults;
-    }
-    const externalResults = await Promise.all(
-      externalProviders.map(async (p) => {
+      })),
+      Promise.all(semanticProviders.map(async (p) => {
         try {
           return { providerId: p.id, items: await p.search(query, { limit: candidateLimit }) };
         } catch {
           return { providerId: p.id, items: [] };
         }
-      })
-    );
-    const allResults = [...finalResults, ...externalResults];
-    const nonEmpty = allResults.filter((b) => b.items.length > 0);
-    if (nonEmpty.length === 0)
+      }))
+    ]);
+    const buckets = [...lexicalBuckets, ...semanticBuckets].filter((b) => b.items.length > 0);
+    if (buckets.length === 0)
       return [];
-    if (nonEmpty.length === 1) {
-      return nonEmpty[0].items.slice().sort((a, b) => b.score - a.score).slice(0, limit);
+    if (buckets.length === 1) {
+      return buckets[0].items.slice().sort((a, b) => b.score - a.score).slice(0, limit);
     }
-    const fused = fuseRrf(nonEmpty, { limit: candidateLimit });
+    const fused = fuseRrf(buckets, { limit: candidateLimit, k: 60 });
     const diverse = mmrSelect(fused, { limit, getVector: this.getVector });
     return diverse.sort((a, b) => b.score - a.score).slice(0, limit);
   }
@@ -71395,6 +71351,145 @@ var OllamaEmbeddingProvider = class {
       throw new Error("[Ollama] Invalid embedding response");
     }
     return vec;
+  }
+};
+
+// services/retrieval/HeuristicProvider.ts
+var STOPWORDS = /* @__PURE__ */ new Set([
+  "the",
+  "a",
+  "an",
+  "and",
+  "or",
+  "but",
+  "to",
+  "of",
+  "in",
+  "on",
+  "for",
+  "with",
+  "at",
+  "from",
+  "by",
+  "as",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "it",
+  "that",
+  "this",
+  "these",
+  "those"
+]);
+function tokenize(value) {
+  return value.toLowerCase().split(/[^a-z0-9]+/g).map((t) => t.trim()).filter((t) => t.length >= 3 && !STOPWORDS.has(t));
+}
+function findSnippet(content, term, maxLen) {
+  const lower = content.toLowerCase();
+  const idx = lower.indexOf(term.toLowerCase());
+  if (idx < 0)
+    return content.slice(0, maxLen);
+  const start = Math.max(0, idx - Math.floor(maxLen / 3));
+  const end = Math.min(content.length, start + maxLen);
+  const prefix = start > 0 ? "\u2026" : "";
+  const suffix = end < content.length ? "\u2026" : "";
+  return `${prefix}${content.slice(start, end)}${suffix}`.trim();
+}
+var HeuristicProvider = class {
+  constructor(vault, vaultService) {
+    this.id = "heuristic";
+    this.cache = /* @__PURE__ */ new Map();
+    this.cacheTtlMs = 3e4;
+    this.vault = vault;
+    this.vaultService = vaultService;
+  }
+  async search(query, opts) {
+    const q = (query.text ?? "").trim();
+    if (!q)
+      return [];
+    const cacheKey = fnv1a32(
+      [
+        "q:" + q,
+        "active:" + (query.activeFilePath ?? ""),
+        "mode:" + (query.mode ?? ""),
+        "k:" + String(opts.limit)
+      ].join("\n")
+    );
+    const cached = this.cache.get(cacheKey);
+    if (cached && Date.now() - cached.at <= this.cacheTtlMs) {
+      return cached.results.slice(0, opts.limit);
+    }
+    const terms = tokenize(q).slice(0, 24);
+    if (terms.length === 0)
+      return [];
+    const files = this.vaultService.getIncludedMarkdownFiles();
+    if (files.length === 0)
+      return [];
+    const now = Date.now();
+    const scored = files.map((f) => {
+      const base2 = `${f.basename} ${f.path}`.toLowerCase();
+      let score = 0;
+      let titleHits = 0;
+      for (const t of terms) {
+        if (base2.includes(t)) {
+          score += 1;
+          titleHits++;
+        }
+      }
+      const ageMs = Math.max(0, now - (f.stat?.mtime ?? now));
+      const recency = 1 / (1 + ageMs / (1e3 * 60 * 60 * 24 * 30));
+      score += recency * 0.5;
+      if (query.activeFilePath && f.path === query.activeFilePath)
+        score += 0.75;
+      if (query.activeFilePath && f.path.startsWith(query.activeFilePath.split("/").slice(0, -1).join("/")))
+        score += 0.15;
+      return { file: f, score, titleHits };
+    }).sort((a, b) => b.score - a.score).slice(0, 200);
+    const results = [];
+    const maxRead = Math.min(scored.length, 120);
+    for (let i = 0; i < maxRead; i++) {
+      const { file, score: baseScore, titleHits } = scored[i];
+      let content = "";
+      try {
+        content = await this.vault.read(file);
+      } catch {
+        continue;
+      }
+      const lower = content.toLowerCase();
+      let tf = 0;
+      let firstTerm = null;
+      for (const t of terms) {
+        const hits = lower.split(t).length - 1;
+        if (hits > 0 && !firstTerm)
+          firstTerm = t;
+        tf += hits;
+      }
+      if (tf === 0 && titleHits === 0)
+        continue;
+      const normalizedTf = Math.min(1, tf / 24);
+      const score = Math.min(1, baseScore / 6 + normalizedTf * 0.7);
+      const reasonTags = [];
+      if (titleHits > 0)
+        reasonTags.push("titleMatch");
+      if (tf > 0)
+        reasonTags.push("textMatch");
+      const excerpt = firstTerm ? findSnippet(content, firstTerm, 2500) : content.slice(0, 2500);
+      results.push({
+        key: `file:${file.path}`,
+        path: file.path,
+        title: file.basename,
+        excerpt,
+        score,
+        source: this.id,
+        reasonTags
+      });
+    }
+    const finalResults = results.sort((a, b) => b.score - a.score).slice(0, opts.limit);
+    this.cache.set(cacheKey, { at: Date.now(), results: finalResults });
+    return finalResults;
   }
 };
 
@@ -78597,6 +78692,7 @@ var WritingDashboardPlugin = class extends import_obsidian27.Plugin {
     this.cpuReranker = new CpuReranker();
     this.generationLogService = new GenerationLogService(this.app, this);
     const providers = [
+      new HeuristicProvider(this.app.vault, this.vaultService),
       new LocalEmbeddingsProvider(
         this.embeddingsIndex,
         () => Boolean(this.settings.retrievalEnableSemanticIndex),

@@ -12,6 +12,7 @@ import { EmbeddingsIndex } from './services/retrieval/EmbeddingsIndex';
 import { LocalEmbeddingsProvider } from './services/retrieval/LocalEmbeddingsProvider';
 import { CpuReranker } from './services/retrieval/CpuReranker';
 import { OllamaEmbeddingProvider } from './services/retrieval/OllamaEmbeddingProvider';
+import { HeuristicProvider } from './services/retrieval/HeuristicProvider';
 import { GenerationLogService } from './services/GenerationLogService';
 import { SetupWizardModal } from './ui/SetupWizard';
 import { BookMainSelectorModal } from './ui/BookMainSelectorModal';
@@ -482,6 +483,7 @@ export default class WritingDashboardPlugin extends Plugin {
 		this.generationLogService = new GenerationLogService(this.app, this);
 		
 		const providers: Array<import('./services/retrieval/types').RetrievalProvider> = [
+			new HeuristicProvider(this.app.vault, this.vaultService),
 			new LocalEmbeddingsProvider(
 				this.embeddingsIndex,
 				() => Boolean(this.settings.retrievalEnableSemanticIndex),

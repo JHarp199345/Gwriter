@@ -920,36 +920,20 @@ export class StressTestService {
 							directorNotes: ''
 						});
 						
-						// Get hash-based results (wide net)
-						this.logEntry('Getting hash-based retrieval results (wide net)...');
-						const hashStart = Date.now();
-						const hashResults = await this.plugin.retrievalService.search(query, { limit: 500 });
-						const hashDuration = ((Date.now() - hashStart) / 1000).toFixed(2);
-						this.logEntry(`✓ Hash retrieval completed in ${hashDuration}s: ${hashResults.length} results`);
+						// Get hybrid results (lexical + semantic fused)
+						this.logEntry('Getting hybrid retrieval results (lexical + semantic, fused)...');
+						const hybridStart = Date.now();
+						const hybridResults = await this.plugin.retrievalService.search(query, { limit: 64 });
+						const hybridDuration = ((Date.now() - hybridStart) / 1000).toFixed(2);
+						this.logEntry(`✓ Hybrid retrieval completed in ${hybridDuration}s: ${hybridResults.length} results`);
 						
-						// Get intersection results (with template paths)
-						this.logEntry('Getting intersection results (with SC template paths)...');
-						const intersectionStart = Date.now();
-						const intersectionResults = await this.plugin.retrievalService.search(query, { limit: 64 }, scTemplatePaths);
-						const intersectionDuration = ((Date.now() - intersectionStart) / 1000).toFixed(2);
-						this.logEntry(`✓ Intersection retrieval completed in ${intersectionDuration}s: ${intersectionResults.length} results`);
-						
-						// Analyze intersection
-						const scPathSet = new Set(scTemplatePaths);
-						const hashPathSet = new Set(hashResults.map(r => r.path));
-						const intersectionPaths = hashResults.filter(r => scPathSet.has(r.path)).map(r => r.path);
-						
-						this.logEntry(`  Hash results: ${hashResults.length}`);
-						this.logEntry(`  SC template paths: ${scTemplatePaths.length}`);
-						this.logEntry(`  Intersection matches: ${intersectionPaths.length}`);
-						this.logEntry(`  Intersection rate: ${hashResults.length > 0 ? ((intersectionPaths.length / hashResults.length) * 100).toFixed(1) : 0}%`);
-						
-						if (intersectionResults.length > 0) {
-							this.logEntry(`  Top intersection results (first 5):`);
-							intersectionResults.slice(0, 5).forEach((result, idx) => {
-								const isIntersection = scPathSet.has(result.path);
-								this.logEntry(`    ${idx + 1}. ${isIntersection ? '✓' : '○'} ${result.path} (score: ${result.score.toFixed(3)})`);
+						if (hybridResults.length > 0) {
+							this.logEntry(`  Top results (first 5):`);
+							hybridResults.slice(0, 5).forEach((result, idx) => {
+								this.logEntry(`    ${idx + 1}. ${result.path} (score: ${result.score.toFixed(3)})`);
 							});
+						} else {
+							this.logEntry('  ⚠ No hybrid retrieval results found');
 						}
 					} else {
 						this.logEntry(`⚠ No template paths available - skipping intersection test`);
