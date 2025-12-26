@@ -1,3 +1,33 @@
+# Local AI Setup (Ollama)
+
+The plugin ships without any binaries. To enable semantic search, bring your own Ollama and model:
+
+1. Install Ollama: https://ollama.com/download
+2. In a new Terminal window:
+   ```bash
+   ollama --version
+   ```
+   If it prints a version, the CLI is on PATH. If not, try:
+   ```bash
+   /Applications/Ollama.app/Contents/MacOS/Ollama --version
+   echo 'export PATH="/Applications/Ollama.app/Contents/MacOS:$PATH"' >> ~/.zshrc
+   source ~/.zshrc
+   ```
+3. Pull the embedding model:
+   ```bash
+   ollama pull nomic-embed-text
+   ```
+4. If you see errors about `~/.ollama/models` not accessible, create it:
+   ```bash
+   mkdir -p ~/.ollama/models
+   sudo chown -R "$USER":"$USER" ~/.ollama
+   chmod -R 755 ~/.ollama
+   ```
+5. In Obsidian Settings → Local AI Setup (Ollama):
+   - Click “Check Connection” to verify Ollama is running and `nomic-embed-text` is present.
+   - If OK, optionally click “Re-index” to regenerate embeddings.
+
+Fallback: If Ollama isn’t running, the plugin still works with lexical search; semantic unlocks when Ollama is available.
 # Writing Dashboard
 
 A writing dashboard plugin that integrates AI-powered chapter generation, micro-editing, and character management into your writing workflow.

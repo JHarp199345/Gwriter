@@ -21,6 +21,10 @@ export class OllamaSetupWizardModal extends Modal {
 		const link = linkRow.createEl('a', { href: 'https://ollama.com/download', text: 'https://ollama.com/download' });
 		link.setAttr('target', '_blank');
 
+		// Note about PATH / manual path
+		contentEl.createEl('p', { text: 'If the ollama command is not found after install, try:' });
+		contentEl.createEl('pre', { text: 'export PATH="/Applications/Ollama.app/Contents/MacOS:$PATH"\nsource ~/.zshrc\nollama --version' });
+
 		// Step 2: Pull model
 		contentEl.createEl('h4', { text: 'Step 2 — Pull the embedding model' });
 		contentEl.createEl('p', { text: 'Run this in your terminal/command prompt:' });

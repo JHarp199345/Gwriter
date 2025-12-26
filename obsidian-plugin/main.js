@@ -23592,6 +23592,8 @@ var init_OllamaSetupWizardModal = __esm({
         const linkRow = contentEl.createEl("div", { cls: "ollama-link-row" });
         const link2 = linkRow.createEl("a", { href: "https://ollama.com/download", text: "https://ollama.com/download" });
         link2.setAttr("target", "_blank");
+        contentEl.createEl("p", { text: "If the ollama command is not found after install, try:" });
+        contentEl.createEl("pre", { text: 'export PATH="/Applications/Ollama.app/Contents/MacOS:$PATH"\nsource ~/.zshrc\nollama --version' });
         contentEl.createEl("h4", { text: "Step 2 \u2014 Pull the embedding model" });
         contentEl.createEl("p", { text: "Run this in your terminal/command prompt:" });
         const cmd = "ollama pull nomic-embed-text";
