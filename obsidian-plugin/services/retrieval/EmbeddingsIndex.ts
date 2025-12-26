@@ -1,8 +1,9 @@
 import type { Vault } from 'obsidian';
 import { TFile } from 'obsidian';
 import WritingDashboardPlugin from '../../main';
-import { fnv1a32 } from '../ContentHash';
 import { buildIndexChunks } from './Chunking';
+import { fnv1a32 } from '../ContentHash';
+import { OllamaEmbeddingProvider } from './OllamaEmbeddingProvider';
 
 export interface IndexedChunk {
 	key: string;
@@ -18,7 +19,7 @@ export interface IndexedChunk {
 interface PersistedIndexV1 {
 	version: 1;
 	dim: number;
-	backend: 'hash';
+	backend: 'ollama';
 	chunking?: { headingLevel: 'h1' | 'h2' | 'h3' | 'none'; targetWords: number; overlapWords: number };
 	chunks: IndexedChunk[];
 }
@@ -26,32 +27,6 @@ interface PersistedIndexV1 {
 function clampInt(value: number, min: number, max: number): number {
 	if (!Number.isFinite(value)) return min;
 	return Math.max(min, Math.min(max, Math.floor(value)));
-}
-
-function tokenize(value: string): string[] {
-	return value
-		.toLowerCase()
-		.split(/[^a-z0-9]+/g)
-		.map((t) => t.trim())
-		.filter((t) => t.length >= 2);
-}
-
-function buildVector(text: string, dim: number): number[] {
-	const vec = new Array<number>(dim).fill(0);
-	const tokens = tokenize(text);
-	for (const tok of tokens) {
-		const h = parseInt(fnv1a32(tok), 16);
-		const idx = h % dim;
-		// Signed hashing helps reduce collisions bias
-		const sign = (h & 1) === 0 ? 1 : -1;
-		vec[idx] += sign;
-	}
-	// L2 normalize
-	let sumSq = 0;
-	for (let i = 0; i < dim; i++) sumSq += vec[i] * vec[i];
-	const norm = Math.sqrt(sumSq) || 1;
-	for (let i = 0; i < dim; i++) vec[i] = vec[i] / norm;
-	return vec;
 }
 
 function chunkingKey(plugin: WritingDashboardPlugin): { headingLevel: 'h1' | 'h2' | 'h3' | 'none'; targetWords: number; overlapWords: number } {
@@ -80,8 +55,9 @@ interface ErrorLogEntry {
 export class EmbeddingsIndex {
 	private readonly vault: Vault;
 	private readonly plugin: WritingDashboardPlugin;
-	private readonly dim: number;
-	private readonly backend: 'hash';
+	private dim: number;
+	private readonly backend: 'ollama';
+	private readonly embeddingProvider: OllamaEmbeddingProvider;
 
 	private loaded = false;
 	private chunksByKey = new Map<string, IndexedChunk>();
@@ -96,11 +72,12 @@ export class EmbeddingsIndex {
 	private readonly errorLog: ErrorLogEntry[] = [];
 	private readonly maxStoredErrors = 100;
 
-	constructor(vault: Vault, plugin: WritingDashboardPlugin, dim: number = 256) {
+	constructor(vault: Vault, plugin: WritingDashboardPlugin, embeddingProvider: OllamaEmbeddingProvider) {
 		this.vault = vault;
 		this.plugin = plugin;
-		this.backend = 'hash';
-		this.dim = dim;
+		this.backend = 'ollama';
+		this.embeddingProvider = embeddingProvider;
+		this.dim = 0;
 	}
 
 	getIndexFilePath(): string {
@@ -122,10 +99,8 @@ export class EmbeddingsIndex {
 				this.enqueueFullRescan();
 				return;
 			}
-			if (typeof parsed.dim === 'number' && parsed.dim !== this.dim) {
-				// Dimension mismatch: ignore persisted index and rebuild.
-				this.enqueueFullRescan();
-				return;
+			if (typeof parsed.dim === 'number') {
+				this.dim = parsed.dim;
 			}
 			const expectedChunking = chunkingKey(this.plugin);
 			if (
@@ -347,9 +322,15 @@ export class EmbeddingsIndex {
 			try {
 				console.log(`  - Generating embedding for chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words)...`);
 				const embedStart = Date.now();
-				vector = buildVector(ch.text, this.dim);
+				vector = await this.embeddingProvider.getEmbedding(ch.text);
+				if (!Array.isArray(vector) || vector.length === 0) {
+					throw new Error('Empty embedding returned from Ollama');
+				}
+				if (this.dim === 0) {
+					this.dim = vector.length;
+				}
 				const embedDuration = Date.now() - embedStart;
-				console.log(`  - ✓ Hash-based vector generated in ${embedDuration}ms: ${vector.length} dimensions`);
+				console.log(`  - ✓ Ollama embedding generated in ${embedDuration}ms: ${vector.length} dimensions`);
 			} catch (err) {
 				const errorMsg = err instanceof Error ? err.message : String(err);
 				const errorStack = err instanceof Error ? err.stack : undefined;
@@ -448,11 +429,16 @@ export class EmbeddingsIndex {
 	}
 
 	buildQueryVector(queryText: string): number[] {
-		return buildVector(queryText, this.dim);
+		console.warn('[EmbeddingsIndex] buildQueryVector called; returning empty vector. Use embedQueryVector instead.');
+		return [];
 	}
 
 	async embedQueryVector(queryText: string): Promise<number[]> {
-		return buildVector(queryText, this.dim);
+		const vec = await this.embeddingProvider.getEmbedding(queryText);
+		if (!Array.isArray(vec) || vec.length === 0) {
+			throw new Error('Empty embedding returned from Ollama');
+		}
+		return vec;
 	}
 
 	private _schedulePersist(): void {

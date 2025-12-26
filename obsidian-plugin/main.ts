@@ -8,14 +8,10 @@ import { AIClient } from './services/AIClient';
 import { CharacterExtractor } from './services/CharacterExtractor';
 import { RetrievalService } from './services/RetrievalService';
 import { QueryBuilder } from './services/QueryBuilder';
-import { HeuristicProvider } from './services/retrieval/HeuristicProvider';
 import { EmbeddingsIndex } from './services/retrieval/EmbeddingsIndex';
 import { LocalEmbeddingsProvider } from './services/retrieval/LocalEmbeddingsProvider';
-import { ExternalEmbeddingsProvider } from './services/retrieval/ExternalEmbeddingsProvider';
-import { SmartConnectionsProvider } from './services/retrieval/SmartConnectionsProvider';
-import { Bm25Index } from './services/retrieval/Bm25Index';
-import { Bm25Provider } from './services/retrieval/Bm25Provider';
 import { CpuReranker } from './services/retrieval/CpuReranker';
+import { OllamaEmbeddingProvider } from './services/retrieval/OllamaEmbeddingProvider';
 import { GenerationLogService } from './services/GenerationLogService';
 import { SetupWizardModal } from './ui/SetupWizard';
 import { BookMainSelectorModal } from './ui/BookMainSelectorModal';
@@ -374,9 +370,7 @@ export default class WritingDashboardPlugin extends Plugin {
 	characterExtractor: CharacterExtractor;
 	queryBuilder: QueryBuilder;
 	retrievalService: RetrievalService;
-	smartConnectionsProvider?: import('./services/retrieval/SmartConnectionsProvider').SmartConnectionsProvider;
 	embeddingsIndex: EmbeddingsIndex;
-	bm25Index: Bm25Index;
 	cpuReranker: CpuReranker;
 	generationLogService: GenerationLogService;
 	templateProcessorInstance?: TemplateProcessor;
@@ -482,45 +476,18 @@ export default class WritingDashboardPlugin extends Plugin {
 
 		// Retrieval / local indexing
 		this.queryBuilder = new QueryBuilder();
-		this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this);
-		this.bm25Index = new Bm25Index(this.app.vault, this);
+		const ollamaProvider = new OllamaEmbeddingProvider(this.app);
+		this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this, ollamaProvider);
 		this.cpuReranker = new CpuReranker();
 		this.generationLogService = new GenerationLogService(this.app, this);
-		// Note: Folder validation happens when logs are enabled via settings toggle
-		const scProvider = new SmartConnectionsProvider(this.app, this, this.app.vault, (path) => !this.vaultService.isExcludedPath(path));
-		this.smartConnectionsProvider = scProvider;
 		
 		const providers: Array<import('./services/retrieval/types').RetrievalProvider> = [
-			new HeuristicProvider(this.app.vault, this.vaultService),
-			new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path)),
-			scProvider
+			new LocalEmbeddingsProvider(
+				this.embeddingsIndex,
+				() => Boolean(this.settings.retrievalEnableSemanticIndex),
+				(path) => !this.vaultService.isExcludedPath(path)
+			)
 		];
-		
-		// Only add ExternalEmbeddingsProvider if explicitly enabled
-		if (this.settings.externalEmbeddingsEnabled && 
-			this.settings.externalEmbeddingProvider && 
-			this.settings.externalEmbeddingApiKey) {
-			providers.push(
-				new ExternalEmbeddingsProvider(
-					this,
-					this.embeddingsIndex,
-					this.bm25Index,
-					() => Boolean(this.settings.externalEmbeddingsEnabled && 
-								this.settings.externalEmbeddingProvider && 
-								this.settings.externalEmbeddingApiKey),
-					(path) => !this.vaultService.isExcludedPath(path)
-				)
-			);
-		} else {
-			// Use local embeddings (hash)
-			providers.push(
-				new LocalEmbeddingsProvider(
-					this.embeddingsIndex,
-					() => Boolean(this.settings.retrievalEnableSemanticIndex),
-					(path) => !this.vaultService.isExcludedPath(path)
-				)
-			);
-		}
 		
 		this.retrievalService = new RetrievalService(providers, { getVector: (key) => this.embeddingsIndex.getVectorForKey(key) });
 
@@ -529,7 +496,6 @@ export default class WritingDashboardPlugin extends Plugin {
 			if (this.settings.retrievalIndexPaused) return;
 			if (this.vaultService.isExcludedPath(path)) return;
 			if (this.settings.retrievalEnableSemanticIndex) this.embeddingsIndex.queueUpdateFile(path);
-			if (this.settings.retrievalEnableBm25) this.bm25Index.queueUpdateFile(path);
 		};
 
 		this.registerEvent(
@@ -550,7 +516,6 @@ export default class WritingDashboardPlugin extends Plugin {
 			this.app.vault.on('delete', (file) => {
 				if (file instanceof TFile && file.extension === 'md') {
 					this.embeddingsIndex.queueRemoveFile(file.path);
-					this.bm25Index.queueRemoveFile(file.path);
 				}
 			})
 		);
@@ -558,7 +523,6 @@ export default class WritingDashboardPlugin extends Plugin {
 			this.app.vault.on('rename', (file, oldPath) => {
 				if (!(file instanceof TFile) || file.extension !== 'md') return;
 				this.embeddingsIndex.queueRemoveFile(oldPath);
-				this.bm25Index.queueRemoveFile(oldPath);
 				maybeQueueIndex(file.path);
 			})
 		);
@@ -567,9 +531,7 @@ export default class WritingDashboardPlugin extends Plugin {
 		if (this.settings.retrievalEnableSemanticIndex && !this.settings.retrievalIndexPaused) {
 			this.embeddingsIndex.enqueueFullRescan();
 		}
-		if (this.settings.retrievalEnableBm25 && !this.settings.retrievalIndexPaused) {
-			this.bm25Index.enqueueFullRescan();
-		}
+		// BM25 disabled/removed
 		
 		this.registerView(
 			VIEW_TYPE_DASHBOARD,
@@ -653,44 +615,14 @@ export default class WritingDashboardPlugin extends Plugin {
 	 * Called when retrievalSource or other retrieval settings change.
 	 */
 	recreateRetrievalService(): void {
-		const scProvider = new SmartConnectionsProvider(this.app, this, this.app.vault, (path) => !this.vaultService.isExcludedPath(path));
-		this.smartConnectionsProvider = scProvider;
-		
 		const providers: Array<import('./services/retrieval/types').RetrievalProvider> = [
-			new HeuristicProvider(this.app.vault, this.vaultService),
-			new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path)),
-			scProvider
+			new LocalEmbeddingsProvider(
+				this.embeddingsIndex,
+				() => Boolean(this.settings.retrievalEnableSemanticIndex),
+				(path) => !this.vaultService.isExcludedPath(path)
+			)
 		];
-		
-		// Only add ExternalEmbeddingsProvider if explicitly enabled
-		if (this.settings.externalEmbeddingsEnabled && 
-			this.settings.externalEmbeddingProvider && 
-			this.settings.externalEmbeddingApiKey) {
-			providers.push(
-				new ExternalEmbeddingsProvider(
-					this,
-					this.embeddingsIndex,
-					this.bm25Index,
-					() => Boolean(this.settings.externalEmbeddingsEnabled && 
-								this.settings.externalEmbeddingProvider && 
-								this.settings.externalEmbeddingApiKey),
-					(path) => !this.vaultService.isExcludedPath(path)
-				)
-			);
-		}
-		
-		if (this.settings.retrievalSource === 'external-api') {
-			// This branch is now handled above - keeping for backward compatibility
-		} else {
-			providers.push(
-				new LocalEmbeddingsProvider(
-					this.embeddingsIndex,
-					() => Boolean(this.settings.retrievalEnableSemanticIndex),
-					(path) => !this.vaultService.isExcludedPath(path)
-				)
-			);
-		}
-		
+
 		this.retrievalService = new RetrievalService(providers, { getVector: (key) => this.embeddingsIndex.getVectorForKey(key) });
 	}
 

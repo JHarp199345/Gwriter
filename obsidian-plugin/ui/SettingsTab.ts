@@ -191,9 +191,7 @@ export class SettingsTab extends PluginSettingTab {
 					this.plugin.settings.retrievalActiveProfileId = value;
 					await this.plugin.saveSettings();
 					this.plugin.embeddingsIndex.queueRecheckAllIndexed();
-					this.plugin.bm25Index.queueRecheckAllIndexed();
 					this.plugin.embeddingsIndex.enqueueFullRescan();
-					this.plugin.bm25Index.enqueueFullRescan();
 					this.display();
 				});
 			});
@@ -244,7 +242,6 @@ export class SettingsTab extends PluginSettingTab {
 							this.plugin.settings.retrievalActiveProfileId = this.plugin.settings.retrievalProfiles[0]?.id || 'story';
 							await this.plugin.saveSettings();
 							this.plugin.embeddingsIndex.enqueueFullRescan();
-							this.plugin.bm25Index.enqueueFullRescan();
 							this.display();
 						})
 					);
@@ -277,23 +274,11 @@ export class SettingsTab extends PluginSettingTab {
 							this.plugin.settings.retrievalProfiles = profiles;
 							await this.plugin.saveSettings();
 							this.plugin.embeddingsIndex.queueRecheckAllIndexed();
-							this.plugin.bm25Index.queueRecheckAllIndexed();
 							this.plugin.embeddingsIndex.enqueueFullRescan();
-							this.plugin.bm25Index.enqueueFullRescan();
 						})
 					);
 			}
 		}
-
-		new Setting(containerEl)
-			.setName('Enable bm25 retrieval')
-			.setDesc('Use a search-engine style relevance ranking (BM25). Recommended for names, places, and exact terms.')
-			.addToggle((toggle) =>
-				toggle.setValue(Boolean(this.plugin.settings.retrievalEnableBm25)).onChange(async (value) => {
-					this.plugin.settings.retrievalEnableBm25 = value;
-					await this.plugin.saveSettings();
-				})
-			);
 
 		new Setting(containerEl)
 			.setName('Enable semantic retrieval')

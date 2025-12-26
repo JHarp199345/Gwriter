@@ -243,7 +243,7 @@ export class StressTestService {
 				// Hash backend doesn't require model readiness checks
 				
 				this.plugin.embeddingsIndex.enqueueFullRescan();
-				this.plugin.bm25Index.enqueueFullRescan();
+				// BM25 removed
 
 				// Check status multiple times to see progress
 				for (let i = 0; i < 10; i++) {
@@ -286,10 +286,7 @@ export class StressTestService {
 				}
 
 				// Check BM25 index status
-				const bm25Status = this.plugin.bm25Index?.getStatus?.();
-				if (bm25Status) {
-					this.logEntry(`BM25 index status: ${bm25Status.indexedFiles} files, ${bm25Status.indexedChunks} chunks, ${bm25Status.queued} queued`);
-				}
+				// BM25 removed
 
 				if (statusFinal) {
 					if (statusFinal.queued > 0) {
@@ -970,33 +967,7 @@ export class StressTestService {
 				}
 			}
 
-			// Test 5: Cache Status (if cache enabled)
-			if (this.plugin.settings.smartConnectionsCacheEnabled) {
-				this.logEntry('');
-				this.logEntry('=== Test 5: Smart Connections Cache Status ===');
-				try {
-					const scProvider = this.plugin.smartConnectionsProvider;
-					if (scProvider && 'getCacheStatus' in scProvider) {
-						const cacheStatus = (scProvider as any).getCacheStatus();
-						if (cacheStatus) {
-							this.logEntry(`  Cache exists: ${cacheStatus.exists ? 'Yes' : 'No'}`);
-							this.logEntry(`  Cache enabled: ${cacheStatus.enabled ? 'Yes' : 'No'}`);
-							this.logEntry(`  Cache count: ${cacheStatus.count || 0}`);
-							this.logEntry(`  Cache age: ${cacheStatus.age || 'unknown'}`);
-							this.logEntry(`  Cache method: ${cacheStatus.method || 'unknown'}`);
-							if (cacheStatus.sourceNote) {
-								this.logEntry(`  Source note: ${cacheStatus.sourceNote}`);
-							}
-						} else {
-							this.logEntry(`  ⚠ Cache status unavailable`);
-						}
-					} else {
-						this.logEntry(`  ⚠ Smart Connections provider not available`);
-					}
-				} catch (error) {
-					this.logEntry(`  ⚠ Cache status check failed: ${error instanceof Error ? error.message : String(error)}`);
-				}
-			}
+			// Smart Connections cache tests removed (Smart Connections removed)
 
 			const phaseDuration = ((Date.now() - phaseStart) / 1000).toFixed(2);
 			this.logEntry('');
@@ -1200,7 +1171,7 @@ export class StressTestService {
 			// Remove test files from index if they were indexed
 			for (const filePath of this.testFiles) {
 				this.plugin.embeddingsIndex?.queueRemoveFile(filePath);
-				this.plugin.bm25Index?.queueRemoveFile(filePath);
+				// BM25 removed
 			}
 
 			const phaseDuration = ((Date.now() - phaseStart) / 1000).toFixed(2);

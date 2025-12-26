@@ -39418,7 +39418,7 @@ ${t2}`);
             /* harmony export */
             "tokenize": () => (
               /* binding */
-              tokenize4
+              tokenize
             )
             /* harmony export */
           });
@@ -39589,7 +39589,7 @@ ${t2}`);
             }
             return template.replace(/{##}/g, "").replace(/-%}\s*/g, "%}").replace(/\s*{%-/g, "{%").replace(/-}}\s*/g, "}}").replace(/\s*{{-/g, "{{");
           }
-          function tokenize4(source, options = {}) {
+          function tokenize(source, options = {}) {
             const tokens = [];
             const src = preprocess(source, options);
             let cursorPosition = 0;
@@ -41004,7 +41004,7 @@ ${t2}`);
              */
             constructor(template) {
               __publicField(this, "parsed");
-              const tokens = tokenize4(template, {
+              const tokens = tokenize(template, {
                 lstrip_blocks: true,
                 trim_blocks: true
               });
@@ -52757,7 +52757,7 @@ ${t2}`);
             apply_chat_template(conversation, {
               chat_template = null,
               add_generation_prompt = false,
-              tokenize: tokenize4 = true,
+              tokenize = true,
               padding = false,
               truncation = false,
               max_length = null,
@@ -52800,7 +52800,7 @@ ${t2}`);
                 ...special_tokens_map,
                 ...kwargs
               });
-              if (tokenize4) {
+              if (tokenize) {
                 return this._call(rendered, {
                   add_special_tokens: false,
                   padding,
@@ -59094,7 +59094,7 @@ ${t2}`);
             /* harmony export */
             "dot": () => (
               /* binding */
-              dot4
+              dot3
             ),
             /* harmony export */
             "getTopItems": () => (
@@ -59223,7 +59223,7 @@ ${t2}`);
               logSoftmaxArr
             );
           }
-          function dot4(arr1, arr2) {
+          function dot3(arr1, arr2) {
             let result = 0;
             for (let i = 0; i < arr1.length; ++i) {
               result += arr1[i] * arr2[i];
@@ -59238,7 +59238,7 @@ ${t2}`);
             return items;
           }
           function cos_sim(arr1, arr2) {
-            const dotProduct = dot4(arr1, arr2);
+            const dotProduct = dot3(arr1, arr2);
             const magnitudeA = magnitude(arr1);
             const magnitudeB = magnitude(arr2);
             const cosineSimilarity = dotProduct / (magnitudeA * magnitudeB);
@@ -63986,7 +63986,7 @@ __export(main_exports, {
   default: () => WritingDashboardPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian29 = require("obsidian");
+var import_obsidian27 = require("obsidian");
 
 // ui/DashboardView.ts
 var import_obsidian7 = require("obsidian");
@@ -66946,7 +66946,6 @@ var StressTestService = class {
         this.logEntry("Triggering full index rescan...");
         this.logEntry(`Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || "hash"}`);
         this.plugin.embeddingsIndex.enqueueFullRescan();
-        this.plugin.bm25Index.enqueueFullRescan();
         for (let i = 0; i < 10; i++) {
           await new Promise((resolve) => setTimeout(resolve, 1e3));
           const status = this.plugin.embeddingsIndex?.getStatus?.();
@@ -66975,10 +66974,6 @@ var StressTestService = class {
           if (indexedPaths.length > 10) {
             this.logEntry(`  ... and ${indexedPaths.length - 10} more`);
           }
-        }
-        const bm25Status = this.plugin.bm25Index?.getStatus?.();
-        if (bm25Status) {
-          this.logEntry(`BM25 index status: ${bm25Status.indexedFiles} files, ${bm25Status.indexedChunks} chunks, ${bm25Status.queued} queued`);
         }
         if (statusFinal) {
           if (statusFinal.queued > 0) {
@@ -67566,32 +67561,6 @@ var StressTestService = class {
           }
         }
       }
-      if (this.plugin.settings.smartConnectionsCacheEnabled) {
-        this.logEntry("");
-        this.logEntry("=== Test 5: Smart Connections Cache Status ===");
-        try {
-          const scProvider = this.plugin.smartConnectionsProvider;
-          if (scProvider && "getCacheStatus" in scProvider) {
-            const cacheStatus = scProvider.getCacheStatus();
-            if (cacheStatus) {
-              this.logEntry(`  Cache exists: ${cacheStatus.exists ? "Yes" : "No"}`);
-              this.logEntry(`  Cache enabled: ${cacheStatus.enabled ? "Yes" : "No"}`);
-              this.logEntry(`  Cache count: ${cacheStatus.count || 0}`);
-              this.logEntry(`  Cache age: ${cacheStatus.age || "unknown"}`);
-              this.logEntry(`  Cache method: ${cacheStatus.method || "unknown"}`);
-              if (cacheStatus.sourceNote) {
-                this.logEntry(`  Source note: ${cacheStatus.sourceNote}`);
-              }
-            } else {
-              this.logEntry(`  \u26A0 Cache status unavailable`);
-            }
-          } else {
-            this.logEntry(`  \u26A0 Smart Connections provider not available`);
-          }
-        } catch (error2) {
-          this.logEntry(`  \u26A0 Cache status check failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
-        }
-      }
       const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
       this.logEntry("");
       this.logEntry(`Phase 5.5 completed in ${phaseDuration}s`);
@@ -67764,7 +67733,6 @@ ${it.excerpt}`.trim()).join("\n\n---\n\n");
       }
       for (const filePath of this.testFiles) {
         this.plugin.embeddingsIndex?.queueRemoveFile(filePath);
-        this.plugin.bm25Index?.queueRemoveFile(filePath);
       }
       const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
       this.logEntry(`Phase 6 completed in ${phaseDuration}s`);
@@ -67967,9 +67935,7 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
         this.plugin.settings.retrievalActiveProfileId = value;
         await this.plugin.saveSettings();
         this.plugin.embeddingsIndex.queueRecheckAllIndexed();
-        this.plugin.bm25Index.queueRecheckAllIndexed();
         this.plugin.embeddingsIndex.enqueueFullRescan();
-        this.plugin.bm25Index.enqueueFullRescan();
         this.display();
       });
     });
@@ -68007,7 +67973,6 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
             this.plugin.settings.retrievalActiveProfileId = this.plugin.settings.retrievalProfiles[0]?.id || "story";
             await this.plugin.saveSettings();
             this.plugin.embeddingsIndex.enqueueFullRescan();
-            this.plugin.bm25Index.enqueueFullRescan();
             this.display();
           })
         );
@@ -68033,19 +67998,11 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
             this.plugin.settings.retrievalProfiles = profiles;
             await this.plugin.saveSettings();
             this.plugin.embeddingsIndex.queueRecheckAllIndexed();
-            this.plugin.bm25Index.queueRecheckAllIndexed();
             this.plugin.embeddingsIndex.enqueueFullRescan();
-            this.plugin.bm25Index.enqueueFullRescan();
           })
         );
       }
     }
-    new import_obsidian11.Setting(containerEl).setName("Enable bm25 retrieval").setDesc("Use a search-engine style relevance ranking (BM25). Recommended for names, places, and exact terms.").addToggle(
-      (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableBm25)).onChange(async (value) => {
-        this.plugin.settings.retrievalEnableBm25 = value;
-        await this.plugin.saveSettings();
-      })
-    );
     new import_obsidian11.Setting(containerEl).setName("Enable semantic retrieval").setDesc("Build a local index to retrieve relevant notes from the vault. If disabled, retrieval uses heuristic matching only.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableSemanticIndex)).onChange(async (value) => {
         this.plugin.settings.retrievalEnableSemanticIndex = value;
@@ -70612,145 +70569,6 @@ ${v}`);
   }
 };
 
-// services/retrieval/HeuristicProvider.ts
-var STOPWORDS = /* @__PURE__ */ new Set([
-  "the",
-  "a",
-  "an",
-  "and",
-  "or",
-  "but",
-  "to",
-  "of",
-  "in",
-  "on",
-  "for",
-  "with",
-  "at",
-  "from",
-  "by",
-  "as",
-  "is",
-  "are",
-  "was",
-  "were",
-  "be",
-  "been",
-  "it",
-  "that",
-  "this",
-  "these",
-  "those"
-]);
-function tokenize(value) {
-  return value.toLowerCase().split(/[^a-z0-9]+/g).map((t) => t.trim()).filter((t) => t.length >= 3 && !STOPWORDS.has(t));
-}
-function findSnippet(content, term, maxLen) {
-  const lower = content.toLowerCase();
-  const idx = lower.indexOf(term.toLowerCase());
-  if (idx < 0)
-    return content.slice(0, maxLen);
-  const start = Math.max(0, idx - Math.floor(maxLen / 3));
-  const end = Math.min(content.length, start + maxLen);
-  const prefix = start > 0 ? "\u2026" : "";
-  const suffix = end < content.length ? "\u2026" : "";
-  return `${prefix}${content.slice(start, end)}${suffix}`.trim();
-}
-var HeuristicProvider = class {
-  constructor(vault, vaultService) {
-    this.id = "heuristic";
-    this.cache = /* @__PURE__ */ new Map();
-    this.cacheTtlMs = 3e4;
-    this.vault = vault;
-    this.vaultService = vaultService;
-  }
-  async search(query, opts) {
-    const q = (query.text ?? "").trim();
-    if (!q)
-      return [];
-    const cacheKey = fnv1a32(
-      [
-        "q:" + q,
-        "active:" + (query.activeFilePath ?? ""),
-        "mode:" + (query.mode ?? ""),
-        "k:" + String(opts.limit)
-      ].join("\n")
-    );
-    const cached = this.cache.get(cacheKey);
-    if (cached && Date.now() - cached.at <= this.cacheTtlMs) {
-      return cached.results.slice(0, opts.limit);
-    }
-    const terms = tokenize(q).slice(0, 24);
-    if (terms.length === 0)
-      return [];
-    const files = this.vaultService.getIncludedMarkdownFiles();
-    if (files.length === 0)
-      return [];
-    const now = Date.now();
-    const scored = files.map((f) => {
-      const base2 = `${f.basename} ${f.path}`.toLowerCase();
-      let score = 0;
-      let titleHits = 0;
-      for (const t of terms) {
-        if (base2.includes(t)) {
-          score += 1;
-          titleHits++;
-        }
-      }
-      const ageMs = Math.max(0, now - (f.stat?.mtime ?? now));
-      const recency = 1 / (1 + ageMs / (1e3 * 60 * 60 * 24 * 30));
-      score += recency * 0.5;
-      if (query.activeFilePath && f.path === query.activeFilePath)
-        score += 0.75;
-      if (query.activeFilePath && f.path.startsWith(query.activeFilePath.split("/").slice(0, -1).join("/")))
-        score += 0.15;
-      return { file: f, score, titleHits };
-    }).sort((a, b) => b.score - a.score).slice(0, 200);
-    const results = [];
-    const maxRead = Math.min(scored.length, 120);
-    for (let i = 0; i < maxRead; i++) {
-      const { file, score: baseScore, titleHits } = scored[i];
-      let content = "";
-      try {
-        content = await this.vault.read(file);
-      } catch {
-        continue;
-      }
-      const lower = content.toLowerCase();
-      let tf = 0;
-      let firstTerm = null;
-      for (const t of terms) {
-        const hits = lower.split(t).length - 1;
-        if (hits > 0 && !firstTerm)
-          firstTerm = t;
-        tf += hits;
-      }
-      if (tf === 0 && titleHits === 0)
-        continue;
-      const normalizedTf = Math.min(1, tf / 24);
-      const score = Math.min(1, baseScore / 6 + normalizedTf * 0.7);
-      const reasonTags = [];
-      if (titleHits > 0)
-        reasonTags.push("titleMatch");
-      if (tf > 0)
-        reasonTags.push("textMatch");
-      const excerpt = firstTerm ? findSnippet(content, firstTerm, 2500) : content.slice(0, 2500);
-      results.push({
-        key: `file:${file.path}`,
-        path: file.path,
-        title: file.basename,
-        excerpt,
-        score,
-        source: this.id,
-        reasonTags
-      });
-    }
-    const finalResults = results.sort((a, b) => b.score - a.score).slice(0, opts.limit);
-    this.cache.set(cacheKey, { at: Date.now(), results: finalResults });
-    return finalResults;
-  }
-};
-
 // services/retrieval/EmbeddingsIndex.ts
 var import_obsidian18 = require("obsidian");
 
@@ -70884,26 +70702,6 @@ function clampInt2(value, min, max) {
     return min;
   return Math.max(min, Math.min(max, Math.floor(value)));
 }
-function tokenize2(value) {
-  return value.toLowerCase().split(/[^a-z0-9]+/g).map((t) => t.trim()).filter((t) => t.length >= 2);
-}
-function buildVector(text2, dim) {
-  const vec = new Array(dim).fill(0);
-  const tokens = tokenize2(text2);
-  for (const tok of tokens) {
-    const h = parseInt(fnv1a32(tok), 16);
-    const idx = h % dim;
-    const sign = (h & 1) === 0 ? 1 : -1;
-    vec[idx] += sign;
-  }
-  let sumSq = 0;
-  for (let i = 0; i < dim; i++)
-    sumSq += vec[i] * vec[i];
-  const norm = Math.sqrt(sumSq) || 1;
-  for (let i = 0; i < dim; i++)
-    vec[i] = vec[i] / norm;
-  return vec;
-}
 function chunkingKey(plugin) {
   return {
     headingLevel: plugin.settings.retrievalChunkHeadingLevel ?? "h1",
@@ -70918,7 +70716,7 @@ function excerptOf(text2, maxChars) {
   return `${trimmed.slice(0, maxChars)}\u2026`;
 }
 var EmbeddingsIndex = class {
-  constructor(vault, plugin, dim = 256) {
+  constructor(vault, plugin, embeddingProvider) {
     this.loaded = false;
     this.chunksByKey = /* @__PURE__ */ new Map();
     this.chunkKeysByPath = /* @__PURE__ */ new Map();
@@ -70931,8 +70729,9 @@ var EmbeddingsIndex = class {
     this.maxStoredErrors = 100;
     this.vault = vault;
     this.plugin = plugin;
-    this.backend = "hash";
-    this.dim = dim;
+    this.backend = "ollama";
+    this.embeddingProvider = embeddingProvider;
+    this.dim = 0;
   }
   getIndexFilePath() {
     return `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index/index.json`;
@@ -70953,9 +70752,8 @@ var EmbeddingsIndex = class {
         this.enqueueFullRescan();
         return;
       }
-      if (typeof parsed.dim === "number" && parsed.dim !== this.dim) {
-        this.enqueueFullRescan();
-        return;
+      if (typeof parsed.dim === "number") {
+        this.dim = parsed.dim;
       }
       const expectedChunking = chunkingKey(this.plugin);
       if (parsed.chunking && (parsed.chunking.headingLevel !== expectedChunking.headingLevel || parsed.chunking.targetWords !== expectedChunking.targetWords || parsed.chunking.overlapWords !== expectedChunking.overlapWords)) {
@@ -71136,9 +70934,15 @@ var EmbeddingsIndex = class {
       try {
         console.log(`  - Generating embedding for chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words)...`);
         const embedStart = Date.now();
-        vector = buildVector(ch.text, this.dim);
+        vector = await this.embeddingProvider.getEmbedding(ch.text);
+        if (!Array.isArray(vector) || vector.length === 0) {
+          throw new Error("Empty embedding returned from Ollama");
+        }
+        if (this.dim === 0) {
+          this.dim = vector.length;
+        }
         const embedDuration = Date.now() - embedStart;
-        console.log(`  - \u2713 Hash-based vector generated in ${embedDuration}ms: ${vector.length} dimensions`);
+        console.log(`  - \u2713 Ollama embedding generated in ${embedDuration}ms: ${vector.length} dimensions`);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         const errorStack = err instanceof Error ? err.stack : void 0;
@@ -71226,10 +71030,15 @@ var EmbeddingsIndex = class {
     return ch?.vector ?? null;
   }
   buildQueryVector(queryText) {
-    return buildVector(queryText, this.dim);
+    console.warn("[EmbeddingsIndex] buildQueryVector called; returning empty vector. Use embedQueryVector instead.");
+    return [];
   }
   async embedQueryVector(queryText) {
-    return buildVector(queryText, this.dim);
+    const vec = await this.embeddingProvider.getEmbedding(queryText);
+    if (!Array.isArray(vec) || vec.length === 0) {
+      throw new Error("Empty embedding returned from Ollama");
+    }
+    return vec;
   }
   _schedulePersist() {
     if (this.persistTimer)
@@ -71313,1544 +71122,6 @@ var LocalEmbeddingsProvider = class {
       });
     }
     return results.slice(0, opts.limit);
-  }
-};
-
-// services/retrieval/ExternalEmbeddingsProvider.ts
-var import_obsidian19 = require("obsidian");
-function dot3(a, b) {
-  const n = Math.min(a.length, b.length);
-  let s = 0;
-  for (let i = 0; i < n; i++)
-    s += a[i] * b[i];
-  return s;
-}
-var ExternalEmbeddingsProvider = class {
-  constructor(plugin, embeddingsIndex, bm25Index, isEnabled, isAllowedPath) {
-    this.id = "external-embeddings";
-    // Cache for embedding vectors (query text -> vector)
-    this.embeddingCache = /* @__PURE__ */ new Map();
-    this.cacheTtl = 36e5;
-    // 1 hour
-    // Rate limiting infrastructure
-    this.requestQueue = [];
-    this.requestInFlight = false;
-    this.maxConcurrentRequests = 1;
-    // Serialize requests to avoid bursts
-    this.minRequestInterval = 100;
-    // Minimum 100ms between requests
-    this.lastRequestTime = 0;
-    this.retryConfig = {
-      maxRetries: 3,
-      baseDelay: 1e3,
-      // 1 second
-      maxDelay: 1e4,
-      // 10 seconds
-      backoffMultiplier: 2
-    };
-    this.plugin = plugin;
-    this.embeddingsIndex = embeddingsIndex;
-    this.bm25Index = bm25Index;
-    this.isEnabled = isEnabled;
-    this.isAllowedPath = isAllowedPath;
-  }
-  async getQueryEmbedding(query) {
-    const cached = this.embeddingCache.get(query);
-    if (cached && Date.now() - cached.timestamp < this.cacheTtl) {
-      return cached.vector;
-    }
-    const now = Date.now();
-    const timeSinceLastRequest = now - this.lastRequestTime;
-    if (timeSinceLastRequest < this.minRequestInterval) {
-      await new Promise((resolve) => setTimeout(resolve, this.minRequestInterval - timeSinceLastRequest));
-    }
-    const settings = this.plugin.settings;
-    const provider = settings.externalEmbeddingProvider;
-    const apiKey = settings.externalEmbeddingApiKey;
-    const model = settings.externalEmbeddingModel || this.getDefaultModel(provider);
-    const apiUrl = settings.externalEmbeddingApiUrl;
-    if (!provider || !apiKey) {
-      throw new Error("External embedding provider or API key not configured");
-    }
-    let lastError = null;
-    for (let attempt = 0; attempt <= this.retryConfig.maxRetries; attempt++) {
-      try {
-        this.lastRequestTime = Date.now();
-        let vector;
-        if (provider === "openai") {
-          vector = await this.callOpenAIEmbedding(apiKey, model, query);
-        } else if (provider === "cohere") {
-          vector = await this.callCohereEmbedding(apiKey, model, query);
-        } else if (provider === "google") {
-          vector = await this.callGoogleEmbedding(apiKey, model, query, settings.externalEmbeddingUseBatch || false);
-        } else if (provider === "custom" && apiUrl) {
-          vector = await this.callCustomEmbedding(apiUrl, query);
-        } else {
-          throw new Error(`Unsupported embedding provider: ${provider}`);
-        }
-        this.embeddingCache.set(query, { vector, timestamp: Date.now() });
-        return vector;
-      } catch (error2) {
-        lastError = error2 instanceof Error ? error2 : new Error(String(error2));
-        const isRateLimit = lastError.message.includes("429") || lastError.message.includes("rate limit") || lastError.message.includes("too many requests");
-        if (isRateLimit && attempt < this.retryConfig.maxRetries) {
-          const delay = Math.min(
-            this.retryConfig.baseDelay * Math.pow(this.retryConfig.backoffMultiplier, attempt),
-            this.retryConfig.maxDelay
-          );
-          console.warn(`[ExternalEmbeddingsProvider] Rate limited (429), retrying in ${delay}ms (attempt ${attempt + 1}/${this.retryConfig.maxRetries + 1})`);
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          continue;
-        }
-        if (!isRateLimit || attempt >= this.retryConfig.maxRetries) {
-          break;
-        }
-      }
-    }
-    console.error(`[ExternalEmbeddingsProvider] Failed to get embedding after ${this.retryConfig.maxRetries + 1} attempts:`, lastError);
-    throw lastError || new Error("Failed to get embedding");
-  }
-  getDefaultModel(provider) {
-    switch (provider) {
-      case "openai":
-        return "text-embedding-3-small";
-      case "cohere":
-        return "embed-english-v3.0";
-      case "google":
-        return "gemini-embedding-001";
-      default:
-        return "";
-    }
-  }
-  async callOpenAIEmbedding(apiKey, model, query) {
-    const response = await (0, import_obsidian19.requestUrl)({
-      url: "https://api.openai.com/v1/embeddings",
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model,
-        input: query
-      })
-    });
-    if (response.status !== 200) {
-      const errorText = response.text || "";
-      if (response.status === 429) {
-        const retryAfter = response.headers["retry-after"] || response.headers["Retry-After"];
-        throw new Error(`OpenAI rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : "Please wait before retrying."}`);
-      }
-      throw new Error(`OpenAI embedding API error: ${response.status} ${errorText}`);
-    }
-    const data = typeof response.json === "object" ? response.json : JSON.parse(response.text);
-    if (data.data && data.data[0] && data.data[0].embedding) {
-      return data.data[0].embedding;
-    }
-    throw new Error("Invalid OpenAI embedding response format");
-  }
-  async callCohereEmbedding(apiKey, model, query) {
-    const response = await (0, import_obsidian19.requestUrl)({
-      url: "https://api.cohere.ai/v1/embed",
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model,
-        texts: [query]
-      })
-    });
-    if (response.status !== 200) {
-      const errorText = response.text || "";
-      if (response.status === 429) {
-        const retryAfter = response.headers["retry-after"] || response.headers["Retry-After"];
-        throw new Error(`Cohere rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : "Please wait before retrying."}`);
-      }
-      throw new Error(`Cohere embedding API error: ${response.status} ${errorText}`);
-    }
-    const data = typeof response.json === "object" ? response.json : JSON.parse(response.text);
-    if (data.embeddings && data.embeddings[0]) {
-      return data.embeddings[0];
-    }
-    throw new Error("Invalid Cohere embedding response format");
-  }
-  async callGoogleEmbedding(apiKey, model, query, useBatch) {
-    if (useBatch) {
-      const response = await (0, import_obsidian19.requestUrl)({
-        url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents?key=${apiKey}`,
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          requests: [{
-            content: {
-              parts: [{ text: query }]
-            }
-          }]
-        })
-      });
-      if (response.status !== 200) {
-        const errorText = response.text || "";
-        if (response.status === 429) {
-          const retryAfter = response.headers["retry-after"] || response.headers["Retry-After"];
-          throw new Error(`Google Gemini rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : "Please wait before retrying."}`);
-        }
-        throw new Error(`Google Gemini batch embedding API error: ${response.status} ${errorText}`);
-      }
-      const data = typeof response.json === "object" ? response.json : JSON.parse(response.text);
-      if (data.embeddings && data.embeddings[0] && data.embeddings[0].values) {
-        return data.embeddings[0].values;
-      }
-      throw new Error("Invalid Google Gemini batch embedding response format");
-    } else {
-      const response = await (0, import_obsidian19.requestUrl)({
-        url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${apiKey}`,
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          content: {
-            parts: [{ text: query }]
-          }
-        })
-      });
-      if (response.status !== 200) {
-        const errorText = response.text || "";
-        if (response.status === 429) {
-          const retryAfter = response.headers["retry-after"] || response.headers["Retry-After"];
-          throw new Error(`Google Gemini rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : "Please wait before retrying."}`);
-        }
-        throw new Error(`Google Gemini embedding API error: ${response.status} ${errorText}`);
-      }
-      const data = typeof response.json === "object" ? response.json : JSON.parse(response.text);
-      if (data.embedding && data.embedding.values) {
-        return data.embedding.values;
-      }
-      throw new Error("Invalid Google Gemini embedding response format");
-    }
-  }
-  async callCustomEmbedding(apiUrl, query) {
-    const response = await (0, import_obsidian19.requestUrl)({
-      url: apiUrl,
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        text: query
-      })
-    });
-    if (response.status !== 200) {
-      const errorText = response.text || "";
-      if (response.status === 429) {
-        const retryAfter = response.headers["retry-after"] || response.headers["Retry-After"];
-        throw new Error(`Custom embedding API rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : "Please wait before retrying."}`);
-      }
-      throw new Error(`Custom embedding API error: ${response.status} ${errorText}`);
-    }
-    const data = typeof response.json === "object" ? response.json : JSON.parse(response.text);
-    if (Array.isArray(data)) {
-      return data;
-    }
-    if (data.embedding && Array.isArray(data.embedding)) {
-      return data.embedding;
-    }
-    if (data.vector && Array.isArray(data.vector)) {
-      return data.vector;
-    }
-    if (data.values && Array.isArray(data.values)) {
-      return data.values;
-    }
-    throw new Error("Invalid custom embedding API response format");
-  }
-  async search(query, opts) {
-    if (!this.isEnabled())
-      return [];
-    const q = (query.text ?? "").trim();
-    if (!q)
-      return [];
-    await this.embeddingsIndex.ensureLoaded();
-    let qVec;
-    try {
-      qVec = await this.getQueryEmbedding(q);
-    } catch (error2) {
-      console.error(`[ExternalEmbeddingsProvider] Failed to get query embedding:`, error2);
-      return [];
-    }
-    const chunks = this.embeddingsIndex.getAllChunks().filter((c) => this.isAllowedPath(c.path));
-    if (chunks.length === 0)
-      return [];
-    const scored = chunks.map((c) => {
-      const localVec = c.vector;
-      const qNorm = Math.sqrt(qVec.reduce((sum, v) => sum + v * v, 0)) || 1;
-      const localNorm = Math.sqrt(localVec.reduce((sum, v) => sum + v * v, 0)) || 1;
-      const normalizedQ = qVec.map((v) => v / qNorm);
-      const normalizedLocal = localVec.map((v) => v / localNorm);
-      const score = dot3(normalizedQ, normalizedLocal);
-      return { chunk: c, score };
-    }).sort((a, b) => b.score - a.score).slice(0, Math.max(1, Math.min(200, opts.limit * 6)));
-    const results = [];
-    for (const { chunk, score } of scored) {
-      results.push({
-        key: chunk.key,
-        path: chunk.path,
-        title: chunk.path.split("/").pop(),
-        excerpt: chunk.excerpt,
-        score: Math.max(0, Math.min(1, (score + 1) / 2)),
-        source: this.id,
-        reasonTags: ["external-embeddings"]
-      });
-    }
-    return results.slice(0, opts.limit);
-  }
-};
-
-// services/retrieval/SmartConnectionsProvider.ts
-var import_obsidian20 = require("obsidian");
-var SmartConnectionsProvider = class {
-  constructor(app, plugin, vault, isAllowedPath) {
-    this.id = "smart-connections";
-    this.currentSessionId = "";
-    this.app = app;
-    this.plugin = plugin;
-    this.vault = vault;
-    this.isAllowedPath = isAllowedPath;
-    this.initializeSession();
-    this.logInitialization();
-  }
-  /**
-   * Generate a new session ID for logging grouping.
-   */
-  generateSessionId() {
-    return Math.random().toString(36).substring(2, 8);
-  }
-  /**
-   * Initialize session ID for this instance.
-   */
-  initializeSession() {
-    this.currentSessionId = this.generateSessionId();
-  }
-  /**
-   * Structured logging helper with session ID support.
-   */
-  log(level, message, context, details) {
-    const timestamp = new Date().toISOString();
-    const methodName = new Error().stack?.split("\n")[2]?.match(/at \w+\.(\w+)/)?.[1] || "unknown";
-    const sessionId = this.currentSessionId;
-    const contextStr = context ? ` | Context: ${JSON.stringify(context)}` : "";
-    const detailsStr = details ? ` | Details: ${JSON.stringify(details)}` : "";
-    const logMessage = `[SmartConnectionsProvider:${methodName}][sid=${sessionId}] ${level.toUpperCase()}: ${message}${contextStr}${detailsStr}`;
-    if (level === "error") {
-      console.error(logMessage);
-    } else if (level === "warn") {
-      console.warn(logMessage);
-    } else {
-      console.debug(logMessage);
-    }
-  }
-  /**
-   * Log initialization status.
-   */
-  logInitialization() {
-    const cache = this.plugin.settings.smartConnectionsCache;
-    const enabled = this.plugin.settings.smartConnectionsCacheEnabled ?? false;
-    if (cache) {
-      const age = Date.now() - cache.capturedAt;
-      const ageHours = Math.floor(age / (1e3 * 60 * 60));
-      const ageMinutes = Math.floor(age % (1e3 * 60 * 60) / (1e3 * 60));
-      const ageStr = ageHours > 0 ? `${ageHours}h ${ageMinutes}m` : `${ageMinutes}m`;
-      const isFresh = this.isCacheFresh(cache);
-      this.log("info", "Initialization complete", {
-        cacheEnabled: enabled,
-        cacheExists: true,
-        cacheAge: ageStr,
-        cacheResults: cache.results.length,
-        cacheMethod: cache.method,
-        cacheFresh: isFresh,
-        sourceNote: cache.sourceNotePath,
-        vaultId: cache.vaultId
-      });
-    } else {
-      this.log("info", "Initialization complete", {
-        cacheEnabled: enabled,
-        cacheExists: false
-      });
-    }
-  }
-  /**
-   * Get vault ID (name + optional basePath).
-   */
-  getVaultId() {
-    const vaultName = this.app.vault.getName();
-    const adapter = this.app.vault.adapter;
-    const basePath = adapter.basePath || "";
-    const vaultId = vaultName + (basePath ? `:${basePath}` : "");
-    this.log("info", "Vault ID generated", {
-      vaultName,
-      basePath: basePath || "(not available)",
-      vaultId
-    });
-    return vaultId;
-  }
-  /**
-   * Check if cache is fresh (within TTL if set).
-   */
-  isCacheFresh(cache) {
-    const ttl = this.plugin.settings.smartConnectionsCacheTTL;
-    if (!ttl) {
-      return true;
-    }
-    const age = Date.now() - cache.capturedAt;
-    const ttlMs = ttl * 60 * 60 * 1e3;
-    const fresh = age < ttlMs;
-    this.log("info", "Cache freshness check", {
-      age: `${Math.floor(age / (1e3 * 60 * 60))}h`,
-      ttl: `${ttl}h`,
-      fresh
-    });
-    return fresh;
-  }
-  /**
-   * Normalize folder path for comparison (remove leading slash, ensure trailing slash).
-   */
-  normalizeFolderPath(path) {
-    let normalized = path.replace(/^\/+/, "");
-    if (normalized && !normalized.endsWith("/")) {
-      normalized += "/";
-    }
-    return normalized;
-  }
-  /**
-   * Check if path is allowed based on folder filters.
-   */
-  isPathAllowed(path) {
-    const allowed = this.plugin.settings.smartConnectionsAllowedFolders || [];
-    const blocked = this.plugin.settings.smartConnectionsBlockedFolders || [];
-    const normalizedPath = this.normalizeFolderPath(path);
-    for (const blockedFolder of blocked) {
-      const normalizedBlocked = this.normalizeFolderPath(blockedFolder);
-      if (normalizedPath === normalizedBlocked || normalizedPath.startsWith(normalizedBlocked)) {
-        this.log("info", "Path blocked by filter", {
-          path,
-          blockedFolder,
-          normalizedPath,
-          normalizedBlocked
-        });
-        return false;
-      }
-    }
-    if (allowed.length > 0) {
-      const isAllowed = allowed.some((allowedFolder) => {
-        const normalizedAllowed = this.normalizeFolderPath(allowedFolder);
-        return normalizedPath === normalizedAllowed || normalizedPath.startsWith(normalizedAllowed);
-      });
-      if (!isAllowed) {
-        this.log("info", "Path not in allowed folders", {
-          path,
-          allowedFolders: allowed,
-          normalizedPath
-        });
-        return false;
-      }
-    }
-    return true;
-  }
-  /**
-   * Check cache keying match (soft/strict mode).
-   */
-  checkCacheKeying(cache, currentNotePath) {
-    if (!cache.sourceNotePath) {
-      return { match: true };
-    }
-    if (!currentNotePath) {
-      return { match: true };
-    }
-    const match2 = cache.sourceNotePath === currentNotePath;
-    if (!match2) {
-      const mode = this.plugin.settings.smartConnectionsKeyingMode || "soft";
-      this.log("warn", "Cache keying mismatch", {
-        currentNote: currentNotePath,
-        cacheNote: cache.sourceNotePath,
-        mode
-      });
-    }
-    return { match: match2, currentNote: currentNotePath, cacheNote: cache.sourceNotePath };
-  }
-  /**
-   * Validate and clean cache (remove missing files, in-memory only).
-   */
-  validateAndCleanCache(cache) {
-    const originalCount = cache.results.length;
-    const validResults = cache.results.filter((result) => {
-      const file = this.vault.getAbstractFileByPath(result.path);
-      return file instanceof import_obsidian20.TFile;
-    });
-    const wasModified = validResults.length !== originalCount;
-    if (wasModified) {
-      const dropped = originalCount - validResults.length;
-      this.log("warn", "Cache invalidation", {
-        dropped,
-        originalCount,
-        valid: validResults.length
-      });
-      cache.results = validResults;
-    }
-    return { cache, wasModified };
-  }
-  /**
-   * Save cache to settings (with sanity guard).
-   */
-  async saveCache(cache) {
-    if (cache.results.length === 0) {
-      this.log("warn", "Capture returned 0 results, preserving existing cache", {
-        sessionId: cache.sessionId,
-        method: cache.method
-      });
-      return;
-    }
-    this.plugin.settings.smartConnectionsCache = cache;
-    await this.plugin.saveSettings();
-    this.log("info", "Cache saved", {
-      results: cache.results.length,
-      method: cache.method,
-      sourceNote: cache.sourceNotePath,
-      vaultId: cache.vaultId
-    });
-  }
-  /**
-   * Get cache from settings.
-   */
-  getCache() {
-    return this.plugin.settings.smartConnectionsCache || null;
-  }
-  /**
-   * Find Smart Connections view using heuristic detection.
-   */
-  findSmartConnectionsView() {
-    const leaves = [];
-    this.app.workspace.iterateAllLeaves((leaf) => {
-      leaves.push(leaf);
-    });
-    this.log("info", "Scanning workspace leaves", {
-      totalLeaves: leaves.length
-    });
-    for (let i = 0; i < leaves.length; i++) {
-      const leaf = leaves[i];
-      const viewType = leaf.view.getViewType?.() || "unknown";
-      const containerEl = leaf.view.containerEl;
-      this.log("info", "Checking leaf", {
-        index: i,
-        viewType,
-        containerClasses: Array.from(containerEl.classList || []).join(", ")
-      });
-      let confidence = "none";
-      let marker = "";
-      if (containerEl.classList.contains("smart-connections") || Array.from(containerEl.classList).some((c) => c.includes("smart-connections"))) {
-        confidence = "high";
-        marker = "class contains smart-connections";
-      } else if (containerEl.textContent?.includes("Connections")) {
-        confidence = "medium";
-        marker = "contains text Connections";
-      } else if (containerEl.querySelectorAll("a.internal-link[data-href]").length > 0) {
-        confidence = "high";
-        marker = "results list has internal links";
-      }
-      if (confidence !== "none") {
-        this.log("info", "SC view detected", {
-          leafIndex: i,
-          viewType,
-          marker,
-          confidence
-        });
-        return leaf;
-      }
-    }
-    this.log("info", "SC view not found", {
-      leavesChecked: leaves.length
-    });
-    return null;
-  }
-  /**
-   * Capture results from Smart Connections DOM.
-   */
-  async captureFromDom(sourceNotePath) {
-    const sessionId = this.generateSessionId();
-    this.currentSessionId = sessionId;
-    await Promise.resolve();
-    this.log("info", "Starting DOM capture", {
-      sourceNotePath: sourceNotePath || "(not provided)",
-      sessionId
-    });
-    const scView = this.findSmartConnectionsView();
-    if (!scView) {
-      this.log("warn", "SC view not found for DOM capture", {
-        sessionId
-      });
-      return [];
-    }
-    const internalLinks = scView.view.containerEl.querySelectorAll("a.internal-link[data-href]");
-    const resultsCount = internalLinks.length;
-    this.log("info", "Results detection", {
-      viewFound: true,
-      selector: "a.internal-link[data-href]",
-      count: resultsCount,
-      sessionId
-    });
-    if (resultsCount === 0) {
-      this.log("info", "View found, results missing", {
-        viewFound: true,
-        resultsFound: false,
-        selector: "a.internal-link[data-href]",
-        sessionId
-      });
-      return [];
-    }
-    const results = [];
-    const maxCapture = this.plugin.settings.smartConnectionsMaxCaptureFiles ?? 200;
-    for (let i = 0; i < Math.min(resultsCount, maxCapture); i++) {
-      const link2 = internalLinks[i];
-      const dataHref = link2.getAttribute("data-href");
-      const href = link2.getAttribute("href");
-      const path = dataHref || href || "";
-      if (!path) {
-        this.log("warn", "Link missing path", {
-          index: i,
-          dataHref,
-          href,
-          sessionId
-        });
-        continue;
-      }
-      let normalizedPath = path.replace(/\.md$/, "");
-      if (normalizedPath.startsWith("#")) {
-        continue;
-      }
-      const file = this.vault.getAbstractFileByPath(normalizedPath);
-      if (!(file instanceof import_obsidian20.TFile)) {
-        this.log("warn", "Link resolves to non-file", {
-          path: normalizedPath,
-          index: i,
-          sessionId
-        });
-        continue;
-      }
-      if (!this.isPathAllowed(normalizedPath)) {
-        this.log("info", "Link filtered out", {
-          path: normalizedPath,
-          index: i,
-          sessionId
-        });
-        continue;
-      }
-      const rankScore = Math.max(0.5, 1 - i * 0.02);
-      results.push({
-        path: normalizedPath,
-        score: rankScore
-      });
-      this.log("info", "Link captured", {
-        index: i,
-        path: normalizedPath,
-        score: rankScore,
-        sessionId
-      });
-    }
-    this.log("info", "DOM capture complete", {
-      results: results.length,
-      time: "N/A",
-      // Could add timing if needed
-      sessionId
-    });
-    return results;
-  }
-  /**
-   * Capture results from clipboard.
-   */
-  async captureFromClipboard(sourceNotePath) {
-    const sessionId = this.generateSessionId();
-    this.currentSessionId = sessionId;
-    this.log("info", "Starting clipboard capture", {
-      sourceNotePath: sourceNotePath || "(not provided)",
-      sessionId
-    });
-    try {
-      const clipboardText = await navigator.clipboard.readText();
-      this.log("info", "Clipboard read", {
-        length: clipboardText.length,
-        preview: clipboardText.substring(0, 200),
-        sessionId
-      });
-      const markdownLinkPattern = /\[\[([^\]]+)\]\]|\[([^\]]+)\]\(([^)]+\.md)\)/g;
-      const links = [];
-      let match2;
-      while ((match2 = markdownLinkPattern.exec(clipboardText)) !== null) {
-        const link2 = match2[1] || match2[3] || "";
-        if (link2) {
-          links.push(link2.replace(/\.md$/, ""));
-        }
-      }
-      this.log("info", "Links parsed from clipboard", {
-        found: links.length,
-        links: links.slice(0, 10),
-        // Log first 10
-        sessionId
-      });
-      const results = [];
-      const maxCapture = this.plugin.settings.smartConnectionsMaxCaptureFiles ?? 200;
-      for (let i = 0; i < Math.min(links.length, maxCapture); i++) {
-        const link2 = links[i];
-        const file = this.vault.getAbstractFileByPath(link2);
-        if (!(file instanceof import_obsidian20.TFile)) {
-          this.log("warn", "Clipboard link resolves to non-file", {
-            link: link2,
-            index: i,
-            sessionId
-          });
-          continue;
-        }
-        if (!this.isPathAllowed(link2)) {
-          this.log("info", "Clipboard link filtered out", {
-            link: link2,
-            index: i,
-            sessionId
-          });
-          continue;
-        }
-        const rankScore = Math.max(0.5, 1 - i * 0.02);
-        results.push({
-          path: link2,
-          score: rankScore
-        });
-        this.log("info", "Clipboard link captured", {
-          index: i,
-          link: link2,
-          score: rankScore,
-          sessionId
-        });
-      }
-      this.log("info", "Clipboard capture complete", {
-        results: results.length,
-        sessionId
-      });
-      return results;
-    } catch (error2) {
-      this.log("error", "Clipboard capture failed", {
-        error: error2 instanceof Error ? error2.message : String(error2),
-        stack: error2 instanceof Error ? error2.stack : void 0,
-        sessionId
-      });
-      return [];
-    }
-  }
-  /**
-   * Tokenize text (simple word splitting, lowercase).
-   */
-  tokenize(text2) {
-    return text2.toLowerCase().split(/[^a-z0-9]+/g).map((t) => t.trim()).filter((t) => t.length >= 2);
-  }
-  /**
-   * Score cached items using metadata cache (fast path).
-   */
-  async scoreCachedItemsWithMetadata(cache, query, limit) {
-    await Promise.resolve();
-    const queryTokens = this.tokenize(query);
-    const maxScoreFiles = this.plugin.settings.smartConnectionsMaxScoreFiles ?? 50;
-    const itemsToScore = cache.results.slice(0, Math.min(cache.results.length, maxScoreFiles));
-    this.log("info", "Starting metadata scoring", {
-      queryTokens: queryTokens.slice(0, 10),
-      // Log first 10 tokens
-      itemsToScore: itemsToScore.length,
-      maxScoreFiles,
-      sessionId: this.currentSessionId
-    });
-    const scored = [];
-    for (let i = 0; i < itemsToScore.length; i++) {
-      const item = itemsToScore[i];
-      const file = this.vault.getAbstractFileByPath(item.path);
-      if (!(file instanceof import_obsidian20.TFile)) {
-        continue;
-      }
-      const metadata = this.app.metadataCache.getFileCache(file);
-      if (!metadata) {
-        scored.push({
-          path: item.path,
-          rankScore: item.score ?? 0.5,
-          metadataScore: 0,
-          finalScore: item.score ?? 0.5,
-          capturedAt: item.capturedAt
-        });
-        continue;
-      }
-      const metadataText = [];
-      if (metadata.frontmatter?.tags) {
-        const tags = Array.isArray(metadata.frontmatter.tags) ? metadata.frontmatter.tags : [metadata.frontmatter.tags];
-        metadataText.push(...tags.map((t) => t.toString().toLowerCase()));
-      }
-      if (metadata.headings) {
-        metadataText.push(...metadata.headings.map((h) => h.heading.toLowerCase()));
-      }
-      if (metadata.tags) {
-        metadataText.push(...metadata.tags.map((t) => t.tag.toLowerCase()));
-      }
-      const metadataTokens = this.tokenize(metadataText.join(" "));
-      const overlap = queryTokens.filter((t) => metadataTokens.includes(t)).length;
-      const metadataScore = queryTokens.length > 0 ? overlap / queryTokens.length : 0;
-      const rankScore = item.score ?? Math.max(0.5, 1 - i * 0.02);
-      const finalScore = metadataScore * 0.7 + rankScore * 0.3;
-      scored.push({
-        path: item.path,
-        rankScore,
-        metadataScore,
-        finalScore,
-        capturedAt: item.capturedAt
-      });
-      this.log("info", "Item scored with metadata", {
-        index: i,
-        path: item.path,
-        metadataScore: metadataScore.toFixed(3),
-        rankScore: rankScore.toFixed(3),
-        finalScore: finalScore.toFixed(3),
-        sessionId: this.currentSessionId
-      });
-    }
-    const sorted = scored.sort((a, b) => b.finalScore - a.finalScore);
-    const topN = Math.min(10, limit * 2);
-    this.log("info", "Metadata scoring complete", {
-      scored: sorted.length,
-      topN,
-      sessionId: this.currentSessionId
-    });
-    return sorted.slice(0, topN);
-  }
-  /**
-   * Load full content and re-score top items.
-   */
-  async loadAndScoreTopItems(topItems, query) {
-    const queryTokens = this.tokenize(query);
-    this.log("info", "Loading full content for top items", {
-      count: topItems.length,
-      sessionId: this.currentSessionId
-    });
-    for (let i = 0; i < topItems.length; i++) {
-      const item = topItems[i];
-      const file = this.vault.getAbstractFileByPath(item.path);
-      if (!(file instanceof import_obsidian20.TFile)) {
-        continue;
-      }
-      try {
-        const content = await this.vault.read(file);
-        const contentTokens = this.tokenize(content);
-        const overlap = queryTokens.filter((t) => contentTokens.includes(t)).length;
-        const fullContentScore = queryTokens.length > 0 ? overlap / queryTokens.length : 0;
-        item.fullContentScore = fullContentScore;
-        item.finalScore = fullContentScore * 0.7 + item.rankScore * 0.3;
-        this.log("info", "Item re-scored with full content", {
-          index: i,
-          path: item.path,
-          fullContentScore: fullContentScore.toFixed(3),
-          finalScore: item.finalScore.toFixed(3),
-          contentLength: content.length,
-          sessionId: this.currentSessionId
-        });
-      } catch (error2) {
-        this.log("warn", "Failed to read file for scoring", {
-          path: item.path,
-          error: error2 instanceof Error ? error2.message : String(error2),
-          sessionId: this.currentSessionId
-        });
-      }
-    }
-    return topItems.sort((a, b) => b.finalScore - a.finalScore);
-  }
-  /**
-   * Generate best-matching paragraph excerpt.
-   */
-  async generateBestMatchingExcerpt(path, query) {
-    const file = this.vault.getAbstractFileByPath(path);
-    if (!(file instanceof import_obsidian20.TFile)) {
-      return "[File not found]";
-    }
-    try {
-      const content = await this.vault.read(file);
-      const queryTokens = this.tokenize(query);
-      const paragraphs = content.split("\n\n");
-      this.log("info", "Generating excerpt", {
-        path,
-        paragraphs: paragraphs.length,
-        queryTokens: queryTokens.slice(0, 5),
-        sessionId: this.currentSessionId
-      });
-      if (paragraphs.length === 0) {
-        return content.trim().slice(0, 500) + (content.length > 500 ? "\u2026" : "");
-      }
-      let bestParagraph = paragraphs[0];
-      let bestScore = 0;
-      for (const paragraph2 of paragraphs) {
-        const paraTokens = this.tokenize(paragraph2);
-        const overlap = queryTokens.filter((t) => paraTokens.includes(t)).length;
-        const score = queryTokens.length > 0 ? overlap / queryTokens.length : 0;
-        if (score > bestScore) {
-          bestScore = score;
-          bestParagraph = paragraph2;
-        }
-      }
-      let excerpt = bestParagraph.trim();
-      const targetLength = 1e3;
-      const minLength = 800;
-      const maxLength = 1200;
-      if (excerpt.length > maxLength) {
-        const trimmed = excerpt.slice(0, maxLength);
-        const lastPeriod = trimmed.lastIndexOf(".");
-        if (lastPeriod > minLength) {
-          excerpt = trimmed.slice(0, lastPeriod + 1);
-        } else {
-          excerpt = trimmed + "\u2026";
-        }
-      } else if (excerpt.length < minLength && paragraphs.length > 1) {
-        const paraIndex = paragraphs.indexOf(bestParagraph);
-        if (paraIndex < paragraphs.length - 1) {
-          const combined = bestParagraph + "\n\n" + paragraphs[paraIndex + 1];
-          excerpt = combined.trim().slice(0, maxLength);
-          if (combined.length > maxLength) {
-            excerpt += "\u2026";
-          }
-        }
-      }
-      this.log("info", "Excerpt generated", {
-        path,
-        excerptLength: excerpt.length,
-        bestScore: bestScore.toFixed(3),
-        method: bestScore > 0 ? "best-matching" : "first-paragraph",
-        sessionId: this.currentSessionId
-      });
-      return excerpt;
-    } catch (error2) {
-      this.log("warn", "Failed to generate excerpt", {
-        path,
-        error: error2 instanceof Error ? error2.message : String(error2),
-        sessionId: this.currentSessionId
-      });
-      return "[Error reading file]";
-    }
-  }
-  async search(query, opts) {
-    const sessionId = this.generateSessionId();
-    this.currentSessionId = sessionId;
-    const q = (query.text ?? "").trim();
-    if (!q) {
-      return [];
-    }
-    this.log("info", "Starting search", {
-      query: q,
-      limit: opts.limit,
-      sessionId
-    });
-    const enabled = this.plugin.settings.smartConnectionsCacheEnabled ?? false;
-    if (!enabled) {
-      this.log("info", "Cache disabled, returning empty", {
-        sessionId
-      });
-      return [];
-    }
-    const cache = this.getCache();
-    if (!cache) {
-      this.log("info", "No cache available, returning empty", {
-        sessionId
-      });
-      return [];
-    }
-    if (!this.isCacheFresh(cache)) {
-      this.log("warn", "Cache expired, returning empty", {
-        sessionId
-      });
-      return [];
-    }
-    const currentNotePath = query.activeFilePath;
-    const keyingCheck = this.checkCacheKeying(cache, currentNotePath);
-    const keyingMode = this.plugin.settings.smartConnectionsKeyingMode || "soft";
-    if (!keyingCheck.match && keyingMode === "strict") {
-      this.log("warn", "Cache keying mismatch in strict mode, returning empty", {
-        currentNote: currentNotePath,
-        cacheNote: keyingCheck.cacheNote,
-        sessionId
-      });
-      return [];
-    }
-    if (!keyingCheck.match) {
-      this.log("warn", "Cache keying mismatch in soft mode, allowing use", {
-        currentNote: currentNotePath,
-        cacheNote: keyingCheck.cacheNote,
-        sessionId
-      });
-    }
-    const { cache: cleanedCache, wasModified } = this.validateAndCleanCache(cache);
-    const topItems = await this.scoreCachedItemsWithMetadata(cleanedCache, q, opts.limit);
-    const rescoredItems = await this.loadAndScoreTopItems(topItems, q);
-    const results = [];
-    const maxContextChars = this.plugin.settings.smartConnectionsMaxContextChars ?? 3e4;
-    let totalContextChars = 0;
-    let truncatedCount = 0;
-    for (const item of rescoredItems) {
-      if (results.length >= opts.limit) {
-        break;
-      }
-      const excerpt = await this.generateBestMatchingExcerpt(item.path, q);
-      let finalExcerpt = excerpt;
-      if (totalContextChars + excerpt.length > maxContextChars) {
-        const remaining = maxContextChars - totalContextChars;
-        finalExcerpt = excerpt.slice(0, remaining) + "\u2026";
-        truncatedCount++;
-        this.log("info", "Context cap reached, truncating excerpt", {
-          totalChars: totalContextChars + finalExcerpt.length,
-          remaining,
-          truncated: true,
-          sessionId
-        });
-      }
-      totalContextChars += finalExcerpt.length;
-      results.push({
-        key: item.path,
-        path: item.path,
-        title: item.path.split("/").pop() || item.path,
-        excerpt: finalExcerpt,
-        score: item.finalScore,
-        source: this.id,
-        reasonTags: ["smart-connections-cached"]
-      });
-    }
-    if (truncatedCount > 0) {
-      this.log("info", "Context cap summary", {
-        totalChars: totalContextChars,
-        maxChars: maxContextChars,
-        truncated: truncatedCount,
-        sessionId
-      });
-    }
-    if (wasModified) {
-      await this.saveCache(cleanedCache);
-    }
-    this.log("info", "Search complete", {
-      results: results.length,
-      method: "cached",
-      sessionId
-    });
-    return results;
-  }
-  /**
-   * Public method to capture from DOM and save to cache.
-   */
-  async captureAndSaveFromDom(sourceNotePath) {
-    const results = await this.captureFromDom(sourceNotePath);
-    if (results.length === 0) {
-      return {
-        success: false,
-        count: 0,
-        message: "Smart Connections view is open but no results found. Try running a search in Smart Connections first."
-      };
-    }
-    const vaultId = this.getVaultId();
-    const sessionId = this.generateSessionId();
-    const cache = {
-      sourceNotePath,
-      vaultId,
-      results: results.map((r, i) => ({
-        path: r.path,
-        score: r.score,
-        capturedAt: Date.now()
-      })),
-      capturedAt: Date.now(),
-      method: "dom",
-      sessionId
-    };
-    await this.saveCache(cache);
-    return {
-      success: true,
-      count: results.length
-    };
-  }
-  /**
-   * Public method to capture from clipboard and save to cache.
-   */
-  async captureAndSaveFromClipboard(sourceNotePath) {
-    const results = await this.captureFromClipboard(sourceNotePath);
-    if (results.length === 0) {
-      return {
-        success: false,
-        count: 0,
-        message: "No valid links found in clipboard. Ensure clipboard contains Smart Connections results with markdown links."
-      };
-    }
-    const vaultId = this.getVaultId();
-    const sessionId = this.generateSessionId();
-    const cache = {
-      sourceNotePath,
-      vaultId,
-      results: results.map((r, i) => ({
-        path: r.path,
-        score: r.score,
-        capturedAt: Date.now()
-      })),
-      capturedAt: Date.now(),
-      method: "clipboard",
-      sessionId
-    };
-    await this.saveCache(cache);
-    return {
-      success: true,
-      count: results.length
-    };
-  }
-  /**
-   * Public method to clear cache.
-   */
-  async clearCache() {
-    this.plugin.settings.smartConnectionsCache = void 0;
-    await this.plugin.saveSettings();
-    this.log("info", "Cache cleared", {
-      sessionId: this.currentSessionId
-    });
-  }
-  /**
-   * Public method to get cache status.
-   */
-  getCacheStatus() {
-    const enabled = this.plugin.settings.smartConnectionsCacheEnabled ?? false;
-    const cache = this.getCache();
-    if (!cache) {
-      return {
-        exists: false,
-        enabled,
-        count: 0,
-        fresh: false
-      };
-    }
-    const age = Date.now() - cache.capturedAt;
-    const ageHours = Math.floor(age / (1e3 * 60 * 60));
-    const ageMinutes = Math.floor(age % (1e3 * 60 * 60) / (1e3 * 60));
-    const ageStr = ageHours > 0 ? `${ageHours}h ${ageMinutes}m` : `${ageMinutes}m`;
-    return {
-      exists: true,
-      enabled,
-      count: cache.results.length,
-      age: ageStr,
-      method: cache.method,
-      sourceNote: cache.sourceNotePath,
-      fresh: this.isCacheFresh(cache)
-    };
-  }
-  /**
-   * Public method to check if Smart Connections view is available for capture.
-   */
-  checkViewAvailable() {
-    const scView = this.findSmartConnectionsView();
-    if (!scView) {
-      return {
-        available: false,
-        message: "Smart Connections view not found. Open Smart Connections in a pane first."
-      };
-    }
-    const internalLinks = scView.view.containerEl.querySelectorAll("a.internal-link[data-href]");
-    if (internalLinks.length === 0) {
-      return {
-        available: false,
-        message: "Smart Connections view is open but no results found. Try running a search in Smart Connections first."
-      };
-    }
-    return {
-      available: true
-    };
-  }
-  /**
-   * Get cached file paths directly (no search, no API calls).
-   * Used for pure boost/filter operations in hybrid retrieval.
-   */
-  async getCachePaths() {
-    const cache = this.getCache();
-    if (!cache)
-      return [];
-    const enabled = this.plugin.settings.smartConnectionsCacheEnabled ?? false;
-    if (!enabled)
-      return [];
-    if (!this.isCacheFresh(cache))
-      return [];
-    return cache.results.map((r) => r.path);
-  }
-};
-
-// services/retrieval/Bm25Index.ts
-var import_obsidian21 = require("obsidian");
-function clampInt3(value, min, max) {
-  if (!Number.isFinite(value))
-    return min;
-  return Math.max(min, Math.min(max, Math.floor(value)));
-}
-function excerptOf2(text2, maxChars) {
-  const trimmed = text2.trim().replace(/\s+/g, " ");
-  if (trimmed.length <= maxChars)
-    return trimmed;
-  return `${trimmed.slice(0, maxChars)}\u2026`;
-}
-function chunkingKey2(plugin) {
-  return {
-    headingLevel: plugin.settings.retrievalChunkHeadingLevel ?? "h1",
-    targetWords: clampInt3(plugin.settings.retrievalChunkWords ?? 500, 200, 2e3),
-    overlapWords: clampInt3(plugin.settings.retrievalChunkOverlapWords ?? 100, 0, 500)
-  };
-}
-var STOPWORDS2 = /* @__PURE__ */ new Set([
-  "the",
-  "a",
-  "an",
-  "and",
-  "or",
-  "but",
-  "to",
-  "of",
-  "in",
-  "on",
-  "for",
-  "with",
-  "at",
-  "from",
-  "by",
-  "as",
-  "is",
-  "are",
-  "was",
-  "were",
-  "be",
-  "been",
-  "it",
-  "that",
-  "this",
-  "these",
-  "those"
-]);
-function tokenize3(value) {
-  return (value || "").toLowerCase().split(/[^\p{L}\p{N}]+/gu).map((t) => t.trim()).filter((t) => t.length >= 3 && !STOPWORDS2.has(t));
-}
-function tfMap(tokens) {
-  const m = /* @__PURE__ */ new Map();
-  for (const t of tokens)
-    m.set(t, (m.get(t) ?? 0) + 1);
-  return m;
-}
-var Bm25Index = class {
-  constructor(vault, plugin) {
-    this.loaded = false;
-    this.chunksByKey = /* @__PURE__ */ new Map();
-    this.chunkKeysByPath = /* @__PURE__ */ new Map();
-    this.postings = /* @__PURE__ */ new Map();
-    this.fileState = {};
-    this.sumLen = 0;
-    this.queue = /* @__PURE__ */ new Set();
-    this.workerRunning = false;
-    this.persistTimer = null;
-    this.vault = vault;
-    this.plugin = plugin;
-  }
-  getIndexFilePath() {
-    return `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index/bm25.json`;
-  }
-  getStatus() {
-    return {
-      indexedFiles: this.chunkKeysByPath.size,
-      indexedChunks: this.chunksByKey.size,
-      queued: this.queue.size
-    };
-  }
-  getIndexedPaths() {
-    return Array.from(this.chunkKeysByPath.keys());
-  }
-  /**
-   * Queue all currently indexed paths for re-checking. This is useful when exclusions/profiles change.
-   */
-  queueRecheckAllIndexed() {
-    for (const p of this.getIndexedPaths())
-      this.queue.add(p);
-    this._kickWorker();
-  }
-  async ensureLoaded() {
-    if (this.loaded)
-      return;
-    this.loaded = true;
-    try {
-      const path = this.getIndexFilePath();
-      if (!await this.vault.adapter.exists(path))
-        return;
-      const raw = await this.vault.adapter.read(path);
-      const parsed = JSON.parse(raw);
-      if (parsed?.version !== 1)
-        return;
-      const expectedChunking = chunkingKey2(this.plugin);
-      if (parsed.chunking && (parsed.chunking.headingLevel !== expectedChunking.headingLevel || parsed.chunking.targetWords !== expectedChunking.targetWords || parsed.chunking.overlapWords !== expectedChunking.overlapWords)) {
-        this.enqueueFullRescan();
-        return;
-      }
-      this.fileState = parsed.fileState || {};
-      this.sumLen = 0;
-      this.chunksByKey.clear();
-      this.chunkKeysByPath.clear();
-      this.postings.clear();
-      const chunks = parsed.chunks || {};
-      for (const [key, ch] of Object.entries(chunks)) {
-        if (!ch?.key || !ch?.path)
-          continue;
-        this.chunksByKey.set(key, ch);
-        this.sumLen += ch.len || 0;
-        const set2 = this.chunkKeysByPath.get(ch.path) ?? /* @__PURE__ */ new Set();
-        set2.add(key);
-        this.chunkKeysByPath.set(ch.path, set2);
-      }
-      const postings = parsed.postings || {};
-      for (const [term, list2] of Object.entries(postings)) {
-        if (!Array.isArray(list2))
-          continue;
-        this.postings.set(term, list2.filter((e) => Array.isArray(e) && typeof e[0] === "string" && typeof e[1] === "number"));
-      }
-    } catch {
-      this.chunksByKey.clear();
-      this.chunkKeysByPath.clear();
-      this.postings.clear();
-      this.fileState = {};
-      this.sumLen = 0;
-    }
-  }
-  enqueueFullRescan() {
-    const files = this.plugin.vaultService.getIncludedMarkdownFiles();
-    for (const f of files)
-      this.queue.add(f.path);
-    this._kickWorker();
-  }
-  queueUpdateFile(path) {
-    if (!path)
-      return;
-    this.queue.add(path);
-    this._kickWorker();
-  }
-  queueRemoveFile(path) {
-    if (!path)
-      return;
-    this._removePath(path);
-    this._schedulePersist();
-  }
-  _kickWorker() {
-    if (this.workerRunning)
-      return;
-    this.workerRunning = true;
-    void this._runWorker().catch(() => {
-      this.workerRunning = false;
-    });
-  }
-  async _runWorker() {
-    await this.ensureLoaded();
-    while (this.queue.size > 0) {
-      if (this.plugin.settings.retrievalIndexPaused)
-        break;
-      const next = this.queue.values().next().value;
-      this.queue.delete(next);
-      if (this.plugin.vaultService.isExcludedPath(next)) {
-        this._removePath(next);
-        this._schedulePersist();
-        continue;
-      }
-      const file = this.vault.getAbstractFileByPath(next);
-      if (!(file instanceof import_obsidian21.TFile) || file.extension !== "md") {
-        this._removePath(next);
-        this._schedulePersist();
-        continue;
-      }
-      try {
-        const content = await this.vault.read(file);
-        const fileHash = fnv1a32(content);
-        const prev = this.fileState[next];
-        if (prev?.hash === fileHash)
-          continue;
-        this._reindexFile(next, content);
-        this.fileState[next] = {
-          hash: fileHash,
-          chunkCount: this.chunkKeysByPath.get(next)?.size ?? 0,
-          updatedAt: new Date().toISOString()
-        };
-        this._schedulePersist();
-      } catch {
-      }
-      await new Promise((r) => setTimeout(r, 10));
-    }
-    this.workerRunning = false;
-  }
-  _removePath(path) {
-    const keys = this.chunkKeysByPath.get(path);
-    if (keys) {
-      for (const k of keys) {
-        const ch = this.chunksByKey.get(k);
-        if (ch)
-          this.sumLen -= ch.len || 0;
-        this.chunksByKey.delete(k);
-      }
-    }
-    this.chunkKeysByPath.delete(path);
-    delete this.fileState[path];
-  }
-  _reindexFile(path, content) {
-    this._removePath(path);
-    const cfg = chunkingKey2(this.plugin);
-    const chunks = buildIndexChunks({
-      text: content,
-      headingLevel: cfg.headingLevel,
-      targetWords: cfg.targetWords,
-      overlapWords: cfg.overlapWords
-    });
-    for (let i = 0; i < chunks.length; i++) {
-      const ch = chunks[i];
-      const toks = tokenize3(ch.text);
-      if (toks.length === 0)
-        continue;
-      const key = `chunk:${path}:${i}`;
-      const tf = tfMap(toks);
-      this.sumLen += toks.length;
-      const meta = {
-        key,
-        path,
-        chunkIndex: i,
-        startWord: ch.startWord,
-        endWord: ch.endWord,
-        excerpt: excerptOf2(ch.text, 2500),
-        len: toks.length
-      };
-      this.chunksByKey.set(key, meta);
-      const set2 = this.chunkKeysByPath.get(path) ?? /* @__PURE__ */ new Set();
-      set2.add(key);
-      this.chunkKeysByPath.set(path, set2);
-      for (const [term, count] of tf.entries()) {
-        const list2 = this.postings.get(term) ?? [];
-        list2.push([key, count]);
-        this.postings.set(term, list2);
-      }
-    }
-  }
-  _schedulePersist() {
-    if (this.persistTimer)
-      window.clearTimeout(this.persistTimer);
-    this.persistTimer = window.setTimeout(() => {
-      this.persistTimer = null;
-      void this._persistNow().catch(() => {
-      });
-    }, 1e3);
-  }
-  async _persistNow() {
-    const dir = `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index`;
-    try {
-      if (!await this.vault.adapter.exists(dir)) {
-        await this.vault.adapter.mkdir(dir);
-      }
-    } catch {
-    }
-    const postingsObj = {};
-    for (const [term, list2] of this.postings.entries())
-      postingsObj[term] = list2;
-    const chunksObj = {};
-    for (const [key, ch] of this.chunksByKey.entries())
-      chunksObj[key] = ch;
-    const avgdl = this.chunksByKey.size ? this.sumLen / this.chunksByKey.size : 0;
-    const payload = {
-      version: 1,
-      avgdl,
-      totalChunks: this.chunksByKey.size,
-      fileState: this.fileState,
-      chunking: chunkingKey2(this.plugin),
-      chunks: chunksObj,
-      postings: postingsObj
-    };
-    await this.vault.adapter.write(this.getIndexFilePath(), JSON.stringify(payload));
-  }
-  search(queryText, limit) {
-    const qTokens = tokenize3(queryText).slice(0, 24);
-    const terms = Array.from(new Set(qTokens));
-    if (terms.length === 0)
-      return [];
-    const N = this.chunksByKey.size;
-    if (N === 0)
-      return [];
-    const avgdl = N ? this.sumLen / N : 0;
-    const k1 = 1.2;
-    const b = 0.75;
-    const scores = /* @__PURE__ */ new Map();
-    for (const term of terms) {
-      const posting = this.postings.get(term);
-      if (!posting || posting.length === 0)
-        continue;
-      let df = 0;
-      for (const [key] of posting) {
-        if (this.chunksByKey.has(key))
-          df++;
-      }
-      if (df === 0)
-        continue;
-      const idf = Math.log(1 + (N - df + 0.5) / (df + 0.5));
-      for (const [key, tf] of posting) {
-        const ch = this.chunksByKey.get(key);
-        if (!ch)
-          continue;
-        const dl = ch.len || 0;
-        const denom = tf + k1 * (1 - b + b * dl / (avgdl || 1));
-        const s = idf * (tf * (k1 + 1)) / (denom || 1);
-        scores.set(key, (scores.get(key) ?? 0) + s);
-      }
-    }
-    const ranked = Array.from(scores.entries()).map(([key, rawScore]) => {
-      const ch = this.chunksByKey.get(key);
-      if (!ch)
-        return null;
-      return { chunk: ch, rawScore, terms };
-    }).filter((x) => Boolean(x)).sort((a, b2) => b2.rawScore - a.rawScore).slice(0, Math.max(1, Math.min(400, limit)));
-    return ranked;
-  }
-};
-
-// services/retrieval/Bm25Provider.ts
-var Bm25Provider = class {
-  constructor(index, isEnabled, isAllowedPath) {
-    this.id = "bm25";
-    this.index = index;
-    this.isEnabled = isEnabled;
-    this.isAllowedPath = isAllowedPath;
-  }
-  async search(query, opts) {
-    if (!this.isEnabled())
-      return [];
-    const q = (query.text ?? "").trim();
-    if (!q)
-      return [];
-    await this.index.ensureLoaded();
-    const ranked = this.index.search(q, Math.max(1, Math.min(400, opts.limit * 8)));
-    if (ranked.length === 0)
-      return [];
-    let max = 0;
-    for (const r of ranked)
-      if (r.rawScore > max)
-        max = r.rawScore;
-    const denom = max || 1;
-    const results = [];
-    for (const r of ranked) {
-      if (!this.isAllowedPath(r.chunk.path))
-        continue;
-      results.push({
-        key: r.chunk.key,
-        path: r.chunk.path,
-        title: r.chunk.path.split("/").pop(),
-        excerpt: r.chunk.excerpt,
-        score: Math.max(0, Math.min(1, r.rawScore / denom)),
-        source: this.id,
-        reasonTags: ["bm25"]
-      });
-      if (results.length >= opts.limit)
-        break;
-    }
-    return results;
   }
 };
 
@@ -73093,8 +71364,42 @@ ${it.excerpt}`;
   }
 };
 
+// services/retrieval/OllamaEmbeddingProvider.ts
+var import_obsidian19 = require("obsidian");
+var OllamaEmbeddingProvider = class {
+  constructor(app, baseUrl = "http://127.0.0.1:11434", model = "nomic-embed-text") {
+    this.app = app;
+    this.baseUrl = baseUrl;
+    this.model = model;
+  }
+  async isAvailable() {
+    try {
+      const res = await (0, import_obsidian19.requestUrl)({ url: `${this.baseUrl}/api/tags`, method: "GET" });
+      return res.status === 200;
+    } catch (e) {
+      console.warn("[Ollama] Not detected. Ensure 'ollama serve' is running.");
+      return false;
+    }
+  }
+  async getEmbedding(text2) {
+    const res = await (0, import_obsidian19.requestUrl)({
+      url: `${this.baseUrl}/api/embed`,
+      method: "POST",
+      body: JSON.stringify({
+        model: this.model,
+        input: text2
+      })
+    });
+    const vec = res.json?.embeddings?.[0];
+    if (!Array.isArray(vec) || vec.length === 0) {
+      throw new Error("[Ollama] Invalid embedding response");
+    }
+    return vec;
+  }
+};
+
 // services/GenerationLogService.ts
-var import_obsidian22 = require("obsidian");
+var import_obsidian20 = require("obsidian");
 function normalizeFolder(folder) {
   const f = (folder || "").replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
   return f.length ? f : "Generation logs";
@@ -73122,7 +71427,7 @@ var GenerationLogService = class {
       return false;
     }
     const existing = this.app.vault.getAbstractFileByPath(folderPath);
-    if (existing instanceof import_obsidian22.TFolder)
+    if (existing instanceof import_obsidian20.TFolder)
       return true;
     try {
       await this.app.vault.createFolder(folderPath);
@@ -73181,7 +71486,7 @@ ${escapeFenceContent(params.finalPrompt)}
       await this.app.vault.create(path, body);
       return path;
     } catch {
-      new import_obsidian22.Notice("Failed to write generation log.");
+      new import_obsidian20.Notice("Failed to write generation log.");
       return null;
     }
   }
@@ -73189,7 +71494,7 @@ ${escapeFenceContent(params.finalPrompt)}
     if (!path)
       return;
     const file = this.app.vault.getAbstractFileByPath(path);
-    if (!(file instanceof import_obsidian22.TFile))
+    if (!(file instanceof import_obsidian20.TFile))
       return;
     const appendix = `## Result
 
@@ -73209,8 +71514,8 @@ ${appendix}`);
 };
 
 // ui/BookMainSelectorModal.ts
-var import_obsidian23 = require("obsidian");
-var BookMainSelectorModal = class extends import_obsidian23.Modal {
+var import_obsidian21 = require("obsidian");
+var BookMainSelectorModal = class extends import_obsidian21.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.plugin = plugin;
@@ -73234,11 +71539,11 @@ var BookMainSelectorModal = class extends import_obsidian23.Modal {
 // ui/PublishWizardModal.tsx
 var import_react11 = __toESM(require_react());
 var import_client6 = __toESM(require_client());
-var import_obsidian27 = require("obsidian");
+var import_obsidian25 = require("obsidian");
 
 // ui/FolderPickerModal.ts
-var import_obsidian24 = require("obsidian");
-var FolderPickerModal = class extends import_obsidian24.FuzzySuggestModal {
+var import_obsidian22 = require("obsidian");
+var FolderPickerModal = class extends import_obsidian22.FuzzySuggestModal {
   constructor(opts) {
     super(opts.app);
     this.folders = opts.folders;
@@ -73258,8 +71563,8 @@ var FolderPickerModal = class extends import_obsidian24.FuzzySuggestModal {
 };
 
 // ui/BinaryFilePickerModal.ts
-var import_obsidian25 = require("obsidian");
-var BinaryFilePickerModal = class extends import_obsidian25.FuzzySuggestModal {
+var import_obsidian23 = require("obsidian");
+var BinaryFilePickerModal = class extends import_obsidian23.FuzzySuggestModal {
   constructor(opts) {
     super(opts.app);
     this.files = opts.files;
@@ -73279,7 +71584,7 @@ var BinaryFilePickerModal = class extends import_obsidian25.FuzzySuggestModal {
 };
 
 // services/publish/MarkdownCompile.ts
-var import_obsidian26 = require("obsidian");
+var import_obsidian24 = require("obsidian");
 function trimBom(s) {
   return s.charCodeAt(0) === 65279 ? s.slice(1) : s;
 }
@@ -73364,13 +71669,13 @@ function resolveLinkToFilePath(app, linkTarget, fromPath) {
   if (!t)
     return null;
   const direct = app.vault.getAbstractFileByPath(t);
-  if (direct instanceof import_obsidian26.TFile)
+  if (direct instanceof import_obsidian24.TFile)
     return direct.path;
   const directMd = app.vault.getAbstractFileByPath(`${t}.md`);
-  if (directMd instanceof import_obsidian26.TFile)
+  if (directMd instanceof import_obsidian24.TFile)
     return directMd.path;
   const dest = app.metadataCache.getFirstLinkpathDest(t, fromPath);
-  if (dest instanceof import_obsidian26.TFile)
+  if (dest instanceof import_obsidian24.TFile)
     return dest.path;
   return null;
 }
@@ -73380,7 +71685,7 @@ var MarkdownCompile = class {
   }
   async compileFromBookMain(sourcePath) {
     const file = this.app.vault.getAbstractFileByPath(sourcePath);
-    if (!(file instanceof import_obsidian26.TFile)) {
+    if (!(file instanceof import_obsidian24.TFile)) {
       throw new Error(`Book main file not found: ${sourcePath}`);
     }
     const text2 = await this.app.vault.read(file);
@@ -73389,7 +71694,7 @@ var MarkdownCompile = class {
   }
   async compileFromTocNote(tocPath) {
     const file = this.app.vault.getAbstractFileByPath(tocPath);
-    if (!(file instanceof import_obsidian26.TFile))
+    if (!(file instanceof import_obsidian24.TFile))
       throw new Error(`TOC note not found: ${tocPath}`);
     const text2 = await this.app.vault.read(file);
     const lines = trimBom(text2).split(/\r?\n/);
@@ -73405,7 +71710,7 @@ var MarkdownCompile = class {
       if (!destPath)
         continue;
       const dest = this.app.vault.getAbstractFileByPath(destPath);
-      if (!(dest instanceof import_obsidian26.TFile))
+      if (!(dest instanceof import_obsidian24.TFile))
         continue;
       const md2 = await this.app.vault.read(dest);
       const title = (() => {
@@ -79512,7 +77817,7 @@ function sanitizeFileName2(name2) {
 function ensureEpubExt2(name2) {
   return name2.toLowerCase().endsWith(".epub") ? name2 : `${name2}.epub`;
 }
-var PublishWizardModal = class extends import_obsidian27.Modal {
+var PublishWizardModal = class extends import_obsidian25.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.reactRoot = null;
@@ -79624,7 +77929,7 @@ var PublishWizardComponent = ({
     modal.open();
   };
   const pickFolder = (onPick) => {
-    const folders = plugin.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian27.TFolder);
+    const folders = plugin.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian25.TFolder);
     const modal = new FolderPickerModal({
       app: plugin.app,
       folders,
@@ -79726,7 +78031,7 @@ ${markdownToPlainText(c.markdown || "")}
         outputPath = out;
       }
       setProgress("");
-      new import_obsidian27.Notice(`Exported: ${outputPath}`);
+      new import_obsidian25.Notice(`Exported: ${outputPath}`);
       onClose();
     } catch (e) {
       const message = e instanceof Error ? e.message : (() => {
@@ -79795,7 +78100,7 @@ ${markdownToPlainText(c.markdown || "")}
 };
 
 // services/TemplateProcessor.ts
-var import_obsidian28 = require("obsidian");
+var import_obsidian26 = require("obsidian");
 var TemplateProcessor = class {
   constructor(app, plugin) {
     this.hookAttempts = /* @__PURE__ */ new Map();
@@ -79994,7 +78299,7 @@ var TemplateProcessor = class {
     while ((match2 = readRegex.exec(content)) !== null) {
       const filePath = match2[1];
       const file = this.app.vault.getAbstractFileByPath(filePath);
-      if (file instanceof import_obsidian28.TFile) {
+      if (file instanceof import_obsidian26.TFile) {
         try {
           const fileContent = await this.app.vault.read(file);
           replacements.push({ placeholder: match2[0], content: fileContent });
@@ -80035,7 +78340,7 @@ var TemplateProcessor = class {
   processCursorPlaceholder(content, activeFile) {
     if (content.includes("{{cursor}}")) {
       try {
-        const activeLeaf = this.app.workspace.getActiveViewOfType(import_obsidian28.MarkdownView);
+        const activeLeaf = this.app.workspace.getActiveViewOfType(import_obsidian26.MarkdownView);
         if (activeLeaf) {
           const editor = activeLeaf.editor;
           const selection = editor.getSelection();
@@ -80207,7 +78512,7 @@ Output format (required):
   smartConnectionsTemplatePath: void 0
   // User must configure template
 };
-var WritingDashboardPlugin = class extends import_obsidian29.Plugin {
+var WritingDashboardPlugin = class extends import_obsidian27.Plugin {
   constructor() {
     super(...arguments);
     /**
@@ -80242,11 +78547,11 @@ var WritingDashboardPlugin = class extends import_obsidian29.Plugin {
         const newNorm = file.path.replace(/\\/g, "/");
         let changed = false;
         const logsFolder = (this.settings.generationLogsFolder || "").replace(/\\/g, "/").replace(/\/+$/, "");
-        if (logsFolder && file instanceof import_obsidian29.TFolder && oldNorm === logsFolder) {
+        if (logsFolder && file instanceof import_obsidian27.TFolder && oldNorm === logsFolder) {
           this.settings.generationLogsFolder = newNorm;
           changed = true;
         }
-        if (!(file instanceof import_obsidian29.TFile) || file.extension !== "md") {
+        if (!(file instanceof import_obsidian27.TFile) || file.extension !== "md") {
           if (changed)
             await this.saveSettings();
           return;
@@ -80287,36 +78592,17 @@ var WritingDashboardPlugin = class extends import_obsidian29.Plugin {
     this.aiClient = new AIClient();
     this.characterExtractor = new CharacterExtractor();
     this.queryBuilder = new QueryBuilder();
-    this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this);
-    this.bm25Index = new Bm25Index(this.app.vault, this);
+    const ollamaProvider = new OllamaEmbeddingProvider(this.app);
+    this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this, ollamaProvider);
     this.cpuReranker = new CpuReranker();
     this.generationLogService = new GenerationLogService(this.app, this);
-    const scProvider = new SmartConnectionsProvider(this.app, this, this.app.vault, (path) => !this.vaultService.isExcludedPath(path));
-    this.smartConnectionsProvider = scProvider;
     const providers = [
-      new HeuristicProvider(this.app.vault, this.vaultService),
-      new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path)),
-      scProvider
+      new LocalEmbeddingsProvider(
+        this.embeddingsIndex,
+        () => Boolean(this.settings.retrievalEnableSemanticIndex),
+        (path) => !this.vaultService.isExcludedPath(path)
+      )
     ];
-    if (this.settings.externalEmbeddingsEnabled && this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey) {
-      providers.push(
-        new ExternalEmbeddingsProvider(
-          this,
-          this.embeddingsIndex,
-          this.bm25Index,
-          () => Boolean(this.settings.externalEmbeddingsEnabled && this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey),
-          (path) => !this.vaultService.isExcludedPath(path)
-        )
-      );
-    } else {
-      providers.push(
-        new LocalEmbeddingsProvider(
-          this.embeddingsIndex,
-          () => Boolean(this.settings.retrievalEnableSemanticIndex),
-          (path) => !this.vaultService.isExcludedPath(path)
-        )
-      );
-    }
     this.retrievalService = new RetrievalService(providers, { getVector: (key) => this.embeddingsIndex.getVectorForKey(key) });
     const maybeQueueIndex = (path) => {
       if (this.settings.retrievalIndexPaused)
@@ -80325,45 +78611,38 @@ var WritingDashboardPlugin = class extends import_obsidian29.Plugin {
         return;
       if (this.settings.retrievalEnableSemanticIndex)
         this.embeddingsIndex.queueUpdateFile(path);
-      if (this.settings.retrievalEnableBm25)
-        this.bm25Index.queueUpdateFile(path);
     };
     this.registerEvent(
       this.app.vault.on("create", (file) => {
-        if (file instanceof import_obsidian29.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian27.TFile && file.extension === "md") {
           maybeQueueIndex(file.path);
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
-        if (file instanceof import_obsidian29.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian27.TFile && file.extension === "md") {
           maybeQueueIndex(file.path);
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
-        if (file instanceof import_obsidian29.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian27.TFile && file.extension === "md") {
           this.embeddingsIndex.queueRemoveFile(file.path);
-          this.bm25Index.queueRemoveFile(file.path);
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
-        if (!(file instanceof import_obsidian29.TFile) || file.extension !== "md")
+        if (!(file instanceof import_obsidian27.TFile) || file.extension !== "md")
           return;
         this.embeddingsIndex.queueRemoveFile(oldPath);
-        this.bm25Index.queueRemoveFile(oldPath);
         maybeQueueIndex(file.path);
       })
     );
     if (this.settings.retrievalEnableSemanticIndex && !this.settings.retrievalIndexPaused) {
       this.embeddingsIndex.enqueueFullRescan();
-    }
-    if (this.settings.retrievalEnableBm25 && !this.settings.retrievalIndexPaused) {
-      this.bm25Index.enqueueFullRescan();
     }
     this.registerView(
       VIEW_TYPE_DASHBOARD,
@@ -80430,34 +78709,13 @@ var WritingDashboardPlugin = class extends import_obsidian29.Plugin {
    * Called when retrievalSource or other retrieval settings change.
    */
   recreateRetrievalService() {
-    const scProvider = new SmartConnectionsProvider(this.app, this, this.app.vault, (path) => !this.vaultService.isExcludedPath(path));
-    this.smartConnectionsProvider = scProvider;
     const providers = [
-      new HeuristicProvider(this.app.vault, this.vaultService),
-      new Bm25Provider(this.bm25Index, () => Boolean(this.settings.retrievalEnableBm25), (path) => !this.vaultService.isExcludedPath(path)),
-      scProvider
+      new LocalEmbeddingsProvider(
+        this.embeddingsIndex,
+        () => Boolean(this.settings.retrievalEnableSemanticIndex),
+        (path) => !this.vaultService.isExcludedPath(path)
+      )
     ];
-    if (this.settings.externalEmbeddingsEnabled && this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey) {
-      providers.push(
-        new ExternalEmbeddingsProvider(
-          this,
-          this.embeddingsIndex,
-          this.bm25Index,
-          () => Boolean(this.settings.externalEmbeddingsEnabled && this.settings.externalEmbeddingProvider && this.settings.externalEmbeddingApiKey),
-          (path) => !this.vaultService.isExcludedPath(path)
-        )
-      );
-    }
-    if (this.settings.retrievalSource === "external-api") {
-    } else {
-      providers.push(
-        new LocalEmbeddingsProvider(
-          this.embeddingsIndex,
-          () => Boolean(this.settings.retrievalEnableSemanticIndex),
-          (path) => !this.vaultService.isExcludedPath(path)
-        )
-      );
-    }
     this.retrievalService = new RetrievalService(providers, { getVector: (key) => this.embeddingsIndex.getVectorForKey(key) });
   }
   requestGuidedDemoStart() {
@@ -80530,7 +78788,7 @@ var WritingDashboardPlugin = class extends import_obsidian29.Plugin {
     await this.vaultService.createFolderIfNotExists(templatesFolder);
     const templatePath = `${templatesFolder}/SC-Template.md`;
     const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
-    if (!(templateFile instanceof import_obsidian29.TFile)) {
+    if (!(templateFile instanceof import_obsidian27.TFile)) {
       const templateContent = "{{smart-connections:similar:128}}";
       await this.vaultService.writeFile(templatePath, templateContent);
       this.settings.smartConnectionsTemplatePath = templatePath;
