@@ -23592,15 +23592,26 @@ var init_OllamaSetupWizardModal = __esm({
         const linkRow = contentEl.createEl("div", { cls: "ollama-link-row" });
         const link2 = linkRow.createEl("a", { href: "https://ollama.com/download", text: "https://ollama.com/download" });
         link2.setAttr("target", "_blank");
-        contentEl.createEl("p", { text: "If the ollama command is not found after install, try:" });
-        contentEl.createEl("pre", { text: 'export PATH="/Applications/Ollama.app/Contents/MacOS:$PATH"\nsource ~/.zshrc\nollama --version' });
+        contentEl.createEl("p", { text: "If the ollama command is not found after install, try one of the following quick fixes:" });
+        contentEl.createEl("pre", {
+          text: [
+            "# macOS (temporary PATH fix)",
+            'export PATH="/Applications/Ollama.app/Contents/MacOS:$PATH"',
+            "source ~/.zshrc",
+            "ollama --version",
+            "",
+            "# Windows PowerShell (temporary PATH fix)",
+            '$env:Path = "C:\\Program Files\\Ollama;" + $env:Path',
+            "ollama --version"
+          ].join("\n")
+        });
         contentEl.createEl("h4", { text: "Step 2 \u2014 Pull the embedding model" });
-        contentEl.createEl("p", { text: "Run this in your terminal/command prompt:" });
-        const cmd = "ollama pull nomic-embed-text";
-        new import_obsidian11.Setting(contentEl).setName(cmd).addButton(
+        contentEl.createEl("p", { text: "Run this in your terminal/command prompt (PowerShell or shell):" });
+        const pullCmd = "ollama pull nomic-embed-text";
+        new import_obsidian11.Setting(contentEl).setName(pullCmd).addButton(
           (btn) => btn.setButtonText("Copy").onClick(async () => {
             try {
-              await navigator.clipboard.writeText(cmd);
+              await navigator.clipboard.writeText(pullCmd);
               new import_obsidian11.Notice("Copied command to clipboard");
             } catch {
               new import_obsidian11.Notice("Copy failed. Please copy manually.");
@@ -23608,7 +23619,10 @@ var init_OllamaSetupWizardModal = __esm({
           })
         );
         contentEl.createEl("h4", { text: "Step 3 \u2014 Verify" });
-        contentEl.createEl("p", { text: "Click below to confirm Ollama is running and the model is available." });
+        contentEl.createEl("p", {
+          text: "Confirm Ollama is running and the model is available. On Windows PowerShell, use curl.exe to avoid prompts:"
+        });
+        contentEl.createEl("pre", { text: "curl.exe http://127.0.0.1:11434/api/tags" });
         new import_obsidian11.Setting(contentEl).setName("Check Ollama connection").addButton(
           (btn) => btn.setButtonText("Check").setCta().onClick(async () => {
             try {
@@ -71456,15 +71470,26 @@ var OllamaEmbeddingProvider = class {
    * Check if a specific model is present in the local Ollama registry.
    */
   async hasModel(modelName = this.model) {
+    const normalize3 = (val) => (val || "").split(":")[0];
     try {
       const res = await (0, import_obsidian20.requestUrl)({ url: `${this.baseUrl}/api/tags`, method: "GET" });
       if (res.status !== 200)
         return false;
       const tags = res.json?.models || res.json?.modelsList || res.json?.data;
-      if (Array.isArray(tags)) {
-        return tags.some((m) => m?.name === modelName || m?.model === modelName || m === modelName);
-      }
-      return false;
+      if (!Array.isArray(tags))
+        return false;
+      return tags.some((m) => {
+        const candidates = [
+          typeof m === "string" ? m : void 0,
+          m?.name,
+          m?.model
+        ].filter(Boolean);
+        return candidates.some((c) => {
+          if (!c)
+            return false;
+          return c === modelName || c === `${modelName}:latest` || c.startsWith(`${modelName}:`) || normalize3(c) === modelName;
+        });
+      });
     } catch {
       return false;
     }
