@@ -65770,11 +65770,11 @@ Continue anyway?`,
         setGenerationStage("Initializing multi-model generation...");
         const multiSettings = { ...plugin.settings, generationMode: "multi" };
         const result = await plugin.aiClient.generate(prompt, multiSettings);
-        if (result.stages) {
+        if (result?.stages) {
           setGenerationStage(`Finalizing (${Object.keys(result.stages).length} stages completed)...`);
         }
-        setGeneratedText(result.primary);
-        void plugin.generationLogService.finishLog(logPath, { outputText: result.primary }).catch(() => {
+        setGeneratedText(result?.primary ?? "");
+        void plugin.generationLogService.finishLog(logPath, { outputText: result?.primary ?? "" }).catch(() => {
         });
       } else {
         setGenerationStage("Generating...");
@@ -77163,171 +77163,40 @@ ${markdownToPlainText(c.markdown || "")}
 };
 
 // main.ts
-var DEFAULT_SETTINGS = {
-  apiKey: "",
-  apiProvider: "openai",
-  model: "gpt-4",
-  generationMode: "single",
-  multiStrategy: "draft-revision",
-  draftModel: "gpt-3.5-turbo",
-  revisionModel: "gpt-4",
-  consensusModel1: "gpt-4",
-  consensusModel2: "claude-3-opus",
-  consensusModel3: "gemini-pro",
-  synthesisModel: "gpt-4",
-  vaultPath: "",
-  characterFolder: "",
-  book2Path: "Book-Main.md",
-  storyBiblePath: "Book - Story Bible.md",
-  characterExtractionChunkSize: 2500,
-  contextTokenLimit: 128e3,
-  defaultCharacterExtractionInstructions: `[CHARACTER UPDATE INSTRUCTIONS]
-Goal: Update character notes from the provided passage only. Maintain canon from the story bible and existing character notes. Do not invent facts.
-
-Focus on:
-- Psychological/emotional reactions and development
-- Motivations, fears, desires, internal conflicts
-- Relationship dynamics and shifts
-- Voice patterns, verbal tells, coping behaviors
-- Arc progression and status changes
-
-Rules:
-- Evidence-based only: if it is not supported by the passage, omit it
-- If uncertain, omit it
-- Prefer concrete observations over summaries
-- If no meaningful new info exists for a character, omit that character
-
-Output format (required):
-## Character Name
-- Bullet updates only (no extra headings)
-`,
-  retrievalExcludedFolders: ["Templates"],
-  retrievalEnableSemanticIndex: true,
-  retrievalTopK: 24,
-  retrievalChunkWords: 500,
-  retrievalChunkOverlapWords: 100,
-  retrievalChunkHeadingLevel: "h1",
-  retrievalIndexPaused: false,
-  retrievalIndexState: {},
-  retrievalEmbeddingBackend: "hash",
-  retrievalEnableBm25: true,
-  retrievalEnableReranker: false,
-  retrievalSource: "local",
-  externalEmbeddingsEnabled: false,
-  // Default: disabled to prevent accidental API usage
-  externalEmbeddingProvider: void 0,
-  externalEmbeddingApiKey: void 0,
-  externalEmbeddingModel: void 0,
-  externalEmbeddingApiUrl: void 0,
-  externalEmbeddingUseBatch: false,
-  generationLogsFolder: "",
-  generationLogsEnabled: false,
-  generationLogsIncludePrompt: false,
-  modeState: {
-    chapter: {
-      sceneSummary: "",
-      rewriteInstructions: "",
-      minWords: 2e3,
-      maxWords: 6e3
-    },
-    microEdit: {
-      selectedPassage: "",
-      grievances: ""
-    },
-    characterUpdate: {
-      selectedText: "",
-      extractionInstructions: ""
-    },
-    continuityCheck: {
-      draftText: "",
-      focus: { knowledge: true, timeline: true, pov: true, naming: true }
-    }
+var DEFAULT_MODE_STATE = {
+  chapter: {
+    sceneSummary: "",
+    rewriteInstructions: "",
+    minWords: 2e3,
+    maxWords: 6e3
   },
-  retrievalProfiles: [],
-  retrievalActiveProfileId: "story",
-  setupCompleted: false,
-  guidedDemoDismissed: false,
-  guidedDemoShownOnce: false,
-  fileState: {},
-  smartConnectionsCacheEnabled: false,
-  smartConnectionsCacheTTL: void 0,
-  smartConnectionsAllowedFolders: [],
-  smartConnectionsBlockedFolders: [],
-  smartConnectionsMaxCaptureFiles: 200,
-  smartConnectionsMaxScoreFiles: 50,
-  smartConnectionsMaxContextChars: 3e4,
-  smartConnectionsKeyingMode: "soft",
-  smartConnectionsTemplatePath: void 0
-  // User must configure template
+  microEdit: {
+    selectedPassage: "",
+    grievances: ""
+  },
+  characterUpdate: {
+    selectedText: "",
+    extractionInstructions: "",
+    sourcePath: void 0
+  },
+  continuityCheck: {
+    draftText: "",
+    focus: {
+      knowledge: true,
+      timeline: true,
+      pov: true,
+      naming: true
+    }
+  }
 };
 var WritingDashboardPlugin = class extends import_obsidian25.Plugin {
   constructor() {
     super(...arguments);
-    /**
-     * When true, the next time the dashboard UI mounts it will start the guided demo flow.
-     * This avoids wiring additional cross-component state management.
-     */
     this.guidedDemoStartRequested = false;
-    /**
-     * Tracks the last markdown file the user opened in Obsidian.
-     * Used for actions like "Chunk Selected File" so users don't need to keep updating settings.
-     */
     this.lastOpenedMarkdownPath = null;
-  }
-  notifyUi(eventName) {
-    try {
-      window.dispatchEvent(new CustomEvent(eventName));
-    } catch {
-    }
   }
   async onload() {
     await this.loadSettings();
-    this.registerEvent(
-      this.app.workspace.on("file-open", (file) => {
-        if (file && file.extension === "md") {
-          this.lastOpenedMarkdownPath = file.path;
-        }
-      })
-    );
-    this.registerEvent(
-      this.app.vault.on("rename", async (file, oldPath) => {
-        const oldNorm = oldPath.replace(/\\/g, "/");
-        const newNorm = file.path.replace(/\\/g, "/");
-        let changed = false;
-        const logsFolder = (this.settings.generationLogsFolder || "").replace(/\\/g, "/").replace(/\/+$/, "");
-        if (logsFolder && file instanceof import_obsidian25.TFolder && oldNorm === logsFolder) {
-          this.settings.generationLogsFolder = newNorm;
-          changed = true;
-        }
-        if (!(file instanceof import_obsidian25.TFile) || file.extension !== "md") {
-          if (changed)
-            await this.saveSettings();
-          return;
-        }
-        if (this.lastOpenedMarkdownPath === oldPath) {
-          this.lastOpenedMarkdownPath = file.path;
-          changed = true;
-        }
-        if (this.settings.book2Path === oldPath) {
-          this.settings.book2Path = file.path;
-          changed = true;
-        }
-        if (this.settings.fileState?.[oldPath]) {
-          this.settings.fileState[file.path] = {
-            ...this.settings.fileState[file.path] || {},
-            ...this.settings.fileState[oldPath]
-          };
-          delete this.settings.fileState[oldPath];
-          changed = true;
-        }
-        if (changed)
-          await this.saveSettings();
-      })
-    );
-    if (!this.settings.vaultPath) {
-      this.settings.vaultPath = this.app.vault.adapter.basePath || "";
-      await this.saveSettings();
-    }
     this.vaultService = new VaultService(this.app.vault, this);
     this.contextAggregator = new ContextAggregator(this.app.vault, this, this.vaultService);
     this.promptEngine = new PromptEngine();
@@ -77342,202 +77211,40 @@ var WritingDashboardPlugin = class extends import_obsidian25.Plugin {
       new HeuristicProvider(this.app.vault, this.vaultService),
       new LocalEmbeddingsProvider(
         this.embeddingsIndex,
-        () => Boolean(this.settings.retrievalEnableSemanticIndex),
+        () => Boolean(this.settings?.retrievalEnableSemanticIndex ?? true),
         (path) => !this.vaultService.isExcludedPath(path)
       )
     ];
-    this.retrievalService = new RetrievalService(providers, { getVector: (key) => this.embeddingsIndex.getVectorForKey(key) });
-    const maybeQueueIndex = (path) => {
-      if (this.settings.retrievalIndexPaused)
-        return;
-      if (this.vaultService.isExcludedPath(path))
-        return;
-      if (this.settings.retrievalEnableSemanticIndex)
-        this.embeddingsIndex.queueUpdateFile(path);
-    };
-    this.registerEvent(
-      this.app.vault.on("create", (file) => {
-        if (file instanceof import_obsidian25.TFile && file.extension === "md") {
-          maybeQueueIndex(file.path);
-        }
-      })
-    );
-    this.registerEvent(
-      this.app.vault.on("modify", (file) => {
-        if (file instanceof import_obsidian25.TFile && file.extension === "md") {
-          maybeQueueIndex(file.path);
-        }
-      })
-    );
-    this.registerEvent(
-      this.app.vault.on("delete", (file) => {
-        if (file instanceof import_obsidian25.TFile && file.extension === "md") {
-          this.embeddingsIndex.queueRemoveFile(file.path);
-        }
-      })
-    );
-    this.registerEvent(
-      this.app.vault.on("rename", (file, oldPath) => {
-        if (!(file instanceof import_obsidian25.TFile) || file.extension !== "md")
-          return;
-        this.embeddingsIndex.queueRemoveFile(oldPath);
-        maybeQueueIndex(file.path);
-      })
-    );
-    if (this.settings.retrievalEnableSemanticIndex && !this.settings.retrievalIndexPaused) {
-      this.embeddingsIndex.enqueueFullRescan();
-    }
-    this.registerView(
-      VIEW_TYPE_DASHBOARD,
-      (leaf) => new DashboardView(leaf, this)
-    );
-    this.addRibbonIcon("book-open", "Open dashboard", () => {
-      void this.activateView();
+    this.retrievalService = new RetrievalService(providers, {
+      getVector: (key) => this.embeddingsIndex.getVectorForKey(key)
     });
-    this.addSettingTab(new SettingsTab(this.app, this));
+    this.addRibbonIcon("book", "Open Writing Dashboard", () => this.activateView());
     this.addCommand({
-      id: "open-dashboard",
+      id: "open-writing-dashboard",
       name: "Open dashboard",
-      callback: () => {
-        void this.activateView();
-      }
+      callback: () => this.activateView()
     });
     this.addCommand({
       id: "run-setup-wizard",
       name: "Run setup wizard",
-      callback: () => {
-        this.showSetupWizard();
-      }
+      callback: () => new SetupWizardModal(this).open()
     });
     this.addCommand({
-      id: "run-guided-demo",
-      name: "Run guided demo",
-      callback: () => {
-        this.requestGuidedDemoStart();
-      }
+      id: "select-book-main-file",
+      name: "Select Book main file",
+      callback: () => new BookMainSelectorModal(this).open()
     });
     this.addCommand({
-      id: "export-to-epub",
-      name: "Export to epub",
-      callback: () => {
-        this.showPublishWizard();
-      }
+      id: "publish",
+      name: "Publish (epub/docx/rtf)",
+      callback: () => this.showPublishWizard()
     });
-    if (!this.settings.setupCompleted) {
-      const bookMainExists = this.app.vault.getAbstractFileByPath(this.settings.book2Path) !== null;
-      if (!bookMainExists) {
-        const mdFiles = this.app.vault.getMarkdownFiles();
-        if (mdFiles.length > 0) {
-          const modal = new BookMainSelectorModal(this);
-          modal.open();
-        } else {
-          this.showSetupWizard();
-        }
-      } else {
-        this.settings.setupCompleted = true;
-        await this.saveSettings();
-      }
-    }
+    this.addSettingTab(new SettingsTab(this.app, this));
+    this.registerView(VIEW_TYPE_DASHBOARD, (leaf) => new DashboardView(leaf, this));
+    this.app.workspace.onLayoutReady(() => this.activateView());
   }
-  showSetupWizard() {
-    const modal = new SetupWizardModal(this);
-    modal.open();
-  }
-  showPublishWizard() {
-    const modal = new PublishWizardModal(this);
-    modal.open();
-  }
-  /**
-   * Recreate the retrieval service with the current settings.
-   * Called when retrievalSource or other retrieval settings change.
-   */
-  recreateRetrievalService() {
-    const providers = [
-      new LocalEmbeddingsProvider(
-        this.embeddingsIndex,
-        () => Boolean(this.settings.retrievalEnableSemanticIndex),
-        (path) => !this.vaultService.isExcludedPath(path)
-      )
-    ];
-    this.retrievalService = new RetrievalService(providers, { getVector: (key) => this.embeddingsIndex.getVectorForKey(key) });
-  }
-  requestGuidedDemoStart() {
-    this.guidedDemoStartRequested = true;
-    this.notifyUi("writing-dashboard:guided-demo-start");
-    void this.activateView();
-  }
-  async onunload() {
-  }
-  async loadSettings() {
-    const loaded = await this.loadData();
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded || {});
-    if (!this.settings.modeState) {
-      this.settings.modeState = DEFAULT_SETTINGS.modeState;
-    } else {
-      this.settings.modeState = {
-        ...DEFAULT_SETTINGS.modeState,
-        ...this.settings.modeState,
-        chapter: { ...DEFAULT_SETTINGS.modeState.chapter, ...this.settings.modeState.chapter || {} },
-        microEdit: { ...DEFAULT_SETTINGS.modeState.microEdit, ...this.settings.modeState.microEdit || {} },
-        characterUpdate: { ...DEFAULT_SETTINGS.modeState.characterUpdate, ...this.settings.modeState.characterUpdate || {} },
-        continuityCheck: {
-          ...DEFAULT_SETTINGS.modeState.continuityCheck,
-          ...this.settings.modeState.continuityCheck || {},
-          focus: {
-            ...DEFAULT_SETTINGS.modeState.continuityCheck.focus,
-            ...(this.settings.modeState.continuityCheck || {}).focus || {}
-          }
-        }
-      };
-    }
-    if (!Array.isArray(this.settings.retrievalProfiles) || this.settings.retrievalProfiles.length === 0) {
-      const parentOf = (p) => {
-        const norm = (p || "").replace(/\\/g, "/");
-        const idx = norm.lastIndexOf("/");
-        return idx >= 0 ? norm.slice(0, idx) : "";
-      };
-      const storyFolders = /* @__PURE__ */ new Set();
-      if (this.settings.characterFolder)
-        storyFolders.add(this.settings.characterFolder);
-      const bookParent = parentOf(this.settings.book2Path);
-      if (bookParent)
-        storyFolders.add(bookParent);
-      const bibleParent = parentOf(this.settings.storyBiblePath);
-      if (bibleParent)
-        storyFolders.add(bibleParent);
-      const storyIncluded = Array.from(storyFolders).map((s) => (s || "").replace(/\/+$/, "")).filter((s) => s.length > 0);
-      this.settings.retrievalProfiles = [
-        { id: "story", name: "Story", includedFolders: storyIncluded.length > 0 ? storyIncluded : [] },
-        { id: "research", name: "Research", includedFolders: ["Research", "Worldbuilding"] },
-        { id: "manuscript", name: "Manuscript only", includedFolders: bookParent ? [bookParent] : [] }
-      ];
-      this.settings.retrievalActiveProfileId = "story";
-    }
-    const hasActive = this.settings.retrievalProfiles.some((p) => p.id === this.settings.retrievalActiveProfileId);
-    if (!hasActive)
-      this.settings.retrievalActiveProfileId = this.settings.retrievalProfiles[0]?.id || "story";
-  }
-  async saveSettings() {
-    await this.saveData(this.settings);
-    this.notifyUi("writing-dashboard:settings-changed");
-  }
-  /**
-   * Auto-generate Smart Connections template file if it doesn't exist.
-   * Creates the template in a visible root-level folder.
-   * Returns the path to the template file.
-   */
-  async ensureSmartConnectionsTemplate() {
-    const templatesFolder = "Writing Dashboard Templates";
-    await this.vaultService.createFolderIfNotExists(templatesFolder);
-    const templatePath = `${templatesFolder}/SC-Template.md`;
-    const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
-    if (!(templateFile instanceof import_obsidian25.TFile)) {
-      const templateContent = "{{smart-connections:similar:128}}";
-      await this.vaultService.writeFile(templatePath, templateContent);
-      this.settings.smartConnectionsTemplatePath = templatePath;
-      await this.saveSettings();
-    }
-    return templatePath;
+  onunload() {
+    this.app.workspace.getLeavesOfType(VIEW_TYPE_DASHBOARD).forEach((leaf) => leaf.detach());
   }
   async activateView() {
     const { workspace } = this.app;
@@ -77547,6 +77254,76 @@ var WritingDashboardPlugin = class extends import_obsidian25.Plugin {
       await leaf.setViewState({ type: VIEW_TYPE_DASHBOARD, active: true });
     }
     workspace.revealLeaf(leaf);
+  }
+  async loadSettings() {
+    const loaded = await this.loadData() || {};
+    this.settings = Object.assign(
+      {
+        apiKey: "",
+        apiProvider: "openai",
+        model: "gpt-4o",
+        retrievalEnableSemanticIndex: true,
+        retrievalEnableBm25: true,
+        retrievalTopK: 24,
+        retrievalChunkWords: 500,
+        retrievalChunkOverlapWords: 100,
+        retrievalChunkHeadingLevel: "h1",
+        book2Path: "Book-Main.md",
+        storyBiblePath: "Book - Story Bible.md",
+        characterFolder: "Characters",
+        generationLogsEnabled: false,
+        generationLogsIncludePrompt: false,
+        generationLogsFolder: "",
+        generationMode: "single",
+        multiStrategy: "draft-revision",
+        contextTokenLimit: 128e3,
+        modeState: DEFAULT_MODE_STATE,
+        externalEmbeddingsEnabled: false,
+        externalEmbeddingProvider: "openai",
+        externalEmbeddingModel: "text-embedding-3-small",
+        externalEmbeddingApiKey: "",
+        externalEmbeddingApiUrl: "",
+        externalEmbeddingUseBatch: false,
+        retrievalExcludedFolders: [],
+        retrievalIndexPaused: false,
+        characterExtractionSourcePath: void 0,
+        guidedDemoDismissed: false,
+        guidedDemoShownOnce: false,
+        setupCompleted: false,
+        vaultPath: ""
+      },
+      loaded
+    );
+  }
+  async saveSettings() {
+    await this.saveData(this.settings);
+    this.notifyUi("writing-dashboard:settings-changed");
+  }
+  notifyUi(eventName) {
+    try {
+      window.dispatchEvent(new CustomEvent(eventName));
+    } catch {
+    }
+  }
+  showPublishWizard() {
+    new PublishWizardModal(this).open();
+  }
+  requestGuidedDemoStart() {
+    this.guidedDemoStartRequested = true;
+    this.notifyUi("writing-dashboard:guided-demo-start");
+  }
+  recreateRetrievalService() {
+    const providers = [
+      new HeuristicProvider(this.app.vault, this.vaultService),
+      new LocalEmbeddingsProvider(
+        this.embeddingsIndex,
+        () => Boolean(this.settings?.retrievalEnableSemanticIndex ?? true),
+        (path) => !this.vaultService.isExcludedPath(path)
+      )
+    ];
+    this.retrievalService = new RetrievalService(providers, {
+      getVector: (key) => this.embeddingsIndex.getVectorForKey(key)
+    });
   }
 };
 /*!

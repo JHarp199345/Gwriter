@@ -8,6 +8,7 @@ import { ModeSelector } from './ModeSelector';
 import { TextChunker } from '../services/TextChunker';
 import { fnv1a32 } from '../services/ContentHash';
 import { estimateTokens } from '../services/TokenEstimate';
+import type { MultiModelResult } from '../services/AIClient';
 import { FilePickerModal } from './FilePickerModal';
 import { FolderTreePickerModal } from './FolderTreePickerModal';
 import { FileTreePickerModal } from './FileTreePickerModal';
@@ -85,8 +86,8 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		}
 	};
 
-	type SingleSettings = Omit<DashboardSettings, 'generationMode'> & { generationMode: 'single' };
-	type MultiSettings = Omit<DashboardSettings, 'generationMode'> & { generationMode: 'multi' };
+	type SingleSettings = DashboardSettings & { generationMode: 'single' };
+	type MultiSettings = DashboardSettings & { generationMode: 'multi' };
 
 	const [mode, setMode] = useState<Mode>('chapter');
 	const [demoStep, setDemoStep] = useState<DemoStep>('off');
@@ -113,7 +114,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const modeStateSaveTimerRef = useRef<number | null>(null);
 	const [minWordsInput, setMinWordsInput] = useState<string>(String(plugin.settings.modeState.chapter.minWords ?? 2000));
 	const [maxWordsInput, setMaxWordsInput] = useState<string>(String(plugin.settings.modeState.chapter.maxWords ?? 6000));
-	const [generatedText, setGeneratedText] = useState('');
+	const [generatedText, setGeneratedText] = useState<string>('');
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [generationStage, setGenerationStage] = useState<string>('');
 	const [error, setError] = useState<string | null>(null);
@@ -821,15 +822,15 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			if (plugin.settings.generationMode === 'multi') {
 				setGenerationStage('Initializing multi-model generation...');
 				const multiSettings: MultiSettings = { ...plugin.settings, generationMode: 'multi' };
-				const result = await plugin.aiClient.generate(prompt, multiSettings);
-				
+				const result = (await plugin.aiClient.generate(prompt, multiSettings)) as MultiModelResult;
+
 				// Show stages if available
-				if (result.stages) {
+				if (result?.stages) {
 					setGenerationStage(`Finalizing (${Object.keys(result.stages).length} stages completed)...`);
 				}
-				
-				setGeneratedText(result.primary);
-				void plugin.generationLogService.finishLog(logPath, { outputText: result.primary }).catch(() => {});
+
+				setGeneratedText(result?.primary ?? '');
+				void plugin.generationLogService.finishLog(logPath, { outputText: result?.primary ?? '' }).catch(() => {});
 			} else {
 				setGenerationStage('Generating...');
 				const singleSettings: SingleSettings = { ...plugin.settings, generationMode: 'single' };
