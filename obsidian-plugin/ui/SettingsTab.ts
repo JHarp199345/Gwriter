@@ -1,8 +1,7 @@
 import { App, PluginSettingTab, Setting, TFolder, Notice, TFile } from 'obsidian';
 import WritingDashboardPlugin from '../main';
 import { SetupWizardModal } from './SetupWizard';
-import { FileTreePickerModal } from './FileTreePickerModal';
-import { FolderTreePickerModal } from './FolderTreePickerModal';
+import { TreePickerModal } from './TreePickerModal';
 import { FilePickerModal } from './FilePickerModal';
 import { StressTestService } from '../services/StressTestService';
 
@@ -512,18 +511,18 @@ export class SettingsTab extends PluginSettingTab {
 						const folderPath = this.plugin.settings.generationLogsFolder || '';
 						const folder = this.app.vault.getAbstractFileByPath(folderPath);
 						if (!folderPath || !(folder instanceof TFolder)) {
-							// Prompt user to select/create folder
-							const modal = new FolderTreePickerModal(this.plugin, {
-								currentPath: folderPath || undefined,
+							new TreePickerModal(this.plugin, {
 								title: 'Select or create generation logs folder',
-								onPick: async (selectedPath) => {
-									this.plugin.settings.generationLogsFolder = selectedPath;
+								mode: 'single',
+								initialSelection: folderPath || undefined,
+								filter: (node) => node.type === 'folder',
+								onSubmit: async (picked) => {
+									const path = Array.isArray(picked) ? picked[0] : picked;
+									this.plugin.settings.generationLogsFolder = path;
 									await this.plugin.saveSettings();
-									// Refresh the setting to update the button text
 									this.display();
 								}
-							});
-							modal.open();
+							}).open();
 						}
 					}
 				})
@@ -535,17 +534,18 @@ export class SettingsTab extends PluginSettingTab {
 			.addButton(button => button
 				.setButtonText(this.plugin.settings.generationLogsFolder ? this.plugin.settings.generationLogsFolder.split('/').pop() || 'Select folder' : 'Select folder')
 				.onClick(() => {
-					const modal = new FolderTreePickerModal(this.plugin, {
-						currentPath: this.plugin.settings.generationLogsFolder || undefined,
+					new TreePickerModal(this.plugin, {
 						title: 'Select or create generation logs folder',
-						onPick: async (folderPath) => {
-							this.plugin.settings.generationLogsFolder = folderPath;
+						mode: 'single',
+						initialSelection: this.plugin.settings.generationLogsFolder || undefined,
+						filter: (node) => node.type === 'folder',
+						onSubmit: async (folderPath) => {
+							const path = Array.isArray(folderPath) ? folderPath[0] : folderPath;
+							this.plugin.settings.generationLogsFolder = path;
 							await this.plugin.saveSettings();
-							// Refresh the setting to update the button text and desc
 							this.display();
 						}
-					});
-					modal.open();
+					}).open();
 				}));
 
 		new Setting(containerEl)
@@ -697,19 +697,20 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Character folder')
 			.setDesc(`Current: ${this.plugin.settings.characterFolder || '(none selected)'}`)
 			.addButton(button => button
-				.setButtonText(this.plugin.settings.characterFolder ? this.plugin.settings.characterFolder.split('/').pop() || 'Select folder' : 'Select folder')
+				.setButtonText(this.plugin.settings.characterFolder ? this.plugin.settings.characterFolder.split('/').pop() || 'Select path' : 'Select path')
 				.onClick(() => {
-					const modal = new FolderTreePickerModal(this.plugin, {
-						currentPath: this.plugin.settings.characterFolder || undefined,
-						title: 'Select or create character folder',
-						onPick: async (folderPath) => {
-							this.plugin.settings.characterFolder = folderPath;
+					new TreePickerModal(this.plugin, {
+						title: 'Select character folder',
+						mode: 'single',
+						initialSelection: this.plugin.settings.characterFolder,
+						filter: (node) => node.type === 'folder',
+						onSubmit: async (path) => {
+							const picked = Array.isArray(path) ? path[0] : path;
+							this.plugin.settings.characterFolder = picked;
 							await this.plugin.saveSettings();
-							// Refresh the setting to update the button text and desc
 							this.display();
 						}
-					});
-					modal.open();
+					}).open();
 				}));
 
 		new Setting(containerEl)
@@ -718,16 +719,17 @@ export class SettingsTab extends PluginSettingTab {
 			.addButton(button => button
 				.setButtonText(this.plugin.settings.book2Path ? this.plugin.settings.book2Path.split('/').pop() || 'Select book file' : 'Select book file')
 				.onClick(() => {
-					const modal = new FileTreePickerModal(this.plugin, {
-						currentPath: this.plugin.settings.book2Path,
-						onPick: async (filePath) => {
-							this.plugin.settings.book2Path = filePath;
+					new TreePickerModal(this.plugin, {
+						title: 'Select book main file',
+						mode: 'single',
+						initialSelection: this.plugin.settings.book2Path,
+						onSubmit: async (filePath) => {
+							const picked = Array.isArray(filePath) ? filePath[0] : filePath;
+							this.plugin.settings.book2Path = picked;
 							await this.plugin.saveSettings();
-							// Refresh the setting to update the button text and desc
 							this.display();
 						}
-					});
-					modal.open();
+					}).open();
 				}));
 
 		const storyBibleSetting = new Setting(containerEl)
@@ -736,16 +738,17 @@ export class SettingsTab extends PluginSettingTab {
 			.addButton(button => button
 				.setButtonText(this.plugin.settings.storyBiblePath ? this.plugin.settings.storyBiblePath.split('/').pop() || 'Select story bible' : 'Select story bible')
 				.onClick(() => {
-					const modal = new FileTreePickerModal(this.plugin, {
-						currentPath: this.plugin.settings.storyBiblePath,
-						onPick: async (filePath) => {
-							this.plugin.settings.storyBiblePath = filePath;
+					new TreePickerModal(this.plugin, {
+						title: 'Select story bible',
+						mode: 'single',
+						initialSelection: this.plugin.settings.storyBiblePath,
+						onSubmit: async (filePath) => {
+							const picked = Array.isArray(filePath) ? filePath[0] : filePath;
+							this.plugin.settings.storyBiblePath = picked;
 							await this.plugin.saveSettings();
-							// Refresh the setting to update the button text and desc
 							this.display();
 						}
-					});
-					modal.open();
+					}).open();
 				}));
 
 		addSection('Character extraction & safeguards', 'Defaults for character processing and prompt-size warnings.');

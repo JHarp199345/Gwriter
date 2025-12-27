@@ -1124,7 +1124,7 @@ var require_react_development = __commonJS({
           var dispatcher = resolveDispatcher();
           return dispatcher.useCallback(callback, deps);
         }
-        function useMemo2(create, deps) {
+        function useMemo3(create, deps) {
           var dispatcher = resolveDispatcher();
           return dispatcher.useMemo(create, deps);
         }
@@ -1896,7 +1896,7 @@ var require_react_development = __commonJS({
         exports.useImperativeHandle = useImperativeHandle;
         exports.useInsertionEffect = useInsertionEffect;
         exports.useLayoutEffect = useLayoutEffect;
-        exports.useMemo = useMemo2;
+        exports.useMemo = useMemo3;
         exports.useReducer = useReducer;
         exports.useRef = useRef3;
         exports.useState = useState9;
@@ -2395,9 +2395,9 @@ var require_react_dom_development = __commonJS({
         if (typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ !== "undefined" && typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart === "function") {
           __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(new Error());
         }
-        var React13 = require_react();
+        var React14 = require_react();
         var Scheduler = require_scheduler();
-        var ReactSharedInternals = React13.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+        var ReactSharedInternals = React14.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
         var suppressWarning = false;
         function setSuppressWarning(newSuppressWarning) {
           {
@@ -4002,7 +4002,7 @@ var require_react_dom_development = __commonJS({
           {
             if (props.value == null) {
               if (typeof props.children === "object" && props.children !== null) {
-                React13.Children.forEach(props.children, function(child) {
+                React14.Children.forEach(props.children, function(child) {
                   if (child == null) {
                     return;
                   }
@@ -23083,7 +23083,7 @@ var require_react_dom_development = __commonJS({
             unmarkContainerAsRoot(container);
           }
         };
-        function createRoot8(container, options2) {
+        function createRoot9(container, options2) {
           if (!isValidContainer(container)) {
             throw new Error("createRoot(...): Target container is not a DOM element.");
           }
@@ -23466,7 +23466,7 @@ var require_react_dom_development = __commonJS({
               error2('You are importing createRoot from "react-dom" which is not supported. You should instead import it from "react-dom/client".');
             }
           }
-          return createRoot8(container, options2);
+          return createRoot9(container, options2);
         }
         function hydrateRoot$1(container, initialChildren, options2) {
           {
@@ -23564,16 +23564,161 @@ var require_client = __commonJS({
   }
 });
 
+// ui/TreePickerModal.tsx
+var import_obsidian9, import_react11, import_client6, TreePickerModal, TreePickerComponent;
+var init_TreePickerModal = __esm({
+  "ui/TreePickerModal.tsx"() {
+    import_obsidian9 = require("obsidian");
+    import_react11 = __toESM(require_react());
+    import_client6 = __toESM(require_client());
+    TreePickerModal = class extends import_obsidian9.Modal {
+      constructor(plugin, opts) {
+        super(plugin.app);
+        this.reactRoot = null;
+        this.plugin = plugin;
+        this.opts = opts;
+      }
+      onOpen() {
+        this.titleEl.setText(this.opts.title || "Select items");
+        this.contentEl.empty();
+        const container = this.contentEl.createDiv();
+        this.reactRoot = (0, import_client6.createRoot)(container);
+        this.reactRoot.render(
+          import_react11.default.createElement(TreePickerComponent, {
+            plugin: this.plugin,
+            title: this.opts.title,
+            initialSelection: this.opts.initialSelection,
+            mode: this.opts.mode ?? "single",
+            onSubmit: this.opts.onSubmit,
+            onClose: () => this.close(),
+            filter: this.opts.filter
+          })
+        );
+      }
+      onClose() {
+        if (this.reactRoot) {
+          this.reactRoot.unmount();
+          this.reactRoot = null;
+        }
+        this.contentEl.empty();
+      }
+    };
+    TreePickerComponent = ({ plugin, initialSelection, mode, onSubmit, onClose, filter }) => {
+      const [nodes, setNodes] = (0, import_react11.useState)([]);
+      const [expanded, setExpanded] = (0, import_react11.useState)(/* @__PURE__ */ new Set([""]));
+      const [selected, setSelected] = (0, import_react11.useState)(/* @__PURE__ */ new Set());
+      (0, import_react11.useEffect)(() => {
+        const structure = plugin.vaultService.getVaultStructure();
+        const filtered = filter ? structure.filter(filter) : structure;
+        setNodes(filtered);
+        const init = /* @__PURE__ */ new Set();
+        const list2 = Array.isArray(initialSelection) ? initialSelection : initialSelection ? [initialSelection] : [];
+        for (const p of list2)
+          init.add(p.replace(/\\/g, "/"));
+        setSelected(init);
+        if (list2.length) {
+          for (const p of list2) {
+            const parts = p.split("/");
+            for (let i = 1; i < parts.length; i++) {
+              expanded.add(parts.slice(0, i).join("/"));
+            }
+          }
+          setExpanded(new Set(expanded));
+        }
+      }, [plugin, initialSelection, filter, expanded]);
+      const childrenOf = (0, import_react11.useMemo)(() => {
+        const map2 = /* @__PURE__ */ new Map();
+        for (const n of nodes) {
+          const parent = n.path.includes("/") ? n.path.split("/").slice(0, -1).join("/") : "";
+          if (!map2.has(parent))
+            map2.set(parent, []);
+          map2.get(parent).push(n);
+        }
+        for (const arr of map2.values())
+          arr.sort((a, b) => a.path.localeCompare(b.path));
+        return map2;
+      }, [nodes]);
+      const toggleExpand = (path) => {
+        const next = new Set(expanded);
+        if (next.has(path))
+          next.delete(path);
+        else
+          next.add(path);
+        setExpanded(next);
+      };
+      const toggleSelect = (path) => {
+        if (mode === "single") {
+          setSelected(/* @__PURE__ */ new Set([path]));
+        } else {
+          const next = new Set(selected);
+          if (next.has(path))
+            next.delete(path);
+          else
+            next.add(path);
+          setSelected(next);
+        }
+      };
+      const renderNode = (node, depth = 0) => {
+        const isFolder = node.type === "folder";
+        const isExpanded = expanded.has(node.path);
+        const isSelected = selected.has(node.path);
+        const kids = childrenOf.get(node.path) || [];
+        return /* @__PURE__ */ import_react11.default.createElement("div", { key: node.path, style: { paddingLeft: `${depth * 18}px` } }, /* @__PURE__ */ import_react11.default.createElement(
+          "div",
+          {
+            style: {
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "4px 6px",
+              borderRadius: "4px",
+              cursor: "pointer",
+              backgroundColor: isSelected ? "var(--background-modifier-hover)" : "transparent"
+            }
+          },
+          isFolder ? /* @__PURE__ */ import_react11.default.createElement(
+            "span",
+            {
+              onClick: () => toggleExpand(node.path),
+              style: { cursor: "pointer", width: "16px", textAlign: "center" },
+              title: isExpanded ? "Collapse" : "Expand"
+            },
+            isExpanded ? "\u{1F4C2}" : "\u{1F4C1}"
+          ) : /* @__PURE__ */ import_react11.default.createElement("span", { style: { width: "16px", textAlign: "center" } }, "\u{1F4C4}"),
+          /* @__PURE__ */ import_react11.default.createElement(
+            "input",
+            {
+              type: mode === "single" ? "radio" : "checkbox",
+              checked: isSelected,
+              onChange: () => toggleSelect(node.path),
+              style: { margin: 0 },
+              name: "tree-picker"
+            }
+          ),
+          /* @__PURE__ */ import_react11.default.createElement("span", { onClick: () => toggleSelect(node.path), style: { flex: 1 } }, node.name)
+        ), isFolder && isExpanded && kids.map((c) => renderNode(c, depth + 1)));
+      };
+      const roots = childrenOf.get("") || [];
+      const handleSubmit = () => {
+        const value = mode === "single" ? Array.from(selected)[0] || "" : Array.from(selected);
+        void onSubmit(value);
+        onClose();
+      };
+      return /* @__PURE__ */ import_react11.default.createElement("div", { style: { padding: "12px", maxHeight: "60vh", overflowY: "auto", minWidth: "360px" } }, /* @__PURE__ */ import_react11.default.createElement("div", { style: { marginBottom: "12px", color: "var(--text-muted)" } }, "Select folders and notes to include. If none are selected in some contexts, the active note is used."), roots.length === 0 ? /* @__PURE__ */ import_react11.default.createElement("div", { style: { padding: "12px", color: "var(--text-muted)" } }, "No items found") : roots.map((n) => renderNode(n)), /* @__PURE__ */ import_react11.default.createElement("div", { style: { marginTop: "16px", display: "flex", gap: "8px" } }, /* @__PURE__ */ import_react11.default.createElement("button", { className: "mod-cta", onClick: handleSubmit, style: { flex: 1 } }, "Save"), /* @__PURE__ */ import_react11.default.createElement("button", { className: "mod-secondary", onClick: onClose, style: { flex: 1 } }, "Cancel")));
+    };
+  }
+});
+
 // ui/OllamaSetupWizardModal.ts
 var OllamaSetupWizardModal_exports = {};
 __export(OllamaSetupWizardModal_exports, {
   OllamaSetupWizardModal: () => OllamaSetupWizardModal
 });
-var import_obsidian10, OllamaSetupWizardModal;
+var import_obsidian11, OllamaSetupWizardModal;
 var init_OllamaSetupWizardModal = __esm({
   "ui/OllamaSetupWizardModal.ts"() {
-    import_obsidian10 = require("obsidian");
-    OllamaSetupWizardModal = class extends import_obsidian10.Modal {
+    import_obsidian11 = require("obsidian");
+    OllamaSetupWizardModal = class extends import_obsidian11.Modal {
       constructor(app, plugin) {
         super(app);
         this.plugin = plugin;
@@ -23610,13 +23755,13 @@ var init_OllamaSetupWizardModal = __esm({
         });
         contentEl.createEl("h4", { text: "Step 3 \u2014 Pull the embedding model" });
         const pullCmd = "ollama pull nomic-embed-text";
-        new import_obsidian10.Setting(contentEl).setName(pullCmd).addButton(
+        new import_obsidian11.Setting(contentEl).setName(pullCmd).addButton(
           (btn) => btn.setButtonText("Copy").onClick(async () => {
             try {
               await navigator.clipboard.writeText(pullCmd);
-              new import_obsidian10.Notice("Copied command to clipboard");
+              new import_obsidian11.Notice("Copied command to clipboard");
             } catch {
-              new import_obsidian10.Notice("Copy failed. Please copy manually.");
+              new import_obsidian11.Notice("Copy failed. Please copy manually.");
             }
           })
         );
@@ -23633,34 +23778,34 @@ var init_OllamaSetupWizardModal = __esm({
         });
         contentEl.createEl("h4", { text: "Step 5 \u2014 Check in Writing Dashboard" });
         contentEl.createEl("p", { text: "Click \u201CCheck Connection\u201D below. If it succeeds, local semantic search is ready." });
-        new import_obsidian10.Setting(contentEl).setName("Check Ollama connection").addButton(
+        new import_obsidian11.Setting(contentEl).setName("Check Ollama connection").addButton(
           (btn) => btn.setButtonText("Check").setCta().onClick(async () => {
             try {
               const isRunning = await this.plugin.ollama?.isAvailable?.();
               if (!isRunning) {
-                new import_obsidian10.Notice("\u274C Ollama not found at http://127.0.0.1:11434");
+                new import_obsidian11.Notice("\u274C Ollama not found at http://127.0.0.1:11434");
                 return;
               }
               const hasModel = await this.plugin.ollama?.hasModel?.("nomic-embed-text");
               if (!hasModel) {
-                new import_obsidian10.Notice('\u26A0\uFE0F Ollama is running, but "nomic-embed-text" is missing. Run "ollama pull nomic-embed-text".');
+                new import_obsidian11.Notice('\u26A0\uFE0F Ollama is running, but "nomic-embed-text" is missing. Run "ollama pull nomic-embed-text".');
                 return;
               }
-              new import_obsidian10.Notice("\u2705 Success! Local AI is ready.");
+              new import_obsidian11.Notice("\u2705 Success! Local AI is ready.");
             } catch (err) {
-              new import_obsidian10.Notice(`\u274C Check failed: ${err instanceof Error ? err.message : String(err)}`);
+              new import_obsidian11.Notice(`\u274C Check failed: ${err instanceof Error ? err.message : String(err)}`);
             }
           })
         );
         contentEl.createEl("h4", { text: "Step 6 \u2014 Re-index (optional)" });
         contentEl.createEl("p", { text: "If you just installed Ollama, you can re-run indexing to generate embeddings for your vault." });
-        new import_obsidian10.Setting(contentEl).setName("Re-index now").setDesc("Kick off a full semantic re-index.").addButton(
+        new import_obsidian11.Setting(contentEl).setName("Re-index now").setDesc("Kick off a full semantic re-index.").addButton(
           (btn) => btn.setButtonText("Re-index").onClick(() => {
             try {
               this.plugin.embeddingsIndex.enqueueFullRescan();
-              new import_obsidian10.Notice("Re-index queued.");
+              new import_obsidian11.Notice("Re-index queued.");
             } catch {
-              new import_obsidian10.Notice("Failed to queue re-index.");
+              new import_obsidian11.Notice("Failed to queue re-index.");
             }
           })
         );
@@ -23674,27 +23819,41 @@ var ProfilePickerModal_exports = {};
 __export(ProfilePickerModal_exports, {
   ProfilePickerModal: () => ProfilePickerModal
 });
-var import_obsidian11, import_react11, import_client6, ProfilePickerModal, ProfilePickerComponent;
+var import_obsidian12, import_react12, import_client7, ProfilePickerModal;
 var init_ProfilePickerModal = __esm({
   "ui/ProfilePickerModal.tsx"() {
-    import_obsidian11 = require("obsidian");
-    import_react11 = __toESM(require_react());
-    import_client6 = __toESM(require_client());
-    ProfilePickerModal = class extends import_obsidian11.Modal {
+    import_obsidian12 = require("obsidian");
+    import_react12 = __toESM(require_react());
+    import_client7 = __toESM(require_client());
+    init_TreePickerModal();
+    ProfilePickerModal = class extends import_obsidian12.Modal {
       constructor(plugin) {
         super(plugin.app);
         this.reactRoot = null;
         this.plugin = plugin;
       }
       onOpen() {
-        this.titleEl.setText("Select folders for retrieval");
+        this.titleEl.setText("Select folders or notes for retrieval");
         this.contentEl.empty();
         const container = this.contentEl.createDiv();
-        this.reactRoot = (0, import_client6.createRoot)(container);
+        this.reactRoot = (0, import_client7.createRoot)(container);
         this.reactRoot.render(
-          import_react11.default.createElement(ProfilePickerComponent, {
+          import_react12.default.createElement(TreePickerComponent, {
             plugin: this.plugin,
-            onClose: () => this.close()
+            initialSelection: this.plugin.settings.retrievalIncludedFolders || [],
+            mode: "multi",
+            onSubmit: async (value) => {
+              const list2 = Array.isArray(value) ? value : value ? [value] : [];
+              this.plugin.settings.retrievalIncludedFolders = list2;
+              this.plugin.settings.retrievalActiveProfileId = void 0;
+              await this.plugin.saveSettings();
+              this.plugin.embeddingsIndex.enqueueFullRescan();
+            },
+            onClose: () => this.close(),
+            filter: (node) => {
+              const n = node.path.replace(/\\/g, "/");
+              return !n.startsWith(`${this.plugin.app.vault.configDir.replace(/\\/g, "/")}`);
+            }
           })
         );
       }
@@ -23705,83 +23864,6 @@ var init_ProfilePickerModal = __esm({
         }
         this.contentEl.empty();
       }
-    };
-    ProfilePickerComponent = ({ plugin, onClose }) => {
-      const [structure, setStructure] = (0, import_react11.useState)([]);
-      const [selected, setSelected] = (0, import_react11.useState)(/* @__PURE__ */ new Set());
-      const [expanded, setExpanded] = (0, import_react11.useState)(/* @__PURE__ */ new Set([""]));
-      (0, import_react11.useEffect)(() => {
-        const vaultStructure = plugin.vaultService.getVaultStructure().filter((i) => i.type === "folder");
-        setStructure(vaultStructure);
-        const initial = new Set((plugin.settings.retrievalIncludedFolders || []).map((p) => p.replace(/\\/g, "/")));
-        setSelected(initial);
-      }, [plugin]);
-      const toggleFolder = (path) => {
-        const next = new Set(expanded);
-        if (next.has(path))
-          next.delete(path);
-        else
-          next.add(path);
-        setExpanded(next);
-      };
-      const toggleSelect = (path) => {
-        const next = new Set(selected);
-        if (next.has(path))
-          next.delete(path);
-        else
-          next.add(path);
-        setSelected(next);
-      };
-      const save = async () => {
-        plugin.settings.retrievalIncludedFolders = Array.from(selected).sort((a, b) => a.localeCompare(b));
-        plugin.settings.retrievalActiveProfileId = void 0;
-        await plugin.saveSettings();
-        onClose();
-      };
-      const renderItem = (item, depth = 0) => {
-        if (item.type !== "folder")
-          return null;
-        const isExpanded = expanded.has(item.path);
-        const isSelected = selected.has(item.path);
-        const children = structure.filter(
-          (n) => n.type === "folder" && n.path.startsWith(item.path + "/") && n.path.split("/").length === item.path.split("/").length + 1
-        );
-        return /* @__PURE__ */ import_react11.default.createElement("div", { key: item.path, style: { paddingLeft: `${depth * 18}px` } }, /* @__PURE__ */ import_react11.default.createElement(
-          "div",
-          {
-            style: {
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "4px 6px",
-              borderRadius: "4px",
-              cursor: "pointer",
-              backgroundColor: isSelected ? "var(--background-modifier-hover)" : "transparent"
-            }
-          },
-          /* @__PURE__ */ import_react11.default.createElement(
-            "span",
-            {
-              onClick: () => toggleFolder(item.path),
-              style: { cursor: "pointer", width: "16px", textAlign: "center" },
-              title: isExpanded ? "Collapse" : "Expand"
-            },
-            isExpanded ? "\u{1F4C2}" : "\u{1F4C1}"
-          ),
-          /* @__PURE__ */ import_react11.default.createElement(
-            "input",
-            {
-              type: "checkbox",
-              checked: isSelected,
-              onChange: () => toggleSelect(item.path),
-              style: { margin: 0 }
-            }
-          ),
-          /* @__PURE__ */ import_react11.default.createElement("span", { onClick: () => toggleSelect(item.path), style: { flex: 1 } }, item.name)
-        ), isExpanded && children.map((c) => renderItem(c, depth + 1)));
-      };
-      const rootItems = structure.filter((i) => !i.path.includes("/"));
-      return /* @__PURE__ */ import_react11.default.createElement("div", { style: { padding: "12px", maxHeight: "60vh", overflowY: "auto", minWidth: "320px" } }, /* @__PURE__ */ import_react11.default.createElement("div", { style: { marginBottom: "12px", color: "var(--text-muted)" } }, "Select folders to include for retrieval/indexing. If none are selected, only the active note is used."), rootItems.length === 0 ? /* @__PURE__ */ import_react11.default.createElement("div", { style: { padding: "12px", color: "var(--text-muted)" } }, "No folders found") : rootItems.map((item) => renderItem(item)), /* @__PURE__ */ import_react11.default.createElement("div", { style: { marginTop: "16px", display: "flex", gap: "8px" } }, /* @__PURE__ */ import_react11.default.createElement("button", { className: "mod-cta", onClick: save, style: { flex: 1 } }, "Save"), /* @__PURE__ */ import_react11.default.createElement("button", { className: "mod-secondary", onClick: onClose, style: { flex: 1 } }, "Cancel")));
     };
   }
 });
@@ -26488,7 +26570,7 @@ __export(main_exports, {
   default: () => WritingDashboardPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian26 = require("obsidian");
+var import_obsidian27 = require("obsidian");
 
 // ui/DashboardView.ts
 var import_obsidian7 = require("obsidian");
@@ -28997,7 +29079,7 @@ var DashboardView = class extends import_obsidian7.ItemView {
 };
 
 // ui/SettingsTab.ts
-var import_obsidian12 = require("obsidian");
+var import_obsidian13 = require("obsidian");
 
 // ui/SetupWizard.tsx
 var import_react10 = __toESM(require_react());
@@ -29224,8 +29306,11 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
   )));
 };
 
+// ui/SettingsTab.ts
+init_TreePickerModal();
+
 // services/StressTestService.ts
-var import_obsidian9 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 var StressTestService = class {
   constructor(plugin, options = {}) {
     this.log = [];
@@ -29527,7 +29612,7 @@ Content for scene 1 of chapter ${num}. More text to build size.`;
   }
   async deletePath(path) {
     const entry = this.app.vault.getAbstractFileByPath(path);
-    if (entry instanceof import_obsidian9.TFile || entry instanceof import_obsidian9.TFolder) {
+    if (entry instanceof import_obsidian10.TFile || entry instanceof import_obsidian10.TFolder) {
       await this.app.vault.delete(entry);
     } else {
       try {
@@ -29609,7 +29694,7 @@ function getModelsForProvider(provider) {
       return [];
   }
 }
-var SettingsTab = class extends import_obsidian12.PluginSettingTab {
+var SettingsTab = class extends import_obsidian13.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -29632,23 +29717,23 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     const addSection = (title, desc) => {
-      new import_obsidian12.Setting(containerEl).setName(title).setHeading();
+      new import_obsidian13.Setting(containerEl).setName(title).setHeading();
       if (desc) {
         const p = containerEl.createEl("p", { text: desc });
         p.style.marginTop = "-8px";
       }
     };
     addSection("API & Model", "Provider, key, and model selection");
-    new import_obsidian12.Setting(containerEl).setName("API key").setDesc("Your AI API key (stored securely)").addText((text2) => text2.setPlaceholder("Enter API key").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
+    new import_obsidian13.Setting(containerEl).setName("API key").setDesc("Your AI API key (stored securely)").addText((text2) => text2.setPlaceholder("Enter API key").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
       this.plugin.settings.apiKey = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian12.Setting(containerEl).setName("Generation mode").setDesc("Single mode: fast, single model. Multi mode: higher quality with multiple models.").addDropdown((dropdown) => dropdown.addOption("single", "Single mode").addOption("multi", "Multi mode").setValue(this.plugin.settings.generationMode).onChange(async (value) => {
+    new import_obsidian13.Setting(containerEl).setName("Generation mode").setDesc("Single mode: fast, single model. Multi mode: higher quality with multiple models.").addDropdown((dropdown) => dropdown.addOption("single", "Single mode").addOption("multi", "Multi mode").setValue(this.plugin.settings.generationMode).onChange(async (value) => {
       this.plugin.settings.generationMode = value;
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian12.Setting(containerEl).setName("API provider").setDesc("Choose your AI provider. Openrouter is recommended for multi mode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "Openrouter (recommended)").addOption("openai", "Openai").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
+    new import_obsidian13.Setting(containerEl).setName("API provider").setDesc("Choose your AI provider. Openrouter is recommended for multi mode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "Openrouter (recommended)").addOption("openai", "Openai").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
       this.plugin.settings.apiProvider = value;
       const models = getModelsForProvider(value);
       const currentModel = this.plugin.settings.model;
@@ -29658,7 +29743,7 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian12.Setting(containerEl).setName("Model").setDesc("AI model to use").addDropdown((dropdown) => {
+    new import_obsidian13.Setting(containerEl).setName("Model").setDesc("AI model to use").addDropdown((dropdown) => {
       const models = getModelsForProvider(this.plugin.settings.apiProvider);
       models.forEach((model) => {
         dropdown.addOption(model.value, model.label);
@@ -29673,26 +29758,26 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
     containerEl.createEl("p", {
       text: "Install Ollama and pull the nomic-embed-text model to enable local semantic search. The plugin falls back to lexical search if Ollama is not available."
     });
-    new import_obsidian12.Setting(containerEl).setName("Check Ollama connection").setDesc("Verify that Ollama is running and the model nomic-embed-text is available.").addButton(
+    new import_obsidian13.Setting(containerEl).setName("Check Ollama connection").setDesc("Verify that Ollama is running and the model nomic-embed-text is available.").addButton(
       (btn) => btn.setButtonText("Check Connection").onClick(async () => {
         try {
           const isRunning = await this.plugin.ollama?.isAvailable?.();
           if (!isRunning) {
-            new import_obsidian12.Notice("\u274C Ollama not found at http://127.0.0.1:11434");
+            new import_obsidian13.Notice("\u274C Ollama not found at http://127.0.0.1:11434");
             return;
           }
           const hasModel = await this.plugin.ollama?.hasModel?.("nomic-embed-text");
           if (!hasModel) {
-            new import_obsidian12.Notice('\u26A0\uFE0F Ollama is running, but "nomic-embed-text" is missing. Run "ollama pull nomic-embed-text" in terminal.');
+            new import_obsidian13.Notice('\u26A0\uFE0F Ollama is running, but "nomic-embed-text" is missing. Run "ollama pull nomic-embed-text" in terminal.');
             return;
           }
-          new import_obsidian12.Notice("\u2705 Success! Local AI is ready.");
+          new import_obsidian13.Notice("\u2705 Success! Local AI is ready.");
         } catch (err) {
-          new import_obsidian12.Notice(`\u274C Ollama check failed: ${err instanceof Error ? err.message : String(err)}`);
+          new import_obsidian13.Notice(`\u274C Ollama check failed: ${err instanceof Error ? err.message : String(err)}`);
         }
       })
     );
-    new import_obsidian12.Setting(containerEl).setName("Open Ollama setup wizard").setDesc("Step-by-step instructions to install Ollama, pull the model, and verify connectivity.").addButton(
+    new import_obsidian13.Setting(containerEl).setName("Open Ollama setup wizard").setDesc("Step-by-step instructions to install Ollama, pull the model, and verify connectivity.").addButton(
       (btn) => btn.setButtonText("Open wizard").onClick(() => {
         const { OllamaSetupWizardModal: OllamaSetupWizardModal2 } = (init_OllamaSetupWizardModal(), __toCommonJS(OllamaSetupWizardModal_exports));
         const modal = new OllamaSetupWizardModal2(this.app, this.plugin);
@@ -29700,20 +29785,20 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
       })
     );
     addSection("Retrieval scope", "Choose included folders for this project.");
-    new import_obsidian12.Setting(containerEl).setName("Profile").setDesc("Select which folders to include for retrieval/indexing (applies to all features).").addButton(
+    new import_obsidian13.Setting(containerEl).setName("Profile").setDesc("Select which folders to include for retrieval/indexing (applies to all features).").addButton(
       (btn) => btn.setButtonText("Open profile picker").onClick(() => {
         const { ProfilePickerModal: ProfilePickerModal2 } = (init_ProfilePickerModal(), __toCommonJS(ProfilePickerModal_exports));
         new ProfilePickerModal2(this.plugin).open();
       })
     );
     addSection("Retrieval engines", "Semantic/BM25 knobs and result limits.");
-    new import_obsidian12.Setting(containerEl).setName("Enable semantic retrieval").setDesc("Build a local index to retrieve relevant notes from the vault. If disabled, retrieval uses heuristic matching only.").addToggle(
+    new import_obsidian13.Setting(containerEl).setName("Enable semantic retrieval").setDesc("Build a local index to retrieve relevant notes from the vault. If disabled, retrieval uses heuristic matching only.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableSemanticIndex)).onChange(async (value) => {
         this.plugin.settings.retrievalEnableSemanticIndex = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian12.Setting(containerEl).setName("Semantic backend").setDesc("Choose which local semantic retrieval method to use. Hash is fast and reliable.").addDropdown((dropdown) => {
+    new import_obsidian13.Setting(containerEl).setName("Semantic backend").setDesc("Choose which local semantic retrieval method to use. Hash is fast and reliable.").addDropdown((dropdown) => {
       dropdown.addOption("hash", "Hash (fast, reliable - recommended)");
       dropdown.setValue(this.plugin.settings.retrievalEmbeddingBackend ?? "hash");
       dropdown.onChange(async (value) => {
@@ -29721,13 +29806,13 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian12.Setting(containerEl).setName("Enable reranking (experimental)").setDesc("Use a local CPU reranker to improve the ordering of retrieved snippets. Experimental feature - may fail if model files cannot be downloaded. If disabled, retrieval will work without reranking.").addToggle(
+    new import_obsidian13.Setting(containerEl).setName("Enable reranking (experimental)").setDesc("Use a local CPU reranker to improve the ordering of retrieved snippets. Experimental feature - may fail if model files cannot be downloaded. If disabled, retrieval will work without reranking.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableReranker)).onChange(async (value) => {
         this.plugin.settings.retrievalEnableReranker = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian12.Setting(containerEl).setName("Retrieved items (limit)").setDesc("Maximum number of retrieved snippets to include in prompts.").addText(
+    new import_obsidian13.Setting(containerEl).setName("Retrieved items (limit)").setDesc("Maximum number of retrieved snippets to include in prompts.").addText(
       (text2) => text2.setPlaceholder("24").setValue(String(this.plugin.settings.retrievalTopK ?? 24)).onChange(async (value) => {
         const parsed = parseInt(value, 10);
         if (Number.isFinite(parsed)) {
@@ -29737,7 +29822,7 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
       })
     );
     addSection("External embeddings (optional)", "Use a remote embedding API instead of local hash/BM25.");
-    new import_obsidian12.Setting(containerEl).setName("Enable external embeddings").setDesc("\u26A0\uFE0F WARNING: Enabling this will make API calls during retrieval. Keep disabled to use only local hash/BM25 search (recommended).").addToggle((toggle) => {
+    new import_obsidian13.Setting(containerEl).setName("Enable external embeddings").setDesc("\u26A0\uFE0F WARNING: Enabling this will make API calls during retrieval. Keep disabled to use only local hash/BM25 search (recommended).").addToggle((toggle) => {
       toggle.setValue(Boolean(this.plugin.settings.externalEmbeddingsEnabled ?? false));
       toggle.onChange(async (value) => {
         this.plugin.settings.externalEmbeddingsEnabled = value;
@@ -29747,7 +29832,7 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
       });
     });
     if (this.plugin.settings.externalEmbeddingsEnabled) {
-      new import_obsidian12.Setting(containerEl).setName("External embedding provider").setDesc("Choose which external embedding API to use. If configured, external embeddings will be used automatically instead of local hash embeddings.").addDropdown((dropdown) => {
+      new import_obsidian13.Setting(containerEl).setName("External embedding provider").setDesc("Choose which external embedding API to use. If configured, external embeddings will be used automatically instead of local hash embeddings.").addDropdown((dropdown) => {
         dropdown.addOption("openai", "OpenAI");
         dropdown.addOption("cohere", "Cohere");
         dropdown.addOption("google", "Google (Gemini)");
@@ -29769,7 +29854,7 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
           this.display();
         });
       });
-      new import_obsidian12.Setting(containerEl).setName("External embedding API key").setDesc("Your API key for the external embedding provider.").addText((text2) => {
+      new import_obsidian13.Setting(containerEl).setName("External embedding API key").setDesc("Your API key for the external embedding provider.").addText((text2) => {
         text2.setPlaceholder("Enter API key").setValue(this.plugin.settings.externalEmbeddingApiKey ?? "");
         text2.inputEl.type = "password";
         text2.onChange(async (value) => {
@@ -29780,14 +29865,14 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
       });
       const provider = this.plugin.settings.externalEmbeddingProvider ?? "openai";
       const defaultModel = provider === "openai" ? "text-embedding-3-small" : provider === "cohere" ? "embed-english-v3.0" : provider === "google" ? "gemini-embedding-001" : "";
-      new import_obsidian12.Setting(containerEl).setName("External embedding model").setDesc(`Model name for ${provider} (e.g., ${defaultModel}).`).addText(
+      new import_obsidian13.Setting(containerEl).setName("External embedding model").setDesc(`Model name for ${provider} (e.g., ${defaultModel}).`).addText(
         (text2) => text2.setPlaceholder(defaultModel).setValue(this.plugin.settings.externalEmbeddingModel ?? defaultModel).onChange(async (value) => {
           this.plugin.settings.externalEmbeddingModel = value;
           await this.plugin.saveSettings();
         })
       );
       if (provider === "google") {
-        new import_obsidian12.Setting(containerEl).setName("Use batch embeddings (Google Gemini)").setDesc("Use batch endpoint for more efficient embedding of multiple queries.").addToggle(
+        new import_obsidian13.Setting(containerEl).setName("Use batch embeddings (Google Gemini)").setDesc("Use batch endpoint for more efficient embedding of multiple queries.").addToggle(
           (toggle) => toggle.setValue(Boolean(this.plugin.settings.externalEmbeddingUseBatch)).onChange(async (value) => {
             this.plugin.settings.externalEmbeddingUseBatch = value;
             await this.plugin.saveSettings();
@@ -29795,14 +29880,14 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
         );
       }
       if (provider === "custom") {
-        new import_obsidian12.Setting(containerEl).setName("Custom API URL").setDesc("Endpoint URL for your custom embedding API.").addText(
+        new import_obsidian13.Setting(containerEl).setName("Custom API URL").setDesc("Endpoint URL for your custom embedding API.").addText(
           (text2) => text2.setPlaceholder("https://api.example.com/embeddings").setValue(this.plugin.settings.externalEmbeddingApiUrl ?? "").onChange(async (value) => {
             this.plugin.settings.externalEmbeddingApiUrl = value;
             await this.plugin.saveSettings();
           })
         );
       }
-      new import_obsidian12.Setting(containerEl).setName("Test connection").setDesc("Test the external embedding API connection.").addButton(
+      new import_obsidian13.Setting(containerEl).setName("Test connection").setDesc("Test the external embedding API connection.").addButton(
         (btn) => btn.setButtonText("Test").onClick(async () => {
           btn.setDisabled(true);
           btn.setButtonText("Testing...");
@@ -29822,13 +29907,13 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
               }
             );
             if (response.ok) {
-              new import_obsidian12.Notice("External embedding API connection successful!", 3e3);
+              new import_obsidian13.Notice("External embedding API connection successful!", 3e3);
             } else {
               const error2 = await response.text();
-              new import_obsidian12.Notice(`External embedding API test failed: ${response.status} ${error2}`, 5e3);
+              new import_obsidian13.Notice(`External embedding API test failed: ${response.status} ${error2}`, 5e3);
             }
           } catch (error2) {
-            new import_obsidian12.Notice(`External embedding API test failed: ${error2 instanceof Error ? error2.message : String(error2)}`, 5e3);
+            new import_obsidian13.Notice(`External embedding API test failed: ${error2 instanceof Error ? error2.message : String(error2)}`, 5e3);
           } finally {
             btn.setDisabled(false);
             btn.setButtonText("Test");
@@ -29837,7 +29922,7 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
       );
     }
     addSection("Indexing & chunking", "Chunk size, overlap, heading split, and indexing pause.");
-    new import_obsidian12.Setting(containerEl).setName("Index chunk size (words)").setDesc("Controls how your notes are chunked for semantic retrieval. Larger chunks add more context but may reduce precision.").addText(
+    new import_obsidian13.Setting(containerEl).setName("Index chunk size (words)").setDesc("Controls how your notes are chunked for semantic retrieval. Larger chunks add more context but may reduce precision.").addText(
       (text2) => text2.setPlaceholder("500").setValue(String(this.plugin.settings.retrievalChunkWords ?? 500)).onChange(async (value) => {
         const parsed = parseInt(value, 10);
         if (Number.isFinite(parsed)) {
@@ -29846,7 +29931,7 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
         }
       })
     );
-    new import_obsidian12.Setting(containerEl).setName("Index chunk overlap (words)").setDesc("Overlap helps preserve continuity between chunks.").addText(
+    new import_obsidian13.Setting(containerEl).setName("Index chunk overlap (words)").setDesc("Overlap helps preserve continuity between chunks.").addText(
       (text2) => text2.setPlaceholder("100").setValue(String(this.plugin.settings.retrievalChunkOverlapWords ?? 100)).onChange(async (value) => {
         const parsed = parseInt(value, 10);
         if (Number.isFinite(parsed)) {
@@ -29855,7 +29940,7 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
         }
       })
     );
-    new import_obsidian12.Setting(containerEl).setName("Indexing heading level").setDesc("Preferred heading level used to split notes into coherent chunks for retrieval indexing. Falls back to word-window chunking if headings are missing.").addDropdown((dropdown) => {
+    new import_obsidian13.Setting(containerEl).setName("Indexing heading level").setDesc("Preferred heading level used to split notes into coherent chunks for retrieval indexing. Falls back to word-window chunking if headings are missing.").addDropdown((dropdown) => {
       dropdown.addOption("h1", "H1 (#)");
       dropdown.addOption("h2", "H2 (##)");
       dropdown.addOption("h3", "H3 (###)");
@@ -29866,61 +29951,65 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian12.Setting(containerEl).setName("Pause indexing").setDesc("Pauses background indexing for semantic retrieval.").addToggle(
+    new import_obsidian13.Setting(containerEl).setName("Pause indexing").setDesc("Pauses background indexing for semantic retrieval.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalIndexPaused)).onChange(async (value) => {
         this.plugin.settings.retrievalIndexPaused = value;
         await this.plugin.saveSettings();
       })
     );
     addSection("Generation logs", "Optional logging of prompts/outputs (excluded from retrieval).");
-    new import_obsidian12.Setting(containerEl).setName("Save generation logs").setDesc("Writes a log note per generation run with inputs, retrieved context, and output. Logs are excluded from retrieval.").addToggle(
+    new import_obsidian13.Setting(containerEl).setName("Save generation logs").setDesc("Writes a log note per generation run with inputs, retrieved context, and output. Logs are excluded from retrieval.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.generationLogsEnabled)).onChange(async (value) => {
         this.plugin.settings.generationLogsEnabled = value;
         await this.plugin.saveSettings();
         if (value) {
           const folderPath = this.plugin.settings.generationLogsFolder || "";
           const folder = this.app.vault.getAbstractFileByPath(folderPath);
-          if (!folderPath || !(folder instanceof import_obsidian12.TFolder)) {
-            const modal = new FolderTreePickerModal(this.plugin, {
-              currentPath: folderPath || void 0,
+          if (!folderPath || !(folder instanceof import_obsidian13.TFolder)) {
+            new TreePickerModal(this.plugin, {
               title: "Select or create generation logs folder",
-              onPick: async (selectedPath) => {
-                this.plugin.settings.generationLogsFolder = selectedPath;
+              mode: "single",
+              initialSelection: folderPath || void 0,
+              filter: (node) => node.type === "folder",
+              onSubmit: async (picked) => {
+                const path = Array.isArray(picked) ? picked[0] : picked;
+                this.plugin.settings.generationLogsFolder = path;
                 await this.plugin.saveSettings();
                 this.display();
               }
-            });
-            modal.open();
+            }).open();
           }
         }
       })
     );
-    const generationLogsFolderSetting = new import_obsidian12.Setting(containerEl).setName("Generation logs folder").setDesc(`Current: ${this.plugin.settings.generationLogsFolder || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.generationLogsFolder ? this.plugin.settings.generationLogsFolder.split("/").pop() || "Select folder" : "Select folder").onClick(() => {
-      const modal = new FolderTreePickerModal(this.plugin, {
-        currentPath: this.plugin.settings.generationLogsFolder || void 0,
+    const generationLogsFolderSetting = new import_obsidian13.Setting(containerEl).setName("Generation logs folder").setDesc(`Current: ${this.plugin.settings.generationLogsFolder || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.generationLogsFolder ? this.plugin.settings.generationLogsFolder.split("/").pop() || "Select folder" : "Select folder").onClick(() => {
+      new TreePickerModal(this.plugin, {
         title: "Select or create generation logs folder",
-        onPick: async (folderPath) => {
-          this.plugin.settings.generationLogsFolder = folderPath;
+        mode: "single",
+        initialSelection: this.plugin.settings.generationLogsFolder || void 0,
+        filter: (node) => node.type === "folder",
+        onSubmit: async (folderPath) => {
+          const path = Array.isArray(folderPath) ? folderPath[0] : folderPath;
+          this.plugin.settings.generationLogsFolder = path;
           await this.plugin.saveSettings();
           this.display();
         }
-      });
-      modal.open();
+      }).open();
     }));
-    new import_obsidian12.Setting(containerEl).setName("Include full prompt in logs").setDesc("If enabled, logs include the full prompt text that was sent to the model.").addToggle(
+    new import_obsidian13.Setting(containerEl).setName("Include full prompt in logs").setDesc("If enabled, logs include the full prompt text that was sent to the model.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.generationLogsIncludePrompt)).onChange(async (value) => {
         this.plugin.settings.generationLogsIncludePrompt = value;
         await this.plugin.saveSettings();
       })
     );
     if (this.plugin.settings.generationMode === "multi") {
-      new import_obsidian12.Setting(containerEl).setName("Multi-mode strategy").setDesc("Draft + revision: fast draft + quality revision. Consensus + multi-stage: maximum quality (slower, more expensive).").addDropdown((dropdown) => dropdown.addOption("draft-revision", "Draft + revision").addOption("consensus-multistage", "Consensus + multi-stage (maximum quality)").setValue(this.plugin.settings.multiStrategy).onChange(async (value) => {
+      new import_obsidian13.Setting(containerEl).setName("Multi-mode strategy").setDesc("Draft + revision: fast draft + quality revision. Consensus + multi-stage: maximum quality (slower, more expensive).").addDropdown((dropdown) => dropdown.addOption("draft-revision", "Draft + revision").addOption("consensus-multistage", "Consensus + multi-stage (maximum quality)").setValue(this.plugin.settings.multiStrategy).onChange(async (value) => {
         this.plugin.settings.multiStrategy = value;
         await this.plugin.saveSettings();
         this.display();
       }));
       if (this.plugin.settings.multiStrategy === "draft-revision") {
-        new import_obsidian12.Setting(containerEl).setName("Draft model").setDesc("Fast model for initial draft").addDropdown((dropdown) => {
+        new import_obsidian13.Setting(containerEl).setName("Draft model").setDesc("Fast model for initial draft").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -29931,7 +30020,7 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian12.Setting(containerEl).setName("Revision model").setDesc("Quality model for refinement").addDropdown((dropdown) => {
+        new import_obsidian13.Setting(containerEl).setName("Revision model").setDesc("Quality model for refinement").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -29943,7 +30032,7 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
           });
         });
       } else {
-        new import_obsidian12.Setting(containerEl).setName("Consensus model 1").setDesc("Primary model for consensus generation").addDropdown((dropdown) => {
+        new import_obsidian13.Setting(containerEl).setName("Consensus model 1").setDesc("Primary model for consensus generation").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -29954,7 +30043,7 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian12.Setting(containerEl).setName("Consensus model 2").setDesc("Second model for consensus generation").addDropdown((dropdown) => {
+        new import_obsidian13.Setting(containerEl).setName("Consensus model 2").setDesc("Second model for consensus generation").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -29965,7 +30054,7 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian12.Setting(containerEl).setName("Consensus model 3 (optional)").setDesc("Third model for stronger consensus (optional)").addDropdown((dropdown) => {
+        new import_obsidian13.Setting(containerEl).setName("Consensus model 3 (optional)").setDesc("Third model for stronger consensus (optional)").addDropdown((dropdown) => {
           dropdown.addOption("", "None");
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
@@ -29977,7 +30066,7 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian12.Setting(containerEl).setName("Synthesis model").setDesc("Model to synthesize final output from consensus").addDropdown((dropdown) => {
+        new import_obsidian13.Setting(containerEl).setName("Synthesis model").setDesc("Model to synthesize final output from consensus").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -29991,69 +30080,75 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
       }
     }
     addSection("Paths & setup", "Setup wizard and guided demo.");
-    new import_obsidian12.Setting(containerEl).setName("Setup wizard").setDesc("Create default files and folders for your writing workspace").addButton((button) => button.setButtonText("Run setup wizard").onClick(() => {
+    new import_obsidian13.Setting(containerEl).setName("Setup wizard").setDesc("Create default files and folders for your writing workspace").addButton((button) => button.setButtonText("Run setup wizard").onClick(() => {
       const modal = new SetupWizardModal(this.plugin);
       modal.open();
     }));
-    new import_obsidian12.Setting(containerEl).setName("Guided demo").setDesc("Generate demo-only text to learn the workflow (chapter \u2192 micro edit \u2192 character update).").addButton(
+    new import_obsidian13.Setting(containerEl).setName("Guided demo").setDesc("Generate demo-only text to learn the workflow (chapter \u2192 micro edit \u2192 character update).").addButton(
       (button) => button.setButtonText("Run guided demo").onClick(() => {
         this.plugin.requestGuidedDemoStart();
       })
     );
     addSection("Manuscript & characters", "Core paths for manuscript, story bible, and character notes.");
-    const characterFolderSetting = new import_obsidian12.Setting(containerEl).setName("Character folder").setDesc(`Current: ${this.plugin.settings.characterFolder || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.characterFolder ? this.plugin.settings.characterFolder.split("/").pop() || "Select folder" : "Select folder").onClick(() => {
-      const modal = new FolderTreePickerModal(this.plugin, {
-        currentPath: this.plugin.settings.characterFolder || void 0,
-        title: "Select or create character folder",
-        onPick: async (folderPath) => {
-          this.plugin.settings.characterFolder = folderPath;
+    const characterFolderSetting = new import_obsidian13.Setting(containerEl).setName("Character folder").setDesc(`Current: ${this.plugin.settings.characterFolder || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.characterFolder ? this.plugin.settings.characterFolder.split("/").pop() || "Select path" : "Select path").onClick(() => {
+      new TreePickerModal(this.plugin, {
+        title: "Select character folder",
+        mode: "single",
+        initialSelection: this.plugin.settings.characterFolder,
+        filter: (node) => node.type === "folder",
+        onSubmit: async (path) => {
+          const picked = Array.isArray(path) ? path[0] : path;
+          this.plugin.settings.characterFolder = picked;
           await this.plugin.saveSettings();
           this.display();
         }
-      });
-      modal.open();
+      }).open();
     }));
-    new import_obsidian12.Setting(containerEl).setName("Book main file").setDesc(`Current: ${this.plugin.settings.book2Path || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.book2Path ? this.plugin.settings.book2Path.split("/").pop() || "Select book file" : "Select book file").onClick(() => {
-      const modal = new FileTreePickerModal(this.plugin, {
-        currentPath: this.plugin.settings.book2Path,
-        onPick: async (filePath) => {
-          this.plugin.settings.book2Path = filePath;
+    new import_obsidian13.Setting(containerEl).setName("Book main file").setDesc(`Current: ${this.plugin.settings.book2Path || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.book2Path ? this.plugin.settings.book2Path.split("/").pop() || "Select book file" : "Select book file").onClick(() => {
+      new TreePickerModal(this.plugin, {
+        title: "Select book main file",
+        mode: "single",
+        initialSelection: this.plugin.settings.book2Path,
+        onSubmit: async (filePath) => {
+          const picked = Array.isArray(filePath) ? filePath[0] : filePath;
+          this.plugin.settings.book2Path = picked;
           await this.plugin.saveSettings();
           this.display();
         }
-      });
-      modal.open();
+      }).open();
     }));
-    const storyBibleSetting = new import_obsidian12.Setting(containerEl).setName("Story bible path").setDesc(`Current: ${this.plugin.settings.storyBiblePath || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.storyBiblePath ? this.plugin.settings.storyBiblePath.split("/").pop() || "Select story bible" : "Select story bible").onClick(() => {
-      const modal = new FileTreePickerModal(this.plugin, {
-        currentPath: this.plugin.settings.storyBiblePath,
-        onPick: async (filePath) => {
-          this.plugin.settings.storyBiblePath = filePath;
+    const storyBibleSetting = new import_obsidian13.Setting(containerEl).setName("Story bible path").setDesc(`Current: ${this.plugin.settings.storyBiblePath || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.storyBiblePath ? this.plugin.settings.storyBiblePath.split("/").pop() || "Select story bible" : "Select story bible").onClick(() => {
+      new TreePickerModal(this.plugin, {
+        title: "Select story bible",
+        mode: "single",
+        initialSelection: this.plugin.settings.storyBiblePath,
+        onSubmit: async (filePath) => {
+          const picked = Array.isArray(filePath) ? filePath[0] : filePath;
+          this.plugin.settings.storyBiblePath = picked;
           await this.plugin.saveSettings();
           this.display();
         }
-      });
-      modal.open();
+      }).open();
     }));
     addSection("Character extraction & safeguards", "Defaults for character processing and prompt-size warnings.");
-    new import_obsidian12.Setting(containerEl).setName("Character extraction chunk size (words)").setDesc('Used by "process entire book" to batch character extraction. Larger chunks (e.g., 2000\u20133000) tend to improve character context.').addText((text2) => text2.setPlaceholder("2500").setValue(String(this.plugin.settings.characterExtractionChunkSize ?? 2500)).onChange(async (value) => {
+    new import_obsidian13.Setting(containerEl).setName("Character extraction chunk size (words)").setDesc('Used by "process entire book" to batch character extraction. Larger chunks (e.g., 2000\u20133000) tend to improve character context.').addText((text2) => text2.setPlaceholder("2500").setValue(String(this.plugin.settings.characterExtractionChunkSize ?? 2500)).onChange(async (value) => {
       const parsed = parseInt(value, 10);
       const clamped = Number.isFinite(parsed) ? Math.min(1e4, Math.max(250, parsed)) : 2500;
       this.plugin.settings.characterExtractionChunkSize = clamped;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian12.Setting(containerEl).setName("Default character extraction instructions").setDesc("Used by character update (selected text). If the extraction instructions box is empty/invalid, this default is used instead.").addTextArea((text2) => text2.setPlaceholder("Character update instructions...").setValue(this.plugin.settings.defaultCharacterExtractionInstructions || "").onChange(async (value) => {
+    new import_obsidian13.Setting(containerEl).setName("Default character extraction instructions").setDesc("Used by character update (selected text). If the extraction instructions box is empty/invalid, this default is used instead.").addTextArea((text2) => text2.setPlaceholder("Character update instructions...").setValue(this.plugin.settings.defaultCharacterExtractionInstructions || "").onChange(async (value) => {
       this.plugin.settings.defaultCharacterExtractionInstructions = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian12.Setting(containerEl).setName("Context token limit (warning)").setDesc("Shows a warning before generating if the estimated prompt tokens exceed this limit. Default: 128000.").addText((text2) => text2.setPlaceholder("128000").setValue(String(this.plugin.settings.contextTokenLimit ?? 128e3)).onChange(async (value) => {
+    new import_obsidian13.Setting(containerEl).setName("Context token limit (warning)").setDesc("Shows a warning before generating if the estimated prompt tokens exceed this limit. Default: 128000.").addText((text2) => text2.setPlaceholder("128000").setValue(String(this.plugin.settings.contextTokenLimit ?? 128e3)).onChange(async (value) => {
       const parsed = parseInt(value, 10);
       const clamped = Number.isFinite(parsed) ? Math.min(2e6, Math.max(1e3, parsed)) : 128e3;
       this.plugin.settings.contextTokenLimit = clamped;
       await this.plugin.saveSettings();
     }));
     addSection("Developer tools", "Diagnostics and end-to-end stress test.");
-    new import_obsidian12.Setting(containerEl).setName("Run Stress Test").setDesc("Comprehensive test of all plugin features. Creates temporary test files, runs all operations, then cleans up automatically. Log is saved as a note in your vault.").addButton((button) => button.setButtonText("Start Stress Test").setCta().onClick(async () => {
+    new import_obsidian13.Setting(containerEl).setName("Run Stress Test").setDesc("Comprehensive test of all plugin features. Creates temporary test files, runs all operations, then cleans up automatically. Log is saved as a note in your vault.").addButton((button) => button.setButtonText("Start Stress Test").setCta().onClick(async () => {
       button.setDisabled(true);
       button.setButtonText("Running...");
       try {
@@ -30063,13 +30158,13 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
         const logFileName = `Stress Test Log - ${timestamp}.md`;
         const logPath = logFileName;
         await this.plugin.app.vault.create(logPath, logContent);
-        new import_obsidian12.Notice(`Stress test completed! Log saved to: ${logFileName}`);
+        new import_obsidian13.Notice(`Stress test completed! Log saved to: ${logFileName}`);
         const logFile = this.plugin.app.vault.getAbstractFileByPath(logPath);
-        if (logFile instanceof import_obsidian12.TFile) {
+        if (logFile instanceof import_obsidian13.TFile) {
           await this.app.workspace.openLinkText(logPath, "", true);
         }
       } catch (error2) {
-        new import_obsidian12.Notice(`Stress test failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+        new import_obsidian13.Notice(`Stress test failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
         console.error("Stress test error:", error2);
       } finally {
         button.setDisabled(false);
@@ -30080,10 +30175,10 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
 };
 
 // services/VaultService.ts
-var import_obsidian15 = require("obsidian");
+var import_obsidian16 = require("obsidian");
 
 // services/CharacterNameResolver.ts
-var import_obsidian13 = require("obsidian");
+var import_obsidian14 = require("obsidian");
 function normalizeForMatch(name) {
   return (name || "").toLowerCase().trim().replace(/[-_]+/g, " ").replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
 }
@@ -30131,11 +30226,11 @@ function similarityScore(a, b) {
 }
 function listCharacterBasenames(vault, folderPath) {
   const folder = vault.getAbstractFileByPath(folderPath);
-  if (!(folder instanceof import_obsidian13.TFolder))
+  if (!(folder instanceof import_obsidian14.TFolder))
     return [];
   const names = [];
   for (const child of folder.children) {
-    if (child instanceof import_obsidian13.TFile && child.extension === "md") {
+    if (child instanceof import_obsidian14.TFile && child.extension === "md") {
       names.push(child.basename);
     }
   }
@@ -30174,7 +30269,7 @@ var CharacterNameResolver = class {
 };
 
 // ui/CharacterNameConflictModal.ts
-var import_obsidian14 = require("obsidian");
+var import_obsidian15 = require("obsidian");
 function showCharacterNameConflictModal(app, opts) {
   return new Promise((resolve) => {
     let settled = false;
@@ -30184,7 +30279,7 @@ function showCharacterNameConflictModal(app, opts) {
       settled = true;
       resolve(value);
     };
-    const modal = new class extends import_obsidian14.Modal {
+    const modal = new class extends import_obsidian15.Modal {
       constructor() {
         super(...arguments);
         this.selected = null;
@@ -30196,7 +30291,7 @@ function showCharacterNameConflictModal(app, opts) {
         if (opts.candidates.length) {
           this.contentEl.createEl("p", { text: "Select an existing character note:" });
           for (const c of opts.candidates) {
-            new import_obsidian14.Setting(this.contentEl).setName(c).addButton((btn) => {
+            new import_obsidian15.Setting(this.contentEl).setName(c).addButton((btn) => {
               btn.setButtonText("Use");
               btn.setCta();
               btn.onClick(() => {
@@ -30207,14 +30302,14 @@ function showCharacterNameConflictModal(app, opts) {
             });
           }
         }
-        new import_obsidian14.Setting(this.contentEl).setName("Create a new character note").setDesc("Use the proposed name as a new file in your character folder.").addButton((btn) => {
+        new import_obsidian15.Setting(this.contentEl).setName("Create a new character note").setDesc("Use the proposed name as a new file in your character folder.").addButton((btn) => {
           btn.setButtonText("Create new");
           btn.onClick(() => {
             settle({ type: "create", name: opts.proposedName });
             this.close();
           });
         });
-        new import_obsidian14.Setting(this.contentEl).addButton((btn) => {
+        new import_obsidian15.Setting(this.contentEl).addButton((btn) => {
           btn.setButtonText("Cancel");
           btn.onClick(() => {
             settle(null);
@@ -30239,7 +30334,7 @@ var VaultService = class {
   }
   async readFile(path) {
     const file = this.vault.getAbstractFileByPath(path);
-    if (file instanceof import_obsidian15.TFile) {
+    if (file instanceof import_obsidian16.TFile) {
       return await this.vault.read(file);
     }
     throw new Error(`File not found: ${path}`);
@@ -30249,7 +30344,7 @@ var VaultService = class {
   }
   async createFileIfNotExists(path, content) {
     const file = this.vault.getAbstractFileByPath(path);
-    if (file instanceof import_obsidian15.TFile) {
+    if (file instanceof import_obsidian16.TFile) {
       return false;
     }
     await this.vault.create(path, content);
@@ -30257,7 +30352,7 @@ var VaultService = class {
   }
   async createFolderIfNotExists(path) {
     const folder = this.vault.getAbstractFileByPath(path);
-    if (folder instanceof import_obsidian15.TFolder) {
+    if (folder instanceof import_obsidian16.TFolder) {
       return false;
     }
     await this.vault.createFolder(path);
@@ -30284,12 +30379,12 @@ var VaultService = class {
    */
   findLatestStoryBible(folderPath) {
     const folder = this.vault.getAbstractFileByPath(folderPath);
-    if (!(folder instanceof import_obsidian15.TFolder)) {
+    if (!(folder instanceof import_obsidian16.TFolder)) {
       return null;
     }
     const storyBibleFiles = [];
     for (const child of folder.children) {
-      if (child instanceof import_obsidian15.TFile && child.extension === "md") {
+      if (child instanceof import_obsidian16.TFile && child.extension === "md") {
         if (child.basename.match(/^Story bible/i)) {
           storyBibleFiles.push(child);
         }
@@ -30350,7 +30445,7 @@ var VaultService = class {
       const chunkFilePath = `${chunkedFolderName}/${chunkFileName}`;
       const existing = this.vault.getAbstractFileByPath(chunkFilePath);
       if (overwrite) {
-        if (existing instanceof import_obsidian15.TFile) {
+        if (existing instanceof import_obsidian16.TFile) {
           await this.vault.modify(existing, chunks[i]);
           overwrittenCount++;
         } else {
@@ -30359,7 +30454,7 @@ var VaultService = class {
             created++;
         }
       } else {
-        if (existing instanceof import_obsidian15.TFile) {
+        if (existing instanceof import_obsidian16.TFile) {
           skipped++;
         } else {
           const wasCreated = await this.createFileIfNotExists(chunkFilePath, chunks[i]);
@@ -30372,11 +30467,11 @@ var VaultService = class {
     let deletedExtra = 0;
     if (overwrite) {
       const folder = this.vault.getAbstractFileByPath(chunkedFolderName);
-      if (folder instanceof import_obsidian15.TFolder) {
+      if (folder instanceof import_obsidian16.TFolder) {
         const maxIndex = chunks.length;
         const regex = new RegExp(`^${this._escapeRegExp(baseName)}-CHUNK-(\\d{3})\\.md$`);
         for (const child of folder.children) {
-          if (!(child instanceof import_obsidian15.TFile) || child.extension !== "md")
+          if (!(child instanceof import_obsidian16.TFile) || child.extension !== "md")
             continue;
           const match2 = child.name.match(regex);
           if (!match2)
@@ -30518,17 +30613,17 @@ ${update}
   _traverseFolder(folder, structure, basePath) {
     for (const child of folder.children) {
       const path = basePath ? `${basePath}/${child.name}` : child.name;
-      if (child instanceof import_obsidian15.TFolder) {
+      if (child instanceof import_obsidian16.TFolder) {
         structure.push({ name: child.name, path, type: "folder" });
         this._traverseFolder(child, structure, path);
-      } else if (child instanceof import_obsidian15.TFile) {
+      } else if (child instanceof import_obsidian16.TFile) {
         structure.push({ name: child.name, path, type: "file" });
       }
     }
   }
   _collectFolders(folder, folders, basePath) {
     for (const child of folder.children) {
-      if (!(child instanceof import_obsidian15.TFolder))
+      if (!(child instanceof import_obsidian16.TFolder))
         continue;
       const path = basePath ? `${basePath}/${child.name}` : child.name;
       folders.push(path);
@@ -30538,7 +30633,7 @@ ${update}
 };
 
 // services/ContextAggregator.ts
-var import_obsidian16 = require("obsidian");
+var import_obsidian17 = require("obsidian");
 var ContextAggregator = class {
   budgetToChars(tokens) {
     return Math.max(0, Math.floor(tokens * 4));
@@ -30628,7 +30723,7 @@ var ContextAggregator = class {
   async readFile(path) {
     try {
       const file = this.vault.getAbstractFileByPath(path);
-      if (file instanceof import_obsidian16.TFile) {
+      if (file instanceof import_obsidian17.TFile) {
         return await this.vault.read(file);
       }
       return `[File not found: ${path}]`;
@@ -30678,9 +30773,9 @@ Score: ${item.score.toFixed(3)} (${item.source})
     const characterFolder = this.plugin.settings.characterFolder;
     try {
       const folder = this.vault.getAbstractFileByPath(characterFolder);
-      if (folder instanceof import_obsidian16.TFolder) {
+      if (folder instanceof import_obsidian17.TFolder) {
         for (const child of folder.children) {
-          if (child instanceof import_obsidian16.TFile && child.extension === "md") {
+          if (child instanceof import_obsidian17.TFile && child.extension === "md") {
             const characterName = child.basename;
             notes[characterName] = await this.vault.read(child);
           }
@@ -31139,7 +31234,7 @@ Return the full updated story bible markdown only.`;
 };
 
 // services/AIClient.ts
-var import_obsidian17 = require("obsidian");
+var import_obsidian18 = require("obsidian");
 var AIClient = class {
   _formatUnknown(value) {
     if (value instanceof Error)
@@ -31332,7 +31427,7 @@ ${alt}`).join("\n\n---\n\n")}`;
     };
   }
   async _generateOpenRouter(prompt, settings) {
-    const response = await (0, import_obsidian17.requestUrl)({
+    const response = await (0, import_obsidian18.requestUrl)({
       url: "https://openrouter.ai/api/v1/chat/completions",
       method: "POST",
       headers: {
@@ -31365,7 +31460,7 @@ ${alt}`).join("\n\n---\n\n")}`;
     return content;
   }
   async _generateOpenAI(prompt, settings) {
-    const response = await (0, import_obsidian17.requestUrl)({
+    const response = await (0, import_obsidian18.requestUrl)({
       url: "https://api.openai.com/v1/chat/completions",
       method: "POST",
       headers: {
@@ -31396,7 +31491,7 @@ ${alt}`).join("\n\n---\n\n")}`;
     return content;
   }
   async _generateAnthropic(prompt, settings) {
-    const response = await (0, import_obsidian17.requestUrl)({
+    const response = await (0, import_obsidian18.requestUrl)({
       url: "https://api.anthropic.com/v1/messages",
       method: "POST",
       headers: {
@@ -31446,7 +31541,7 @@ ${alt}`).join("\n\n---\n\n")}`;
       512,
       Math.min(8192, limit - promptTokens - 1024)
     );
-    const response = await (0, import_obsidian17.requestUrl)({
+    const response = await (0, import_obsidian18.requestUrl)({
       url: `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
       method: "POST",
       headers: {
@@ -31771,7 +31866,7 @@ ${v}`);
 };
 
 // services/retrieval/EmbeddingsIndex.ts
-var import_obsidian18 = require("obsidian");
+var import_obsidian19 = require("obsidian");
 
 // services/retrieval/Chunking.ts
 function clampInt(value, min, max) {
@@ -32067,7 +32162,7 @@ var EmbeddingsIndex = class {
         continue;
       }
       const file = this.vault.getAbstractFileByPath(next);
-      if (!(file instanceof import_obsidian18.TFile) || file.extension !== "md") {
+      if (!(file instanceof import_obsidian19.TFile) || file.extension !== "md") {
         skippedNotMarkdown++;
         this._removePath(next);
         this._schedulePersist();
@@ -32575,7 +32670,7 @@ ${it.excerpt}`;
 };
 
 // services/retrieval/OllamaEmbeddingProvider.ts
-var import_obsidian19 = require("obsidian");
+var import_obsidian20 = require("obsidian");
 var OllamaEmbeddingProvider = class {
   constructor(app, baseUrl = "http://127.0.0.1:11434", model = "nomic-embed-text") {
     this.app = app;
@@ -32584,7 +32679,7 @@ var OllamaEmbeddingProvider = class {
   }
   async isAvailable() {
     try {
-      const res = await (0, import_obsidian19.requestUrl)({ url: `${this.baseUrl}/api/tags`, method: "GET" });
+      const res = await (0, import_obsidian20.requestUrl)({ url: `${this.baseUrl}/api/tags`, method: "GET" });
       return res.status === 200;
     } catch (e) {
       console.warn("[Ollama] Not detected. Ensure 'ollama serve' is running.");
@@ -32597,7 +32692,7 @@ var OllamaEmbeddingProvider = class {
   async hasModel(modelName = this.model) {
     const normalize3 = (val) => (val || "").split(":")[0];
     try {
-      const res = await (0, import_obsidian19.requestUrl)({ url: `${this.baseUrl}/api/tags`, method: "GET" });
+      const res = await (0, import_obsidian20.requestUrl)({ url: `${this.baseUrl}/api/tags`, method: "GET" });
       if (res.status !== 200)
         return false;
       const tags = res.json?.models || res.json?.modelsList || res.json?.data;
@@ -32620,7 +32715,7 @@ var OllamaEmbeddingProvider = class {
     }
   }
   async getEmbedding(text2) {
-    const res = await (0, import_obsidian19.requestUrl)({
+    const res = await (0, import_obsidian20.requestUrl)({
       url: `${this.baseUrl}/api/embed`,
       method: "POST",
       body: JSON.stringify({
@@ -32776,7 +32871,7 @@ var HeuristicProvider = class {
 };
 
 // services/GenerationLogService.ts
-var import_obsidian20 = require("obsidian");
+var import_obsidian21 = require("obsidian");
 function normalizeFolder(folder) {
   const f = (folder || "").replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
   return f.length ? f : "Generation logs";
@@ -32804,7 +32899,7 @@ var GenerationLogService = class {
       return false;
     }
     const existing = this.app.vault.getAbstractFileByPath(folderPath);
-    if (existing instanceof import_obsidian20.TFolder)
+    if (existing instanceof import_obsidian21.TFolder)
       return true;
     try {
       await this.app.vault.createFolder(folderPath);
@@ -32863,7 +32958,7 @@ ${escapeFenceContent(params.finalPrompt)}
       await this.app.vault.create(path, body);
       return path;
     } catch {
-      new import_obsidian20.Notice("Failed to write generation log.");
+      new import_obsidian21.Notice("Failed to write generation log.");
       return null;
     }
   }
@@ -32871,7 +32966,7 @@ ${escapeFenceContent(params.finalPrompt)}
     if (!path)
       return;
     const file = this.app.vault.getAbstractFileByPath(path);
-    if (!(file instanceof import_obsidian20.TFile))
+    if (!(file instanceof import_obsidian21.TFile))
       return;
     const appendix = `## Result
 
@@ -32891,8 +32986,8 @@ ${appendix}`);
 };
 
 // ui/BookMainSelectorModal.ts
-var import_obsidian21 = require("obsidian");
-var BookMainSelectorModal = class extends import_obsidian21.Modal {
+var import_obsidian22 = require("obsidian");
+var BookMainSelectorModal = class extends import_obsidian22.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.plugin = plugin;
@@ -32914,13 +33009,13 @@ var BookMainSelectorModal = class extends import_obsidian21.Modal {
 };
 
 // ui/PublishWizardModal.tsx
-var import_react12 = __toESM(require_react());
-var import_client7 = __toESM(require_client());
-var import_obsidian25 = require("obsidian");
+var import_react13 = __toESM(require_react());
+var import_client8 = __toESM(require_client());
+var import_obsidian26 = require("obsidian");
 
 // ui/FolderPickerModal.ts
-var import_obsidian22 = require("obsidian");
-var FolderPickerModal = class extends import_obsidian22.FuzzySuggestModal {
+var import_obsidian23 = require("obsidian");
+var FolderPickerModal = class extends import_obsidian23.FuzzySuggestModal {
   constructor(opts) {
     super(opts.app);
     this.folders = opts.folders;
@@ -32940,8 +33035,8 @@ var FolderPickerModal = class extends import_obsidian22.FuzzySuggestModal {
 };
 
 // ui/BinaryFilePickerModal.ts
-var import_obsidian23 = require("obsidian");
-var BinaryFilePickerModal = class extends import_obsidian23.FuzzySuggestModal {
+var import_obsidian24 = require("obsidian");
+var BinaryFilePickerModal = class extends import_obsidian24.FuzzySuggestModal {
   constructor(opts) {
     super(opts.app);
     this.files = opts.files;
@@ -32961,7 +33056,7 @@ var BinaryFilePickerModal = class extends import_obsidian23.FuzzySuggestModal {
 };
 
 // services/publish/MarkdownCompile.ts
-var import_obsidian24 = require("obsidian");
+var import_obsidian25 = require("obsidian");
 function trimBom(s) {
   return s.charCodeAt(0) === 65279 ? s.slice(1) : s;
 }
@@ -33046,13 +33141,13 @@ function resolveLinkToFilePath(app, linkTarget, fromPath) {
   if (!t)
     return null;
   const direct = app.vault.getAbstractFileByPath(t);
-  if (direct instanceof import_obsidian24.TFile)
+  if (direct instanceof import_obsidian25.TFile)
     return direct.path;
   const directMd = app.vault.getAbstractFileByPath(`${t}.md`);
-  if (directMd instanceof import_obsidian24.TFile)
+  if (directMd instanceof import_obsidian25.TFile)
     return directMd.path;
   const dest = app.metadataCache.getFirstLinkpathDest(t, fromPath);
-  if (dest instanceof import_obsidian24.TFile)
+  if (dest instanceof import_obsidian25.TFile)
     return dest.path;
   return null;
 }
@@ -33062,7 +33157,7 @@ var MarkdownCompile = class {
   }
   async compileFromBookMain(sourcePath) {
     const file = this.app.vault.getAbstractFileByPath(sourcePath);
-    if (!(file instanceof import_obsidian24.TFile)) {
+    if (!(file instanceof import_obsidian25.TFile)) {
       throw new Error(`Book main file not found: ${sourcePath}`);
     }
     const text2 = await this.app.vault.read(file);
@@ -33071,7 +33166,7 @@ var MarkdownCompile = class {
   }
   async compileFromTocNote(tocPath) {
     const file = this.app.vault.getAbstractFileByPath(tocPath);
-    if (!(file instanceof import_obsidian24.TFile))
+    if (!(file instanceof import_obsidian25.TFile))
       throw new Error(`TOC note not found: ${tocPath}`);
     const text2 = await this.app.vault.read(file);
     const lines = trimBom(text2).split(/\r?\n/);
@@ -33087,7 +33182,7 @@ var MarkdownCompile = class {
       if (!destPath)
         continue;
       const dest = this.app.vault.getAbstractFileByPath(destPath);
-      if (!(dest instanceof import_obsidian24.TFile))
+      if (!(dest instanceof import_obsidian25.TFile))
         continue;
       const md2 = await this.app.vault.read(dest);
       const title = (() => {
@@ -39194,7 +39289,7 @@ function sanitizeFileName2(name) {
 function ensureEpubExt2(name) {
   return name.toLowerCase().endsWith(".epub") ? name : `${name}.epub`;
 }
-var PublishWizardModal = class extends import_obsidian25.Modal {
+var PublishWizardModal = class extends import_obsidian26.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.reactRoot = null;
@@ -39204,8 +39299,8 @@ var PublishWizardModal = class extends import_obsidian25.Modal {
     this.titleEl.setText("Export to epub");
     this.contentEl.empty();
     const container = this.contentEl.createDiv();
-    this.reactRoot = (0, import_client7.createRoot)(container);
-    this.reactRoot.render(import_react12.default.createElement(PublishWizardComponent, { plugin: this.plugin, onClose: () => this.close() }));
+    this.reactRoot = (0, import_client8.createRoot)(container);
+    this.reactRoot.render(import_react13.default.createElement(PublishWizardComponent, { plugin: this.plugin, onClose: () => this.close() }));
   }
   onClose() {
     this.reactRoot?.unmount();
@@ -39217,34 +39312,34 @@ var PublishWizardComponent = ({
   plugin,
   onClose
 }) => {
-  const [step, setStep] = (0, import_react12.useState)(1);
-  const [mode, setMode] = (0, import_react12.useState)("book-main");
-  const [sourcePath, setSourcePath] = (0, import_react12.useState)(plugin.settings.book2Path || "Book-Main.md");
-  const [tocPath, setTocPath] = (0, import_react12.useState)("");
-  const [title, setTitle] = (0, import_react12.useState)("Untitled");
-  const [subtitle, setSubtitle] = (0, import_react12.useState)("");
-  const [author, setAuthor] = (0, import_react12.useState)("");
-  const [language, setLanguage] = (0, import_react12.useState)("en");
-  const [includeTitlePage, setIncludeTitlePage] = (0, import_react12.useState)(true);
-  const [includeCopyrightPage, setIncludeCopyrightPage] = (0, import_react12.useState)(true);
-  const [licenseTemplateId, setLicenseTemplateId] = (0, import_react12.useState)("all-rights-reserved");
-  const [copyrightYear, setCopyrightYear] = (0, import_react12.useState)(currentYear());
-  const [copyrightHolder, setCopyrightHolder] = (0, import_react12.useState)("");
-  const [embedFonts, setEmbedFonts] = (0, import_react12.useState)(false);
-  const [fontRegular, setFontRegular] = (0, import_react12.useState)("");
-  const [fontBold, setFontBold] = (0, import_react12.useState)("");
-  const [fontItalic, setFontItalic] = (0, import_react12.useState)("");
-  const [fontBoldItalic, setFontBoldItalic] = (0, import_react12.useState)("");
-  const [outputFolder, setOutputFolder] = (0, import_react12.useState)("Exports");
-  const [outputFormat, setOutputFormat] = (0, import_react12.useState)("epub");
-  const [subsetMode, setSubsetMode] = (0, import_react12.useState)("all");
-  const [subsetChaptersCount, setSubsetChaptersCount] = (0, import_react12.useState)("3");
-  const [subsetWordsCount, setSubsetWordsCount] = (0, import_react12.useState)("5000");
-  const [outputFileName, setOutputFileName] = (0, import_react12.useState)("Untitled.epub");
-  const [isExporting, setIsExporting] = (0, import_react12.useState)(false);
-  const [progress, setProgress] = (0, import_react12.useState)("");
-  const [error2, setError] = (0, import_react12.useState)(null);
-  (0, import_react12.useEffect)(() => {
+  const [step, setStep] = (0, import_react13.useState)(1);
+  const [mode, setMode] = (0, import_react13.useState)("book-main");
+  const [sourcePath, setSourcePath] = (0, import_react13.useState)(plugin.settings.book2Path || "Book-Main.md");
+  const [tocPath, setTocPath] = (0, import_react13.useState)("");
+  const [title, setTitle] = (0, import_react13.useState)("Untitled");
+  const [subtitle, setSubtitle] = (0, import_react13.useState)("");
+  const [author, setAuthor] = (0, import_react13.useState)("");
+  const [language, setLanguage] = (0, import_react13.useState)("en");
+  const [includeTitlePage, setIncludeTitlePage] = (0, import_react13.useState)(true);
+  const [includeCopyrightPage, setIncludeCopyrightPage] = (0, import_react13.useState)(true);
+  const [licenseTemplateId, setLicenseTemplateId] = (0, import_react13.useState)("all-rights-reserved");
+  const [copyrightYear, setCopyrightYear] = (0, import_react13.useState)(currentYear());
+  const [copyrightHolder, setCopyrightHolder] = (0, import_react13.useState)("");
+  const [embedFonts, setEmbedFonts] = (0, import_react13.useState)(false);
+  const [fontRegular, setFontRegular] = (0, import_react13.useState)("");
+  const [fontBold, setFontBold] = (0, import_react13.useState)("");
+  const [fontItalic, setFontItalic] = (0, import_react13.useState)("");
+  const [fontBoldItalic, setFontBoldItalic] = (0, import_react13.useState)("");
+  const [outputFolder, setOutputFolder] = (0, import_react13.useState)("Exports");
+  const [outputFormat, setOutputFormat] = (0, import_react13.useState)("epub");
+  const [subsetMode, setSubsetMode] = (0, import_react13.useState)("all");
+  const [subsetChaptersCount, setSubsetChaptersCount] = (0, import_react13.useState)("3");
+  const [subsetWordsCount, setSubsetWordsCount] = (0, import_react13.useState)("5000");
+  const [outputFileName, setOutputFileName] = (0, import_react13.useState)("Untitled.epub");
+  const [isExporting, setIsExporting] = (0, import_react13.useState)(false);
+  const [progress, setProgress] = (0, import_react13.useState)("");
+  const [error2, setError] = (0, import_react13.useState)(null);
+  (0, import_react13.useEffect)(() => {
     const base2 = sanitizeFileName2(title || "Untitled");
     if (outputFormat === "epub")
       setOutputFileName(ensureEpubExt2(base2));
@@ -39281,7 +39376,7 @@ var PublishWizardComponent = ({
     }
     return out;
   };
-  const canNext = (0, import_react12.useMemo)(() => {
+  const canNext = (0, import_react13.useMemo)(() => {
     if (step === 1) {
       if (mode === "book-main")
         return Boolean(sourcePath.trim());
@@ -39306,7 +39401,7 @@ var PublishWizardComponent = ({
     modal.open();
   };
   const pickFolder = (onPick) => {
-    const folders = plugin.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian25.TFolder);
+    const folders = plugin.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian26.TFolder);
     const modal = new FolderPickerModal({
       app: plugin.app,
       folders,
@@ -39408,7 +39503,7 @@ ${markdownToPlainText(c.markdown || "")}
         outputPath = out;
       }
       setProgress("");
-      new import_obsidian25.Notice(`Exported: ${outputPath}`);
+      new import_obsidian26.Notice(`Exported: ${outputPath}`);
       onClose();
     } catch (e) {
       const message = e instanceof Error ? e.message : (() => {
@@ -39424,7 +39519,7 @@ ${markdownToPlainText(c.markdown || "")}
       setIsExporting(false);
     }
   };
-  return /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-wizard" }, /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-steps" }, "Step ", step, " of 6"), step === 1 && /* @__PURE__ */ import_react12.default.createElement("div", null, /* @__PURE__ */ import_react12.default.createElement("h2", null, "Source"), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("label", null, /* @__PURE__ */ import_react12.default.createElement(
+  return /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-wizard" }, /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-steps" }, "Step ", step, " of 6"), step === 1 && /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("h2", null, "Source"), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("label", null, /* @__PURE__ */ import_react13.default.createElement(
     "input",
     {
       type: "radio",
@@ -39432,7 +39527,7 @@ ${markdownToPlainText(c.markdown || "")}
       onChange: () => setMode("book-main"),
       disabled: isExporting
     }
-  ), "Book main (H1 chapters)"), /* @__PURE__ */ import_react12.default.createElement("label", { style: { marginLeft: 12 } }, /* @__PURE__ */ import_react12.default.createElement(
+  ), "Book main (H1 chapters)"), /* @__PURE__ */ import_react13.default.createElement("label", { style: { marginLeft: 12 } }, /* @__PURE__ */ import_react13.default.createElement(
     "input",
     {
       type: "radio",
@@ -39440,7 +39535,7 @@ ${markdownToPlainText(c.markdown || "")}
       onChange: () => setMode("toc-note"),
       disabled: isExporting
     }
-  ), "TOC note")), mode === "book-main" && /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Book main file"), /* @__PURE__ */ import_react12.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react12.default.createElement("input", { value: sourcePath, onChange: (e) => setSourcePath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react12.default.createElement(
+  ), "TOC note")), mode === "book-main" && /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Book main file"), /* @__PURE__ */ import_react13.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react13.default.createElement("input", { value: sourcePath, onChange: (e) => setSourcePath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react13.default.createElement(
     "button",
     {
       onClick: () => pickMarkdownFile("Pick your manuscript note", (filePath) => {
@@ -39449,7 +39544,7 @@ ${markdownToPlainText(c.markdown || "")}
       disabled: isExporting
     },
     "Browse"
-  ))), mode === "toc-note" && /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "TOC note"), /* @__PURE__ */ import_react12.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react12.default.createElement("input", { value: tocPath, onChange: (e) => setTocPath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react12.default.createElement(
+  ))), mode === "toc-note" && /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "TOC note"), /* @__PURE__ */ import_react13.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react13.default.createElement("input", { value: tocPath, onChange: (e) => setTocPath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react13.default.createElement(
     "button",
     {
       onClick: () => pickMarkdownFile("Pick your TOC note", (filePath) => {
@@ -39458,22 +39553,22 @@ ${markdownToPlainText(c.markdown || "")}
       disabled: isExporting
     },
     "Browse"
-  )))), step === 2 && /* @__PURE__ */ import_react12.default.createElement("div", null, /* @__PURE__ */ import_react12.default.createElement("h2", null, "Metadata"), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Title"), /* @__PURE__ */ import_react12.default.createElement("input", { value: title, onChange: (e) => setTitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Subtitle (optional)"), /* @__PURE__ */ import_react12.default.createElement("input", { value: subtitle, onChange: (e) => setSubtitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Author"), /* @__PURE__ */ import_react12.default.createElement("input", { value: author, onChange: (e) => setAuthor(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Language"), /* @__PURE__ */ import_react12.default.createElement("input", { value: language, onChange: (e) => setLanguage(e.target.value), disabled: isExporting, placeholder: "en" }))), step === 3 && /* @__PURE__ */ import_react12.default.createElement("div", null, /* @__PURE__ */ import_react12.default.createElement("h2", null, "Front matter"), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("label", null, /* @__PURE__ */ import_react12.default.createElement("input", { type: "checkbox", checked: includeTitlePage, onChange: (e) => setIncludeTitlePage(e.target.checked) }), "Title page")), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("label", null, /* @__PURE__ */ import_react12.default.createElement(
+  )))), step === 2 && /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("h2", null, "Metadata"), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Title"), /* @__PURE__ */ import_react13.default.createElement("input", { value: title, onChange: (e) => setTitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Subtitle (optional)"), /* @__PURE__ */ import_react13.default.createElement("input", { value: subtitle, onChange: (e) => setSubtitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Author"), /* @__PURE__ */ import_react13.default.createElement("input", { value: author, onChange: (e) => setAuthor(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Language"), /* @__PURE__ */ import_react13.default.createElement("input", { value: language, onChange: (e) => setLanguage(e.target.value), disabled: isExporting, placeholder: "en" }))), step === 3 && /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("h2", null, "Front matter"), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("label", null, /* @__PURE__ */ import_react13.default.createElement("input", { type: "checkbox", checked: includeTitlePage, onChange: (e) => setIncludeTitlePage(e.target.checked) }), "Title page")), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("label", null, /* @__PURE__ */ import_react13.default.createElement(
     "input",
     {
       type: "checkbox",
       checked: includeCopyrightPage,
       onChange: (e) => setIncludeCopyrightPage(e.target.checked)
     }
-  ), "Copyright page")), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "License template"), /* @__PURE__ */ import_react12.default.createElement(
+  ), "Copyright page")), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "License template"), /* @__PURE__ */ import_react13.default.createElement(
     "select",
     {
       value: licenseTemplateId,
       onChange: (e) => setLicenseTemplateId(e.target.value),
       disabled: isExporting
     },
-    LICENSE_TEMPLATES.map((t) => /* @__PURE__ */ import_react12.default.createElement("option", { key: t.id, value: t.id }, t.label))
-  )), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Copyright year"), /* @__PURE__ */ import_react12.default.createElement("input", { value: copyrightYear, onChange: (e) => setCopyrightYear(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Copyright holder"), /* @__PURE__ */ import_react12.default.createElement("input", { value: copyrightHolder, onChange: (e) => setCopyrightHolder(e.target.value), disabled: isExporting }))), step === 4 && /* @__PURE__ */ import_react12.default.createElement("div", null, /* @__PURE__ */ import_react12.default.createElement("h2", null, "Typography"), /* @__PURE__ */ import_react12.default.createElement("p", null, "Default styling uses Literata if available on the reader device. You can embed your own font files to guarantee the look."), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("label", null, /* @__PURE__ */ import_react12.default.createElement("input", { type: "checkbox", checked: embedFonts, onChange: (e) => setEmbedFonts(e.target.checked), disabled: isExporting }), "Embed custom fonts")), embedFonts && /* @__PURE__ */ import_react12.default.createElement("div", null, /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Regular (required)"), /* @__PURE__ */ import_react12.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react12.default.createElement("input", { value: fontRegular, onChange: (e) => setFontRegular(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react12.default.createElement("button", { onClick: () => pickFontFile((f) => setFontRegular(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Bold"), /* @__PURE__ */ import_react12.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react12.default.createElement("input", { value: fontBold, onChange: (e) => setFontBold(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react12.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBold(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Italic"), /* @__PURE__ */ import_react12.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react12.default.createElement("input", { value: fontItalic, onChange: (e) => setFontItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react12.default.createElement("button", { onClick: () => pickFontFile((f) => setFontItalic(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Bold italic"), /* @__PURE__ */ import_react12.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react12.default.createElement("input", { value: fontBoldItalic, onChange: (e) => setFontBoldItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react12.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBoldItalic(f.path)), disabled: isExporting }, "Browse"))))), step === 5 && /* @__PURE__ */ import_react12.default.createElement("div", null, /* @__PURE__ */ import_react12.default.createElement("h2", null, "Output"), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Format"), /* @__PURE__ */ import_react12.default.createElement("select", { value: outputFormat, onChange: (e) => setOutputFormat(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react12.default.createElement("option", { value: "epub" }, "Epub"), /* @__PURE__ */ import_react12.default.createElement("option", { value: "docx" }, "Docx"), /* @__PURE__ */ import_react12.default.createElement("option", { value: "rtf" }, "Rtf"), /* @__PURE__ */ import_react12.default.createElement("option", { value: "copy" }, "Plain text"))), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Export subset"), /* @__PURE__ */ import_react12.default.createElement("select", { value: subsetMode, onChange: (e) => setSubsetMode(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react12.default.createElement("option", { value: "all" }, "All chapters"), /* @__PURE__ */ import_react12.default.createElement("option", { value: "first-chapters" }, "First N chapters"), /* @__PURE__ */ import_react12.default.createElement("option", { value: "first-words" }, "First N words"))), subsetMode === "first-chapters" && /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Chapters"), /* @__PURE__ */ import_react12.default.createElement("input", { value: subsetChaptersCount, onChange: (e) => setSubsetChaptersCount(e.target.value), disabled: isExporting })), subsetMode === "first-words" && /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Words"), /* @__PURE__ */ import_react12.default.createElement("input", { value: subsetWordsCount, onChange: (e) => setSubsetWordsCount(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Folder"), /* @__PURE__ */ import_react12.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react12.default.createElement("input", { value: outputFolder, onChange: (e) => setOutputFolder(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react12.default.createElement("button", { onClick: () => pickFolder((f) => setOutputFolder(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "File name"), /* @__PURE__ */ import_react12.default.createElement("input", { value: outputFileName, onChange: (e) => setOutputFileName(e.target.value), disabled: isExporting }))), step === 6 && /* @__PURE__ */ import_react12.default.createElement("div", null, /* @__PURE__ */ import_react12.default.createElement("h2", null, "Export"), /* @__PURE__ */ import_react12.default.createElement("p", null, "When you click Export, the plugin will compile your notes and write the output into your vault."), progress && /* @__PURE__ */ import_react12.default.createElement("div", { className: "generation-status" }, progress), error2 && /* @__PURE__ */ import_react12.default.createElement("div", { className: "error-message" }, "\u274C ", error2)), /* @__PURE__ */ import_react12.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 16 } }, /* @__PURE__ */ import_react12.default.createElement("div", null, /* @__PURE__ */ import_react12.default.createElement("button", { onClick: onClose, className: "mod-secondary", disabled: isExporting }, "Close")), /* @__PURE__ */ import_react12.default.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ import_react12.default.createElement("button", { onClick: goBack, disabled: isExporting || step === 1 }, "Back"), step < 6 && /* @__PURE__ */ import_react12.default.createElement("button", { onClick: goNext, disabled: isExporting || !canNext, className: "mod-cta" }, "Next"), step === 6 && /* @__PURE__ */ import_react12.default.createElement("button", { onClick: doExport, disabled: isExporting, className: "mod-cta" }, "Export"))));
+    LICENSE_TEMPLATES.map((t) => /* @__PURE__ */ import_react13.default.createElement("option", { key: t.id, value: t.id }, t.label))
+  )), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Copyright year"), /* @__PURE__ */ import_react13.default.createElement("input", { value: copyrightYear, onChange: (e) => setCopyrightYear(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Copyright holder"), /* @__PURE__ */ import_react13.default.createElement("input", { value: copyrightHolder, onChange: (e) => setCopyrightHolder(e.target.value), disabled: isExporting }))), step === 4 && /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("h2", null, "Typography"), /* @__PURE__ */ import_react13.default.createElement("p", null, "Default styling uses Literata if available on the reader device. You can embed your own font files to guarantee the look."), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("label", null, /* @__PURE__ */ import_react13.default.createElement("input", { type: "checkbox", checked: embedFonts, onChange: (e) => setEmbedFonts(e.target.checked), disabled: isExporting }), "Embed custom fonts")), embedFonts && /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Regular (required)"), /* @__PURE__ */ import_react13.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react13.default.createElement("input", { value: fontRegular, onChange: (e) => setFontRegular(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react13.default.createElement("button", { onClick: () => pickFontFile((f) => setFontRegular(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Bold"), /* @__PURE__ */ import_react13.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react13.default.createElement("input", { value: fontBold, onChange: (e) => setFontBold(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react13.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBold(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Italic"), /* @__PURE__ */ import_react13.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react13.default.createElement("input", { value: fontItalic, onChange: (e) => setFontItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react13.default.createElement("button", { onClick: () => pickFontFile((f) => setFontItalic(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Bold italic"), /* @__PURE__ */ import_react13.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react13.default.createElement("input", { value: fontBoldItalic, onChange: (e) => setFontBoldItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react13.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBoldItalic(f.path)), disabled: isExporting }, "Browse"))))), step === 5 && /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("h2", null, "Output"), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Format"), /* @__PURE__ */ import_react13.default.createElement("select", { value: outputFormat, onChange: (e) => setOutputFormat(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react13.default.createElement("option", { value: "epub" }, "Epub"), /* @__PURE__ */ import_react13.default.createElement("option", { value: "docx" }, "Docx"), /* @__PURE__ */ import_react13.default.createElement("option", { value: "rtf" }, "Rtf"), /* @__PURE__ */ import_react13.default.createElement("option", { value: "copy" }, "Plain text"))), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Export subset"), /* @__PURE__ */ import_react13.default.createElement("select", { value: subsetMode, onChange: (e) => setSubsetMode(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react13.default.createElement("option", { value: "all" }, "All chapters"), /* @__PURE__ */ import_react13.default.createElement("option", { value: "first-chapters" }, "First N chapters"), /* @__PURE__ */ import_react13.default.createElement("option", { value: "first-words" }, "First N words"))), subsetMode === "first-chapters" && /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Chapters"), /* @__PURE__ */ import_react13.default.createElement("input", { value: subsetChaptersCount, onChange: (e) => setSubsetChaptersCount(e.target.value), disabled: isExporting })), subsetMode === "first-words" && /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Words"), /* @__PURE__ */ import_react13.default.createElement("input", { value: subsetWordsCount, onChange: (e) => setSubsetWordsCount(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Folder"), /* @__PURE__ */ import_react13.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react13.default.createElement("input", { value: outputFolder, onChange: (e) => setOutputFolder(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react13.default.createElement("button", { onClick: () => pickFolder((f) => setOutputFolder(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "File name"), /* @__PURE__ */ import_react13.default.createElement("input", { value: outputFileName, onChange: (e) => setOutputFileName(e.target.value), disabled: isExporting }))), step === 6 && /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("h2", null, "Export"), /* @__PURE__ */ import_react13.default.createElement("p", null, "When you click Export, the plugin will compile your notes and write the output into your vault."), progress && /* @__PURE__ */ import_react13.default.createElement("div", { className: "generation-status" }, progress), error2 && /* @__PURE__ */ import_react13.default.createElement("div", { className: "error-message" }, "\u274C ", error2)), /* @__PURE__ */ import_react13.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 16 } }, /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("button", { onClick: onClose, className: "mod-secondary", disabled: isExporting }, "Close")), /* @__PURE__ */ import_react13.default.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ import_react13.default.createElement("button", { onClick: goBack, disabled: isExporting || step === 1 }, "Back"), step < 6 && /* @__PURE__ */ import_react13.default.createElement("button", { onClick: goNext, disabled: isExporting || !canNext, className: "mod-cta" }, "Next"), step === 6 && /* @__PURE__ */ import_react13.default.createElement("button", { onClick: doExport, disabled: isExporting, className: "mod-cta" }, "Export"))));
 };
 
 // main.ts
@@ -39503,7 +39598,7 @@ var DEFAULT_MODE_STATE = {
     }
   }
 };
-var WritingDashboardPlugin = class extends import_obsidian26.Plugin {
+var WritingDashboardPlugin = class extends import_obsidian27.Plugin {
   constructor() {
     super(...arguments);
     this.guidedDemoStartRequested = false;
