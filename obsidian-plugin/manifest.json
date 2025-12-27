@@ -1,7 +1,7 @@
 {
 	"id": "writing-dashboard",
 	"name": "Writing Dashboard",
-	"version": "0.2.0",
+	"version": "1.0.0",
 	"minAppVersion": "1.0.0",
 	"description": "AI-powered writing dashboard with chapter generation, micro-edits, and character management. Works entirely within the app.",
 	"author": "JHarp199345",

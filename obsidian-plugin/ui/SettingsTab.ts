@@ -111,8 +111,15 @@ export class SettingsTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		// Keep heading generic per Obsidian review-bot rules (avoid plugin name and "settings")
-		new Setting(containerEl).setName('Configuration').setHeading();
+		const addSection = (title: string, desc?: string) => {
+			new Setting(containerEl).setName(title).setHeading();
+			if (desc) {
+				const p = containerEl.createEl('p', { text: desc });
+				p.style.marginTop = '-8px';
+			}
+		};
+
+		addSection('API & Model', 'Provider, key, and model selection');
 
 		new Setting(containerEl)
 			.setName('API key')
@@ -175,7 +182,7 @@ export class SettingsTab extends PluginSettingTab {
 			});
 
 		// Local AI Setup (Ollama)
-		new Setting(containerEl).setName('Local AI Setup (Ollama)').setHeading();
+		addSection('Local AI (Ollama)', 'Optional local embeddings for semantic search.');
 		containerEl.createEl('p', {
 			text: 'Install Ollama and pull the nomic-embed-text model to enable local semantic search. The plugin falls back to lexical search if Ollama is not available.'
 		});
@@ -218,7 +225,7 @@ export class SettingsTab extends PluginSettingTab {
 			);
 
 		// Retrieval / indexing settings
-		new Setting(containerEl).setName('Retrieval').setHeading();
+		addSection('Retrieval profiles & scope', 'Control which folders are indexed/searched.');
 
 		// Retrieval profile (folder include-set)
 		const profiles = Array.isArray(this.plugin.settings.retrievalProfiles) ? this.plugin.settings.retrievalProfiles : [];
@@ -323,6 +330,7 @@ export class SettingsTab extends PluginSettingTab {
 			}
 		}
 
+		addSection('Retrieval engines', 'Semantic/BM25 knobs and result limits.');
 		new Setting(containerEl)
 			.setName('Enable semantic retrieval')
 			.setDesc('Build a local index to retrieve relevant notes from the vault. If disabled, retrieval uses heuristic matching only.')
@@ -372,6 +380,7 @@ export class SettingsTab extends PluginSettingTab {
 			);
 
 		// External embedding API settings
+		addSection('External embeddings (optional)', 'Use a remote embedding API instead of local hash/BM25.');
 		new Setting(containerEl)
 			.setName('Enable external embeddings')
 			.setDesc('⚠️ WARNING: Enabling this will make API calls during retrieval. Keep disabled to use only local hash/BM25 search (recommended).')
@@ -522,6 +531,7 @@ export class SettingsTab extends PluginSettingTab {
 				);
 		}
 
+		addSection('Indexing & chunking', 'Chunk size, overlap, heading split, and indexing pause.');
 		new Setting(containerEl)
 			.setName('Index chunk size (words)')
 			.setDesc('Controls how your notes are chunked for semantic retrieval. Larger chunks add more context but may reduce precision.')
@@ -580,6 +590,7 @@ export class SettingsTab extends PluginSettingTab {
 			);
 
 		// Folder exclusions (dynamic checkbox list)
+		addSection('Exclusions', 'Folders to skip during indexing and retrieval.');
 		const excluded = new Set<string>((this.plugin.settings.retrievalExcludedFolders || []).map((p) => p.replace(/\\/g, '/')));
 		const folders = this.plugin.vaultService.getAllFolderPaths();
 
@@ -637,7 +648,7 @@ export class SettingsTab extends PluginSettingTab {
 		}
 
 		// Generation logs
-		new Setting(containerEl).setName('Generation logs').setHeading();
+		addSection('Generation logs', 'Optional logging of prompts/outputs (excluded from retrieval).');
 
 		new Setting(containerEl)
 			.setName('Save generation logs')
@@ -811,6 +822,7 @@ export class SettingsTab extends PluginSettingTab {
 		}
 
 
+		addSection('Paths & setup', 'Vault path, setup wizard, guided demo.');
 		new Setting(containerEl)
 			.setName('Vault path')
 			.setDesc('Path to your Obsidian vault (auto-detected)')
@@ -841,6 +853,7 @@ export class SettingsTab extends PluginSettingTab {
 				})
 			);
 
+		addSection('Manuscript & characters', 'Core paths for manuscript, story bible, and character notes.');
 		const characterFolderSetting = new Setting(containerEl)
 			.setName('Character folder')
 			.setDesc(`Current: ${this.plugin.settings.characterFolder || '(none selected)'}`)
@@ -896,7 +909,7 @@ export class SettingsTab extends PluginSettingTab {
 					modal.open();
 				}));
 
-
+		addSection('Character extraction & safeguards', 'Defaults for character processing and prompt-size warnings.');
 		new Setting(containerEl)
 			.setName('Character extraction chunk size (words)')
 			.setDesc('Used by "process entire book" to batch character extraction. Larger chunks (e.g., 2000–3000) tend to improve character context.')
@@ -936,7 +949,7 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		// Stress Test Section
-		containerEl.createEl('h2', { text: 'Developer Tools' });
+		addSection('Developer tools', 'Diagnostics and end-to-end stress test.');
 
 		new Setting(containerEl)
 			.setName('Run Stress Test')

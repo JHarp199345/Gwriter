@@ -29495,7 +29495,14 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian11.Setting(containerEl).setName("Configuration").setHeading();
+    const addSection = (title, desc) => {
+      new import_obsidian11.Setting(containerEl).setName(title).setHeading();
+      if (desc) {
+        const p = containerEl.createEl("p", { text: desc });
+        p.style.marginTop = "-8px";
+      }
+    };
+    addSection("API & Model", "Provider, key, and model selection");
     new import_obsidian11.Setting(containerEl).setName("API key").setDesc("Your AI API key (stored securely)").addText((text2) => text2.setPlaceholder("Enter API key").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
       this.plugin.settings.apiKey = value;
       await this.plugin.saveSettings();
@@ -29526,7 +29533,7 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian11.Setting(containerEl).setName("Local AI Setup (Ollama)").setHeading();
+    addSection("Local AI (Ollama)", "Optional local embeddings for semantic search.");
     containerEl.createEl("p", {
       text: "Install Ollama and pull the nomic-embed-text model to enable local semantic search. The plugin falls back to lexical search if Ollama is not available."
     });
@@ -29556,7 +29563,7 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
         modal.open();
       })
     );
-    new import_obsidian11.Setting(containerEl).setName("Retrieval").setHeading();
+    addSection("Retrieval profiles & scope", "Control which folders are indexed/searched.");
     const profiles = Array.isArray(this.plugin.settings.retrievalProfiles) ? this.plugin.settings.retrievalProfiles : [];
     const activeProfileId = this.plugin.settings.retrievalActiveProfileId;
     new import_obsidian11.Setting(containerEl).setName("Retrieval profile").setDesc("Controls which folders are included for retrieval and indexing. Use this to avoid pulling irrelevant vault content.").addDropdown((dropdown) => {
@@ -29635,6 +29642,7 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
         );
       }
     }
+    addSection("Retrieval engines", "Semantic/BM25 knobs and result limits.");
     new import_obsidian11.Setting(containerEl).setName("Enable semantic retrieval").setDesc("Build a local index to retrieve relevant notes from the vault. If disabled, retrieval uses heuristic matching only.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableSemanticIndex)).onChange(async (value) => {
         this.plugin.settings.retrievalEnableSemanticIndex = value;
@@ -29664,6 +29672,7 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
         }
       })
     );
+    addSection("External embeddings (optional)", "Use a remote embedding API instead of local hash/BM25.");
     new import_obsidian11.Setting(containerEl).setName("Enable external embeddings").setDesc("\u26A0\uFE0F WARNING: Enabling this will make API calls during retrieval. Keep disabled to use only local hash/BM25 search (recommended).").addToggle((toggle) => {
       toggle.setValue(Boolean(this.plugin.settings.externalEmbeddingsEnabled ?? false));
       toggle.onChange(async (value) => {
@@ -29763,6 +29772,7 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
         })
       );
     }
+    addSection("Indexing & chunking", "Chunk size, overlap, heading split, and indexing pause.");
     new import_obsidian11.Setting(containerEl).setName("Index chunk size (words)").setDesc("Controls how your notes are chunked for semantic retrieval. Larger chunks add more context but may reduce precision.").addText(
       (text2) => text2.setPlaceholder("500").setValue(String(this.plugin.settings.retrievalChunkWords ?? 500)).onChange(async (value) => {
         const parsed = parseInt(value, 10);
@@ -29798,6 +29808,7 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
+    addSection("Exclusions", "Folders to skip during indexing and retrieval.");
     const excluded = new Set((this.plugin.settings.retrievalExcludedFolders || []).map((p) => p.replace(/\\/g, "/")));
     const folders = this.plugin.vaultService.getAllFolderPaths();
     const exclusionsContainer = containerEl.createDiv({ cls: "writing-dashboard-exclusions" });
@@ -29839,7 +29850,7 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
         );
       }
     }
-    new import_obsidian11.Setting(containerEl).setName("Generation logs").setHeading();
+    addSection("Generation logs", "Optional logging of prompts/outputs (excluded from retrieval).");
     new import_obsidian11.Setting(containerEl).setName("Save generation logs").setDesc("Writes a log note per generation run with inputs, retrieved context, and output. Logs are excluded from retrieval.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.generationLogsEnabled)).onChange(async (value) => {
         this.plugin.settings.generationLogsEnabled = value;
@@ -29957,6 +29968,7 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
         });
       }
     }
+    addSection("Paths & setup", "Vault path, setup wizard, guided demo.");
     new import_obsidian11.Setting(containerEl).setName("Vault path").setDesc("Path to your Obsidian vault (auto-detected)").addText((text2) => text2.setPlaceholder("Vault path").setValue(this.plugin.settings.vaultPath).onChange(async (value) => {
       this.plugin.settings.vaultPath = value;
       await this.plugin.saveSettings();
@@ -29970,6 +29982,7 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
         this.plugin.requestGuidedDemoStart();
       })
     );
+    addSection("Manuscript & characters", "Core paths for manuscript, story bible, and character notes.");
     const characterFolderSetting = new import_obsidian11.Setting(containerEl).setName("Character folder").setDesc(`Current: ${this.plugin.settings.characterFolder || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.characterFolder ? this.plugin.settings.characterFolder.split("/").pop() || "Select folder" : "Select folder").onClick(() => {
       const modal = new FolderTreePickerModal(this.plugin, {
         currentPath: this.plugin.settings.characterFolder || void 0,
@@ -30004,6 +30017,7 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
       });
       modal.open();
     }));
+    addSection("Character extraction & safeguards", "Defaults for character processing and prompt-size warnings.");
     new import_obsidian11.Setting(containerEl).setName("Character extraction chunk size (words)").setDesc('Used by "process entire book" to batch character extraction. Larger chunks (e.g., 2000\u20133000) tend to improve character context.').addText((text2) => text2.setPlaceholder("2500").setValue(String(this.plugin.settings.characterExtractionChunkSize ?? 2500)).onChange(async (value) => {
       const parsed = parseInt(value, 10);
       const clamped = Number.isFinite(parsed) ? Math.min(1e4, Math.max(250, parsed)) : 2500;
@@ -30020,7 +30034,7 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
       this.plugin.settings.contextTokenLimit = clamped;
       await this.plugin.saveSettings();
     }));
-    containerEl.createEl("h2", { text: "Developer Tools" });
+    addSection("Developer tools", "Diagnostics and end-to-end stress test.");
     new import_obsidian11.Setting(containerEl).setName("Run Stress Test").setDesc("Comprehensive test of all plugin features. Creates temporary test files, runs all operations, then cleans up automatically. Log is saved as a note in your vault.").addButton((button) => button.setButtonText("Start Stress Test").setCta().onClick(async () => {
       button.setDisabled(true);
       button.setButtonText("Running...");
