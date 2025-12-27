@@ -31,6 +31,9 @@ const buildOptions = {
 		'@lezer/highlight',
 		'@lezer/common',
 		'@lezer/lr',
+		// Avoid bundling the vendored transformers lib; keep it as a separate asset to prevent eval warnings.
+		'./lib/transformers.js',
+		'@xenova/transformers',
 		...builtins],
 	format: 'cjs',
 	// BigInt literals are used by some optional dependencies (e.g., local embeddings).

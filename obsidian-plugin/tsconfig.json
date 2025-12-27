@@ -14,8 +14,7 @@
     "lib": ["DOM", "ES2020"],
     "jsx": "react",
     "jsxFactory": "React.createElement",
-    "jsxFragmentFactory": "React.Fragment",
-    "noEmit": true
+    "jsxFragmentFactory": "React.Fragment"
   },
   "include": [
     "**/*.ts",
