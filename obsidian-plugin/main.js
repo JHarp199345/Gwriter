@@ -30490,11 +30490,16 @@ ${update}
     const active = profiles.find((p) => p.id === activeId);
     const includes = (active?.includedFolders || []).map((p) => (p || "").replace(/\\/g, "/").replace(/\/+$/, "")).filter((p) => p.length > 0);
     if (includes.length > 0) {
-      const allowed = includes.some((inc) => {
-        return normalized === inc || normalized.startsWith(`${inc}/`);
-      });
+      const allowed = includes.some((inc) => normalized === inc || normalized.startsWith(`${inc}/`));
       if (!allowed)
         return true;
+    } else {
+      const activeFile = this.plugin.lastOpenedMarkdownPath || this.plugin.app.workspace.getActiveFile()?.path;
+      if (activeFile) {
+        const normalizedActive = activeFile.replace(/\\/g, "/");
+        if (normalized !== normalizedActive)
+          return true;
+      }
     }
     const excluded = this.plugin.settings.retrievalExcludedFolders || [];
     for (const folder of excluded) {

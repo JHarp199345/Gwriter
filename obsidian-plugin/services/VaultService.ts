@@ -321,21 +321,23 @@ export class VaultService {
 		}
 
 		// Retrieval profile include-set: if set, exclude anything not under included folders.
-		// If includedFolders is empty, include everything (whole vault).
+		// If includedFolders is empty, fall back to active-note-only to avoid whole-vault leakage.
 		const profiles = this.plugin.settings.retrievalProfiles || [];
 		const activeId = this.plugin.settings.retrievalActiveProfileId;
 		const active = profiles.find((p) => p.id === activeId);
 		const includes = (active?.includedFolders || [])
 			.map((p) => (p || '').replace(/\\/g, '/').replace(/\/+$/, ''))
 			.filter((p) => p.length > 0);
-		// Only apply inclusion filter if folders are explicitly specified
-		// Empty array means "include whole vault" (skip this check)
 		if (includes.length > 0) {
-			const allowed = includes.some((inc) => {
-				// Match exact folder or files/subfolders within it
-				return normalized === inc || normalized.startsWith(`${inc}/`);
-			});
-			if (!allowed) return true; // Excluded because not in any included folder
+			const allowed = includes.some((inc) => normalized === inc || normalized.startsWith(`${inc}/`));
+			if (!allowed) return true;
+		} else {
+			// No includes defined: restrict to the current active note only.
+			const activeFile = this.plugin.lastOpenedMarkdownPath || this.plugin.app.workspace.getActiveFile()?.path;
+			if (activeFile) {
+				const normalizedActive = activeFile.replace(/\\/g, '/');
+				if (normalized !== normalizedActive) return true;
+			}
 		}
 
 		const excluded = this.plugin.settings.retrievalExcludedFolders || [];
