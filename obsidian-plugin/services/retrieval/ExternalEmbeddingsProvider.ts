@@ -1,6 +1,5 @@
 import type { ContextItem, RetrievalOptions, RetrievalProvider, RetrievalQuery } from './types';
 import type { EmbeddingsIndex } from './EmbeddingsIndex';
-import type { Bm25Index } from './Bm25Index';
 import { requestUrl } from 'obsidian';
 import WritingDashboardPlugin from '../../main';
 
@@ -23,7 +22,6 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 
 	private readonly plugin: WritingDashboardPlugin;
 	private readonly embeddingsIndex: EmbeddingsIndex;
-	private readonly bm25Index: Bm25Index;
 	private readonly isEnabled: () => boolean;
 	private readonly isAllowedPath: (path: string) => boolean;
 	
@@ -47,13 +45,11 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 	constructor(
 		plugin: WritingDashboardPlugin,
 		embeddingsIndex: EmbeddingsIndex,
-		bm25Index: Bm25Index,
 		isEnabled: () => boolean,
 		isAllowedPath: (path: string) => boolean
 	) {
 		this.plugin = plugin;
 		this.embeddingsIndex = embeddingsIndex;
-		this.bm25Index = bm25Index;
 		this.isEnabled = isEnabled;
 		this.isAllowedPath = isAllowedPath;
 	}
