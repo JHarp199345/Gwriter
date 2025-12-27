@@ -305,8 +305,8 @@ The plugin includes a comprehensive stress test for diagnostics:
 2. Click **"Start Stress Test"**
 3. The test will:
    - Create temporary test files
-   - Test all plugin operations (indexing, retrieval, AI calls, character extraction)
-   - Generate a detailed log with error diagnostics
+   - Test indexing, retrieval (hash + BM25 + semantic), and file ops
+   - **If an API key is set, run a live generation call** (chapter-style prompt) and log a snippet
    - Clean up all temporary files automatically
 4. The log is saved as a note in your vault: `Stress Test Log - [timestamp].md`
 
