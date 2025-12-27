@@ -822,17 +822,7 @@ export class SettingsTab extends PluginSettingTab {
 		}
 
 
-		addSection('Paths & setup', 'Vault path, setup wizard, guided demo.');
-		new Setting(containerEl)
-			.setName('Vault path')
-			.setDesc('Path to your Obsidian vault (auto-detected)')
-			.addText(text => text
-				.setPlaceholder('Vault path')
-				.setValue(this.plugin.settings.vaultPath)
-				.onChange(async (value) => {
-					this.plugin.settings.vaultPath = value;
-					await this.plugin.saveSettings();
-				}));
+		addSection('Paths & setup', 'Setup wizard and guided demo.');
 
 		new Setting(containerEl)
 			.setName('Setup wizard')

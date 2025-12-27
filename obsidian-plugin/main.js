@@ -29986,11 +29986,7 @@ var SettingsTab = class extends import_obsidian11.PluginSettingTab {
         });
       }
     }
-    addSection("Paths & setup", "Vault path, setup wizard, guided demo.");
-    new import_obsidian11.Setting(containerEl).setName("Vault path").setDesc("Path to your Obsidian vault (auto-detected)").addText((text2) => text2.setPlaceholder("Vault path").setValue(this.plugin.settings.vaultPath).onChange(async (value) => {
-      this.plugin.settings.vaultPath = value;
-      await this.plugin.saveSettings();
-    }));
+    addSection("Paths & setup", "Setup wizard and guided demo.");
     new import_obsidian11.Setting(containerEl).setName("Setup wizard").setDesc("Create default files and folders for your writing workspace").addButton((button) => button.setButtonText("Run setup wizard").onClick(() => {
       const modal = new SetupWizardModal(this.plugin);
       modal.open();
@@ -39602,10 +39598,24 @@ var WritingDashboardPlugin = class extends import_obsidian25.Plugin {
         guidedDemoDismissed: false,
         guidedDemoShownOnce: false,
         setupCompleted: false,
-        vaultPath: ""
+        // Retrieval profiles: seed a default "story" profile that scopes to plugin-created folders.
+        retrievalProfiles: [
+          {
+            id: "story",
+            name: "Story",
+            includedFolders: ["Characters", "Story bibles", "Generation logs", "Exports"]
+          }
+        ],
+        retrievalActiveProfileId: "story"
       },
       loaded
     );
+    if (!this.settings.retrievalActiveProfileId) {
+      const firstProfile = this.settings.retrievalProfiles?.[0];
+      if (firstProfile?.id) {
+        this.settings.retrievalActiveProfileId = firstProfile.id;
+      }
+    }
   }
   async saveSettings() {
     await this.saveData(this.settings);
