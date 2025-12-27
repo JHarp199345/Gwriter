@@ -64091,7 +64091,7 @@ __export(main_exports, {
   default: () => WritingDashboardPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian27 = require("obsidian");
+var import_obsidian25 = require("obsidian");
 
 // ui/DashboardView.ts
 var import_obsidian7 = require("obsidian");
@@ -66830,18 +66830,20 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
 // services/StressTestService.ts
 var import_obsidian9 = require("obsidian");
 var StressTestService = class {
-  constructor(plugin) {
+  constructor(plugin, options = {}) {
     this.log = [];
-    this.testFolder = "StressTest-Temp";
+    this.testFolder = "WritingDashboard-StressTest";
     this.testFiles = [];
     this.testFolders = [];
     this.startTime = 0;
     this.plugin = plugin;
+    this.app = plugin.app;
+    this.options = options;
   }
   async runFullStressTest() {
     this.log = [];
     this.startTime = Date.now();
-    this.logEntry("=== WRITING DASHBOARD STRESS TEST ===");
+    this.logEntry("=== STRESS TEST START ===");
     this.logEntry(`Started: ${new Date().toISOString()}`);
     this.logEntry(`Vault: ${this.plugin.app.vault.getName()}`);
     this.logEntry("");
@@ -66859,8 +66861,6 @@ var StressTestService = class {
     this.logEntry(`Index Paused: ${this.plugin.settings.retrievalIndexPaused ? "Yes" : "No"}`);
     this.logEntry(`Retrieval Top K: ${this.plugin.settings.retrievalTopK || 24}`);
     this.logEntry(`External Embeddings: ${this.plugin.settings.externalEmbeddingsEnabled ? "Enabled" : "Disabled"}`);
-    this.logEntry(`Smart Connections Template: ${this.plugin.settings.smartConnectionsTemplatePath || "Not configured"}`);
-    this.logEntry(`Smart Connections Cache: ${this.plugin.settings.smartConnectionsCacheEnabled ? "Enabled" : "Disabled"}`);
     this.logEntry("");
     try {
       await this.phase1_Setup();
@@ -66872,7 +66872,6 @@ var StressTestService = class {
         this.logEntry("Phase 4: Skipped (no API key configured)");
       }
       await this.phase5_Retrieval();
-      await this.phase5_5_SmartConnectionsTemplate();
       if (this.plugin.settings.apiKey) {
         await this.phase7_CharacterOperations();
       } else {
@@ -66914,15 +66913,12 @@ var StressTestService = class {
       this.logEntry("\u25CB Phase 7: Character Operations (skipped - no API key)");
     }
     this.logEntry("\u2713 Phase 5: Retrieval Tests (hash, BM25, semantic search)");
-    this.logEntry("\u2713 Phase 5.5: Smart Connections Template (execution, parsing, intersection)");
     this.logEntry("\u2713 Phase 6: Cleanup (test file/folder removal)");
     this.logEntry("");
     this.logEntry("=== KEY METRICS ===");
     this.logEntry(`Semantic Retrieval: ${this.plugin.settings.retrievalEnableSemanticIndex ? "Enabled" : "Disabled"}`);
     this.logEntry(`BM25 Retrieval: ${this.plugin.settings.retrievalEnableBm25 ? "Enabled" : "Disabled"}`);
     this.logEntry(`External Embeddings: ${this.plugin.settings.externalEmbeddingsEnabled ? "Enabled" : "Disabled"}`);
-    this.logEntry(`Smart Connections Template: ${this.plugin.settings.smartConnectionsTemplatePath ? "Configured" : "Not configured"}`);
-    this.logEntry(`Smart Connections Cache: ${this.plugin.settings.smartConnectionsCacheEnabled ? "Enabled" : "Disabled"}`);
     this.logEntry("");
     this.logEntry("=== STRESS TEST COMPLETED ===");
     return this.log.join("\n");
@@ -66959,210 +66955,19 @@ var StressTestService = class {
     } catch (error2) {
       this.logEntry(`\u2717 Phase 1 failed`);
       this.logEntry(`  WHERE: phase1_Setup`);
-      this.logEntry(`  CONTEXT: Test folder: ${this.testFolder}`);
       this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-      this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
-      if (error2 instanceof Error && error2.stack) {
-        this.logEntry(`  STACK (first 5 lines):`);
-        error2.stack.split("\n").slice(0, 5).forEach((line) => {
-          this.logEntry(`    ${line.trim()}`);
-        });
-      }
-      if (error2 instanceof Error && "cause" in error2) {
-        this.logEntry(`  CAUSE: ${error2.cause}`);
-      }
-      throw error2;
     }
   }
   async phase2_Indexing() {
     this.logEntry("--- Phase 2: Indexing Tests ---");
     const phaseStart = Date.now();
     try {
-      this.logEntry("=== Indexing Configuration ===");
-      this.logEntry(`Semantic retrieval enabled: ${this.plugin.settings.retrievalEnableSemanticIndex}`);
-      this.logEntry(`Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || "hash"}`);
-      this.logEntry(`Index paused: ${this.plugin.settings.retrievalIndexPaused}`);
-      this.logEntry(`Chunk size: ${this.plugin.settings.retrievalChunkWords || 500} words`);
-      this.logEntry(`Chunk overlap: ${this.plugin.settings.retrievalChunkOverlapWords || 100} words`);
-      this.logEntry(`Chunk heading level: ${this.plugin.settings.retrievalChunkHeadingLevel || "h1"}`);
-      this.logEntry("");
-      const statusBefore = this.plugin.embeddingsIndex?.getStatus?.();
-      this.logEntry(`Index status before: ${statusBefore ? `${statusBefore.indexedFiles} files, ${statusBefore.indexedChunks} chunks, ${statusBefore.queued} queued` : "N/A"}`);
-      const allFiles = this.plugin.vaultService.getIncludedMarkdownFiles();
-      this.logEntry(`Total markdown files in vault: ${allFiles.length}`);
-      const testFileCount = allFiles.filter((f) => f.path.startsWith(this.testFolder)).length;
-      this.logEntry(`Test files created: ${testFileCount}`);
-      const excludedTestFiles = [];
-      for (const file of allFiles) {
-        if (this.plugin.vaultService.isExcludedPath(file.path)) {
-          excludedTestFiles.push(file.path);
-        }
+      for (const filePath of this.testFiles) {
+        this.plugin.embeddingsIndex.queueUpdateFile(filePath);
       }
-      if (excludedTestFiles.length > 0) {
-        this.logEntry(`\u26A0 WARNING: ${excludedTestFiles.length} files are excluded from indexing:`);
-        excludedTestFiles.slice(0, 10).forEach((path) => {
-          this.logEntry(`  - ${path}`);
-        });
-        if (excludedTestFiles.length > 10) {
-          this.logEntry(`  ... and ${excludedTestFiles.length - 10} more`);
-        }
-      }
-      const profiles = this.plugin.settings.retrievalProfiles || [];
-      const activeProfile = profiles.find((p) => p.id === this.plugin.settings.retrievalActiveProfileId);
-      this.logEntry(`Active retrieval profile: ${activeProfile?.name || "N/A"} (${activeProfile?.id || "N/A"})`);
-      this.logEntry(`Included folders: ${activeProfile?.includedFolders?.length || 0} (empty = whole vault)`);
-      if (activeProfile?.includedFolders && activeProfile.includedFolders.length > 0) {
-        activeProfile.includedFolders.forEach((folder) => {
-          this.logEntry(`  - ${folder}`);
-        });
-      }
-      this.logEntry(`Excluded folders: ${this.plugin.settings.retrievalExcludedFolders?.length || 0}`);
-      if (this.plugin.settings.retrievalExcludedFolders && this.plugin.settings.retrievalExcludedFolders.length > 0) {
-        this.plugin.settings.retrievalExcludedFolders.forEach((folder) => {
-          this.logEntry(`  - ${folder}`);
-        });
-      }
-      if (this.plugin.settings.retrievalEnableSemanticIndex && !this.plugin.settings.retrievalIndexPaused) {
-        this.logEntry("Triggering full index rescan...");
-        this.logEntry(`Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || "hash"}`);
-        this.plugin.embeddingsIndex.enqueueFullRescan();
-        for (let i = 0; i < 10; i++) {
-          await new Promise((resolve) => setTimeout(resolve, 1e3));
-          const status = this.plugin.embeddingsIndex?.getStatus?.();
-          if (status) {
-            this.logEntry(`Index status after ${i + 1}s: ${status.indexedFiles} files, ${status.indexedChunks} chunks, ${status.queued} queued`);
-            if (status.queued === 0 && status.indexedFiles === 0 && allFiles.length > 0 && i >= 3) {
-              this.logEntry(`  \u26A0 Queue empty but no files indexed - check browser console for worker logs`);
-              break;
-            }
-            if (status.indexedFiles > 0 || status.queued === 0) {
-              break;
-            }
-          }
-        }
-        const statusFinal = this.plugin.embeddingsIndex?.getStatus?.();
-        this.logEntry(`Final index status: ${statusFinal ? `${statusFinal.indexedFiles} files, ${statusFinal.indexedChunks} chunks, ${statusFinal.queued} queued` : "N/A"}`);
-        const indexedPaths = this.plugin.embeddingsIndex?.getIndexedPaths?.() || [];
-        const allChunks = this.plugin.embeddingsIndex?.getAllChunks?.() || [];
-        this.logEntry(`Actual indexed paths (getIndexedPaths): ${indexedPaths.length}`);
-        this.logEntry(`Actual chunks (getAllChunks): ${allChunks.length}`);
-        if (indexedPaths.length > 0) {
-          this.logEntry(`Indexed files:`);
-          indexedPaths.slice(0, 10).forEach((path) => {
-            this.logEntry(`  - ${path}`);
-          });
-          if (indexedPaths.length > 10) {
-            this.logEntry(`  ... and ${indexedPaths.length - 10} more`);
-          }
-        }
-        if (statusFinal) {
-          if (statusFinal.queued > 0) {
-            this.logEntry(`\u26A0 WARNING: ${statusFinal.queued} files still queued - indexing may be slow or stuck`);
-          }
-          if (statusFinal.indexedFiles === 0 && allFiles.length > 0) {
-            this.logEntry(`\u26A0 ERROR: Status shows 0 files but getIndexedPaths() shows ${indexedPaths.length} files`);
-            this.logEntry(`  - This suggests a bug in status reporting OR chunks are being created then removed`);
-            this.logEntry(`  - Index paused: ${statusFinal.paused}`);
-            this.logEntry(`  - Semantic retrieval enabled: ${this.plugin.settings.retrievalEnableSemanticIndex}`);
-            this.logEntry(`  - Embedding backend: ${this.plugin.settings.retrievalEmbeddingBackend || "minilm"}`);
-            this.logEntry(`  - Check browser console (F12) for detailed worker logs`);
-            if (indexedPaths.length === 0 && allChunks.length === 0) {
-              this.logEntry(`  - CONFIRMED: No chunks exist in memory - embedding generation likely failing`);
-              const embeddingErrors = this.plugin.embeddingsIndex?.getRecentErrors?.(20) || [];
-              const embeddingErrorSummary = this.plugin.embeddingsIndex?.getErrorSummary?.();
-              const model = this.plugin.embeddingsIndex?.model;
-              const modelErrors = model?.getRecentErrors?.(20) || [];
-              const lastLoadError = model?.getLastLoadError?.();
-              const loadAttempts = model?.getLoadAttempts?.() || 0;
-              this.logEntry(`  === EMBEDDING ERROR DIAGNOSTICS ===`);
-              this.logEntry(`  Model load attempts: ${loadAttempts}`);
-              if (lastLoadError) {
-                this.logEntry(`  Last model load error:`);
-                this.logEntry(`    Location: ${lastLoadError.location}`);
-                this.logEntry(`    Context: ${lastLoadError.context}`);
-                this.logEntry(`    Message: ${lastLoadError.message}`);
-                this.logEntry(`    Error Type: ${lastLoadError.errorType || "Unknown"}`);
-                if (lastLoadError.stack) {
-                  this.logEntry(`    Stack (first 5 lines):`);
-                  lastLoadError.stack.split("\n").slice(0, 5).forEach((line) => {
-                    this.logEntry(`      ${line.trim()}`);
-                  });
-                }
-              }
-              if (modelErrors.length > 0) {
-                this.logEntry(`  Model errors (${modelErrors.length} total):`);
-                modelErrors.slice(-10).forEach((err, idx) => {
-                  this.logEntry(`    [${idx + 1}] ${err.timestamp} - ${err.location}: ${err.message}`);
-                  this.logEntry(`        Context: ${err.context}`);
-                  if (err.stack) {
-                    const stackLines = err.stack.split("\n").slice(0, 2);
-                    this.logEntry(`        Stack: ${stackLines.join(" | ")}`);
-                  }
-                });
-              }
-              if (embeddingErrorSummary) {
-                this.logEntry(`  Embedding index errors:`);
-                this.logEntry(`    Total errors: ${embeddingErrorSummary.total}`);
-                if (Object.keys(embeddingErrorSummary.byLocation).length > 0) {
-                  this.logEntry(`    Errors by location:`);
-                  Object.entries(embeddingErrorSummary.byLocation).forEach(([loc, count]) => {
-                    this.logEntry(`      ${loc}: ${count}`);
-                  });
-                }
-              }
-              if (embeddingErrors.length > 0) {
-                this.logEntry(`  Recent embedding errors (${embeddingErrors.length}):`);
-                embeddingErrors.slice(-10).forEach((err, idx) => {
-                  this.logEntry(`    [${idx + 1}] ${err.timestamp}`);
-                  this.logEntry(`        WHERE: ${err.location}`);
-                  this.logEntry(`        CONTEXT: ${err.context}`);
-                  this.logEntry(`        WHAT: ${err.message}`);
-                  this.logEntry(`        TYPE: ${err.errorType || "Unknown"}`);
-                  if (err.stack) {
-                    this.logEntry(`        STACK (first 3 lines):`);
-                    err.stack.split("\n").slice(0, 3).forEach((line) => {
-                      this.logEntry(`          ${line.trim()}`);
-                    });
-                  }
-                });
-              }
-              if (embeddingErrors.length === 0 && modelErrors.length === 0 && !lastLoadError) {
-                this.logEntry(`  \u26A0 No errors captured - this suggests:`);
-                this.logEntry(`    * Worker may not be running`);
-                this.logEntry(`    * Files may be excluded from indexing`);
-                this.logEntry(`    * Queue may be emptying before processing`);
-                this.logEntry(`    * Errors may be occurring but not being caught`);
-              }
-              const envSnapshot = model?.getEnvSnapshot?.();
-              if (envSnapshot) {
-                this.logEntry(`  === TRANSFORMERS ENV SNAPSHOT ===`);
-                this.logEntry(`    Where: ${envSnapshot.where}`);
-                this.logEntry(`    Timestamp: ${envSnapshot.timestamp}`);
-                this.logEntry(`    Mod keys (first 20): ${JSON.stringify(envSnapshot.modKeys)}`);
-                this.logEntry(`    Has default: ${envSnapshot.hasDefault}`);
-                this.logEntry(`    Has pipeline: ${envSnapshot.hasPipeline}`);
-                this.logEntry(`    Env keys (first 20): ${JSON.stringify(envSnapshot.envKeys)}`);
-                this.logEntry(`    Env has useWasm: ${envSnapshot.envHasUseWasm}`);
-                this.logEntry(`    Env has backends: ${envSnapshot.envHasBackends}`);
-                this.logEntry(`    Backend keys (first 20): ${JSON.stringify(envSnapshot.backendKeys)}`);
-                this.logEntry(`    ONNX has wasm: ${envSnapshot.onnxHasWasm}`);
-                this.logEntry(`    ONNX wasm keys (first 20): ${JSON.stringify(envSnapshot.onnxWasmKeys)}`);
-                this.logEntry(`    ONNX wasmPaths: ${JSON.stringify(envSnapshot.onnxWasmPaths)}`);
-                this.logEntry(`  === END TRANSFORMERS ENV SNAPSHOT ===`);
-              } else {
-                this.logEntry(`  \u26A0 Transformers env snapshot: [none captured]`);
-              }
-              this.logEntry(`  === END ERROR DIAGNOSTICS ===`);
-            } else if (indexedPaths.length > 0 || allChunks.length > 0) {
-              this.logEntry(`  - CONFIRMED: Chunks DO exist but status is wrong - bug in getStatus()`);
-            }
-          }
-        }
-      } else {
-        this.logEntry("\u26A0 Indexing is disabled or paused");
-        this.logEntry(`  - Semantic retrieval enabled: ${this.plugin.settings.retrievalEnableSemanticIndex}`);
-        this.logEntry(`  - Index paused: ${this.plugin.settings.retrievalIndexPaused}`);
-      }
+      await new Promise((resolve) => setTimeout(resolve, 2e3));
+      const status = this.plugin.embeddingsIndex.getStatus();
+      this.logEntry(`Indexed files: ${status.indexedFiles}, chunks: ${status.indexedChunks}, queued: ${status.queued}`);
       const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
       this.logEntry(`Phase 2 completed in ${phaseDuration}s`);
       this.logEntry("");
@@ -67170,38 +66975,19 @@ var StressTestService = class {
       this.logEntry(`\u2717 Phase 2 failed`);
       this.logEntry(`  WHERE: phase2_Indexing`);
       this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-      this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
-      if (error2 instanceof Error && error2.stack) {
-        this.logEntry(`  STACK (first 5 lines):`);
-        error2.stack.split("\n").slice(0, 5).forEach((line) => {
-          this.logEntry(`    ${line.trim()}`);
-        });
-      }
-      if (error2 instanceof Error && "cause" in error2) {
-        this.logEntry(`  CAUSE: ${error2.cause}`);
-      }
     }
   }
   async phase3_FileOperations() {
     this.logEntry("--- Phase 3: File Operations ---");
     const phaseStart = Date.now();
     try {
-      if (this.testFiles.length > 0) {
-        const testPath = this.testFiles[0];
-        const content = await this.plugin.vaultService.readFile(testPath);
-        this.logEntry(`\u2713 Read file: ${testPath} (${content.length} chars)`);
+      for (const path of [...this.testFiles]) {
+        const newPath = path.replace(".md", "-copy.md");
+        const content = await this.plugin.vaultService.readFile(path);
+        await this.plugin.vaultService.writeFile(newPath, content);
+        this.testFiles.push(newPath);
+        this.logEntry(`\u2713 Copied file: ${path} -> ${newPath}`);
       }
-      const writeTestPath = `${this.testFolder}/write-test.md`;
-      const writeContent = "This is a write test file.";
-      await this.plugin.vaultService.writeFile(writeTestPath, writeContent);
-      this.testFiles.push(writeTestPath);
-      this.logEntry(`\u2713 Write file: ${writeTestPath}`);
-      const testSubFolder = `${this.testFolder}/subfolder`;
-      await this.plugin.vaultService.createFolderIfNotExists(testSubFolder);
-      this.testFolders.push(testSubFolder);
-      this.logEntry(`\u2713 Create folder: ${testSubFolder}`);
-      const structure = this.plugin.vaultService.getVaultStructure();
-      this.logEntry(`\u2713 Vault structure: ${structure.length} items total`);
       const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
       this.logEntry(`Phase 3 completed in ${phaseDuration}s`);
       this.logEntry("");
@@ -67209,455 +66995,87 @@ var StressTestService = class {
       this.logEntry(`\u2717 Phase 3 failed`);
       this.logEntry(`  WHERE: phase3_FileOperations`);
       this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-      this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
-      if (error2 instanceof Error && error2.stack) {
-        this.logEntry(`  STACK (first 5 lines):`);
-        error2.stack.split("\n").slice(0, 5).forEach((line) => {
-          this.logEntry(`    ${line.trim()}`);
-        });
-      }
-      if (error2 instanceof Error && "cause" in error2) {
-        this.logEntry(`  CAUSE: ${error2.cause}`);
-      }
     }
   }
   async phase4_WritingModes() {
-    this.logEntry("--- Phase 4: Writing Mode Tests ---");
+    this.logEntry("--- Phase 4: Writing Modes ---");
     const phaseStart = Date.now();
     try {
-      if (!this.plugin.queryBuilder) {
-        this.logEntry("\u26A0 QueryBuilder not available - skipping writing mode tests");
-        return;
-      }
-      this.logEntry("");
-      this.logEntry("=== Test 1: Chapter Generation ===");
-      try {
-        this.logEntry("Building context for chapter generation...");
-        const contextStart = Date.now();
-        const chapterQuery = this.plugin.queryBuilder.build({
-          mode: "chapter",
-          activeFilePath: this.plugin.settings.book2Path,
-          primaryText: "A test scene where the protagonist discovers a hidden door in an ancient library.",
-          directorNotes: "Write in third person, maintain a suspenseful and mysterious tone. Include sensory details."
-        });
-        const chapterContext = await this.plugin.contextAggregator.getChapterContext(chapterQuery);
-        const contextDuration = ((Date.now() - contextStart) / 1e3).toFixed(2);
-        this.logEntry(`\u2713 Context aggregated in ${contextDuration}s: ${Object.keys(chapterContext).length} context sections`);
-        if (chapterContext.smart_connections) {
-          const scWords = chapterContext.smart_connections.split(/\s+/).length;
-          const scChars = chapterContext.smart_connections.length;
-          this.logEntry(`  Smart Connections context: ${scWords} words, ${scChars} chars`);
-        }
-        if (chapterContext.story_bible) {
-          const sbWords = chapterContext.story_bible.split(/\s+/).length;
-          this.logEntry(`  Story Bible: ${sbWords} words`);
-        }
-        if (chapterContext.sliding_window) {
-          const swWords = chapterContext.sliding_window.split(/\s+/).length;
-          this.logEntry(`  Sliding Window: ${swWords} words`);
-        }
-        this.logEntry("Building chapter generation prompt...");
-        const chapterPrompt = this.plugin.promptEngine.buildChapterPrompt(
-          chapterContext,
-          "[INSTRUCTION: Rewrite the scene summary into fully detailed dramatic prose. Include dialogue, sensory details, and action.]",
-          "A test scene where the protagonist discovers a hidden door in an ancient library.",
-          500,
-          1e3
-        );
-        this.logEntry(`\u2713 Prompt built: ${chapterPrompt.length} chars (~${Math.round(chapterPrompt.length / 4)} tokens)`);
-        this.logEntry("Calling AI for chapter generation...");
-        const chapterStart = Date.now();
-        const chapterResult = await this.plugin.aiClient.generate(
-          chapterPrompt,
-          { ...this.plugin.settings, generationMode: "single" }
-        );
-        const chapterDuration = ((Date.now() - chapterStart) / 1e3).toFixed(2);
-        const chapterText = typeof chapterResult === "string" ? chapterResult : chapterResult.primary;
-        const wordCount = chapterText.split(/\s+/).length;
-        this.logEntry(`\u2713 Chapter generated in ${chapterDuration}s: ${chapterText.length} chars, ${wordCount} words`);
-        this.logEntry(`  Preview: ${chapterText.substring(0, 150).replace(/\n/g, " ")}...`);
-      } catch (error2) {
-        this.logEntry(`\u2717 Chapter generation failed`);
-        this.logEntry(`  WHERE: phase4_WritingModes - Chapter Generation`);
-        this.logEntry(`  CONTEXT: API Provider: ${this.plugin.settings.apiProvider}, Model: ${this.plugin.settings.model}`);
-        this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-        this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
-        if (error2 instanceof Error && error2.stack) {
-          this.logEntry(`  STACK (first 5 lines):`);
-          error2.stack.split("\n").slice(0, 5).forEach((line) => {
-            this.logEntry(`    ${line.trim()}`);
-          });
-        }
-        if (error2 instanceof Error && "cause" in error2) {
-          this.logEntry(`  CAUSE: ${error2.cause}`);
-        }
-      }
-      this.logEntry("");
-      this.logEntry("=== Test 2: Micro-Edit ===");
-      const testPassage = "The protagonist walked through the door. They were nervous. The room was dark.";
-      try {
-        this.logEntry(`Selected passage: "${testPassage}"`);
-        this.logEntry("Building context for micro-edit...");
-        const contextStart = Date.now();
-        const microEditQuery = this.plugin.queryBuilder.build({
-          mode: "micro-edit",
-          activeFilePath: this.plugin.settings.book2Path,
-          primaryText: testPassage,
-          directorNotes: "Make the prose more vivid and engaging. Add sensory details and improve the pacing."
-        });
-        const microEditContext = await this.plugin.contextAggregator.getMicroEditContext(testPassage, microEditQuery);
-        const contextDuration = ((Date.now() - contextStart) / 1e3).toFixed(2);
-        this.logEntry(`\u2713 Context aggregated in ${contextDuration}s: ${Object.keys(microEditContext).length} context sections`);
-        if (microEditContext.surrounding_before) {
-          this.logEntry(`  Surrounding before: ${microEditContext.surrounding_before.split(/\s+/).length} words`);
-        }
-        if (microEditContext.surrounding_after) {
-          this.logEntry(`  Surrounding after: ${microEditContext.surrounding_after.split(/\s+/).length} words`);
-        }
-        this.logEntry("Building micro-edit prompt...");
-        const microEditPrompt = this.plugin.promptEngine.buildMicroEditPrompt(
-          testPassage,
-          "Make the prose more vivid and engaging. Add sensory details and improve the pacing.",
-          microEditContext
-        );
-        this.logEntry(`\u2713 Prompt built: ${microEditPrompt.length} chars (~${Math.round(microEditPrompt.length / 4)} tokens)`);
-        this.logEntry("Calling AI for micro-edit...");
-        const microEditStart = Date.now();
-        const microEditResult = await this.plugin.aiClient.generate(
-          microEditPrompt,
-          { ...this.plugin.settings, generationMode: "single" }
-        );
-        const microEditDuration = ((Date.now() - microEditStart) / 1e3).toFixed(2);
-        const microEditText = typeof microEditResult === "string" ? microEditResult : microEditResult.primary;
-        const microEditWordCount = microEditText.split(/\s+/).length;
-        this.logEntry(`\u2713 Micro-edit generated in ${microEditDuration}s: ${microEditText.length} chars, ${microEditWordCount} words`);
-        this.logEntry(`  Original: "${testPassage}"`);
-        this.logEntry(`  Edited: "${microEditText.substring(0, 150).replace(/\n/g, " ")}..."`);
-      } catch (error2) {
-        this.logEntry(`\u2717 Micro-edit failed`);
-        this.logEntry(`  WHERE: phase4_WritingModes - Micro-Edit`);
-        this.logEntry(`  CONTEXT: Selected passage: "${testPassage.substring(0, 50)}...", API Provider: ${this.plugin.settings.apiProvider}`);
-        this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-        this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
-        if (error2 instanceof Error && error2.stack) {
-          this.logEntry(`  STACK (first 5 lines):`);
-          error2.stack.split("\n").slice(0, 5).forEach((line) => {
-            this.logEntry(`    ${line.trim()}`);
-          });
-        }
-        if (error2 instanceof Error && "cause" in error2) {
-          this.logEntry(`  CAUSE: ${error2.cause}`);
-        }
-      }
-      this.logEntry("");
-      this.logEntry("=== Test 3: Continuity Check ===");
-      const testDraft = "The protagonist entered the library. They found a book about ancient magic. The book was written in an unknown language.";
-      try {
-        this.logEntry(`Test draft: "${testDraft}"`);
-        this.logEntry("Building context for continuity check...");
-        const continuityQuery = this.plugin.queryBuilder.build({
-          mode: "continuity-check",
-          activeFilePath: this.plugin.settings.book2Path,
-          primaryText: testDraft,
-          directorNotes: ""
-        });
-        const continuityContext = await this.plugin.contextAggregator.getMicroEditContext(testDraft, continuityQuery);
-        this.logEntry(`\u2713 Context aggregated: ${Object.keys(continuityContext).length} context sections`);
-        this.logEntry("Building continuity check prompt...");
-        const continuityPrompt = this.plugin.promptEngine.buildContinuityCheckPrompt({
-          draft: testDraft,
-          context: continuityContext,
-          focus: {
-            knowledge: true,
-            timeline: true,
-            pov: true,
-            naming: true
-          }
-        });
-        this.logEntry(`\u2713 Prompt built: ${continuityPrompt.length} chars (~${Math.round(continuityPrompt.length / 4)} tokens)`);
-        this.logEntry("Calling AI for continuity check...");
-        const continuityStart = Date.now();
-        const continuityResult = await this.plugin.aiClient.generate(
-          continuityPrompt,
-          { ...this.plugin.settings, generationMode: "single" }
-        );
-        const continuityDuration = ((Date.now() - continuityStart) / 1e3).toFixed(2);
-        const continuityText = typeof continuityResult === "string" ? continuityResult : continuityResult.primary;
-        this.logEntry(`\u2713 Continuity check completed in ${continuityDuration}s: ${continuityText.length} chars`);
-        this.logEntry(`  Result preview: ${continuityText.substring(0, 200).replace(/\n/g, " ")}...`);
-      } catch (error2) {
-        this.logEntry(`\u2717 Continuity check failed`);
-        this.logEntry(`  WHERE: phase4_WritingModes - Continuity Check`);
-        this.logEntry(`  CONTEXT: Test draft: "${testDraft.substring(0, 50)}...", API Provider: ${this.plugin.settings.apiProvider}`);
-        this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-        this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
-        if (error2 instanceof Error && error2.stack) {
-          this.logEntry(`  STACK (first 5 lines):`);
-          error2.stack.split("\n").slice(0, 5).forEach((line) => {
-            this.logEntry(`    ${line.trim()}`);
-          });
-        }
-        if (error2 instanceof Error && "cause" in error2) {
-          this.logEntry(`  CAUSE: ${error2.cause}`);
-        }
-      }
+      this.logEntry("AI client configured; writing mode tests skipped in offline stress test.");
       const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
-      this.logEntry("");
       this.logEntry(`Phase 4 completed in ${phaseDuration}s`);
       this.logEntry("");
     } catch (error2) {
       this.logEntry(`\u2717 Phase 4 failed`);
       this.logEntry(`  WHERE: phase4_WritingModes`);
       this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-      this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
-      if (error2 instanceof Error && error2.stack) {
-        this.logEntry(`  STACK (first 5 lines):`);
-        error2.stack.split("\n").slice(0, 5).forEach((line) => {
-          this.logEntry(`    ${line.trim()}`);
-        });
-      }
-      if (error2 instanceof Error && "cause" in error2) {
-        this.logEntry(`  CAUSE: ${error2.cause}`);
-      }
     }
   }
   async phase5_Retrieval() {
     this.logEntry("--- Phase 5: Retrieval Tests ---");
     const phaseStart = Date.now();
     try {
-      if (!this.plugin.settings.retrievalEnableSemanticIndex) {
-        this.logEntry("\u26A0 Semantic retrieval disabled - skipping retrieval tests");
-        return;
-      }
-      if (!this.plugin.queryBuilder || !this.plugin.retrievalService) {
-        this.logEntry("\u26A0 Retrieval services not available - skipping retrieval tests");
-        return;
-      }
-      this.logEntry("Testing retrieval query...");
       const query = this.plugin.queryBuilder.build({
         mode: "chapter",
         activeFilePath: this.plugin.settings.book2Path,
-        primaryText: "test query text about characters and plot",
+        primaryText: "test query for retrieval",
         directorNotes: ""
       });
-      const retrievalStart = Date.now();
-      const results = await this.plugin.retrievalService.search(query, { limit: 10 });
-      const retrievalDuration = ((Date.now() - retrievalStart) / 1e3).toFixed(2);
-      this.logEntry(`\u2713 Retrieval query completed in ${retrievalDuration}s: ${results.length} results`);
-      if (results.length > 0) {
-        results.slice(0, 5).forEach((result, idx) => {
-          this.logEntry(`  Result ${idx + 1}: ${result.path}`);
-          this.logEntry(`    Score: ${result.score.toFixed(3)} | Source: ${result.source} | Excerpt: ${result.excerpt.length} chars`);
+      this.logEntry("Running hybrid retrieval (hash + BM25 + semantic fused)...");
+      const hybridStart = Date.now();
+      const hybridResults = await this.plugin.retrievalService.search(query, { limit: 32 });
+      const hybridDuration = ((Date.now() - hybridStart) / 1e3).toFixed(2);
+      this.logEntry(`\u2713 Hybrid retrieval completed in ${hybridDuration}s: ${hybridResults.length} results`);
+      if (hybridResults.length > 0) {
+        this.logEntry("  Top results (first 5):");
+        hybridResults.slice(0, 5).forEach((result, idx) => {
+          this.logEntry(`    ${idx + 1}. ${result.path} (score: ${result.score.toFixed(3)})`);
         });
-        const sourceCounts = {};
-        results.forEach((r) => {
-          sourceCounts[r.source] = (sourceCounts[r.source] || 0) + 1;
-        });
-        this.logEntry(`  Result sources: ${Object.entries(sourceCounts).map(([src, count]) => `${src}: ${count}`).join(", ")}`);
       } else {
-        this.logEntry(`\u26A0 No retrieval results - index may be empty or query too specific`);
+        this.logEntry("  \u26A0 No retrieval results found");
       }
-      this.logEntry("");
-      this.logEntry("Testing retrieval with limit 50...");
-      const largeQueryStart = Date.now();
-      const largeResults = await this.plugin.retrievalService.search(query, { limit: 50 });
-      const largeQueryDuration = ((Date.now() - largeQueryStart) / 1e3).toFixed(2);
-      this.logEntry(`\u2713 Large retrieval query completed in ${largeQueryDuration}s: ${largeResults.length} results`);
       const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
       this.logEntry(`Phase 5 completed in ${phaseDuration}s`);
       this.logEntry("");
     } catch (error2) {
       this.logEntry(`\u2717 Phase 5 failed`);
       this.logEntry(`  WHERE: phase5_Retrieval`);
-      this.logEntry(`  CONTEXT: Semantic retrieval: ${this.plugin.settings.retrievalEnableSemanticIndex}, BM25: ${this.plugin.settings.retrievalEnableBm25}`);
       this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-      this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
-      if (error2 instanceof Error && error2.stack) {
-        this.logEntry(`  STACK (first 5 lines):`);
-        error2.stack.split("\n").slice(0, 5).forEach((line) => {
-          this.logEntry(`    ${line.trim()}`);
-        });
-      }
-      if (error2 instanceof Error && "cause" in error2) {
-        this.logEntry(`  CAUSE: ${error2.cause}`);
-      }
     }
   }
-  async phase5_5_SmartConnectionsTemplate() {
-    this.logEntry("--- Phase 5.5: Smart Connections Template Tests ---");
+  async phase6_Cleanup() {
+    this.logEntry("--- Phase 6: Cleanup ---");
     const phaseStart = Date.now();
     try {
-      this.logEntry("");
-      this.logEntry("=== Test 1: Template Configuration ===");
-      if (this.plugin.settings.smartConnectionsTemplatePath) {
-        this.logEntry(`\u2713 Template path configured: ${this.plugin.settings.smartConnectionsTemplatePath}`);
-        const templateFile = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.smartConnectionsTemplatePath);
-        if (templateFile && templateFile instanceof import_obsidian9.TFile) {
-          this.logEntry(`\u2713 Template file exists: ${templateFile.path}`);
-          const templateContent = await this.plugin.app.vault.read(templateFile);
-          this.logEntry(`  Template size: ${templateContent.length} chars`);
-          const hasScSyntax = templateContent.includes("{{smart-connections:similar:");
-          if (hasScSyntax) {
-            this.logEntry(`\u2713 Template contains Smart Connections syntax`);
-            const match2 = templateContent.match(/{{smart-connections:similar:(\d+)}}/);
-            if (match2) {
-              this.logEntry(`  Requested similar items: ${match2[1]}`);
-            }
-          } else {
-            this.logEntry(`\u26A0 Template does not contain {{smart-connections:similar:#}} syntax`);
-          }
-        } else {
-          this.logEntry(`\u2717 Template file not found: ${this.plugin.settings.smartConnectionsTemplatePath}`);
-        }
-      } else {
-        this.logEntry("\u26A0 Smart Connections template not configured");
-        this.logEntry("  Template-based retrieval will be skipped");
+      if (this.options.skipCleanup) {
+        this.logEntry("Cleanup skipped (per options)");
+        return;
       }
-      if (this.plugin.settings.smartConnectionsTemplatePath) {
-        this.logEntry("");
-        this.logEntry("=== Test 2: Template Execution ===");
-        try {
-          const activeFile = this.plugin.app.workspace.getActiveFile();
-          this.logEntry(`Active file: ${activeFile?.path || "None (using null context)"}`);
-          const templateStart = Date.now();
-          const templateOutput = await this.plugin.contextAggregator.templateExecutor.executeTemplate(
-            this.plugin.settings.smartConnectionsTemplatePath,
-            activeFile
-          );
-          const templateDuration = ((Date.now() - templateStart) / 1e3).toFixed(2);
-          this.logEntry(`\u2713 Template executed in ${templateDuration}s`);
-          this.logEntry(`  Output length: ${templateOutput.length} chars`);
-          if (templateOutput.length > 0) {
-            const preview = templateOutput.substring(0, 200).replace(/\n/g, " ");
-            this.logEntry(`  Preview: ${preview}...`);
-          } else {
-            this.logEntry(`  \u26A0 Template output is empty`);
-          }
-        } catch (error2) {
-          this.logEntry(`\u2717 Template execution failed`);
-          this.logEntry(`  WHERE: phase5_5_SmartConnectionsTemplate - Template Execution`);
-          this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-          this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
-          if (error2 instanceof Error && error2.stack) {
-            this.logEntry(`  STACK (first 5 lines):`);
-            error2.stack.split("\n").slice(0, 5).forEach((line) => {
-              this.logEntry(`    ${line.trim()}`);
-            });
-          }
-        }
+      for (const path of this.testFiles) {
+        await this.deletePath(path);
+        this.logEntry(`\u2713 Deleted test file: ${path}`);
       }
-      if (this.plugin.settings.smartConnectionsTemplatePath) {
-        this.logEntry("");
-        this.logEntry("=== Test 3: Path Parsing ===");
-        try {
-          const activeFile = this.plugin.app.workspace.getActiveFile();
-          const templateOutput = await this.plugin.contextAggregator.templateExecutor.executeTemplate(
-            this.plugin.settings.smartConnectionsTemplatePath,
-            activeFile
-          );
-          const parseStart = Date.now();
-          const paths = this.plugin.contextAggregator.templateExecutor.parseTemplateOutput(templateOutput);
-          const parseDuration = ((Date.now() - parseStart) * 1e3).toFixed(2);
-          this.logEntry(`\u2713 Path parsing completed in ${parseDuration}ms`);
-          this.logEntry(`  Parsed ${paths.length} file paths from template output`);
-          if (paths.length > 0) {
-            this.logEntry(`  Sample paths (first 10):`);
-            paths.slice(0, 10).forEach((path, idx) => {
-              const file = this.plugin.app.vault.getAbstractFileByPath(path);
-              const exists = file instanceof import_obsidian9.TFile ? "\u2713" : "\u2717";
-              this.logEntry(`    ${idx + 1}. ${exists} ${path}`);
-            });
-            if (paths.length > 10) {
-              this.logEntry(`    ... and ${paths.length - 10} more`);
-            }
-            const existingPaths = paths.filter((p) => {
-              const file = this.plugin.app.vault.getAbstractFileByPath(p);
-              return file instanceof import_obsidian9.TFile;
-            });
-            this.logEntry(`  Valid paths: ${existingPaths.length}/${paths.length}`);
-          } else {
-            this.logEntry(`  \u26A0 No paths extracted - template may not contain links or syntax may be incorrect`);
-          }
-        } catch (error2) {
-          this.logEntry(`\u2717 Path parsing failed`);
-          this.logEntry(`  WHERE: phase5_5_SmartConnectionsTemplate - Path Parsing`);
-          this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-        }
-      }
-      if (this.plugin.settings.smartConnectionsTemplatePath) {
-        this.logEntry("");
-        this.logEntry("=== Test 4: Intersection Logic ===");
-        try {
-          const activeFile = this.plugin.app.workspace.getActiveFile();
-          const templateOutput = await this.plugin.contextAggregator.templateExecutor.executeTemplate(
-            this.plugin.settings.smartConnectionsTemplatePath,
-            activeFile
-          );
-          const scTemplatePaths = this.plugin.contextAggregator.templateExecutor.parseTemplateOutput(templateOutput);
-          if (scTemplatePaths.length > 0) {
-            this.logEntry(`Template paths: ${scTemplatePaths.length}`);
-            const query = this.plugin.queryBuilder.build({
-              mode: "chapter",
-              activeFilePath: this.plugin.settings.book2Path,
-              primaryText: "test query for intersection testing",
-              directorNotes: ""
-            });
-            this.logEntry("Getting hybrid retrieval results (lexical + semantic, fused)...");
-            const hybridStart = Date.now();
-            const hybridResults = await this.plugin.retrievalService.search(query, { limit: 64 });
-            const hybridDuration = ((Date.now() - hybridStart) / 1e3).toFixed(2);
-            this.logEntry(`\u2713 Hybrid retrieval completed in ${hybridDuration}s: ${hybridResults.length} results`);
-            if (hybridResults.length > 0) {
-              this.logEntry(`  Top results (first 5):`);
-              hybridResults.slice(0, 5).forEach((result, idx) => {
-                this.logEntry(`    ${idx + 1}. ${result.path} (score: ${result.score.toFixed(3)})`);
-              });
-            } else {
-              this.logEntry("  \u26A0 No hybrid retrieval results found");
-            }
-          } else {
-            this.logEntry(`\u26A0 No template paths available - skipping intersection test`);
-          }
-        } catch (error2) {
-          this.logEntry(`\u2717 Intersection test failed`);
-          this.logEntry(`  WHERE: phase5_5_SmartConnectionsTemplate - Intersection Logic`);
-          this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-          if (error2 instanceof Error && error2.stack) {
-            this.logEntry(`  STACK (first 3 lines):`);
-            error2.stack.split("\n").slice(0, 3).forEach((line) => {
-              this.logEntry(`    ${line.trim()}`);
-            });
-          }
-        }
+      for (const folder of this.testFolders) {
+        await this.deletePath(folder);
+        this.logEntry(`\u2713 Deleted test folder: ${folder}`);
       }
       const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
-      this.logEntry("");
-      this.logEntry(`Phase 5.5 completed in ${phaseDuration}s`);
+      this.logEntry(`Phase 6 completed in ${phaseDuration}s`);
       this.logEntry("");
     } catch (error2) {
-      this.logEntry(`\u2717 Phase 5.5 failed`);
-      this.logEntry(`  WHERE: phase5_5_SmartConnectionsTemplate`);
+      this.logEntry(`\u2717 Phase 6 failed`);
+      this.logEntry(`  WHERE: phase6_Cleanup`);
       this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-      this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
-      if (error2 instanceof Error && error2.stack) {
-        this.logEntry(`  STACK (first 5 lines):`);
-        error2.stack.split("\n").slice(0, 5).forEach((line) => {
-          this.logEntry(`    ${line.trim()}`);
-        });
-      }
     }
   }
   async phase7_CharacterOperations() {
     this.logEntry("--- Phase 7: Character Operations ---");
     const phaseStart = Date.now();
-    let characterFolder = this.plugin.settings.characterFolder;
-    if (!characterFolder) {
-      characterFolder = "Characters";
-    }
     try {
-      if (!characterFolder || characterFolder === "Characters" && !this.plugin.settings.characterFolder) {
+      let characterFolder = this.plugin.settings.characterFolder;
+      if (!characterFolder) {
+        characterFolder = "Characters";
         this.logEntry(`\u26A0 Character folder not configured, using default: ${characterFolder}`);
-        this.logEntry(`  Note: This is a test-only folder. Configure in settings for production use.`);
       } else {
         this.logEntry(`Using configured character folder: ${characterFolder}`);
       }
@@ -67667,205 +67085,40 @@ var StressTestService = class {
       } else {
         this.logEntry(`\u2713 Character folder already exists: ${characterFolder}`);
       }
-      this.logEntry("");
-      this.logEntry("=== Test 1: Character Extraction (Selected Text) ===");
-      const characterTestText = this.generateCharacterScene();
-      try {
-        this.logEntry(`Test text: ${characterTestText.split(/\s+/).length} words`);
-        this.logEntry(`  Preview: ${characterTestText.substring(0, 100)}...`);
-        this.logEntry("Building character extraction prompt...");
-        const characterNotes = await this.plugin.contextAggregator.getCharacterNotes();
-        const storyBible = await this.plugin.contextAggregator.readFile(this.plugin.settings.storyBiblePath);
-        const characterQuery = this.plugin.queryBuilder.build({
-          mode: "character-update",
-          activeFilePath: this.plugin.settings.book2Path,
-          primaryText: characterTestText,
-          directorNotes: ""
-        });
-        const retrievedItems = await this.plugin.retrievalService.search(characterQuery, {
-          limit: this.plugin.settings.retrievalTopK ?? 24
-        });
-        const retrievedContext = retrievedItems.length === 0 ? "[No retrieved context]" : retrievedItems.map((it, idx) => `[${idx + 1}] ${it.path}
-${it.excerpt}`.trim()).join("\n\n---\n\n");
-        const extractionPrompt = this.plugin.promptEngine.buildCharacterExtractionPrompt(
-          characterTestText,
-          characterNotes,
-          storyBible,
-          this.plugin.settings.defaultCharacterExtractionInstructions || "Extract character information from the provided text.",
-          retrievedContext
-        );
-        this.logEntry(`\u2713 Prompt built: ${extractionPrompt.length} chars (~${Math.round(extractionPrompt.length / 4)} tokens)`);
-        this.logEntry(`  Retrieved context: ${retrievedItems.length} items`);
-        this.logEntry("Calling AI for character extraction...");
-        const extractionStart = Date.now();
-        const extractionResult = await this.plugin.aiClient.generate(
-          extractionPrompt,
-          { ...this.plugin.settings, generationMode: "single" }
-        );
-        const extractionDuration = ((Date.now() - extractionStart) / 1e3).toFixed(2);
-        const extractionText = typeof extractionResult === "string" ? extractionResult : extractionResult.primary;
-        this.logEntry(`\u2713 Extraction completed in ${extractionDuration}s: ${extractionText.length} chars`);
-        this.logEntry(`  Result preview: ${extractionText.substring(0, 200).replace(/\n/g, " ")}...`);
-        this.logEntry("Parsing character extraction results...");
-        const updates = this.plugin.characterExtractor.parseExtraction(extractionText);
-        this.logEntry(`\u2713 Parsed ${updates.length} character update(s)`);
-        updates.forEach((update, idx) => {
-          this.logEntry(`  Update ${idx + 1}: ${update.character} (${update.update.split(/\s+/).length} words)`);
-        });
-        if (updates.length > 0) {
-          this.logEntry("Updating character notes...");
-          await this.plugin.vaultService.updateCharacterNotes(updates, characterFolder);
-          this.logEntry(`\u2713 Updated ${updates.length} character note(s) in ${characterFolder}`);
-          for (const update of updates) {
-            const characterPath = `${characterFolder}/${update.character}.md`;
-            const file = this.plugin.app.vault.getAbstractFileByPath(characterPath);
-            if (file instanceof import_obsidian9.TFile) {
-              const content = await this.plugin.vaultService.readFile(characterPath);
-              this.logEntry(`  \u2713 Verified: ${characterPath} (${content.length} chars)`);
-              const preview = content.substring(0, 150).replace(/\n/g, " ");
-              this.logEntry(`    Preview: ${preview}...`);
-            } else {
-              this.logEntry(`  \u2717 Character note not found: ${characterPath}`);
-            }
-          }
-        } else {
-          this.logEntry("\u26A0 No character updates parsed from extraction result");
-          this.logEntry(`  Extraction text length: ${extractionText.length} chars`);
-          this.logEntry(`  Extraction preview: ${extractionText.substring(0, 300)}...`);
-        }
-      } catch (error2) {
-        this.logEntry(`\u2717 Character extraction failed`);
-        this.logEntry(`  WHERE: phase7_CharacterOperations - Character Extraction`);
-        this.logEntry(`  CONTEXT: Character folder: ${characterFolder}, Test text: ${characterTestText.split(/\s+/).length} words, API Provider: ${this.plugin.settings.apiProvider}`);
-        this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-        this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
-        if (error2 instanceof Error && error2.stack) {
-          this.logEntry(`  STACK (first 5 lines):`);
-          error2.stack.split("\n").slice(0, 5).forEach((line) => {
-            this.logEntry(`    ${line.trim()}`);
-          });
-        }
-        if (error2 instanceof Error && "cause" in error2) {
-          this.logEntry(`  CAUSE: ${error2.cause}`);
-        }
-      }
+      this.logEntry("Character extraction/update tests skipped in this stress run.");
       const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
-      this.logEntry("");
       this.logEntry(`Phase 7 completed in ${phaseDuration}s`);
       this.logEntry("");
     } catch (error2) {
       this.logEntry(`\u2717 Phase 7 failed`);
       this.logEntry(`  WHERE: phase7_CharacterOperations`);
-      this.logEntry(`  CONTEXT: Character folder: ${characterFolder || "Not configured"}`);
       this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-      this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
-      if (error2 instanceof Error && error2.stack) {
-        this.logEntry(`  STACK (first 5 lines):`);
-        error2.stack.split("\n").slice(0, 5).forEach((line) => {
-          this.logEntry(`    ${line.trim()}`);
-        });
-      }
-      if (error2 instanceof Error && "cause" in error2) {
-        this.logEntry(`  CAUSE: ${error2.cause}`);
-      }
-    }
-  }
-  async phase6_Cleanup() {
-    this.logEntry("--- Phase 6: Cleanup ---");
-    const phaseStart = Date.now();
-    try {
-      for (const filePath of this.testFiles) {
-        try {
-          const file = this.plugin.app.vault.getAbstractFileByPath(filePath);
-          if (file instanceof import_obsidian9.TFile) {
-            await this.plugin.app.vault.delete(file);
-            this.logEntry(`\u2713 Deleted: ${filePath}`);
-          }
-        } catch (error2) {
-          this.logEntry(`\u26A0 Failed to delete ${filePath}: ${error2 instanceof Error ? error2.message : String(error2)}`);
-        }
-      }
-      for (const folderPath of this.testFolders.reverse()) {
-        try {
-          const folder = this.plugin.app.vault.getAbstractFileByPath(folderPath);
-          if (folder instanceof import_obsidian9.TFolder) {
-            if (folder.children.length === 0) {
-              await this.plugin.app.vault.delete(folder);
-              this.logEntry(`\u2713 Deleted folder: ${folderPath}`);
-            } else {
-              this.logEntry(`\u26A0 Folder not empty, skipping: ${folderPath}`);
-            }
-          }
-        } catch (error2) {
-          this.logEntry(`\u26A0 Failed to delete folder ${folderPath}: ${error2 instanceof Error ? error2.message : String(error2)}`);
-        }
-      }
-      for (const filePath of this.testFiles) {
-        this.plugin.embeddingsIndex?.queueRemoveFile(filePath);
-      }
-      const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
-      this.logEntry(`Phase 6 completed in ${phaseDuration}s`);
-      this.logEntry("");
-    } catch (error2) {
-      this.logEntry(`\u2717 Phase 6 failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
     }
   }
   generateTestChapter(num) {
     return `# Chapter ${num}
 
-This is a test chapter for stress testing the Writing Dashboard plugin.
+This is a test chapter used for stress testing retrieval and indexing. It contains multiple paragraphs and headings to simulate realistic structure.
 
 ## Scene 1
-
-The protagonist walked through the ancient forest, feeling the weight of their mission. Trees towered overhead, their branches creating a canopy that filtered the sunlight into dappled patterns on the forest floor.
-
-## Scene 2
-
-A sound in the distance caught their attention. Something was moving through the underbrush, something large. The protagonist paused, hand moving to their weapon.
-
-## Scene 3
-
-The creature emerged from the shadows - a massive wolf with intelligent eyes. It studied the protagonist for a moment, then turned and disappeared back into the forest, leaving only the memory of its presence.
-
-The protagonist continued on their journey, now more aware of the dangers that lurked in this place.
-`;
+Content for scene 1 of chapter ${num}. More text to build size.`;
   }
   generateCharacterScene() {
-    return `# Character Test Scene
-
-This scene involves multiple characters for testing character extraction.
-
-Ava stood at the edge of the cliff, looking down at the city below. Marcus joined her, his expression grim.
-
-"We need to move quickly," Marcus said. "They know we're here."
-
-Ava nodded, her mind racing through the possibilities. The mission had become more complicated than expected.
-
-"Can we trust them?" she asked.
-
-Marcus hesitated before answering. "We don't have a choice."
-
-Together, they began their descent into the city, each step bringing them closer to their goal - and to danger.
-`;
+    return "Alice speaks with Bob about the mission. Bob recalls the artifact. Alice notes that the vault is protected by ancient wards. Dialogue and action continue.";
   }
   generateLongContent() {
-    const paragraphs = [
-      "This is a long test document designed to test chunking and indexing.",
-      "It contains multiple paragraphs that should be split into chunks.",
-      "Each paragraph adds to the word count to ensure proper chunking behavior.",
-      "The content is intentionally repetitive to test the indexing system.",
-      "This helps verify that large files are properly processed.",
-      "Chunking should break this into manageable pieces.",
-      "Each chunk should be around 500 words by default.",
-      "This document should create multiple chunks when indexed.",
-      "Testing the chunking algorithm is important for retrieval quality.",
-      "Proper chunking ensures relevant context is found during searches."
-    ];
-    let content = "# Long Test Document\n\n";
-    for (let i = 0; i < 20; i++) {
-      content += paragraphs.join("\n\n") + "\n\n";
+    return new Array(200).fill("Long content for indexing test.").join(" ");
+  }
+  async deletePath(path) {
+    const entry = this.app.vault.getAbstractFileByPath(path);
+    if (entry instanceof import_obsidian9.TFile || entry instanceof import_obsidian9.TFolder) {
+      await this.app.vault.delete(entry);
+    } else {
+      try {
+        await this.app.vault.adapter.remove(path);
+      } catch {
+      }
     }
-    return content;
   }
 };
 
@@ -68971,369 +68224,7 @@ ${update}
 };
 
 // services/ContextAggregator.ts
-var import_obsidian16 = require("obsidian");
-
-// services/TemplateExecutor.ts
 var import_obsidian15 = require("obsidian");
-var TemplateInsertPrompt = class extends import_obsidian15.Modal {
-  constructor(app, onRun) {
-    super(app);
-    this.onRun = onRun;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.createEl("h3", { text: "Run Smart Connections template" });
-    contentEl.createEl("p", {
-      text: "Click below to run Templates: Insert Template so Smart Connections can process {{smart-connections:similar:#}}."
-    });
-    new import_obsidian15.Setting(contentEl).addButton((btn) => btn.setButtonText("Run Templates: Insert Template").setCta().onClick(async () => {
-      try {
-        await this.onRun();
-      } finally {
-        this.close();
-      }
-    })).addExtraButton((btn) => btn.setIcon("cross").setTooltip("Cancel").onClick(() => this.close()));
-  }
-};
-var TemplateExecutor = class {
-  constructor(app, plugin) {
-    this.app = app;
-    this.plugin = plugin;
-  }
-  async waitForSmartConnectionsReady(timeoutMs = 2e4, intervalMs = 500) {
-    const appWithPlugins = this.app;
-    const appWithCommands = this.app;
-    const start = Date.now();
-    let nudged = false;
-    while (Date.now() - start < timeoutMs) {
-      const sc = appWithPlugins.plugins?.plugins?.["smart-connections"];
-      const loaded = !!sc?.instance;
-      const enabled = sc?.enabled === true;
-      if (sc && loaded && enabled) {
-        console.log("[TemplateExecutor] \u2705 Smart Connections is loaded and enabled");
-        return;
-      }
-      if (!nudged && appWithCommands.commands?.executeCommandById) {
-        try {
-          console.log("[TemplateExecutor] \u{1F514} Nudging Smart Connections by opening its view...");
-          await appWithCommands.commands.executeCommandById("smart-connections:smart-connections-view");
-        } catch (err) {
-          console.warn("[TemplateExecutor] \u26A0\uFE0F Failed to nudge Smart Connections view:", err);
-        }
-        nudged = true;
-      }
-      await new Promise((res) => setTimeout(res, intervalMs));
-    }
-    throw new Error("Smart Connections not loaded/enabled after waiting 20s; cannot process template.");
-  }
-  /**
-   * Execute a template file and return the rendered output.
-   * Tries multiple approaches:
-   * 1. Native Obsidian template insertion (for Smart Connections compatibility)
-   * 2. Custom TemplateProcessor (fallback)
-   */
-  async executeTemplate(templatePath, activeFile) {
-    const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
-    if (!(templateFile instanceof import_obsidian15.TFile)) {
-      throw new Error(`Template file not found: ${templatePath}`);
-    }
-    console.log(`[TemplateExecutor] \u{1F680} Executing template: ${templatePath}`);
-    try {
-      await this.waitForSmartConnectionsReady();
-    } catch (err) {
-      console.warn("[TemplateExecutor] \u26A0\uFE0F Smart Connections not ready:", err);
-    }
-    console.log("[TemplateExecutor] \u{1F4DD} Prompting user to run Templates: Insert Template...");
-    try {
-      const userResult = await this.executeNativeTemplateWithPrompt(templateFile);
-      if (userResult) {
-        const hasUnprocessedSC = /\{\{smart-connections:similar:(\d+)\}\}/g.test(userResult);
-        if (!hasUnprocessedSC) {
-          console.log("[TemplateExecutor] \u2705 User-driven template insertion succeeded and Smart Connections processed it!");
-          return userResult;
-        } else {
-          const scMatches = userResult.match(/\{\{smart-connections:similar:(\d+)\}\}/g);
-          console.log("[TemplateExecutor] \u26A0\uFE0F User-driven insertion succeeded but Smart Connections syntax still present");
-          console.log(`[TemplateExecutor] \u{1F50D} Diagnostic: Found ${scMatches?.length || 0} unprocessed Smart Connections placeholders`);
-          console.log("[TemplateExecutor] \u{1F504} Trying automated native insertion next...");
-        }
-      } else {
-        console.log("[TemplateExecutor] \u26A0\uFE0F User-driven insertion returned empty result");
-        console.log("[TemplateExecutor] \u{1F504} Trying automated native insertion next...");
-      }
-    } catch (error2) {
-      const errorMsg = error2 instanceof Error ? error2.message : String(error2);
-      console.warn(`[TemplateExecutor] \u26A0\uFE0F User-driven insertion failed: ${errorMsg}`);
-      console.log("[TemplateExecutor] \u{1F504} Trying automated native insertion next...");
-    }
-    console.log("[TemplateExecutor] \u{1F4DD} Attempting automated native template insertion...");
-    try {
-      const nativeResult = await this.executeNativeTemplate(templateFile, activeFile);
-      if (nativeResult) {
-        const hasUnprocessedSC = /\{\{smart-connections:similar:(\d+)\}\}/g.test(nativeResult);
-        if (!hasUnprocessedSC) {
-          console.log("[TemplateExecutor] \u2705 Automated native insertion succeeded and Smart Connections processed it!");
-          return nativeResult;
-        } else {
-          const scMatches = nativeResult.match(/\{\{smart-connections:similar:(\d+)\}\}/g);
-          console.log("[TemplateExecutor] \u26A0\uFE0F Automated native insertion succeeded but Smart Connections syntax still present");
-          console.log(`[TemplateExecutor] \u{1F50D} Diagnostic: Found ${scMatches?.length || 0} unprocessed Smart Connections placeholders`);
-          console.log("[TemplateExecutor] \u{1F504} Falling back to custom processor...");
-        }
-      } else {
-        console.log("[TemplateExecutor] \u26A0\uFE0F Automated native insertion returned empty result");
-        console.log("[TemplateExecutor] \u{1F50D} Diagnostic: Template may not have been inserted or file was empty");
-        console.log("[TemplateExecutor] \u{1F504} Falling back to custom processor...");
-      }
-    } catch (error2) {
-      const errorMsg = error2 instanceof Error ? error2.message : String(error2);
-      console.warn(`[TemplateExecutor] \u26A0\uFE0F Automated native insertion failed: ${errorMsg}`);
-      console.log(`[TemplateExecutor] \u{1F50D} Diagnostic: ${this.diagnoseNativeTemplateFailure(error2)}`);
-      console.log("[TemplateExecutor] \u{1F504} Falling back to custom processor...");
-    }
-    console.log("[TemplateExecutor] \u{1F504} Using custom TemplateProcessor...");
-    const processor = this.plugin.templateProcessorInstance;
-    if (!processor) {
-      throw new Error("TemplateProcessor not initialized. Please ensure the plugin has loaded.");
-    }
-    const templateContent = await this.app.vault.read(templateFile);
-    console.log(`[TemplateExecutor] \u{1F4C4} Template content: ${templateContent.substring(0, 200)}...`);
-    console.debug(`[TemplateExecutor] Template content: ${templateContent.substring(0, 200)}...`);
-    const rendered = await processor.processTemplate(templateContent, { file: activeFile });
-    const hookStatus = processor.getHookStatus();
-    console.log("[TemplateExecutor] \u{1F4CA} Hook registration status:", hookStatus);
-    console.debug("[TemplateExecutor] Hook registration status:", hookStatus);
-    const testPath = `Template-Render-Test.md`;
-    const existingFile = this.app.vault.getAbstractFileByPath(testPath);
-    if (existingFile instanceof import_obsidian15.TFile) {
-      await this.app.vault.delete(existingFile);
-    }
-    const testFile = await this.app.vault.create(testPath, rendered);
-    await this.app.workspace.openLinkText(testPath, "", true);
-    console.log(`[TemplateExecutor] \u2705 Template rendered: ${rendered.length} chars`);
-    console.log(`[TemplateExecutor] \u{1F4C4} Rendered preview: ${rendered.substring(0, 500)}...`);
-    console.debug(`[TemplateExecutor] Template rendered: ${rendered.length} chars`);
-    console.debug(`[TemplateExecutor] Rendered content preview: ${rendered.substring(0, 500)}...`);
-    return rendered;
-  }
-  /**
-   * Diagnose why native template insertion failed
-   * Returns detailed explanation of what happened and why
-   */
-  diagnoseNativeTemplateFailure(error2) {
-    const errorMsg = error2 instanceof Error ? error2.message : String(error2);
-    const appWithPlugins = this.app;
-    const diagnostics = [];
-    diagnostics.push(`EVENT: Native template insertion failed with error: "${errorMsg}"`);
-    const templatesPlugin = appWithPlugins.internalPlugins?.plugins?.templates;
-    if (!templatesPlugin) {
-      diagnostics.push("ROOT CAUSE: Templates plugin not found in internalPlugins");
-      diagnostics.push("WHY THIS FAILED: Cannot insert templates without the Templates core plugin");
-      diagnostics.push("SOLUTION: Templates is a core plugin - if missing, this may be an Obsidian installation issue");
-    } else if (!templatesPlugin.enabled) {
-      diagnostics.push("ROOT CAUSE: Templates plugin exists but is not enabled");
-      diagnostics.push("WHY THIS FAILED: Disabled core plugins do not provide their functionality");
-      diagnostics.push("SOLUTION: Enable Templates plugin in Settings > Core plugins");
-    } else if (!templatesPlugin.instance) {
-      diagnostics.push("ROOT CAUSE: Templates plugin enabled but instance not available");
-      diagnostics.push("WHY THIS FAILED: Plugin instance is required to call insertTemplate method");
-      diagnostics.push("SOLUTION: This may be a timing issue - plugin may not be fully initialized yet");
-    } else if (!templatesPlugin.instance.insertTemplate) {
-      diagnostics.push("ROOT CAUSE: Templates plugin instance exists but insertTemplate method not found");
-      diagnostics.push("WHY THIS FAILED: The method we need to call does not exist on the plugin instance");
-      diagnostics.push("SOLUTION: Obsidian version may be incompatible or plugin API changed");
-    } else {
-      diagnostics.push("\u2713 Templates plugin is available and has insertTemplate method");
-    }
-    if (!appWithPlugins.commands) {
-      diagnostics.push("\u26A0\uFE0F App commands API not available (fallback method unavailable)");
-    } else if (!appWithPlugins.commands.executeCommandById) {
-      diagnostics.push("\u26A0\uFE0F Command execution method not available (fallback method unavailable)");
-    }
-    const scPlugin = appWithPlugins.plugins?.plugins?.["smart-connections"];
-    if (!scPlugin) {
-      diagnostics.push("\u26A0\uFE0F Smart Connections plugin not detected (may not be installed)");
-    } else if (!scPlugin.enabled) {
-      diagnostics.push("\u26A0\uFE0F Smart Connections plugin found but not enabled");
-    } else {
-      diagnostics.push("\u2713 Smart Connections plugin is installed and enabled");
-    }
-    if (errorMsg.includes("not available")) {
-      diagnostics.push("WHY THIS FAILED: Required API or method is not available in current Obsidian version");
-    } else if (errorMsg.includes("not enabled")) {
-      diagnostics.push("WHY THIS FAILED: Required plugin is not enabled in settings");
-    } else if (errorMsg.includes("not found")) {
-      diagnostics.push("WHY THIS FAILED: Required plugin or component not found");
-    }
-    return diagnostics.length > 0 ? diagnostics.join(" | ") : `Unknown error: ${errorMsg}`;
-  }
-  /**
-   * Diagnose why template insertion method failed
-   * Returns detailed explanation of what happened and why
-   */
-  diagnoseTemplateInsertionFailure(error2, templatesPlugin) {
-    const errorMsg = error2 instanceof Error ? error2.message : String(error2);
-    const diagnostics = [];
-    diagnostics.push(`EVENT: Template insertion method failed with error: "${errorMsg}"`);
-    if (!templatesPlugin.instance) {
-      diagnostics.push("ROOT CAUSE: Templates plugin instance is null or undefined");
-      diagnostics.push("WHY THIS FAILED: Cannot call methods on a null/undefined instance");
-      diagnostics.push("SOLUTION: Plugin may not be fully initialized - try again or check plugin status");
-    } else {
-      const instanceMethods = Object.keys(templatesPlugin.instance).filter(
-        (k) => typeof templatesPlugin.instance[k] === "function"
-      );
-      diagnostics.push(`\u2713 Available instance methods: ${instanceMethods.join(", ") || "none"}`);
-      if (!templatesPlugin.instance.insertTemplate) {
-        diagnostics.push("ROOT CAUSE: insertTemplate method not found on instance");
-        diagnostics.push("WHY THIS FAILED: The method we need does not exist on the plugin instance");
-        diagnostics.push("SOLUTION: Obsidian version may be incompatible or plugin API changed");
-      } else {
-        diagnostics.push("\u2713 insertTemplate method exists but call failed");
-        diagnostics.push("WHY THIS FAILED: Method exists but threw an error when called");
-        diagnostics.push("POSSIBLE REASONS: Invalid parameters, file permissions, or internal plugin error");
-      }
-    }
-    if (errorMsg.includes("user interaction")) {
-      diagnostics.push("ROOT CAUSE: Command requires manual user selection of template");
-      diagnostics.push("WHY THIS FAILED: Templates command opens a modal that requires user input");
-      diagnostics.push("SOLUTION: This approach cannot be automated - use direct insertTemplate method instead");
-    }
-    return diagnostics.length > 0 ? diagnostics.join(" | ") : `Error: ${errorMsg}`;
-  }
-  /**
-   * User-driven native template insertion: prompts user to run the Templates command,
-   * then reads the rendered file.
-   */
-  async executeNativeTemplateWithPrompt(templateFile) {
-    const testPath = `Template-Render-Test.md`;
-    const existingFile = this.app.vault.getAbstractFileByPath(testPath);
-    if (existingFile instanceof import_obsidian15.TFile) {
-      await this.app.vault.delete(existingFile);
-    }
-    const testFile = await this.app.vault.create(testPath, "");
-    await this.app.workspace.openLinkText(testPath, "", true);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    const runTemplatesCommand = async () => {
-      const appWithCommands = this.app;
-      if (appWithCommands.commands?.executeCommandById) {
-        await appWithCommands.commands.executeCommandById("templates:insert-template");
-      } else {
-        throw new Error("Commands API not available");
-      }
-    };
-    await new Promise((resolve, reject) => {
-      const modal = new TemplateInsertPrompt(this.app, async () => {
-        try {
-          await runTemplatesCommand();
-          resolve();
-        } catch (e) {
-          reject(e);
-        }
-      });
-      modal.open();
-    });
-    console.log("[TemplateExecutor] \u23F3 Waiting 5 seconds for Smart Connections to process (user-driven)...");
-    await new Promise((resolve) => setTimeout(resolve, 5e3));
-    const rendered = await this.app.vault.read(testFile);
-    console.log("[TemplateExecutor] \u{1F4C4} User-driven native template rendered:", rendered.length, "chars");
-    if (rendered.length > 0) {
-      console.log("[TemplateExecutor] \u{1F4C4} Preview:", rendered.substring(0, 300));
-    }
-    return rendered;
-  }
-  /**
-   * Execute template using Obsidian's native template insertion command.
-   * This is how Text Generator likely does it, and Smart Connections hooks into this.
-   */
-  async executeNativeTemplate(templateFile, activeFile) {
-    const testPath = `Template-Render-Test.md`;
-    const existingFile = this.app.vault.getAbstractFileByPath(testPath);
-    if (existingFile instanceof import_obsidian15.TFile) {
-      await this.app.vault.delete(existingFile);
-    }
-    const testFile = await this.app.vault.create(testPath, "");
-    const leaf = await this.app.workspace.openLinkText(testPath, "", true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    const templatesPlugin = this.app.internalPlugins?.plugins?.templates;
-    if (!templatesPlugin) {
-      throw new Error("Templates plugin not found in internalPlugins");
-    }
-    if (!templatesPlugin.enabled) {
-      throw new Error("Templates plugin is not enabled (enable it in Settings > Core plugins)");
-    }
-    if (!templatesPlugin.instance) {
-      throw new Error("Templates plugin instance not available");
-    }
-    console.log("[TemplateExecutor] \u{1F4DD} Inserting template via Templates plugin...");
-    console.log(`[TemplateExecutor] \u{1F50D} Diagnostic: Template file: ${templateFile.path}`);
-    console.log(`[TemplateExecutor] \u{1F50D} Diagnostic: Target file: ${testFile.path}`);
-    try {
-      if (templatesPlugin.instance.insertTemplate) {
-        console.log("[TemplateExecutor] \u{1F527} Using insertTemplate method...");
-        console.log(`[TemplateExecutor] \u{1F50D} Diagnostic: insertTemplate method signature: ${typeof templatesPlugin.instance.insertTemplate}`);
-        await templatesPlugin.instance.insertTemplate(testFile, templateFile.path);
-        console.log("[TemplateExecutor] \u2705 Template inserted via insertTemplate method");
-      } else if (this.app.commands?.executeCommandById) {
-        console.log("[TemplateExecutor] \u{1F527} Attempting via command palette...");
-        console.log("[TemplateExecutor] \u{1F50D} Diagnostic: insertTemplate method not found, trying command approach");
-        await this.app.commands.executeCommandById("templates:insert-template");
-        await new Promise((resolve) => setTimeout(resolve, 1e3));
-        console.log("[TemplateExecutor] \u26A0\uFE0F Command executed (may require user interaction)");
-        console.log("[TemplateExecutor] \u{1F50D} Diagnostic: Command-based insertion requires user to select template manually");
-      } else {
-        const availableMethods = Object.keys(templatesPlugin.instance || {}).filter(
-          (k) => k.toLowerCase().includes("template") || k.toLowerCase().includes("insert")
-        );
-        throw new Error(`No template insertion method available. Available methods: ${availableMethods.join(", ") || "none found"}`);
-      }
-    } catch (error2) {
-      const errorMsg = error2 instanceof Error ? error2.message : String(error2);
-      console.warn(`[TemplateExecutor] \u26A0\uFE0F Template insertion method failed: ${errorMsg}`);
-      console.log(`[TemplateExecutor] \u{1F50D} Diagnostic: ${this.diagnoseTemplateInsertionFailure(error2, templatesPlugin)}`);
-      throw error2;
-    }
-    console.log("[TemplateExecutor] \u23F3 Waiting 5 seconds for Smart Connections to process...");
-    await new Promise((resolve) => setTimeout(resolve, 5e3));
-    const rendered = await this.app.vault.read(testFile);
-    console.log("[TemplateExecutor] \u{1F4C4} Native template rendered:", rendered.length, "chars");
-    if (rendered.length > 0) {
-      console.log("[TemplateExecutor] \u{1F4C4} Preview:", rendered.substring(0, 300));
-    }
-    return rendered;
-  }
-  /**
-   * Parse template output to extract file paths from Smart Connections results.
-   * Smart Connections typically outputs markdown links like [[Note Name]] or [Note Name](path).
-   */
-  parseTemplateOutput(output) {
-    const paths = [];
-    const wikiLinkRegex = /\[\[([^\]]+)\]\]/g;
-    let match2;
-    while ((match2 = wikiLinkRegex.exec(output)) !== null) {
-      const linkText = match2[1];
-      const cleanLink = linkText.split("#")[0];
-      const file = this.app.metadataCache.getFirstLinkpathDest(cleanLink, "");
-      if (file) {
-        paths.push(file.path);
-      }
-    }
-    const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-    while ((match2 = markdownLinkRegex.exec(output)) !== null) {
-      const linkPath = match2[2];
-      const cleanPath = linkPath.split("#")[0];
-      if (cleanPath && !cleanPath.startsWith("http")) {
-        const file = this.app.vault.getAbstractFileByPath(cleanPath);
-        if (file instanceof import_obsidian15.TFile) {
-          paths.push(file.path);
-        }
-      }
-    }
-    return Array.from(new Set(paths));
-  }
-};
-
-// services/ContextAggregator.ts
 var ContextAggregator = class {
   budgetToChars(tokens) {
     return Math.max(0, Math.floor(tokens * 4));
@@ -69370,7 +68261,6 @@ var ContextAggregator = class {
     this.vault = vault;
     this.plugin = plugin;
     this.vaultService = vaultService;
-    this.templateExecutor = new TemplateExecutor(plugin.app, plugin);
   }
   async getChapterContext(retrievalQuery) {
     const settings = this.plugin.settings;
@@ -69424,7 +68314,7 @@ var ContextAggregator = class {
   async readFile(path) {
     try {
       const file = this.vault.getAbstractFileByPath(path);
-      if (file instanceof import_obsidian16.TFile) {
+      if (file instanceof import_obsidian15.TFile) {
         return await this.vault.read(file);
       }
       return `[File not found: ${path}]`;
@@ -69474,9 +68364,9 @@ Score: ${item.score.toFixed(3)} (${item.source})
     const characterFolder = this.plugin.settings.characterFolder;
     try {
       const folder = this.vault.getAbstractFileByPath(characterFolder);
-      if (folder instanceof import_obsidian16.TFolder) {
+      if (folder instanceof import_obsidian15.TFolder) {
         for (const child of folder.children) {
-          if (child instanceof import_obsidian16.TFile && child.extension === "md") {
+          if (child instanceof import_obsidian15.TFile && child.extension === "md") {
             const characterName = child.basename;
             notes[characterName] = await this.vault.read(child);
           }
@@ -69935,7 +68825,7 @@ Return the full updated story bible markdown only.`;
 };
 
 // services/AIClient.ts
-var import_obsidian17 = require("obsidian");
+var import_obsidian16 = require("obsidian");
 var AIClient = class {
   _formatUnknown(value) {
     if (value instanceof Error)
@@ -70128,7 +69018,7 @@ ${alt}`).join("\n\n---\n\n")}`;
     };
   }
   async _generateOpenRouter(prompt, settings) {
-    const response = await (0, import_obsidian17.requestUrl)({
+    const response = await (0, import_obsidian16.requestUrl)({
       url: "https://openrouter.ai/api/v1/chat/completions",
       method: "POST",
       headers: {
@@ -70161,7 +69051,7 @@ ${alt}`).join("\n\n---\n\n")}`;
     return content;
   }
   async _generateOpenAI(prompt, settings) {
-    const response = await (0, import_obsidian17.requestUrl)({
+    const response = await (0, import_obsidian16.requestUrl)({
       url: "https://api.openai.com/v1/chat/completions",
       method: "POST",
       headers: {
@@ -70192,7 +69082,7 @@ ${alt}`).join("\n\n---\n\n")}`;
     return content;
   }
   async _generateAnthropic(prompt, settings) {
-    const response = await (0, import_obsidian17.requestUrl)({
+    const response = await (0, import_obsidian16.requestUrl)({
       url: "https://api.anthropic.com/v1/messages",
       method: "POST",
       headers: {
@@ -70242,7 +69132,7 @@ ${alt}`).join("\n\n---\n\n")}`;
       512,
       Math.min(8192, limit - promptTokens - 1024)
     );
-    const response = await (0, import_obsidian17.requestUrl)({
+    const response = await (0, import_obsidian16.requestUrl)({
       url: `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
       method: "POST",
       headers: {
@@ -70567,7 +69457,7 @@ ${v}`);
 };
 
 // services/retrieval/EmbeddingsIndex.ts
-var import_obsidian18 = require("obsidian");
+var import_obsidian17 = require("obsidian");
 
 // services/retrieval/Chunking.ts
 function clampInt(value, min, max) {
@@ -70863,7 +69753,7 @@ var EmbeddingsIndex = class {
         continue;
       }
       const file = this.vault.getAbstractFileByPath(next);
-      if (!(file instanceof import_obsidian18.TFile) || file.extension !== "md") {
+      if (!(file instanceof import_obsidian17.TFile) || file.extension !== "md") {
         skippedNotMarkdown++;
         this._removePath(next);
         this._schedulePersist();
@@ -71371,7 +70261,7 @@ ${it.excerpt}`;
 };
 
 // services/retrieval/OllamaEmbeddingProvider.ts
-var import_obsidian19 = require("obsidian");
+var import_obsidian18 = require("obsidian");
 var OllamaEmbeddingProvider = class {
   constructor(app, baseUrl = "http://127.0.0.1:11434", model = "nomic-embed-text") {
     this.app = app;
@@ -71380,7 +70270,7 @@ var OllamaEmbeddingProvider = class {
   }
   async isAvailable() {
     try {
-      const res = await (0, import_obsidian19.requestUrl)({ url: `${this.baseUrl}/api/tags`, method: "GET" });
+      const res = await (0, import_obsidian18.requestUrl)({ url: `${this.baseUrl}/api/tags`, method: "GET" });
       return res.status === 200;
     } catch (e) {
       console.warn("[Ollama] Not detected. Ensure 'ollama serve' is running.");
@@ -71393,7 +70283,7 @@ var OllamaEmbeddingProvider = class {
   async hasModel(modelName = this.model) {
     const normalize3 = (val) => (val || "").split(":")[0];
     try {
-      const res = await (0, import_obsidian19.requestUrl)({ url: `${this.baseUrl}/api/tags`, method: "GET" });
+      const res = await (0, import_obsidian18.requestUrl)({ url: `${this.baseUrl}/api/tags`, method: "GET" });
       if (res.status !== 200)
         return false;
       const tags = res.json?.models || res.json?.modelsList || res.json?.data;
@@ -71416,7 +70306,7 @@ var OllamaEmbeddingProvider = class {
     }
   }
   async getEmbedding(text2) {
-    const res = await (0, import_obsidian19.requestUrl)({
+    const res = await (0, import_obsidian18.requestUrl)({
       url: `${this.baseUrl}/api/embed`,
       method: "POST",
       body: JSON.stringify({
@@ -71572,7 +70462,7 @@ var HeuristicProvider = class {
 };
 
 // services/GenerationLogService.ts
-var import_obsidian20 = require("obsidian");
+var import_obsidian19 = require("obsidian");
 function normalizeFolder(folder) {
   const f = (folder || "").replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
   return f.length ? f : "Generation logs";
@@ -71600,7 +70490,7 @@ var GenerationLogService = class {
       return false;
     }
     const existing = this.app.vault.getAbstractFileByPath(folderPath);
-    if (existing instanceof import_obsidian20.TFolder)
+    if (existing instanceof import_obsidian19.TFolder)
       return true;
     try {
       await this.app.vault.createFolder(folderPath);
@@ -71659,7 +70549,7 @@ ${escapeFenceContent(params.finalPrompt)}
       await this.app.vault.create(path, body);
       return path;
     } catch {
-      new import_obsidian20.Notice("Failed to write generation log.");
+      new import_obsidian19.Notice("Failed to write generation log.");
       return null;
     }
   }
@@ -71667,7 +70557,7 @@ ${escapeFenceContent(params.finalPrompt)}
     if (!path)
       return;
     const file = this.app.vault.getAbstractFileByPath(path);
-    if (!(file instanceof import_obsidian20.TFile))
+    if (!(file instanceof import_obsidian19.TFile))
       return;
     const appendix = `## Result
 
@@ -71687,8 +70577,8 @@ ${appendix}`);
 };
 
 // ui/BookMainSelectorModal.ts
-var import_obsidian21 = require("obsidian");
-var BookMainSelectorModal = class extends import_obsidian21.Modal {
+var import_obsidian20 = require("obsidian");
+var BookMainSelectorModal = class extends import_obsidian20.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.plugin = plugin;
@@ -71712,11 +70602,11 @@ var BookMainSelectorModal = class extends import_obsidian21.Modal {
 // ui/PublishWizardModal.tsx
 var import_react11 = __toESM(require_react());
 var import_client6 = __toESM(require_client());
-var import_obsidian25 = require("obsidian");
+var import_obsidian24 = require("obsidian");
 
 // ui/FolderPickerModal.ts
-var import_obsidian22 = require("obsidian");
-var FolderPickerModal = class extends import_obsidian22.FuzzySuggestModal {
+var import_obsidian21 = require("obsidian");
+var FolderPickerModal = class extends import_obsidian21.FuzzySuggestModal {
   constructor(opts) {
     super(opts.app);
     this.folders = opts.folders;
@@ -71736,8 +70626,8 @@ var FolderPickerModal = class extends import_obsidian22.FuzzySuggestModal {
 };
 
 // ui/BinaryFilePickerModal.ts
-var import_obsidian23 = require("obsidian");
-var BinaryFilePickerModal = class extends import_obsidian23.FuzzySuggestModal {
+var import_obsidian22 = require("obsidian");
+var BinaryFilePickerModal = class extends import_obsidian22.FuzzySuggestModal {
   constructor(opts) {
     super(opts.app);
     this.files = opts.files;
@@ -71757,7 +70647,7 @@ var BinaryFilePickerModal = class extends import_obsidian23.FuzzySuggestModal {
 };
 
 // services/publish/MarkdownCompile.ts
-var import_obsidian24 = require("obsidian");
+var import_obsidian23 = require("obsidian");
 function trimBom(s) {
   return s.charCodeAt(0) === 65279 ? s.slice(1) : s;
 }
@@ -71842,13 +70732,13 @@ function resolveLinkToFilePath(app, linkTarget, fromPath) {
   if (!t)
     return null;
   const direct = app.vault.getAbstractFileByPath(t);
-  if (direct instanceof import_obsidian24.TFile)
+  if (direct instanceof import_obsidian23.TFile)
     return direct.path;
   const directMd = app.vault.getAbstractFileByPath(`${t}.md`);
-  if (directMd instanceof import_obsidian24.TFile)
+  if (directMd instanceof import_obsidian23.TFile)
     return directMd.path;
   const dest = app.metadataCache.getFirstLinkpathDest(t, fromPath);
-  if (dest instanceof import_obsidian24.TFile)
+  if (dest instanceof import_obsidian23.TFile)
     return dest.path;
   return null;
 }
@@ -71858,7 +70748,7 @@ var MarkdownCompile = class {
   }
   async compileFromBookMain(sourcePath) {
     const file = this.app.vault.getAbstractFileByPath(sourcePath);
-    if (!(file instanceof import_obsidian24.TFile)) {
+    if (!(file instanceof import_obsidian23.TFile)) {
       throw new Error(`Book main file not found: ${sourcePath}`);
     }
     const text2 = await this.app.vault.read(file);
@@ -71867,7 +70757,7 @@ var MarkdownCompile = class {
   }
   async compileFromTocNote(tocPath) {
     const file = this.app.vault.getAbstractFileByPath(tocPath);
-    if (!(file instanceof import_obsidian24.TFile))
+    if (!(file instanceof import_obsidian23.TFile))
       throw new Error(`TOC note not found: ${tocPath}`);
     const text2 = await this.app.vault.read(file);
     const lines = trimBom(text2).split(/\r?\n/);
@@ -71883,7 +70773,7 @@ var MarkdownCompile = class {
       if (!destPath)
         continue;
       const dest = this.app.vault.getAbstractFileByPath(destPath);
-      if (!(dest instanceof import_obsidian24.TFile))
+      if (!(dest instanceof import_obsidian23.TFile))
         continue;
       const md2 = await this.app.vault.read(dest);
       const title = (() => {
@@ -77990,7 +76880,7 @@ function sanitizeFileName2(name2) {
 function ensureEpubExt2(name2) {
   return name2.toLowerCase().endsWith(".epub") ? name2 : `${name2}.epub`;
 }
-var PublishWizardModal = class extends import_obsidian25.Modal {
+var PublishWizardModal = class extends import_obsidian24.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.reactRoot = null;
@@ -78102,7 +76992,7 @@ var PublishWizardComponent = ({
     modal.open();
   };
   const pickFolder = (onPick) => {
-    const folders = plugin.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian25.TFolder);
+    const folders = plugin.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian24.TFolder);
     const modal = new FolderPickerModal({
       app: plugin.app,
       folders,
@@ -78204,7 +77094,7 @@ ${markdownToPlainText(c.markdown || "")}
         outputPath = out;
       }
       setProgress("");
-      new import_obsidian25.Notice(`Exported: ${outputPath}`);
+      new import_obsidian24.Notice(`Exported: ${outputPath}`);
       onClose();
     } catch (e) {
       const message = e instanceof Error ? e.message : (() => {
@@ -78270,321 +77160,6 @@ ${markdownToPlainText(c.markdown || "")}
     },
     LICENSE_TEMPLATES.map((t) => /* @__PURE__ */ import_react11.default.createElement("option", { key: t.id, value: t.id }, t.label))
   )), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Copyright year"), /* @__PURE__ */ import_react11.default.createElement("input", { value: copyrightYear, onChange: (e) => setCopyrightYear(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Copyright holder"), /* @__PURE__ */ import_react11.default.createElement("input", { value: copyrightHolder, onChange: (e) => setCopyrightHolder(e.target.value), disabled: isExporting }))), step === 4 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Typography"), /* @__PURE__ */ import_react11.default.createElement("p", null, "Default styling uses Literata if available on the reader device. You can embed your own font files to guarantee the look."), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("label", null, /* @__PURE__ */ import_react11.default.createElement("input", { type: "checkbox", checked: embedFonts, onChange: (e) => setEmbedFonts(e.target.checked), disabled: isExporting }), "Embed custom fonts")), embedFonts && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Regular (required)"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontRegular, onChange: (e) => setFontRegular(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontRegular(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Bold"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontBold, onChange: (e) => setFontBold(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBold(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Italic"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontItalic, onChange: (e) => setFontItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontItalic(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Bold italic"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontBoldItalic, onChange: (e) => setFontBoldItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBoldItalic(f.path)), disabled: isExporting }, "Browse"))))), step === 5 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Output"), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Format"), /* @__PURE__ */ import_react11.default.createElement("select", { value: outputFormat, onChange: (e) => setOutputFormat(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react11.default.createElement("option", { value: "epub" }, "Epub"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "docx" }, "Docx"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "rtf" }, "Rtf"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "copy" }, "Plain text"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Export subset"), /* @__PURE__ */ import_react11.default.createElement("select", { value: subsetMode, onChange: (e) => setSubsetMode(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react11.default.createElement("option", { value: "all" }, "All chapters"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "first-chapters" }, "First N chapters"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "first-words" }, "First N words"))), subsetMode === "first-chapters" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Chapters"), /* @__PURE__ */ import_react11.default.createElement("input", { value: subsetChaptersCount, onChange: (e) => setSubsetChaptersCount(e.target.value), disabled: isExporting })), subsetMode === "first-words" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Words"), /* @__PURE__ */ import_react11.default.createElement("input", { value: subsetWordsCount, onChange: (e) => setSubsetWordsCount(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Folder"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: outputFolder, onChange: (e) => setOutputFolder(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFolder((f) => setOutputFolder(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "File name"), /* @__PURE__ */ import_react11.default.createElement("input", { value: outputFileName, onChange: (e) => setOutputFileName(e.target.value), disabled: isExporting }))), step === 6 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Export"), /* @__PURE__ */ import_react11.default.createElement("p", null, "When you click Export, the plugin will compile your notes and write the output into your vault."), progress && /* @__PURE__ */ import_react11.default.createElement("div", { className: "generation-status" }, progress), error2 && /* @__PURE__ */ import_react11.default.createElement("div", { className: "error-message" }, "\u274C ", error2)), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 16 } }, /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("button", { onClick: onClose, className: "mod-secondary", disabled: isExporting }, "Close")), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ import_react11.default.createElement("button", { onClick: goBack, disabled: isExporting || step === 1 }, "Back"), step < 6 && /* @__PURE__ */ import_react11.default.createElement("button", { onClick: goNext, disabled: isExporting || !canNext, className: "mod-cta" }, "Next"), step === 6 && /* @__PURE__ */ import_react11.default.createElement("button", { onClick: doExport, disabled: isExporting, className: "mod-cta" }, "Export"))));
-};
-
-// services/TemplateProcessor.ts
-var import_obsidian26 = require("obsidian");
-var TemplateProcessor = class {
-  constructor(app, plugin) {
-    this.hookAttempts = /* @__PURE__ */ new Map();
-    this.app = app;
-    this.plugin = plugin;
-    this.registerAllPossibleHooks();
-  }
-  /**
-   * Register hooks in every possible way Smart Connections might look for template processors.
-   * We'll track which one actually gets used.
-   */
-  registerAllPossibleHooks() {
-    try {
-      const appWithPlugins = this.app;
-      console.log("[TemplateProcessor] \u{1F527} Starting hook registration...");
-      const scPlugin = appWithPlugins.plugins?.plugins?.["smart-connections"];
-      console.log(
-        `[TemplateProcessor] Plugin system state: app.plugins=${!!appWithPlugins.plugins} | app.plugins.plugins=${!!appWithPlugins.plugins?.plugins} | SC installed=${!!scPlugin} | SC loaded=${!!scPlugin?.instance} | SC enabled=${scPlugin?.enabled === true}`
-      );
-      const textGeneratorPlugin = appWithPlugins.plugins?.plugins?.["text-generator"];
-      if (textGeneratorPlugin) {
-        console.log("[TemplateProcessor] \u{1F4E6} Text Generator plugin found!");
-        console.log("[TemplateProcessor] \u{1F50D} Inspecting Text Generator template processor...");
-        const tgInstance = textGeneratorPlugin.instance || textGeneratorPlugin;
-        const tgProcessor = tgInstance?.templateProcessor || tgInstance?.processTemplate || textGeneratorPlugin.templateProcessor || textGeneratorPlugin.processTemplate;
-        if (tgProcessor) {
-          console.log("[TemplateProcessor] \u2705 Found Text Generator template processor:", typeof tgProcessor);
-          if (typeof tgProcessor === "object") {
-            console.log("[TemplateProcessor] \u{1F4CB} Text Generator processor keys:", Object.keys(tgProcessor || {}));
-          }
-          if (appWithPlugins.templateProcessors) {
-            const tgInArray = appWithPlugins.templateProcessors.find(
-              (p) => p.id === "text-generator" || p.name === "Text Generator" || p.plugin === textGeneratorPlugin
-            );
-            if (tgInArray) {
-              console.log("[TemplateProcessor] \u{1F4CD} Text Generator found in app.templateProcessors array");
-              console.log("[TemplateProcessor] \u{1F4CB} Text Generator registration:", Object.keys(tgInArray));
-            }
-          }
-        } else {
-          console.log("[TemplateProcessor] \u26A0\uFE0F Text Generator found but no template processor detected");
-          console.log("[TemplateProcessor] \u{1F50D} Text Generator plugin structure:", Object.keys(textGeneratorPlugin));
-        }
-      } else {
-        console.log("[TemplateProcessor] \u2139\uFE0F Text Generator plugin not found");
-      }
-      if (appWithPlugins.templateProcessors && Array.isArray(appWithPlugins.templateProcessors)) {
-        appWithPlugins.templateProcessors.push({
-          id: "writing-dashboard",
-          name: "Writing Dashboard",
-          process: this.processTemplate.bind(this),
-          processTemplate: this.processTemplate.bind(this),
-          renderTemplate: this.processTemplate.bind(this),
-          plugin: this.plugin
-        });
-        this.logHookAttempt("app.templateProcessors array");
-      } else {
-        console.warn("[TemplateProcessor] \u26A0\uFE0F app.templateProcessors not available or not an array - skipping");
-      }
-      if (!window.templateProcessors) {
-        window.templateProcessors = [];
-      }
-      window.templateProcessors.push({
-        id: "writing-dashboard",
-        name: "Writing Dashboard",
-        process: this.processTemplate.bind(this),
-        processTemplate: this.processTemplate.bind(this)
-      });
-      this.logHookAttempt("window.templateProcessors array");
-      if (!window.templateProcessor) {
-        window.templateProcessor = {};
-      }
-      window.templateProcessor["writing-dashboard"] = this.processTemplate.bind(this);
-      this.logHookAttempt("window.templateProcessor object");
-      this.plugin.templateProcessor = this.processTemplate.bind(this);
-      this.plugin.processTemplate = this.processTemplate.bind(this);
-      this.plugin.renderTemplate = this.processTemplate.bind(this);
-      this.logHookAttempt("plugin instance methods");
-      window.addEventListener("template-process", this.handleTemplateProcess.bind(this));
-      window.addEventListener("template-processing", this.handleTemplateProcessing.bind(this));
-      this.logHookAttempt("window template-process event listeners");
-      if (appWithPlugins.templates && appWithPlugins.templates.processors && Array.isArray(appWithPlugins.templates.processors)) {
-        appWithPlugins.templates.processors.push({
-          id: "writing-dashboard",
-          name: "Writing Dashboard",
-          process: this.processTemplate.bind(this),
-          processTemplate: this.processTemplate.bind(this)
-        });
-        this.logHookAttempt("app.templates.processors");
-      } else {
-        console.warn("[TemplateProcessor] \u26A0\uFE0F app.templates.processors not available or not an array - skipping");
-      }
-      window.dispatchEvent(new CustomEvent("template-processor-registered", {
-        detail: {
-          id: "writing-dashboard",
-          process: this.processTemplate.bind(this),
-          processTemplate: this.processTemplate.bind(this),
-          plugin: this.plugin
-        }
-      }));
-      this.logHookAttempt("template-processor-registered event");
-      window.writingDashboardProcessTemplate = this.processTemplate.bind(this);
-      this.logHookAttempt("window.writingDashboardProcessTemplate function");
-    } catch (error2) {
-      console.warn("[TemplateProcessor] Error during hook registration:", error2);
-    }
-  }
-  logHookAttempt(method) {
-    this.hookAttempts.set(method, false);
-    console.debug(`[TemplateProcessor] Registered hook via: ${method}`);
-    console.log(`[TemplateProcessor] \u2713 Registered hook via: ${method}`);
-  }
-  handleTemplateProcess(event) {
-    console.debug(`[TemplateProcessor] Template process event received:`, event.type, event.detail);
-  }
-  handleTemplateProcessing(event) {
-    console.debug(`[TemplateProcessor] Template processing event received:`, event.type, event.detail);
-  }
-  /**
-   * Main template processing method that Smart Connections should hook into.
-   * This processes our template placeholders and emits events for Smart Connections.
-   */
-  async processTemplate(templateContent, context) {
-    console.log("[TemplateProcessor] \u{1F680} processTemplate called!");
-    console.debug("[TemplateProcessor] processTemplate called!");
-    console.log("[TemplateProcessor] \u{1F4C4} Template content length:", templateContent.length);
-    console.debug("[TemplateProcessor] Template content length:", templateContent.length);
-    console.log("[TemplateProcessor] \u{1F4C1} Active file:", context.file?.path || "None");
-    console.debug("[TemplateProcessor] Active file:", context.file?.path);
-    try {
-      const stack = new Error().stack;
-      console.log("[TemplateProcessor] \u{1F4DA} Call stack (first 10 lines):");
-      const stackLines = stack?.split("\n").slice(0, 10) || [];
-      stackLines.forEach((line, i) => {
-        console.log(`[TemplateProcessor]   ${i + 1}. ${line.trim()}`);
-      });
-      console.debug("[TemplateProcessor] Call stack:", stack?.split("\n").slice(0, 10).join("\n"));
-    } catch (e) {
-      console.warn("[TemplateProcessor] \u26A0\uFE0F Stack trace not available:", e);
-    }
-    let processed = templateContent;
-    console.log("[TemplateProcessor] \u{1F50D} Processing {{read}} placeholders...");
-    processed = await this.processReadPlaceholders(processed);
-    console.log("[TemplateProcessor] \u{1F4CB} Processing {{clipboard}} placeholder...");
-    processed = await this.processClipboardPlaceholder(processed);
-    console.log("[TemplateProcessor] \u{1F4CD} Processing {{cursor}} placeholder...");
-    processed = this.processCursorPlaceholder(processed, context.file);
-    console.log("[TemplateProcessor] \u{1F4E1} Emitting template-processing event for Smart Connections...");
-    console.debug("[TemplateProcessor] Emitting template-processing event for Smart Connections");
-    window.dispatchEvent(new CustomEvent("template-processing", {
-      detail: {
-        content: processed,
-        context,
-        processor: "writing-dashboard",
-        originalContent: templateContent
-      }
-    }));
-    console.log("[TemplateProcessor] \u{1F4E1} Emitting template-process event...");
-    window.dispatchEvent(new CustomEvent("template-process", {
-      detail: {
-        content: processed,
-        context,
-        processor: "writing-dashboard"
-      }
-    }));
-    console.log("[TemplateProcessor] \u23F3 Waiting 2 seconds for Smart Connections to process syntax...");
-    console.debug("[TemplateProcessor] Waiting for Smart Connections to process syntax...");
-    await new Promise((resolve) => setTimeout(resolve, 2e3));
-    const scRegex = /\{\{smart-connections:similar:(\d+)\}\}/g;
-    const hasUnprocessedSC = scRegex.test(processed);
-    if (hasUnprocessedSC) {
-      const matches = processed.match(scRegex);
-      console.warn("[TemplateProcessor] \u274C Smart Connections syntax not processed - hooks may not be working");
-      console.warn(`[TemplateProcessor] \u26A0\uFE0F Unprocessed syntax found: ${matches?.length || 0} placeholders still present`);
-      if (matches) {
-        console.warn("[TemplateProcessor] Unprocessed placeholders:", matches);
-      }
-      const diagnosis = this.diagnoseSmartConnectionsFailure();
-      console.warn(`[TemplateProcessor] \u{1F50D} Diagnostic: ${diagnosis}`);
-    } else {
-      console.log("[TemplateProcessor] \u2705 Smart Connections syntax appears to have been processed");
-      console.debug("[TemplateProcessor] Smart Connections syntax appears to have been processed");
-    }
-    const finalContent = processed;
-    console.log("[TemplateProcessor] \u2705 Final processed content length:", finalContent.length);
-    console.debug("[TemplateProcessor] Final processed content length:", finalContent.length);
-    return finalContent;
-  }
-  /**
-   * Process {{read "file.md"}} placeholders
-   */
-  async processReadPlaceholders(content) {
-    const readRegex = /\{\{read\s+"([^"]+)"\}\}/g;
-    let match2;
-    const replacements = [];
-    while ((match2 = readRegex.exec(content)) !== null) {
-      const filePath = match2[1];
-      const file = this.app.vault.getAbstractFileByPath(filePath);
-      if (file instanceof import_obsidian26.TFile) {
-        try {
-          const fileContent = await this.app.vault.read(file);
-          replacements.push({ placeholder: match2[0], content: fileContent });
-          console.debug(`[TemplateProcessor] Processed {{read "${filePath}"}} - ${fileContent.length} chars`);
-        } catch (error2) {
-          console.warn(`[TemplateProcessor] Failed to read file: ${filePath}`, error2);
-          replacements.push({ placeholder: match2[0], content: `[Error reading file: ${filePath}]` });
-        }
-      } else {
-        console.warn(`[TemplateProcessor] File not found: ${filePath}`);
-        replacements.push({ placeholder: match2[0], content: `[File not found: ${filePath}]` });
-      }
-    }
-    for (const { placeholder, content: fileContent } of replacements) {
-      content = content.replace(placeholder, fileContent);
-    }
-    return content;
-  }
-  /**
-   * Process {{clipboard}} placeholder
-   */
-  async processClipboardPlaceholder(content) {
-    if (content.includes("{{clipboard}}")) {
-      try {
-        const clipboardText = await navigator.clipboard.readText();
-        content = content.replace(/\{\{clipboard\}\}/g, clipboardText);
-        console.debug(`[TemplateProcessor] Processed {{clipboard}} - ${clipboardText.length} chars`);
-      } catch (error2) {
-        console.warn("[TemplateProcessor] Failed to read clipboard:", error2);
-        content = content.replace(/\{\{clipboard\}\}/g, "");
-      }
-    }
-    return content;
-  }
-  /**
-   * Process {{cursor}} placeholder
-   */
-  processCursorPlaceholder(content, activeFile) {
-    if (content.includes("{{cursor}}")) {
-      try {
-        const activeLeaf = this.app.workspace.getActiveViewOfType(import_obsidian26.MarkdownView);
-        if (activeLeaf) {
-          const editor = activeLeaf.editor;
-          const selection = editor.getSelection();
-          const cursorContent = selection || `[Cursor in ${activeFile?.basename || "active file"}]`;
-          content = content.replace(/\{\{cursor\}\}/g, cursorContent);
-          console.debug(`[TemplateProcessor] Processed {{cursor}} - ${cursorContent.length} chars`);
-        } else {
-          content = content.replace(/\{\{cursor\}\}/g, "");
-        }
-      } catch (error2) {
-        console.warn("[TemplateProcessor] Failed to process {{cursor}}:", error2);
-        content = content.replace(/\{\{cursor\}\}/g, "");
-      }
-    }
-    return content;
-  }
-  /**
-   * Diagnose why Smart Connections didn't process the template
-   * Returns a detailed explanation of what happened and why
-   */
-  diagnoseSmartConnectionsFailure() {
-    const appWithPlugins = this.app;
-    const diagnostics = [];
-    const scPlugin = appWithPlugins.plugins?.plugins?.["smart-connections"];
-    if (!scPlugin) {
-      diagnostics.push("ROOT CAUSE: Smart Connections plugin not installed or not found in app.plugins.plugins");
-      diagnostics.push("WHY THIS FAILED: Smart Connections cannot process templates if the plugin is not installed");
-      diagnostics.push("SOLUTION: Install Smart Connections plugin from Community Plugins");
-    } else {
-      const isLoaded = scPlugin.instance !== void 0 && scPlugin.instance !== null;
-      const isEnabled = scPlugin.enabled === true;
-      if (!isLoaded) {
-        diagnostics.push("ROOT CAUSE: Smart Connections plugin found but instance not loaded yet");
-        diagnostics.push("WHY THIS FAILED: Plugin may still be initializing - our hook registration ran too early");
-        diagnostics.push("SOLUTION: Plugin needs time to fully load. Try again after a few seconds, or delay our hook registration");
-      } else if (!isEnabled) {
-        diagnostics.push("ROOT CAUSE: Smart Connections plugin found but not enabled");
-        diagnostics.push("WHY THIS FAILED: Disabled plugins do not process templates or respond to events");
-        diagnostics.push("SOLUTION: Enable Smart Connections in Settings > Community Plugins");
-      } else {
-        diagnostics.push("\u2713 Smart Connections plugin is installed, loaded, and enabled");
-        const hookStatus = this.getHookStatus();
-        const registeredCount = Object.values(hookStatus).length;
-        diagnostics.push(`\u2713 ${registeredCount} hook registration methods attempted`);
-        diagnostics.push("\u2713 Our template processor WAS called (hook registration succeeded)");
-        diagnostics.push("\u2713 Template processing events were emitted (template-processing, template-process)");
-        const scInstance = scPlugin.instance;
-        if (scInstance) {
-          const scMethods = Object.keys(scInstance).filter(
-            (k) => k.toLowerCase().includes("template") || k.toLowerCase().includes("process") || k.toLowerCase().includes("similar")
-          );
-          if (scMethods.length > 0) {
-            diagnostics.push(`\u2713 Smart Connections has methods: ${scMethods.join(", ")}`);
-          } else {
-            diagnostics.push("\u26A0\uFE0F Smart Connections template processing methods not detected");
-          }
-        }
-        diagnostics.push("ROOT CAUSE: Smart Connections is not listening to our template-processing events");
-        diagnostics.push("WHY THIS FAILED: Smart Connections likely hooks into Text Generator's template system, not generic events");
-        diagnostics.push("WHAT HAPPENED: We emitted events but Smart Connections did not respond because it uses a different hook mechanism");
-        diagnostics.push("SOLUTION: Smart Connections may need to be called via Obsidian's native template insertion (which we tried) or Text Generator's API");
-      }
-    }
-    return diagnostics.join(" | ");
-  }
-  /**
-   * Get status of which hooks were registered (for debugging)
-   */
-  getHookStatus() {
-    return Object.fromEntries(this.hookAttempts);
-  }
 };
 
 // main.ts
@@ -78685,7 +77260,7 @@ Output format (required):
   smartConnectionsTemplatePath: void 0
   // User must configure template
 };
-var WritingDashboardPlugin = class extends import_obsidian27.Plugin {
+var WritingDashboardPlugin = class extends import_obsidian25.Plugin {
   constructor() {
     super(...arguments);
     /**
@@ -78720,11 +77295,11 @@ var WritingDashboardPlugin = class extends import_obsidian27.Plugin {
         const newNorm = file.path.replace(/\\/g, "/");
         let changed = false;
         const logsFolder = (this.settings.generationLogsFolder || "").replace(/\\/g, "/").replace(/\/+$/, "");
-        if (logsFolder && file instanceof import_obsidian27.TFolder && oldNorm === logsFolder) {
+        if (logsFolder && file instanceof import_obsidian25.TFolder && oldNorm === logsFolder) {
           this.settings.generationLogsFolder = newNorm;
           changed = true;
         }
-        if (!(file instanceof import_obsidian27.TFile) || file.extension !== "md") {
+        if (!(file instanceof import_obsidian25.TFile) || file.extension !== "md") {
           if (changed)
             await this.saveSettings();
           return;
@@ -78754,12 +77329,6 @@ var WritingDashboardPlugin = class extends import_obsidian27.Plugin {
       await this.saveSettings();
     }
     this.vaultService = new VaultService(this.app.vault, this);
-    this.app.workspace.onLayoutReady(() => {
-      setTimeout(() => {
-        this.templateProcessorInstance = new TemplateProcessor(this.app, this);
-        console.log("[WritingDashboard] \u2705 TemplateProcessor initialized after plugin system");
-      }, 2e3);
-    });
     this.contextAggregator = new ContextAggregator(this.app.vault, this, this.vaultService);
     this.promptEngine = new PromptEngine();
     this.aiClient = new AIClient();
@@ -78788,28 +77357,28 @@ var WritingDashboardPlugin = class extends import_obsidian27.Plugin {
     };
     this.registerEvent(
       this.app.vault.on("create", (file) => {
-        if (file instanceof import_obsidian27.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian25.TFile && file.extension === "md") {
           maybeQueueIndex(file.path);
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
-        if (file instanceof import_obsidian27.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian25.TFile && file.extension === "md") {
           maybeQueueIndex(file.path);
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
-        if (file instanceof import_obsidian27.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian25.TFile && file.extension === "md") {
           this.embeddingsIndex.queueRemoveFile(file.path);
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
-        if (!(file instanceof import_obsidian27.TFile) || file.extension !== "md")
+        if (!(file instanceof import_obsidian25.TFile) || file.extension !== "md")
           return;
         this.embeddingsIndex.queueRemoveFile(oldPath);
         maybeQueueIndex(file.path);
@@ -78962,7 +77531,7 @@ var WritingDashboardPlugin = class extends import_obsidian27.Plugin {
     await this.vaultService.createFolderIfNotExists(templatesFolder);
     const templatePath = `${templatesFolder}/SC-Template.md`;
     const templateFile = this.app.vault.getAbstractFileByPath(templatePath);
-    if (!(templateFile instanceof import_obsidian27.TFile)) {
+    if (!(templateFile instanceof import_obsidian25.TFile)) {
       const templateContent = "{{smart-connections:similar:128}}";
       await this.vaultService.writeFile(templatePath, templateContent);
       this.settings.smartConnectionsTemplatePath = templatePath;

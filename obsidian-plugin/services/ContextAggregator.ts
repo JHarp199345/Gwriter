@@ -3,13 +3,11 @@ import WritingDashboardPlugin from '../main';
 import { Context } from './PromptEngine';
 import type { ContextItem, RetrievalQuery } from './retrieval/types';
 import { VaultService } from './VaultService';
-import { TemplateExecutor } from './TemplateExecutor';
 
 export class ContextAggregator {
 	private vault: Vault;
 	private plugin: WritingDashboardPlugin;
 	private vaultService: VaultService;
-	public templateExecutor: TemplateExecutor;
 
 	private budgetToChars(tokens: number): number {
 		// estimateTokens uses ~4 chars per token; invert that here
@@ -51,14 +49,12 @@ export class ContextAggregator {
 		this.vault = vault;
 		this.plugin = plugin;
 		this.vaultService = vaultService;
-		this.templateExecutor = new TemplateExecutor(plugin.app, plugin);
 	}
 
 	async getChapterContext(retrievalQuery: RetrievalQuery): Promise<Context> {
 		const settings = this.plugin.settings;
 		
-		// Smart Connections template integration is disabled by default.
-		// Keep empty to avoid prompting users to run Smart Connections.
+		// Smart Connections integration is disabled. Leaving empty avoids any SC prompts or captures.
 		const scTemplatePaths: string[] = [];
 		
 		// Budget context dynamically based on the configured contextTokenLimit.

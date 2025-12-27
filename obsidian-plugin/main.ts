@@ -17,7 +17,6 @@ import { GenerationLogService } from './services/GenerationLogService';
 import { SetupWizardModal } from './ui/SetupWizard';
 import { BookMainSelectorModal } from './ui/BookMainSelectorModal';
 import { PublishWizardModal } from './ui/PublishWizardModal';
-import { TemplateProcessor } from './services/TemplateProcessor';
 
 export interface DashboardSettings {
 	apiKey: string;
@@ -374,7 +373,6 @@ export default class WritingDashboardPlugin extends Plugin {
 	embeddingsIndex: EmbeddingsIndex;
 	cpuReranker: CpuReranker;
 	generationLogService: GenerationLogService;
-	templateProcessorInstance?: TemplateProcessor;
 	ollama: import('./services/retrieval/OllamaEmbeddingProvider').OllamaEmbeddingProvider;
 	/**
 	 * When true, the next time the dashboard UI mounts it will start the guided demo flow.
@@ -460,16 +458,6 @@ export default class WritingDashboardPlugin extends Plugin {
 		}
 		
 		this.vaultService = new VaultService(this.app.vault, this);
-		
-		// Delay hook registration until after all plugins are loaded
-		// This prevents breaking other plugins during initialization
-		this.app.workspace.onLayoutReady(() => {
-			// Wait additional time for plugins to fully initialize
-			setTimeout(() => {
-				this.templateProcessorInstance = new TemplateProcessor(this.app, this);
-				console.log('[WritingDashboard] ✅ TemplateProcessor initialized after plugin system');
-			}, 2000); // 2 second delay for plugin initialization
-		});
 		
 		this.contextAggregator = new ContextAggregator(this.app.vault, this, this.vaultService);
 		this.promptEngine = new PromptEngine();
