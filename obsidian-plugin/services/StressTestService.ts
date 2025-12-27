@@ -159,10 +159,12 @@ export class StressTestService {
 		const phaseStart = Date.now();
 
 		try {
+			// Kick off a full rescan to ensure index covers current scope.
+			this.plugin.embeddingsIndex.enqueueFullRescan();
 			for (const filePath of this.testFiles) {
 				this.plugin.embeddingsIndex.queueUpdateFile(filePath);
 			}
-			await new Promise((resolve) => setTimeout(resolve, 2000));
+			await new Promise((resolve) => setTimeout(resolve, 2500));
 
 			const status = this.plugin.embeddingsIndex.getStatus();
 			this.logEntry(`Indexed files: ${status.indexedFiles}, chunks: ${status.indexedChunks}, queued: ${status.queued}`);

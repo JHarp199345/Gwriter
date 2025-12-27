@@ -214,26 +214,14 @@ export default class WritingDashboardPlugin extends Plugin {
 				guidedDemoDismissed: false,
 				guidedDemoShownOnce: false,
 				setupCompleted: false,
-				// Retrieval profiles: seed a default "story" profile that scopes to plugin-created folders.
-				retrievalProfiles: [
-					{
-						id: 'story',
-						name: 'Story',
-						includedFolders: ['Characters', 'Story bibles', 'Generation logs', 'Exports']
-					}
-				],
-				retrievalActiveProfileId: 'story'
+				retrievalProfiles: [],
+				retrievalActiveProfileId: undefined,
+				retrievalIncludedFolders: []
 			},
 			loaded
 		);
 
-		// Ensure an active retrieval profile is set; fall back to the first profile if missing.
-		if (!this.settings.retrievalActiveProfileId) {
-			const firstProfile = this.settings.retrievalProfiles?.[0];
-			if (firstProfile?.id) {
-				this.settings.retrievalActiveProfileId = firstProfile.id;
-			}
-		}
+		// Ensure included folders exist; empty means fallback to active-note-only.
 	}
 
 	async saveSettings() {

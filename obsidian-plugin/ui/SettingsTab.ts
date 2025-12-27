@@ -225,110 +225,17 @@ export class SettingsTab extends PluginSettingTab {
 			);
 
 		// Retrieval / indexing settings
-		addSection('Retrieval profiles & scope', 'Control which folders are indexed/searched.');
-
-		// Retrieval profile (folder include-set)
-		const profiles = Array.isArray(this.plugin.settings.retrievalProfiles) ? this.plugin.settings.retrievalProfiles : [];
-		const activeProfileId = this.plugin.settings.retrievalActiveProfileId;
+		addSection('Retrieval scope', 'Choose included folders for this project.');
 
 		new Setting(containerEl)
-			.setName('Retrieval profile')
-			.setDesc('Controls which folders are included for retrieval and indexing. Use this to avoid pulling irrelevant vault content.')
-			.addDropdown((dropdown) => {
-				for (const p of profiles) dropdown.addOption(p.id, p.name);
-				dropdown.setValue(activeProfileId || (profiles[0]?.id ?? 'story'));
-				dropdown.onChange(async (value) => {
-					this.plugin.settings.retrievalActiveProfileId = value;
-					await this.plugin.saveSettings();
-					this.plugin.embeddingsIndex.queueRecheckAllIndexed();
-					this.plugin.embeddingsIndex.enqueueFullRescan();
-					this.display();
-				});
-			});
-
-		const activeProfile = profiles.find((p) => p.id === activeProfileId) ?? profiles[0];
-		if (activeProfile) {
-			new Setting(containerEl)
-				.setName('Profile name')
-				.setDesc('Rename the active profile.')
-				.addText((text) =>
-					text.setValue(activeProfile.name).onChange(async (value) => {
-						const nextName = value.trim() || activeProfile.name;
-						activeProfile.name = nextName;
-						this.plugin.settings.retrievalProfiles = profiles;
-						await this.plugin.saveSettings();
-					})
-				);
-
-			// Create/delete profiles
-			let newProfileName = '';
-			new Setting(containerEl)
-				.setName('Create profile')
-				.setDesc('Create a new retrieval profile.')
-				.addText((text) =>
-					text.setPlaceholder('New profile name').onChange((value) => {
-						newProfileName = value;
-					})
-				)
-				.addButton((btn) =>
-					btn.setButtonText('Create').setCta().onClick(async () => {
-						const name = (newProfileName || '').trim();
-						if (!name) return;
-						const id = `custom-${Date.now()}`;
-						this.plugin.settings.retrievalProfiles = [...profiles, { id, name, includedFolders: [] }];
-						this.plugin.settings.retrievalActiveProfileId = id;
-						await this.plugin.saveSettings();
-						this.display();
-					})
-				);
-
-			if (!['story', 'research', 'manuscript'].includes(activeProfile.id)) {
-				new Setting(containerEl)
-					.setName('Delete profile')
-					.setDesc('Deletes the active profile.')
-					.addButton((btn) =>
-						btn.setButtonText('Delete').onClick(async () => {
-							this.plugin.settings.retrievalProfiles = profiles.filter((p) => p.id !== activeProfile.id);
-							this.plugin.settings.retrievalActiveProfileId = this.plugin.settings.retrievalProfiles[0]?.id || 'story';
-							await this.plugin.saveSettings();
-							this.plugin.embeddingsIndex.enqueueFullRescan();
-							this.display();
-						})
-					);
-			}
-
-			// Live folder roster for includes
-			const folderRoster = this.plugin.vaultService.getAllFolderPaths();
-			const configDir = this.plugin.app.vault.configDir.replace(/\\/g, '/').replace(/\/+$/, '');
-			const logsFolder = (this.plugin.settings.generationLogsFolder || '').replace(/\\/g, '/').replace(/\/+$/, '');
-			const includes = new Set<string>((activeProfile.includedFolders || []).map((p) => p.replace(/\\/g, '/')));
-			const profileContainer = containerEl.createDiv({ cls: 'writing-dashboard-exclusions' });
-			new Setting(profileContainer)
-				.setName('Included folders')
-				.setDesc('Only these folders are searched and indexed. Leave empty to include the whole vault (minus exclusions).');
-
-			for (const folder of folderRoster) {
-				const normalized = folder.replace(/\\/g, '/');
-				const isProtected =
-					(normalized === configDir || normalized.startsWith(`${configDir}/`)) ||
-					(logsFolder && (normalized === logsFolder || normalized.startsWith(`${logsFolder}/`)));
-				const isChecked = includes.has(normalized);
-				new Setting(profileContainer)
-					.setName(normalized)
-					.addToggle((toggle) =>
-						toggle.setValue(isChecked).setDisabled(isProtected).onChange(async (value) => {
-							const next = new Set<string>((activeProfile.includedFolders || []).map((p) => p.replace(/\\/g, '/')));
-							if (value) next.add(normalized);
-							else next.delete(normalized);
-							activeProfile.includedFolders = Array.from(next).sort((a, b) => a.localeCompare(b));
-							this.plugin.settings.retrievalProfiles = profiles;
-							await this.plugin.saveSettings();
-							this.plugin.embeddingsIndex.queueRecheckAllIndexed();
-							this.plugin.embeddingsIndex.enqueueFullRescan();
-						})
-					);
-			}
-		}
+			.setName('Profile')
+			.setDesc('Select which folders to include for retrieval/indexing (applies to all features).')
+			.addButton((btn) =>
+				btn.setButtonText('Open profile picker').onClick(() => {
+					const { ProfilePickerModal } = require('./ProfilePickerModal');
+					new ProfilePickerModal(this.plugin).open();
+				})
+			);
 
 		addSection('Retrieval engines', 'Semantic/BM25 knobs and result limits.');
 		new Setting(containerEl)

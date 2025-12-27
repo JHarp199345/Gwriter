@@ -320,12 +320,8 @@ export class VaultService {
 			if (normalized === logsFolder || normalized.startsWith(`${logsFolder}/`)) return true;
 		}
 
-		// Retrieval profile include-set: if set, exclude anything not under included folders.
-		// If includedFolders is empty, fall back to active-note-only to avoid whole-vault leakage.
-		const profiles = this.plugin.settings.retrievalProfiles || [];
-		const activeId = this.plugin.settings.retrievalActiveProfileId;
-		const active = profiles.find((p) => p.id === activeId);
-		const includes = (active?.includedFolders || [])
+		// Included folders: selected via profile picker. If empty, fall back to active-note-only.
+		const includes = (this.plugin.settings.retrievalIncludedFolders || [])
 			.map((p) => (p || '').replace(/\\/g, '/').replace(/\/+$/, ''))
 			.filter((p) => p.length > 0);
 		if (includes.length > 0) {
