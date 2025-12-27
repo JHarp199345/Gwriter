@@ -205,7 +205,30 @@ export class StressTestService {
 		const phaseStart = Date.now();
 
 		try {
-			this.logEntry('AI client configured; writing mode tests skipped in offline stress test.');
+			// If no API key, keep this phase a no-op to avoid noisy failures.
+			if (!this.plugin.settings.apiKey?.trim()) {
+				this.logEntry('API key not set; writing mode tests skipped.');
+			} else {
+				this.logEntry('Running live generation (chapter) with current API/provider/model...');
+
+				const prompt = [
+					'Write a 30-word noir scene in a rainy alley.',
+					'Include a clue (matchbook) and a terse line of dialogue.',
+					'Keep it concise.'
+				].join(' ');
+
+				const settings: any = {
+					...this.plugin.settings,
+					generationMode: 'single'
+				};
+
+				const genStart = Date.now();
+				const output = await this.plugin.aiClient.generate(prompt, settings);
+				const genDuration = ((Date.now() - genStart) / 1000).toFixed(2);
+
+				const snippet = typeof output === 'string' ? output.slice(0, 140) : JSON.stringify(output).slice(0, 140);
+				this.logEntry(`✓ Generation succeeded in ${genDuration}s (first 140 chars): ${snippet}`);
+			}
 
 			const phaseDuration = ((Date.now() - phaseStart) / 1000).toFixed(2);
 			this.logEntry(`Phase 4 completed in ${phaseDuration}s`);
