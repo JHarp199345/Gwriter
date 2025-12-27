@@ -23589,24 +23589,31 @@ var init_OllamaSetupWizardModal = __esm({
         contentEl.createEl("h2", { text: "Ollama Setup (Local Semantic Search)" });
         contentEl.createEl("h4", { text: "Step 1 \u2014 Download Ollama" });
         contentEl.createEl("p", { text: "Download and install Ollama for your OS." });
-        const linkRow = contentEl.createEl("div", { cls: "ollama-link-row" });
-        const link2 = linkRow.createEl("a", { href: "https://ollama.com/download", text: "https://ollama.com/download" });
-        link2.setAttr("target", "_blank");
-        contentEl.createEl("p", { text: "If the ollama command is not found after install, try one of the following quick fixes:" });
+        contentEl.createEl("a", { href: "https://ollama.com/download", text: "https://ollama.com/download", attr: { target: "_blank" } });
+        contentEl.createEl("p", { text: "If the ollama command is not found after install, try:" });
         contentEl.createEl("pre", {
           text: [
+            "# Windows PowerShell (temporary PATH fix)",
+            '$env:Path = "C:\\\\Program Files\\\\Ollama;" + $env:Path',
+            "ollama --version",
+            "",
             "# macOS (temporary PATH fix)",
             'export PATH="/Applications/Ollama.app/Contents/MacOS:$PATH"',
             "source ~/.zshrc",
-            "ollama --version",
-            "",
-            "# Windows PowerShell (temporary PATH fix)",
-            '$env:Path = "C:\\Program Files\\Ollama;" + $env:Path',
             "ollama --version"
           ].join("\n")
         });
-        contentEl.createEl("h4", { text: "Step 2 \u2014 Pull the embedding model" });
-        contentEl.createEl("p", { text: "Run this in your terminal/command prompt (PowerShell or shell):" });
+        contentEl.createEl("h4", { text: "Step 2 \u2014 Verify Ollama" });
+        contentEl.createEl("pre", {
+          text: [
+            "# Windows",
+            "ollama --version",
+            "",
+            "# macOS / Linux",
+            "ollama --version"
+          ].join("\n")
+        });
+        contentEl.createEl("h4", { text: "Step 3 \u2014 Pull the embedding model" });
         const pullCmd = "ollama pull nomic-embed-text";
         new import_obsidian11.Setting(contentEl).setName(pullCmd).addButton(
           (btn) => btn.setButtonText("Copy").onClick(async () => {
@@ -23618,11 +23625,19 @@ var init_OllamaSetupWizardModal = __esm({
             }
           })
         );
-        contentEl.createEl("h4", { text: "Step 3 \u2014 Verify" });
-        contentEl.createEl("p", {
-          text: "Confirm Ollama is running and the model is available. On Windows PowerShell, use curl.exe to avoid prompts:"
+        contentEl.createEl("h4", { text: "Step 4 \u2014 Confirm the model" });
+        contentEl.createEl("p", { text: "Use curl to list models. On Windows, use curl.exe to avoid prompts." });
+        contentEl.createEl("pre", {
+          text: [
+            "# Windows PowerShell",
+            "curl.exe http://127.0.0.1:11434/api/tags",
+            "",
+            "# macOS / Linux",
+            "curl http://127.0.0.1:11434/api/tags"
+          ].join("\n")
         });
-        contentEl.createEl("pre", { text: "curl.exe http://127.0.0.1:11434/api/tags" });
+        contentEl.createEl("h4", { text: "Step 5 \u2014 Check in Writing Dashboard" });
+        contentEl.createEl("p", { text: "Click \u201CCheck Connection\u201D below. If it succeeds, local semantic search is ready." });
         new import_obsidian11.Setting(contentEl).setName("Check Ollama connection").addButton(
           (btn) => btn.setButtonText("Check").setCta().onClick(async () => {
             try {
@@ -23642,7 +23657,7 @@ var init_OllamaSetupWizardModal = __esm({
             }
           })
         );
-        contentEl.createEl("h4", { text: "Step 4 \u2014 Re-index (optional)" });
+        contentEl.createEl("h4", { text: "Step 6 \u2014 Re-index (optional)" });
         contentEl.createEl("p", { text: "If you just installed Ollama, you can re-run indexing to generate embeddings for your vault." });
         new import_obsidian11.Setting(contentEl).setName("Re-index now").setDesc("Kick off a full semantic re-index.").addButton(
           (btn) => btn.setButtonText("Re-index").onClick(() => {
