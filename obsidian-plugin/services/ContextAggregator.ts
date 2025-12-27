@@ -57,22 +57,9 @@ export class ContextAggregator {
 	async getChapterContext(retrievalQuery: RetrievalQuery): Promise<Context> {
 		const settings = this.plugin.settings;
 		
-		// Step 1: Execute Smart Connections template if configured
-		let scTemplatePaths: string[] = [];
-		if (settings.smartConnectionsTemplatePath) {
-			try {
-				const activeFile = this.plugin.app.workspace.getActiveFile();
-				const templateOutput = await this.templateExecutor.executeTemplate(
-					settings.smartConnectionsTemplatePath,
-					activeFile
-				);
-				scTemplatePaths = this.templateExecutor.parseTemplateOutput(templateOutput);
-				console.debug(`[ContextAggregator] Smart Connections template returned ${scTemplatePaths.length} paths`);
-			} catch (error) {
-				console.warn(`[ContextAggregator] Template execution failed:`, error);
-				// Continue without SC template results
-			}
-		}
+		// Smart Connections template integration is disabled by default.
+		// Keep empty to avoid prompting users to run Smart Connections.
+		const scTemplatePaths: string[] = [];
 		
 		// Budget context dynamically based on the configured contextTokenLimit.
 		const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
@@ -107,22 +94,8 @@ export class ContextAggregator {
 		const settings = this.plugin.settings;
 		const surrounding = await this.getSurroundingContext(selectedText, 500, 500);
 		
-		// Step 1: Execute Smart Connections template if configured
-		let scTemplatePaths: string[] = [];
-		if (settings.smartConnectionsTemplatePath) {
-			try {
-				const activeFile = this.plugin.app.workspace.getActiveFile();
-				const templateOutput = await this.templateExecutor.executeTemplate(
-					settings.smartConnectionsTemplatePath,
-					activeFile
-				);
-				scTemplatePaths = this.templateExecutor.parseTemplateOutput(templateOutput);
-				console.debug(`[ContextAggregator] Smart Connections template returned ${scTemplatePaths.length} paths`);
-			} catch (error) {
-				console.warn(`[ContextAggregator] Template execution failed:`, error);
-				// Continue without SC template results
-			}
-		}
+		// Smart Connections template integration is disabled by default.
+		const scTemplatePaths: string[] = [];
 		
 		// Budget context dynamically based on the configured contextTokenLimit.
 		const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
