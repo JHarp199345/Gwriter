@@ -496,64 +496,6 @@ export class SettingsTab extends PluginSettingTab {
 				})
 			);
 
-		// Folder exclusions (dynamic checkbox list)
-		addSection('Exclusions', 'Folders to skip during indexing and retrieval.');
-		const excluded = new Set<string>((this.plugin.settings.retrievalExcludedFolders || []).map((p) => p.replace(/\\/g, '/')));
-		const folders = this.plugin.vaultService.getAllFolderPaths();
-
-		const exclusionsContainer = containerEl.createDiv({ cls: 'writing-dashboard-exclusions' });
-		new Setting(exclusionsContainer)
-			.setName('Exclude from retrieval')
-			.setDesc('Choose folders to exclude from retrieval and indexing. Obsidian configuration is always excluded.');
-
-		// Always-excluded config folder row (locked)
-		const configDir = this.app.vault.configDir.replace(/\\/g, '/');
-		new Setting(exclusionsContainer)
-			.setName(configDir)
-			.setDesc('Always excluded.')
-			.addToggle((toggle) => toggle.setValue(true).setDisabled(true));
-
-		for (const folder of folders) {
-			const normalized = folder.replace(/\\/g, '/');
-			const isChecked = excluded.has(normalized);
-			new Setting(exclusionsContainer)
-				.setName(normalized)
-				.addToggle((toggle) =>
-					toggle.setValue(isChecked).onChange(async (value) => {
-						const next = new Set<string>(
-							(this.plugin.settings.retrievalExcludedFolders || []).map((p) => p.replace(/\\/g, '/'))
-						);
-						if (value) next.add(normalized);
-						else next.delete(normalized);
-						this.plugin.settings.retrievalExcludedFolders = Array.from(next).sort((a, b) => a.localeCompare(b));
-						await this.plugin.saveSettings();
-					})
-				);
-		}
-
-		// Show excluded folders that no longer exist (e.g., renamed/deleted) so users can clean them up.
-		const existingSet = new Set<string>(folders.map((f) => f.replace(/\\/g, '/')));
-		const missing = Array.from(excluded).filter((p) => p && !existingSet.has(p));
-		if (missing.length > 0) {
-			new Setting(exclusionsContainer).setName('Missing excluded folders').setHeading();
-			for (const missingPath of missing.sort((a, b) => a.localeCompare(b))) {
-				new Setting(exclusionsContainer)
-					.setName(missingPath)
-					.setDesc('This folder does not exist in the vault.')
-					.addButton((btn) =>
-						btn.setButtonText('Remove').onClick(async () => {
-							const next = new Set<string>(
-								(this.plugin.settings.retrievalExcludedFolders || []).map((p) => p.replace(/\\/g, '/'))
-							);
-							next.delete(missingPath);
-							this.plugin.settings.retrievalExcludedFolders = Array.from(next).sort((a, b) => a.localeCompare(b));
-							await this.plugin.saveSettings();
-							this.display();
-						})
-					);
-			}
-		}
-
 		// Generation logs
 		addSection('Generation logs', 'Optional logging of prompts/outputs (excluded from retrieval).');
 

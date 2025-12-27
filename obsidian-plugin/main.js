@@ -29872,48 +29872,6 @@ var SettingsTab = class extends import_obsidian12.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    addSection("Exclusions", "Folders to skip during indexing and retrieval.");
-    const excluded = new Set((this.plugin.settings.retrievalExcludedFolders || []).map((p) => p.replace(/\\/g, "/")));
-    const folders = this.plugin.vaultService.getAllFolderPaths();
-    const exclusionsContainer = containerEl.createDiv({ cls: "writing-dashboard-exclusions" });
-    new import_obsidian12.Setting(exclusionsContainer).setName("Exclude from retrieval").setDesc("Choose folders to exclude from retrieval and indexing. Obsidian configuration is always excluded.");
-    const configDir = this.app.vault.configDir.replace(/\\/g, "/");
-    new import_obsidian12.Setting(exclusionsContainer).setName(configDir).setDesc("Always excluded.").addToggle((toggle) => toggle.setValue(true).setDisabled(true));
-    for (const folder of folders) {
-      const normalized = folder.replace(/\\/g, "/");
-      const isChecked = excluded.has(normalized);
-      new import_obsidian12.Setting(exclusionsContainer).setName(normalized).addToggle(
-        (toggle) => toggle.setValue(isChecked).onChange(async (value) => {
-          const next = new Set(
-            (this.plugin.settings.retrievalExcludedFolders || []).map((p) => p.replace(/\\/g, "/"))
-          );
-          if (value)
-            next.add(normalized);
-          else
-            next.delete(normalized);
-          this.plugin.settings.retrievalExcludedFolders = Array.from(next).sort((a, b) => a.localeCompare(b));
-          await this.plugin.saveSettings();
-        })
-      );
-    }
-    const existingSet = new Set(folders.map((f) => f.replace(/\\/g, "/")));
-    const missing = Array.from(excluded).filter((p) => p && !existingSet.has(p));
-    if (missing.length > 0) {
-      new import_obsidian12.Setting(exclusionsContainer).setName("Missing excluded folders").setHeading();
-      for (const missingPath of missing.sort((a, b) => a.localeCompare(b))) {
-        new import_obsidian12.Setting(exclusionsContainer).setName(missingPath).setDesc("This folder does not exist in the vault.").addButton(
-          (btn) => btn.setButtonText("Remove").onClick(async () => {
-            const next = new Set(
-              (this.plugin.settings.retrievalExcludedFolders || []).map((p) => p.replace(/\\/g, "/"))
-            );
-            next.delete(missingPath);
-            this.plugin.settings.retrievalExcludedFolders = Array.from(next).sort((a, b) => a.localeCompare(b));
-            await this.plugin.saveSettings();
-            this.display();
-          })
-        );
-      }
-    }
     addSection("Generation logs", "Optional logging of prompts/outputs (excluded from retrieval).");
     new import_obsidian12.Setting(containerEl).setName("Save generation logs").setDesc("Writes a log note per generation run with inputs, retrieved context, and output. Logs are excluded from retrieval.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.generationLogsEnabled)).onChange(async (value) => {
