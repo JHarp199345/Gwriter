@@ -21,20 +21,31 @@ export class OllamaSetupWizardModal extends Modal {
 		const link = linkRow.createEl('a', { href: 'https://ollama.com/download', text: 'https://ollama.com/download' });
 		link.setAttr('target', '_blank');
 
-		// Note about PATH / manual path
-		contentEl.createEl('p', { text: 'If the ollama command is not found after install, try:' });
-		contentEl.createEl('pre', { text: 'export PATH="/Applications/Ollama.app/Contents/MacOS:$PATH"\nsource ~/.zshrc\nollama --version' });
+		// Note about PATH / manual path (Mac + Windows quick fixes)
+		contentEl.createEl('p', { text: 'If the ollama command is not found after install, try one of the following quick fixes:' });
+		contentEl.createEl('pre', {
+			text: [
+				'# macOS (temporary PATH fix)',
+				'export PATH="/Applications/Ollama.app/Contents/MacOS:$PATH"',
+				'source ~/.zshrc',
+				'ollama --version',
+				'',
+				'# Windows PowerShell (temporary PATH fix)',
+				'$env:Path = "C:\\Program Files\\Ollama;" + $env:Path',
+				'ollama --version'
+			].join('\n')
+		});
 
 		// Step 2: Pull model
 		contentEl.createEl('h4', { text: 'Step 2 — Pull the embedding model' });
-		contentEl.createEl('p', { text: 'Run this in your terminal/command prompt:' });
-		const cmd = 'ollama pull nomic-embed-text';
+		contentEl.createEl('p', { text: 'Run this in your terminal/command prompt (PowerShell or shell):' });
+		const pullCmd = 'ollama pull nomic-embed-text';
 		new Setting(contentEl)
-			.setName(cmd)
+			.setName(pullCmd)
 			.addButton((btn) =>
 				btn.setButtonText('Copy').onClick(async () => {
 					try {
-						await navigator.clipboard.writeText(cmd);
+						await navigator.clipboard.writeText(pullCmd);
 						new Notice('Copied command to clipboard');
 					} catch {
 						new Notice('Copy failed. Please copy manually.');
@@ -44,7 +55,10 @@ export class OllamaSetupWizardModal extends Modal {
 
 		// Step 3: Check connection
 		contentEl.createEl('h4', { text: 'Step 3 — Verify' });
-		contentEl.createEl('p', { text: 'Click below to confirm Ollama is running and the model is available.' });
+		contentEl.createEl('p', {
+			text: 'Confirm Ollama is running and the model is available. On Windows PowerShell, use curl.exe to avoid prompts:'
+		});
+		contentEl.createEl('pre', { text: 'curl.exe http://127.0.0.1:11434/api/tags' });
 		new Setting(contentEl)
 			.setName('Check Ollama connection')
 			.addButton((btn) =>

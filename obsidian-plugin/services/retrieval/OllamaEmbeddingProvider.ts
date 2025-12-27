@@ -25,14 +25,31 @@ export class OllamaEmbeddingProvider {
 	 * Check if a specific model is present in the local Ollama registry.
 	 */
 	async hasModel(modelName: string = this.model): Promise<boolean> {
+		const normalize = (val: string) => (val || '').split(':')[0];
 		try {
 			const res = await requestUrl({ url: `${this.baseUrl}/api/tags`, method: 'GET' });
 			if (res.status !== 200) return false;
 			const tags = (res.json as any)?.models || (res.json as any)?.modelsList || (res.json as any)?.data;
-			if (Array.isArray(tags)) {
-				return tags.some((m: any) => m?.name === modelName || m?.model === modelName || m === modelName);
-			}
-			return false;
+			if (!Array.isArray(tags)) return false;
+
+			return tags.some((m: any) => {
+				const candidates = [
+					typeof m === 'string' ? m : undefined,
+					m?.name,
+					m?.model
+				].filter(Boolean) as string[];
+
+				return candidates.some((c) => {
+					if (!c) return false;
+					// Accept exact match, tagged variants (e.g., ":latest"), and normalized prefix match
+					return (
+						c === modelName ||
+						c === `${modelName}:latest` ||
+						c.startsWith(`${modelName}:`) ||
+						normalize(c) === modelName
+					);
+				});
+			});
 		} catch {
 			return false;
 		}
