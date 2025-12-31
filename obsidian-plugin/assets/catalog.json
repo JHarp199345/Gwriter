@@ -1,0 +1,34 @@
+[
+    {
+        "id": "llama3.1:70b",
+        "name": "Llama 3.1 70B",
+        "sizeTier": "large",
+        "recommendedRole": "WRITE",
+        "parameterCount": "70B",
+        "description": "High-fidelity reasoning and prose generation."
+    },
+    {
+        "id": "llama3.1:8b",
+        "name": "Llama 3.1 8B",
+        "sizeTier": "small",
+        "recommendedRole": "FAST",
+        "parameterCount": "8B",
+        "description": "Fast planning and auditing."
+    },
+    {
+        "id": "mistral-small",
+        "name": "Mistral Small",
+        "sizeTier": "medium",
+        "recommendedRole": "WRITE",
+        "parameterCount": "22B",
+        "description": "Excellent balance of speed and quality."
+    },
+    {
+        "id": "nomic-embed-text",
+        "name": "Nomic Embed Text",
+        "sizeTier": "tiny",
+        "recommendedRole": "EMBED",
+        "parameterCount": "137M",
+        "description": "High-performance text embeddings."
+    }
+]

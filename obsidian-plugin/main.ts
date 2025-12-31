@@ -12,6 +12,11 @@ import { EmbeddingsIndex } from './services/retrieval/EmbeddingsIndex';
 import { LocalEmbeddingsProvider } from './services/retrieval/LocalEmbeddingsProvider';
 import { CpuReranker } from './services/retrieval/CpuReranker';
 import { OllamaEmbeddingProvider } from './services/retrieval/OllamaEmbeddingProvider';
+import { OllamaGenerationProvider } from './services/retrieval/OllamaGenerationProvider';
+import { OllamaModelManager } from './services/OllamaModelManager';
+import { SequentialGenerator } from './services/SequentialGenerator';
+import { ContextManager } from './services/ContextManager';
+import { AuditService } from './services/AuditService';
 import { HeuristicProvider } from './services/retrieval/HeuristicProvider';
 import { GenerationLogService } from './services/GenerationLogService';
 import { SetupWizardModal } from './ui/SetupWizard';
@@ -84,6 +89,12 @@ export type DashboardSettings = {
 	guidedDemoShownOnce?: boolean;
 	setupCompleted?: boolean;
 	vaultPath?: string;
+	relaySmartModel: string;
+	relayFastModel: string;
+	ollamaBaseUrl: string;
+	maxChunkWords: number;
+	maxRepairAttempts: number;
+	retrievalTokenBudget: number;
 	[key: string]: any;
 };
 
@@ -103,7 +114,11 @@ export default class WritingDashboardPlugin extends Plugin {
 	embeddingsIndex: EmbeddingsIndex;
 	cpuReranker: CpuReranker;
 	generationLogService: GenerationLogService;
-	ollama: import('./services/retrieval/OllamaEmbeddingProvider').OllamaEmbeddingProvider;
+	ollama: OllamaEmbeddingProvider;
+	ollamaGen: OllamaGenerationProvider;
+	ollamaModels: OllamaModelManager;
+	sequentialGenerator: SequentialGenerator;
+	auditService: AuditService;
 	guidedDemoStartRequested = false;
 	lastOpenedMarkdownPath: string | null = null;
 
@@ -118,6 +133,10 @@ export default class WritingDashboardPlugin extends Plugin {
 		this.characterExtractor = new CharacterExtractor();
 		this.queryBuilder = new QueryBuilder();
 		this.ollama = new OllamaEmbeddingProvider(this.app);
+		this.ollamaGen = new OllamaGenerationProvider(this);
+		this.ollamaModels = new OllamaModelManager(this);
+		this.auditService = new AuditService();
+		this.sequentialGenerator = new SequentialGenerator(this.app, this);
 		this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this, this.ollama);
 		this.cpuReranker = new CpuReranker();
 		this.generationLogService = new GenerationLogService(this.app, this);
@@ -216,7 +235,13 @@ export default class WritingDashboardPlugin extends Plugin {
 				setupCompleted: false,
 				retrievalProfiles: [],
 				retrievalActiveProfileId: undefined,
-				retrievalIncludedFolders: []
+				retrievalIncludedFolders: [],
+				relaySmartModel: 'llama3.1:70b',
+				relayFastModel: 'llama3.1:8b',
+				ollamaBaseUrl: 'http://127.0.0.1:11434',
+				maxChunkWords: 500,
+				maxRepairAttempts: 1,
+				retrievalTokenBudget: 3000
 			},
 			loaded
 		);

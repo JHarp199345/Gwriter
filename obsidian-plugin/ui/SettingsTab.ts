@@ -181,10 +181,55 @@ export class SettingsTab extends PluginSettingTab {
 			});
 
 		// Local AI Setup (Ollama)
-		addSection('Local AI (Ollama)', 'Optional local embeddings for semantic search.');
-		containerEl.createEl('p', {
-			text: 'Install Ollama and pull the nomic-embed-text model to enable local semantic search. The plugin falls back to lexical search if Ollama is not available.'
-		});
+		addSection('Local AI (Ollama)', 'Local generation and embedding settings.');
+		
+		new Setting(containerEl)
+			.setName('Ollama Base URL')
+			.setDesc('The URL where your local Ollama server is running.')
+			.addText(text => text
+				.setPlaceholder('http://127.0.0.1:11434')
+				.setValue(this.plugin.settings.ollamaBaseUrl)
+				.onChange(async (value) => {
+					this.plugin.settings.ollamaBaseUrl = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Relay Smart Model (Writer)')
+			.setDesc('Large model for high-quality prose (e.g., Llama 3.1 70B).')
+			.addText(text => text
+				.setPlaceholder('llama3.1:70b')
+				.setValue(this.plugin.settings.relaySmartModel)
+				.onChange(async (value) => {
+					this.plugin.settings.relaySmartModel = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Relay Fast Model (Planner/Auditor)')
+			.setDesc('Smaller, faster model for mechanical tasks (e.g., Llama 3.1 8B).')
+			.addText(text => text
+				.setPlaceholder('llama3.1:8b')
+				.setValue(this.plugin.settings.relayFastModel)
+				.onChange(async (value) => {
+					this.plugin.settings.relayFastModel = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Max words per chunk')
+			.setDesc('Target word count for each relay iteration.')
+			.addText(text => text
+				.setPlaceholder('500')
+				.setValue(String(this.plugin.settings.maxChunkWords))
+				.onChange(async (value) => {
+					const parsed = parseInt(value, 10);
+					if (Number.isFinite(parsed)) {
+						this.plugin.settings.maxChunkWords = Math.max(100, Math.min(2000, parsed));
+						await this.plugin.saveSettings();
+					}
+				}));
+
 		new Setting(containerEl)
 			.setName('Check Ollama connection')
 			.setDesc('Verify that Ollama is running and the model nomic-embed-text is available.')
