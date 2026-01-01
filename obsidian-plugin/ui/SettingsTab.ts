@@ -213,24 +213,13 @@ export class SettingsTab extends PluginSettingTab {
 
 		if (this.plugin.settings.relayMode === 'cloud') {
 			new Setting(containerEl)
-				.setName('Cloud Smart Model')
-				.setDesc('High-capability model for monolithic generation.')
+				.setName('Cloud Model')
+				.setDesc('Single heavyweight model for monolithic generation (one model, one prompt, one output).')
 				.addText(text => text
 					.setPlaceholder('gpt-4o')
-					.setValue(this.plugin.settings.relayCloudSmartModel || '')
+					.setValue(this.plugin.settings.relayCloudModel || '')
 					.onChange(async (value) => {
-						this.plugin.settings.relayCloudSmartModel = value;
-						await this.plugin.saveSettings();
-					}));
-
-			new Setting(containerEl)
-				.setName('Cloud Fast Model')
-				.setDesc('Faster model for auxiliary cloud tasks.')
-				.addText(text => text
-					.setPlaceholder('gpt-4o-mini')
-					.setValue(this.plugin.settings.relayCloudFastModel || '')
-					.onChange(async (value) => {
-						this.plugin.settings.relayCloudFastModel = value;
+						this.plugin.settings.relayCloudModel = value;
 						await this.plugin.saveSettings();
 					}));
 

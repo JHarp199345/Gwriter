@@ -380,7 +380,7 @@ Return JSON with:
         signal?: AbortSignal
     ): Promise<string> {
         const provider = this.plugin.settings.apiProvider;
-        const model = this.plugin.settings.relayCloudSmartModel || this.plugin.settings.model;
+        const model = this.plugin.settings.relayCloudModel || this.plugin.settings.model;
         const apiKey = this.plugin.settings.apiKey;
 
         if (!apiKey) {

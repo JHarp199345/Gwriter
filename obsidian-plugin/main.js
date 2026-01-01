@@ -28246,12 +28246,8 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
       this.display();
     }));
     if (this.plugin.settings.relayMode === "cloud") {
-      new import_obsidian10.Setting(containerEl).setName("Cloud Smart Model").setDesc("High-capability model for monolithic generation.").addText((text2) => text2.setPlaceholder("gpt-4o").setValue(this.plugin.settings.relayCloudSmartModel || "").onChange(async (value) => {
-        this.plugin.settings.relayCloudSmartModel = value;
-        await this.plugin.saveSettings();
-      }));
-      new import_obsidian10.Setting(containerEl).setName("Cloud Fast Model").setDesc("Faster model for auxiliary cloud tasks.").addText((text2) => text2.setPlaceholder("gpt-4o-mini").setValue(this.plugin.settings.relayCloudFastModel || "").onChange(async (value) => {
-        this.plugin.settings.relayCloudFastModel = value;
+      new import_obsidian10.Setting(containerEl).setName("Cloud Model").setDesc("Single heavyweight model for monolithic generation (one model, one prompt, one output).").addText((text2) => text2.setPlaceholder("gpt-4o").setValue(this.plugin.settings.relayCloudModel || "").onChange(async (value) => {
+        this.plugin.settings.relayCloudModel = value;
         await this.plugin.saveSettings();
       }));
       new import_obsidian10.Setting(containerEl).setName("Max Context Window").setDesc("Maximum tokens to pack into the cloud prompt.").addText((text2) => text2.setPlaceholder("128000").setValue(String(this.plugin.settings.relayMaxContextWindow || 128e3)).onChange(async (value) => {
@@ -33861,7 +33857,7 @@ Return JSON with:
    */
   async callCloudWithSchema(prompt, schema, signal) {
     const provider = this.plugin.settings.apiProvider;
-    const model = this.plugin.settings.relayCloudSmartModel || this.plugin.settings.model;
+    const model = this.plugin.settings.relayCloudModel || this.plugin.settings.model;
     const apiKey = this.plugin.settings.apiKey;
     if (!apiKey) {
       throw new Error("API key not configured for cloud provider");
@@ -43418,8 +43414,7 @@ var WritingDashboardPlugin = class extends import_obsidian32.Plugin {
         relaySmartModel: "llama3.1:70b",
         relayFastModel: "llama3.1:8b",
         relayMode: "local",
-        relayCloudSmartModel: "gpt-4o",
-        relayCloudFastModel: "gpt-4o-mini",
+        relayCloudModel: "gpt-4o",
         relayMaxContextWindow: 128e3,
         relayCostHardBudget: 1,
         // $1 max per run

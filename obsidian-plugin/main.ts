@@ -96,8 +96,7 @@ export type DashboardSettings = {
 	relaySmartModel: string;
 	relayFastModel: string;
 	relayMode?: 'local' | 'cloud';
-	relayCloudSmartModel?: string;
-	relayCloudFastModel?: string;
+	relayCloudModel?: string;
 	relayMaxContextWindow?: number;
 	relayCostHardBudget?: number; // Max cost per run in dollars
 	relayStyleSignature?: string[]; // "Golden Paragraphs" for voice matching
@@ -254,8 +253,7 @@ export default class WritingDashboardPlugin extends Plugin {
 				relaySmartModel: 'llama3.1:70b',
 				relayFastModel: 'llama3.1:8b',
 				relayMode: 'local',
-				relayCloudSmartModel: 'gpt-4o',
-				relayCloudFastModel: 'gpt-4o-mini',
+				relayCloudModel: 'gpt-4o',
 				relayMaxContextWindow: 128000,
 				relayCostHardBudget: 1.0, // $1 max per run
 				ollamaBaseUrl: 'http://127.0.0.1:11434',
