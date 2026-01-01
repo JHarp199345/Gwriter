@@ -60,6 +60,7 @@ Respond ONLY with valid JSON.`;
         try {
             const response = await this.plugin.ollamaGen.generate(prompt, { 
                 model: this.plugin.settings.relayFastModel,
+                temperature: 0,
                 format: 'json'
             });
             const parsed = JSON.parse(response);
@@ -167,6 +168,7 @@ Max churn: ${STITCH_CONFIG.MAX_CHARS_CHANGED_PCT * 100}%`;
         try {
             const response = await this.plugin.ollamaGen.generate(prompt, {
                 model: this.plugin.settings.relaySmartModel,
+                temperature: 0,
                 format: 'json'
             });
             const result = JSON.parse(response) as StitchResponse;

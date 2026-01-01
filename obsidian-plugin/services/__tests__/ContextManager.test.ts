@@ -16,6 +16,7 @@ const initialChapterState: ChapterState = {
     entity_redirects: {},
     redirectRegistryVersion: 0,
     timeline: [],
+    openLoops: [],
     constraints: {
         pov: 'third-person-limited',
         tense: 'past',

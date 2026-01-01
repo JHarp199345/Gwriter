@@ -214,9 +214,11 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					{activeTab === 'lore' && (
 						<div className="lore-tab">
 							<FactInspector 
-								state={plugin.sequentialGenerator.getContextManager()?.getState() || plugin.settings.modeState.chapterState || {
+								plugin={plugin}
+								state={plugin.sequentialGenerator.getContextManager()?.getState() || {
 									chapterId: 'temp',
 									canonVersion: 1,
+									schemaVersion: 1,
 									entities: [],
 									canonFacts: [],
 									mutationHistory: [],
@@ -224,6 +226,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 									entity_redirects: {},
 									redirectRegistryVersion: 0,
 									timeline: [],
+									openLoops: [],
 									constraints: { pov: 'third', tense: 'past', tone: [], forbidden: [] }
 								}} 
 							/>

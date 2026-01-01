@@ -104,6 +104,7 @@ export class DiagnosticsService {
             const testPrompt = 'Respond with "pong" in JSON format: { "result": "pong" }';
             const response = await this.plugin.ollamaGen.generate(testPrompt, { 
                 model: this.plugin.settings.relayFastModel,
+                temperature: 0,
                 format: 'json'
             });
             const parsed = JSON.parse(response);

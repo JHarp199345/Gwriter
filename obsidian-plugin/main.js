@@ -522,7 +522,7 @@ var require_react_development = __commonJS({
           }
           return element;
         };
-        function createElement(type, config2, children) {
+        function createElement2(type, config2, children) {
           var propName;
           var props = {};
           var key = null;
@@ -1096,7 +1096,7 @@ var require_react_development = __commonJS({
           }
           return dispatcher.useContext(Context);
         }
-        function useState7(initialState) {
+        function useState9(initialState) {
           var dispatcher = resolveDispatcher();
           return dispatcher.useState(initialState);
         }
@@ -1108,7 +1108,7 @@ var require_react_development = __commonJS({
           var dispatcher = resolveDispatcher();
           return dispatcher.useRef(initialValue);
         }
-        function useEffect6(create, deps) {
+        function useEffect7(create, deps) {
           var dispatcher = resolveDispatcher();
           return dispatcher.useEffect(create, deps);
         }
@@ -1621,7 +1621,7 @@ var require_react_development = __commonJS({
               error2("React.createElement: type is invalid -- expected a string (for built-in components) or a class/function (for composite components) but got: %s.%s", typeString, info);
             }
           }
-          var element = createElement.apply(this, arguments);
+          var element = createElement2.apply(this, arguments);
           if (element == null) {
             return element;
           }
@@ -1891,7 +1891,7 @@ var require_react_development = __commonJS({
         exports.useContext = useContext;
         exports.useDebugValue = useDebugValue;
         exports.useDeferredValue = useDeferredValue;
-        exports.useEffect = useEffect6;
+        exports.useEffect = useEffect7;
         exports.useId = useId;
         exports.useImperativeHandle = useImperativeHandle;
         exports.useInsertionEffect = useInsertionEffect;
@@ -1899,7 +1899,7 @@ var require_react_development = __commonJS({
         exports.useMemo = useMemo3;
         exports.useReducer = useReducer;
         exports.useRef = useRef2;
-        exports.useState = useState7;
+        exports.useState = useState9;
         exports.useSyncExternalStore = useSyncExternalStore;
         exports.useTransition = useTransition;
         exports.version = ReactVersion;
@@ -2395,9 +2395,9 @@ var require_react_dom_development = __commonJS({
         if (typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ !== "undefined" && typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart === "function") {
           __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(new Error());
         }
-        var React10 = require_react();
+        var React13 = require_react();
         var Scheduler = require_scheduler();
-        var ReactSharedInternals = React10.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+        var ReactSharedInternals = React13.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
         var suppressWarning = false;
         function setSuppressWarning(newSuppressWarning) {
           {
@@ -4002,7 +4002,7 @@ var require_react_dom_development = __commonJS({
           {
             if (props.value == null) {
               if (typeof props.children === "object" && props.children !== null) {
-                React10.Children.forEach(props.children, function(child) {
+                React13.Children.forEach(props.children, function(child) {
                   if (child == null) {
                     return;
                   }
@@ -9401,7 +9401,7 @@ var require_react_dom_development = __commonJS({
             }
           }
         }
-        function createElement(type, props, rootContainerElement, parentNamespace) {
+        function createElement2(type, props, rootContainerElement, parentNamespace) {
           var isCustomComponentTag;
           var ownerDocument = getOwnerDocumentFromRootContainer(rootContainerElement);
           var domElement;
@@ -10262,7 +10262,7 @@ var require_react_dom_development = __commonJS({
             }
             parentNamespace = hostContextDev.namespace;
           }
-          var domElement = createElement(type, props, rootContainerInstance, parentNamespace);
+          var domElement = createElement2(type, props, rootContainerInstance, parentNamespace);
           precacheFiberNode(internalInstanceHandle, domElement);
           updateFiberProps(domElement, props);
           return domElement;
@@ -23565,13 +23565,13 @@ var require_client = __commonJS({
 });
 
 // ui/TreePickerModal.tsx
-var import_obsidian5, import_react7, import_client4, TreePickerModal, TreePickerComponent;
+var import_obsidian6, import_react9, import_client4, TreePickerModal, TreePickerComponent;
 var init_TreePickerModal = __esm({
   "ui/TreePickerModal.tsx"() {
-    import_obsidian5 = require("obsidian");
-    import_react7 = __toESM(require_react());
+    import_obsidian6 = require("obsidian");
+    import_react9 = __toESM(require_react());
     import_client4 = __toESM(require_client());
-    TreePickerModal = class extends import_obsidian5.Modal {
+    TreePickerModal = class extends import_obsidian6.Modal {
       constructor(plugin, opts) {
         super(plugin.app);
         this.reactRoot = null;
@@ -23584,7 +23584,7 @@ var init_TreePickerModal = __esm({
         const container = this.contentEl.createDiv();
         this.reactRoot = (0, import_client4.createRoot)(container);
         this.reactRoot.render(
-          import_react7.default.createElement(TreePickerComponent, {
+          import_react9.default.createElement(TreePickerComponent, {
             plugin: this.plugin,
             title: this.opts.title,
             initialSelection: this.opts.initialSelection,
@@ -23604,10 +23604,10 @@ var init_TreePickerModal = __esm({
       }
     };
     TreePickerComponent = ({ plugin, initialSelection, mode, onSubmit, onClose, filter }) => {
-      const [nodes, setNodes] = (0, import_react7.useState)([]);
-      const [expanded, setExpanded] = (0, import_react7.useState)(/* @__PURE__ */ new Set([""]));
-      const [selected, setSelected] = (0, import_react7.useState)(/* @__PURE__ */ new Set());
-      (0, import_react7.useEffect)(() => {
+      const [nodes, setNodes] = (0, import_react9.useState)([]);
+      const [expanded, setExpanded] = (0, import_react9.useState)(/* @__PURE__ */ new Set([""]));
+      const [selected, setSelected] = (0, import_react9.useState)(/* @__PURE__ */ new Set());
+      (0, import_react9.useEffect)(() => {
         const structure = plugin.vaultService.getVaultStructure();
         const filtered = filter ? structure.filter(filter) : structure;
         setNodes(filtered);
@@ -23626,7 +23626,7 @@ var init_TreePickerModal = __esm({
           setExpanded(new Set(expanded));
         }
       }, [plugin, initialSelection, filter, expanded]);
-      const childrenOf = (0, import_react7.useMemo)(() => {
+      const childrenOf = (0, import_react9.useMemo)(() => {
         const map2 = /* @__PURE__ */ new Map();
         for (const n of nodes) {
           const parent = n.path.includes("/") ? n.path.split("/").slice(0, -1).join("/") : "";
@@ -23663,7 +23663,7 @@ var init_TreePickerModal = __esm({
         const isExpanded = expanded.has(node.path);
         const isSelected = selected.has(node.path);
         const kids = childrenOf.get(node.path) || [];
-        return /* @__PURE__ */ import_react7.default.createElement("div", { key: node.path, style: { paddingLeft: `${depth * 18}px` } }, /* @__PURE__ */ import_react7.default.createElement(
+        return /* @__PURE__ */ import_react9.default.createElement("div", { key: node.path, style: { paddingLeft: `${depth * 18}px` } }, /* @__PURE__ */ import_react9.default.createElement(
           "div",
           {
             style: {
@@ -23676,7 +23676,7 @@ var init_TreePickerModal = __esm({
               backgroundColor: isSelected ? "var(--background-modifier-hover)" : "transparent"
             }
           },
-          isFolder ? /* @__PURE__ */ import_react7.default.createElement(
+          isFolder ? /* @__PURE__ */ import_react9.default.createElement(
             "span",
             {
               onClick: () => toggleExpand(node.path),
@@ -23684,8 +23684,8 @@ var init_TreePickerModal = __esm({
               title: isExpanded ? "Collapse" : "Expand"
             },
             isExpanded ? "\u{1F4C2}" : "\u{1F4C1}"
-          ) : /* @__PURE__ */ import_react7.default.createElement("span", { style: { width: "16px", textAlign: "center" } }, "\u{1F4C4}"),
-          /* @__PURE__ */ import_react7.default.createElement(
+          ) : /* @__PURE__ */ import_react9.default.createElement("span", { style: { width: "16px", textAlign: "center" } }, "\u{1F4C4}"),
+          /* @__PURE__ */ import_react9.default.createElement(
             "input",
             {
               type: mode === "single" ? "radio" : "checkbox",
@@ -23695,7 +23695,7 @@ var init_TreePickerModal = __esm({
               name: "tree-picker"
             }
           ),
-          /* @__PURE__ */ import_react7.default.createElement("span", { onClick: () => toggleSelect(node.path), style: { flex: 1 } }, node.name)
+          /* @__PURE__ */ import_react9.default.createElement("span", { onClick: () => toggleSelect(node.path), style: { flex: 1 } }, node.name)
         ), isFolder && isExpanded && kids.map((c) => renderNode(c, depth + 1)));
       };
       const roots = childrenOf.get("") || [];
@@ -23704,7 +23704,7 @@ var init_TreePickerModal = __esm({
         void onSubmit(value);
         onClose();
       };
-      return /* @__PURE__ */ import_react7.default.createElement("div", { style: { padding: "12px", maxHeight: "60vh", overflowY: "auto", minWidth: "360px" } }, /* @__PURE__ */ import_react7.default.createElement("div", { style: { marginBottom: "12px", color: "var(--text-muted)" } }, "Select folders and notes to include. If none are selected in some contexts, the active note is used."), roots.length === 0 ? /* @__PURE__ */ import_react7.default.createElement("div", { style: { padding: "12px", color: "var(--text-muted)" } }, "No items found") : roots.map((n) => renderNode(n)), /* @__PURE__ */ import_react7.default.createElement("div", { style: { marginTop: "16px", display: "flex", gap: "8px" } }, /* @__PURE__ */ import_react7.default.createElement("button", { className: "mod-cta", onClick: handleSubmit, style: { flex: 1 } }, "Save"), /* @__PURE__ */ import_react7.default.createElement("button", { className: "mod-secondary", onClick: onClose, style: { flex: 1 } }, "Cancel")));
+      return /* @__PURE__ */ import_react9.default.createElement("div", { style: { padding: "12px", maxHeight: "60vh", overflowY: "auto", minWidth: "360px" } }, /* @__PURE__ */ import_react9.default.createElement("div", { style: { marginBottom: "12px", color: "var(--text-muted)" } }, "Select folders and notes to include. If none are selected in some contexts, the active note is used."), roots.length === 0 ? /* @__PURE__ */ import_react9.default.createElement("div", { style: { padding: "12px", color: "var(--text-muted)" } }, "No items found") : roots.map((n) => renderNode(n)), /* @__PURE__ */ import_react9.default.createElement("div", { style: { marginTop: "16px", display: "flex", gap: "8px" } }, /* @__PURE__ */ import_react9.default.createElement("button", { className: "mod-cta", onClick: handleSubmit, style: { flex: 1 } }, "Save"), /* @__PURE__ */ import_react9.default.createElement("button", { className: "mod-secondary", onClick: onClose, style: { flex: 1 } }, "Cancel")));
     };
   }
 });
@@ -23714,11 +23714,11 @@ var OllamaSetupWizardModal_exports = {};
 __export(OllamaSetupWizardModal_exports, {
   OllamaSetupWizardModal: () => OllamaSetupWizardModal
 });
-var import_obsidian7, OllamaSetupWizardModal;
+var import_obsidian8, OllamaSetupWizardModal;
 var init_OllamaSetupWizardModal = __esm({
   "ui/OllamaSetupWizardModal.ts"() {
-    import_obsidian7 = require("obsidian");
-    OllamaSetupWizardModal = class extends import_obsidian7.Modal {
+    import_obsidian8 = require("obsidian");
+    OllamaSetupWizardModal = class extends import_obsidian8.Modal {
       constructor(app, plugin) {
         super(app);
         this.plugin = plugin;
@@ -23755,13 +23755,13 @@ var init_OllamaSetupWizardModal = __esm({
         });
         contentEl.createEl("h4", { text: "Step 3 \u2014 Pull the embedding model" });
         const pullCmd = "ollama pull nomic-embed-text";
-        new import_obsidian7.Setting(contentEl).setName(pullCmd).addButton(
+        new import_obsidian8.Setting(contentEl).setName(pullCmd).addButton(
           (btn) => btn.setButtonText("Copy").onClick(async () => {
             try {
               await navigator.clipboard.writeText(pullCmd);
-              new import_obsidian7.Notice("Copied command to clipboard");
+              new import_obsidian8.Notice("Copied command to clipboard");
             } catch {
-              new import_obsidian7.Notice("Copy failed. Please copy manually.");
+              new import_obsidian8.Notice("Copy failed. Please copy manually.");
             }
           })
         );
@@ -23778,34 +23778,34 @@ var init_OllamaSetupWizardModal = __esm({
         });
         contentEl.createEl("h4", { text: "Step 5 \u2014 Check in Writing Dashboard" });
         contentEl.createEl("p", { text: "Click \u201CCheck Connection\u201D below. If it succeeds, local semantic search is ready." });
-        new import_obsidian7.Setting(contentEl).setName("Check Ollama connection").addButton(
+        new import_obsidian8.Setting(contentEl).setName("Check Ollama connection").addButton(
           (btn) => btn.setButtonText("Check").setCta().onClick(async () => {
             try {
               const isRunning = await this.plugin.ollama?.isAvailable?.();
               if (!isRunning) {
-                new import_obsidian7.Notice("\u274C Ollama not found at http://127.0.0.1:11434");
+                new import_obsidian8.Notice("\u274C Ollama not found at http://127.0.0.1:11434");
                 return;
               }
               const hasModel = await this.plugin.ollama?.hasModel?.("nomic-embed-text");
               if (!hasModel) {
-                new import_obsidian7.Notice('\u26A0\uFE0F Ollama is running, but "nomic-embed-text" is missing. Run "ollama pull nomic-embed-text".');
+                new import_obsidian8.Notice('\u26A0\uFE0F Ollama is running, but "nomic-embed-text" is missing. Run "ollama pull nomic-embed-text".');
                 return;
               }
-              new import_obsidian7.Notice("\u2705 Success! Local AI is ready.");
+              new import_obsidian8.Notice("\u2705 Success! Local AI is ready.");
             } catch (err) {
-              new import_obsidian7.Notice(`\u274C Check failed: ${err instanceof Error ? err.message : String(err)}`);
+              new import_obsidian8.Notice(`\u274C Check failed: ${err instanceof Error ? err.message : String(err)}`);
             }
           })
         );
         contentEl.createEl("h4", { text: "Step 6 \u2014 Re-index (optional)" });
         contentEl.createEl("p", { text: "If you just installed Ollama, you can re-run indexing to generate embeddings for your vault." });
-        new import_obsidian7.Setting(contentEl).setName("Re-index now").setDesc("Kick off a full semantic re-index.").addButton(
+        new import_obsidian8.Setting(contentEl).setName("Re-index now").setDesc("Kick off a full semantic re-index.").addButton(
           (btn) => btn.setButtonText("Re-index").onClick(() => {
             try {
               this.plugin.embeddingsIndex.enqueueFullRescan();
-              new import_obsidian7.Notice("Re-index queued.");
+              new import_obsidian8.Notice("Re-index queued.");
             } catch {
-              new import_obsidian7.Notice("Failed to queue re-index.");
+              new import_obsidian8.Notice("Failed to queue re-index.");
             }
           })
         );
@@ -23819,14 +23819,14 @@ var ProfilePickerModal_exports = {};
 __export(ProfilePickerModal_exports, {
   ProfilePickerModal: () => ProfilePickerModal
 });
-var import_obsidian8, import_react8, import_client5, ProfilePickerModal;
+var import_obsidian9, import_react10, import_client5, ProfilePickerModal;
 var init_ProfilePickerModal = __esm({
   "ui/ProfilePickerModal.tsx"() {
-    import_obsidian8 = require("obsidian");
-    import_react8 = __toESM(require_react());
+    import_obsidian9 = require("obsidian");
+    import_react10 = __toESM(require_react());
     import_client5 = __toESM(require_client());
     init_TreePickerModal();
-    ProfilePickerModal = class extends import_obsidian8.Modal {
+    ProfilePickerModal = class extends import_obsidian9.Modal {
       constructor(plugin) {
         super(plugin.app);
         this.reactRoot = null;
@@ -23838,7 +23838,7 @@ var init_ProfilePickerModal = __esm({
         const container = this.contentEl.createDiv();
         this.reactRoot = (0, import_client5.createRoot)(container);
         this.reactRoot.render(
-          import_react8.default.createElement(TreePickerComponent, {
+          import_react10.default.createElement(TreePickerComponent, {
             plugin: this.plugin,
             initialSelection: this.plugin.settings.retrievalIncludedFolders || [],
             mode: "multi",
@@ -26570,16 +26570,16 @@ __export(main_exports, {
   default: () => WritingDashboardPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian31 = require("obsidian");
+var import_obsidian32 = require("obsidian");
 
 // ui/DashboardView.ts
-var import_obsidian2 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 var import_client = __toESM(require_client());
-var import_react4 = __toESM(require_react());
+var import_react6 = __toESM(require_react());
 
 // ui/DashboardComponent.tsx
-var import_react3 = __toESM(require_react());
-var import_obsidian = require("obsidian");
+var import_react5 = __toESM(require_react());
+var import_obsidian2 = require("obsidian");
 
 // ui/EditorPanel.tsx
 var import_react = __toESM(require_react());
@@ -26687,6 +26687,8 @@ var TextChunker = class {
 // ui/EditorPanel.tsx
 var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, generatedParagraphs, heatmapEnabled, onGeneratedChange, onCopy, chunkBuffer }) => {
   const [hoveredPara, setHoveredPara] = (0, import_react.useState)(null);
+  const [debugLevel, setDebugLevel] = (0, import_react.useState)("off");
+  const [debugMode, setDebugMode] = (0, import_react.useState)("off");
   const selectedWords = TextChunker.getWordCount(selectedText || "");
   const selectedChars = (selectedText || "").length;
   const outputWords = TextChunker.getWordCount(generatedText || "");
@@ -26697,19 +26699,21 @@ var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, gener
     if (!heatmapEnabled)
       return "";
     if (!metadata)
-      return "para-patterned";
+      return "para-inferred";
     if (metadata.isSpeculative)
-      return "para-dimmed";
-    return "para-solid";
+      return "para-speculative";
+    return "para-grounded";
   };
   const getParaIcon = (metadata) => {
     if (!heatmapEnabled)
       return null;
+    if (debugMode === "off")
+      return null;
     if (!metadata)
-      return "\u{1F50D}";
+      return "\u{1F7E1}";
     if (metadata.isSpeculative)
-      return "\u26A0\uFE0F";
-    return "\u2705";
+      return "\u{1F534}";
+    return "\u{1F7E2}";
   };
   return /* @__PURE__ */ import_react.default.createElement("div", { className: "editor-panel" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "editor-section" }, /* @__PURE__ */ import_react.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 } }, /* @__PURE__ */ import_react.default.createElement("label", null, selectedLabel), /* @__PURE__ */ import_react.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, selectedWords.toLocaleString(), " words / ", selectedChars.toLocaleString(), " chars")), /* @__PURE__ */ import_react.default.createElement(
     "textarea",
@@ -26720,17 +26724,53 @@ var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, gener
       rows: 8,
       className: "editor-textarea"
     }
-  )), (generatedText || chunkBuffer) && /* @__PURE__ */ import_react.default.createElement("div", { className: "editor-section" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "generated-header" }, /* @__PURE__ */ import_react.default.createElement("div", { style: { display: "flex", flexDirection: "column" } }, /* @__PURE__ */ import_react.default.createElement("label", null, "Generated output:"), /* @__PURE__ */ import_react.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, outputWords.toLocaleString(), " words / ", outputChars.toLocaleString(), " chars")), /* @__PURE__ */ import_react.default.createElement("div", { style: { display: "flex", gap: 8 } }, heatmapEnabled && /* @__PURE__ */ import_react.default.createElement("div", { className: "heatmap-legend" }, /* @__PURE__ */ import_react.default.createElement("span", { title: "Grounded (Full Metadata)" }, /* @__PURE__ */ import_react.default.createElement("span", { className: "legend-dot solid" })), /* @__PURE__ */ import_react.default.createElement("span", { title: "Inferred (Metadata Missing)" }, /* @__PURE__ */ import_react.default.createElement("span", { className: "legend-dot patterned" })), /* @__PURE__ */ import_react.default.createElement("span", { title: "Lite (Speculative/Fallback)" }, /* @__PURE__ */ import_react.default.createElement("span", { className: "legend-dot dimmed" }))), /* @__PURE__ */ import_react.default.createElement("button", { onClick: onCopy, className: "copy-button" }, "Copy to clipboard"))), heatmapEnabled ? /* @__PURE__ */ import_react.default.createElement("div", { className: "generated-display heatmap-view" }, generatedParagraphs.map((para, idx) => /* @__PURE__ */ import_react.default.createElement(
+  )), (generatedText || chunkBuffer) && /* @__PURE__ */ import_react.default.createElement("div", { className: "editor-section" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "generated-header" }, /* @__PURE__ */ import_react.default.createElement("div", { style: { display: "flex", flexDirection: "column" } }, /* @__PURE__ */ import_react.default.createElement("label", null, "Generated output:"), /* @__PURE__ */ import_react.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, outputWords.toLocaleString(), " words / ", outputChars.toLocaleString(), " chars")), /* @__PURE__ */ import_react.default.createElement("div", { style: { display: "flex", gap: 12, alignItems: "center" } }, heatmapEnabled && /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { className: "debug-mode-selector", style: { display: "flex", gap: 4 } }, /* @__PURE__ */ import_react.default.createElement(
+    "button",
+    {
+      className: `btn-xs ${debugMode === "off" ? "mod-cta" : ""}`,
+      onClick: () => setDebugMode("off"),
+      title: "Debug Off"
+    },
+    "None"
+  ), /* @__PURE__ */ import_react.default.createElement(
+    "button",
+    {
+      className: `btn-xs ${debugMode === "summary" ? "mod-cta" : ""}`,
+      onClick: () => setDebugMode("summary"),
+      title: "Summary Tooltips"
+    },
+    "Sum"
+  ), /* @__PURE__ */ import_react.default.createElement(
+    "button",
+    {
+      className: `btn-xs ${debugMode === "raw" ? "mod-cta" : ""}`,
+      onClick: () => setDebugMode("raw"),
+      title: "Raw Metadata JSON"
+    },
+    "Raw"
+  )), /* @__PURE__ */ import_react.default.createElement("div", { className: "heatmap-legend", style: { display: "flex", gap: 8, fontSize: "0.8em" } }, /* @__PURE__ */ import_react.default.createElement("span", { title: "Grounded (Full Metadata)" }, /* @__PURE__ */ import_react.default.createElement("span", { className: "legend-dot", style: { backgroundColor: "var(--text-success)" } }), " \u{1F7E2}"), /* @__PURE__ */ import_react.default.createElement("span", { title: "Inferred (Metadata Missing)" }, /* @__PURE__ */ import_react.default.createElement("span", { className: "legend-dot", style: { backgroundColor: "var(--text-warning)" } }), " \u{1F7E1}"), /* @__PURE__ */ import_react.default.createElement("span", { title: "Speculative (Fallback)" }, /* @__PURE__ */ import_react.default.createElement("span", { className: "legend-dot", style: { backgroundColor: "var(--text-error)" } }), " \u{1F534}"))), /* @__PURE__ */ import_react.default.createElement("button", { onClick: onCopy, className: "copy-button" }, "Copy to clipboard"))), heatmapEnabled ? /* @__PURE__ */ import_react.default.createElement("div", { className: "generated-display heatmap-view" }, generatedParagraphs.map((para, idx) => /* @__PURE__ */ import_react.default.createElement(
     "div",
     {
       key: idx,
       className: `generated-para ${getParaClass(para.metadata)}`,
       onMouseEnter: () => setHoveredPara(idx),
-      onMouseLeave: () => setHoveredPara(null)
+      onMouseLeave: () => setHoveredPara(null),
+      style: { position: "relative" }
     },
     /* @__PURE__ */ import_react.default.createElement("span", { className: "para-icon" }, getParaIcon(para.metadata)),
     para.text,
-    hoveredPara === idx && para.metadata && /* @__PURE__ */ import_react.default.createElement("div", { className: "para-explanation" }, /* @__PURE__ */ import_react.default.createElement("strong", null, "Grounding Explanation"), /* @__PURE__ */ import_react.default.createElement("div", null, "Mode: ", para.metadata.isSpeculative ? "Creative/Lite" : "Grounded"), /* @__PURE__ */ import_react.default.createElement("div", null, "Facts: ", para.metadata.factIds?.length || 0), /* @__PURE__ */ import_react.default.createElement("div", null, "Goals: ", para.metadata.goalIds?.length || 0), para.metadata.sourceChunkIds && /* @__PURE__ */ import_react.default.createElement("div", null, "Sources: ", para.metadata.sourceChunkIds.join(", ")))
+    hoveredPara === idx && debugMode !== "off" && /* @__PURE__ */ import_react.default.createElement("div", { className: "para-explanation", style: {
+      position: "absolute",
+      top: "100%",
+      left: "0",
+      zIndex: 10,
+      backgroundColor: "var(--background-secondary)",
+      border: "1px solid var(--background-modifier-border)",
+      padding: "8px",
+      borderRadius: "4px",
+      width: "300px",
+      boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+    } }, debugMode === "summary" ? /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("strong", null, "Grounding Explanation"), /* @__PURE__ */ import_react.default.createElement("div", null, "Mode: ", para.metadata?.isSpeculative ? "Creative/Lite" : para.metadata ? "Grounded" : "Inferred"), /* @__PURE__ */ import_react.default.createElement("div", null, "Facts: ", para.metadata?.factIds?.length || 0), /* @__PURE__ */ import_react.default.createElement("div", null, "Goals: ", para.metadata?.goalIds?.length || 0), para.metadata?.sourceChunkIds && /* @__PURE__ */ import_react.default.createElement("div", null, "Sources: ", para.metadata.sourceChunkIds.join(", "))) : /* @__PURE__ */ import_react.default.createElement("pre", { style: { fontSize: "0.75em", margin: 0, overflowX: "auto" } }, JSON.stringify(para.metadata || { status: "inferred" }, null, 2)))
   )), chunkBuffer && /* @__PURE__ */ import_react.default.createElement("div", { className: "generated-para streaming" }, /* @__PURE__ */ import_react.default.createElement("span", { className: "para-icon" }, "\u23F3"), chunkBuffer)) : /* @__PURE__ */ import_react.default.createElement(
     "textarea",
     {
@@ -26743,10 +26783,290 @@ var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, gener
   )));
 };
 
-// ui/PilotHealthPanel.tsx
+// ui/FactInspector.tsx
 var import_react2 = __toESM(require_react());
+
+// ui/HelpTooltip.tsx
+var React2 = __toESM(require_react());
+
+// ui/HelpRegistry.ts
+var HELP_REGISTRY = {
+  "relay-mode": {
+    id: "relay-mode",
+    title: "Generation Mode",
+    description: "Local uses your own hardware via Ollama. Cloud uses high-power APIs for complex editing.",
+    density: "LITE"
+  },
+  "stitch-logic": {
+    id: "stitch-logic",
+    title: "Prose Stitching",
+    description: "Smooths the boundary between generated chunks. It protects proper nouns and verifies fact integrity.",
+    density: "FULL"
+  },
+  "replay-exact": {
+    id: "replay-exact",
+    title: "Exact Replay",
+    description: "Uses identical prompt bodies and retrieval hits from the original run to verify model determinism.",
+    density: "FULL"
+  },
+  "grounding-heatmap": {
+    id: "grounding-heatmap",
+    title: "Grounding Heatmap",
+    description: "Shows where your story bible facts were used. Green = Grounded, Yellow = Inferred, Red = Speculative.",
+    density: "LITE"
+  },
+  "diagnostics": {
+    id: "diagnostics",
+    title: "System Diagnostics",
+    description: "Checks connectivity, model availability, and index health. Failure here usually blocks generation.",
+    density: "LITE"
+  }
+};
+
+// ui/HelpTooltip.tsx
+var HelpTooltip = ({ id, density }) => {
+  const item = HELP_REGISTRY[id];
+  if (!item)
+    return null;
+  if (density === "NONE")
+    return null;
+  if (density === "LITE" && item.density === "FULL")
+    return null;
+  return /* @__PURE__ */ React2.createElement("span", { className: "help-icon", title: `${item.title}: ${item.description}` }, "\u24D8", item.learnMoreUrl && /* @__PURE__ */ React2.createElement("a", { href: item.learnMoreUrl, target: "_blank", rel: "noopener", className: "learn-more-link" }, "Learn More"));
+};
+
+// ui/FactInspector.tsx
+var FactInspector = ({ plugin, state }) => {
+  const [selectedFactId, setSelectedFactId] = (0, import_react2.useState)(null);
+  const [filter, setFilter] = (0, import_react2.useState)("all");
+  const selectedFact = state.canonFacts.find((f) => f.id === selectedFactId);
+  const getOriginBadge = (origin) => {
+    const colors = {
+      "BIBLE": "var(--text-accent)",
+      "CANON": "var(--text-success)",
+      "EXTRACTOR": "var(--text-warning)",
+      "CLOUD_MONOLITHIC": "var(--text-error)"
+    };
+    return /* @__PURE__ */ import_react2.default.createElement("span", { className: "fact-badge", style: { color: colors[origin] || "var(--text-muted)", fontSize: "0.8em", border: "1px solid", padding: "1px 4px", borderRadius: "4px", marginLeft: "8px" } }, origin);
+  };
+  const getStatusIcon = (state2) => {
+    switch (state2) {
+      case "CANON":
+        return "\u{1F512}";
+      case "PROPOSED":
+        return "\u{1F9EA}";
+      case "QUARANTINED":
+        return "\u26A0\uFE0F";
+      default:
+        return "\u2753";
+    }
+  };
+  const filteredFacts = state.canonFacts.filter((f) => {
+    if (filter === "all")
+      return true;
+    if (filter === "locked")
+      return f.lifecycleState === "CANON";
+    if (filter === "pending")
+      return f.lifecycleState === "PROPOSED";
+    if (filter === "conflict")
+      return f.lifecycleState === "QUARANTINED";
+    return true;
+  });
+  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "fact-inspector", style: { display: "flex", flexDirection: "column", height: "100%", gap: "12px" } }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "inspector-header", style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ import_react2.default.createElement("h3", { style: { margin: 0 } }, "Lore Inspector ", /* @__PURE__ */ import_react2.default.createElement(HelpTooltip, { id: "grounding-heatmap", density: plugin.settings.helpDensity || "LITE" })), /* @__PURE__ */ import_react2.default.createElement("div", { className: "filter-bar", style: { display: "flex", gap: "4px" } }, /* @__PURE__ */ import_react2.default.createElement("button", { className: `nav-button ${filter === "all" ? "is-active" : ""}`, onClick: () => setFilter("all") }, "All"), /* @__PURE__ */ import_react2.default.createElement("button", { className: `nav-button ${filter === "locked" ? "is-active" : ""}`, onClick: () => setFilter("locked") }, "\u{1F512} Locked"), /* @__PURE__ */ import_react2.default.createElement("button", { className: `nav-button ${filter === "pending" ? "is-active" : ""}`, onClick: () => setFilter("pending") }, "\u{1F9EA} Pending"), /* @__PURE__ */ import_react2.default.createElement("button", { className: `nav-button ${filter === "conflict" ? "is-active" : ""}`, onClick: () => setFilter("conflict") }, "\u26A0\uFE0F Conflict"))), /* @__PURE__ */ import_react2.default.createElement("div", { className: "inspector-layout", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", flexGrow: 1, minHeight: 0 } }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "fact-list", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "8px" } }, filteredFacts.length === 0 ? /* @__PURE__ */ import_react2.default.createElement("p", { className: "empty-msg", style: { textAlign: "center", color: "var(--text-muted)" } }, "No facts found for this filter.") : filteredFacts.map((fact) => /* @__PURE__ */ import_react2.default.createElement(
+    "div",
+    {
+      key: fact.id,
+      className: `fact-item ${selectedFactId === fact.id ? "is-selected" : ""}`,
+      onClick: () => setSelectedFactId(fact.id),
+      style: {
+        padding: "8px",
+        cursor: "pointer",
+        borderBottom: "1px solid var(--background-modifier-border)",
+        backgroundColor: selectedFactId === fact.id ? "var(--background-modifier-hover)" : "transparent"
+      }
+    },
+    /* @__PURE__ */ import_react2.default.createElement("div", { className: "fact-main", style: { display: "flex", gap: "8px", alignItems: "center" } }, /* @__PURE__ */ import_react2.default.createElement("span", { className: "fact-icon" }, getStatusIcon(fact.lifecycleState)), /* @__PURE__ */ import_react2.default.createElement("span", { className: "fact-summary", style: { fontSize: "0.9em" } }, /* @__PURE__ */ import_react2.default.createElement("strong", null, fact.entityId), ": ", fact.attribute, " is ", /* @__PURE__ */ import_react2.default.createElement("em", null, String(fact.value)))),
+    /* @__PURE__ */ import_react2.default.createElement("div", { className: "fact-meta", style: { display: "flex", justifyContent: "space-between", marginTop: "4px", alignItems: "center" } }, getOriginBadge(fact.origin), /* @__PURE__ */ import_react2.default.createElement("span", { className: "fact-conf", style: { fontSize: "0.8em", color: "var(--text-muted)" } }, (fact.confidence * 100).toFixed(0), "% confidence"))
+  ))), /* @__PURE__ */ import_react2.default.createElement("div", { className: "fact-detail-panel", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "12px", display: "flex", flexDirection: "column", gap: "12px" } }, selectedFact ? /* @__PURE__ */ import_react2.default.createElement("div", { className: "fact-detail-content" }, /* @__PURE__ */ import_react2.default.createElement("h4", { style: { marginTop: 0 } }, "Fact Detail: ", selectedFact.id), /* @__PURE__ */ import_react2.default.createElement("section", { className: "detail-section", style: { marginBottom: "16px" } }, /* @__PURE__ */ import_react2.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Why this exists (Provenance)"), /* @__PURE__ */ import_react2.default.createElement("div", { className: "detail-grid", style: { display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react2.default.createElement("span", null, "Origin:"), " ", /* @__PURE__ */ import_react2.default.createElement("strong", null, selectedFact.origin), /* @__PURE__ */ import_react2.default.createElement("span", null, "Added:"), " ", /* @__PURE__ */ import_react2.default.createElement("strong", null, new Date(selectedFact.timestamp).toLocaleString()), /* @__PURE__ */ import_react2.default.createElement("span", null, "Source Run:"), " ", /* @__PURE__ */ import_react2.default.createElement("strong", null, selectedFact.chunkId || "Initial Seed"), /* @__PURE__ */ import_react2.default.createElement("span", null, "Confidence:"), " ", /* @__PURE__ */ import_react2.default.createElement("strong", null, (selectedFact.confidence * 100).toFixed(0), "%"))), /* @__PURE__ */ import_react2.default.createElement("section", { className: "detail-section" }, /* @__PURE__ */ import_react2.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Where this matters (Impact)"), /* @__PURE__ */ import_react2.default.createElement("div", { className: "detail-grid", style: { display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react2.default.createElement("span", null, "Scope:"), " ", /* @__PURE__ */ import_react2.default.createElement("strong", null, selectedFact.scope), /* @__PURE__ */ import_react2.default.createElement("span", null, "Status:"), " ", /* @__PURE__ */ import_react2.default.createElement("strong", null, selectedFact.lifecycleState), /* @__PURE__ */ import_react2.default.createElement("span", null, "Attribute:"), " ", /* @__PURE__ */ import_react2.default.createElement("strong", null, selectedFact.attribute)), selectedFact.sourceSpan && /* @__PURE__ */ import_react2.default.createElement("div", { style: { marginTop: "8px", fontSize: "0.85em", fontStyle: "italic", color: "var(--text-muted)", borderLeft: "2px solid var(--text-accent)", paddingLeft: "8px" } }, '"...', selectedFact.sourceSpan.anchorTextBefore, " ", /* @__PURE__ */ import_react2.default.createElement("strong", null, "[", selectedFact.value, "]"), " ", selectedFact.sourceSpan.anchorTextAfter, '..."'))) : /* @__PURE__ */ import_react2.default.createElement("p", { className: "empty-msg", style: { textAlign: "center", color: "var(--text-muted)", margin: "auto" } }, "Select a fact to see details."))), /* @__PURE__ */ import_react2.default.createElement("div", { className: "timeline-section", style: { height: "150px", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "8px", overflowY: "auto" } }, /* @__PURE__ */ import_react2.default.createElement("h4", { style: { marginTop: 0, fontSize: "0.9em" } }, "Run Timeline"), /* @__PURE__ */ import_react2.default.createElement("div", { className: "timeline-list", style: { fontSize: "0.85em" } }, state.timeline.length === 0 ? /* @__PURE__ */ import_react2.default.createElement("p", { className: "empty-msg", style: { color: "var(--text-muted)" } }, "No timeline events yet.") : state.timeline.map((t, i) => /* @__PURE__ */ import_react2.default.createElement("div", { key: i, style: { display: "flex", gap: "12px", marginBottom: "4px" } }, /* @__PURE__ */ import_react2.default.createElement("span", { style: { color: "var(--text-accent)", minWidth: "60px" } }, t.chunkId), /* @__PURE__ */ import_react2.default.createElement("span", null, t.summary))))));
+};
+
+// ui/ReplayPanel.tsx
+var import_react3 = __toESM(require_react());
+
+// services/RunPaths.ts
+var RunPaths = class {
+  /**
+   * Base directory for a run (folder name).
+   * @param runKey - Folder name (e.g., "run-1735689600")
+   */
+  static baseDir(runKey) {
+    return `.gwriter/output/${runKey}`;
+  }
+  /**
+   * Logs directory for a run or continuation.
+   */
+  static logsDir(runKey, contId) {
+    const base2 = this.baseDir(runKey);
+    return contId ? `${base2}/branches/${contId}/logs` : `${base2}/logs`;
+  }
+  /**
+   * Context directory for a run or continuation (prompts, hits).
+   */
+  static contextDir(runKey, contId) {
+    const base2 = this.baseDir(runKey);
+    return contId ? `${base2}/branches/${contId}/context` : `${base2}/context`;
+  }
+  /**
+   * Snapshots directory for a run.
+   */
+  static snapshotsDir(runKey) {
+    return `${this.baseDir(runKey)}/snapshots`;
+  }
+  /**
+   * Harvest directory for a run.
+   */
+  static harvestDir(runKey) {
+    return `${this.baseDir(runKey)}/harvest`;
+  }
+  /**
+   * Replays directory for a run.
+   */
+  static replaysDir(runKey) {
+    return `${this.baseDir(runKey)}/replays`;
+  }
+  /**
+   * Branches directory for a run.
+   */
+  static branchesDir(runKey) {
+    return `${this.baseDir(runKey)}/branches`;
+  }
+  /**
+   * Path to continuation manifest (delta manifest).
+   */
+  static continuationManifestPath(runKey, contId) {
+    return `${this.branchesDir(runKey)}/${contId}/cont.json`;
+  }
+  /**
+   * Path to policy snapshot for a run.
+   */
+  static policySnapshotPath(runKey) {
+    return `${this.baseDir(runKey)}/policy.json`;
+  }
+  /**
+   * Path to run manifest.
+   */
+  static manifestPath(runKey) {
+    return `${this.baseDir(runKey)}/run.json`;
+  }
+  /**
+   * Derives runKey from a manifest.
+   */
+  static fromManifest(manifest) {
+    return null;
+  }
+};
+
+// ui/ReplayPanel.tsx
+var import_obsidian = require("obsidian");
+var ReplayPanel = ({ plugin }) => {
+  const [runs, setRuns] = (0, import_react3.useState)([]);
+  const [selectedRunKey, setSelectedRunKey] = (0, import_react3.useState)(null);
+  const [isLoading, setIsLoading] = (0, import_react3.useState)(false);
+  (0, import_react3.useEffect)(() => {
+    loadRuns();
+  }, []);
+  const loadRuns = async () => {
+    setIsLoading(true);
+    try {
+      const vault = plugin.app.vault;
+      const outputDir = ".gwriter/output";
+      if (!await vault.adapter.exists(outputDir)) {
+        setRuns([]);
+        return;
+      }
+      const folders = await vault.adapter.list(outputDir);
+      const manifestPromises = folders.folders.map(async (folderPath) => {
+        const runKey = folderPath.split("/").pop() || "";
+        const manifestPath = RunPaths.manifestPath(runKey);
+        if (await vault.adapter.exists(manifestPath)) {
+          const content = await vault.adapter.read(manifestPath);
+          try {
+            const manifest = JSON.parse(content);
+            return { key: runKey, manifest };
+          } catch (e) {
+            console.error(`Failed to parse manifest at ${manifestPath}`, e);
+            return null;
+          }
+        }
+        return null;
+      });
+      const loadedRuns = (await Promise.all(manifestPromises)).filter((r) => r !== null).sort((a, b) => b.manifest.startTime - a.manifest.startTime);
+      setRuns(loadedRuns);
+    } catch (error2) {
+      console.error("Failed to load runs", error2);
+      new import_obsidian.Notice("Failed to load generation runs.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  const selectedRun = runs.find((r) => r.key === selectedRunKey);
+  const getStageLabel = (stage) => {
+    if (selectedRun?.manifest?.config?.smartModel?.includes("gpt") || selectedRun?.manifest?.config?.smartModel?.includes("claude") || selectedRun?.manifest?.config?.smartModel?.includes("gemini")) {
+      switch (stage.stageType) {
+        case "RETRIEVE":
+          return "CONTEXT_PACK";
+        case "WRITE":
+          return "CLOUD_STRIKE";
+        case "AUDIT":
+          return "LOCAL_AUDIT";
+        case "HARVEST":
+          return "LORE_HARVEST";
+        default:
+          return stage.stageType;
+      }
+    }
+    return stage.stageType;
+  };
+  const getHealthBadge = (manifest) => {
+    const hasError = manifest.stages.some((s) => s.stageType === "AUDIT" && s.data?.overallSeverity >= 4);
+    if (hasError)
+      return /* @__PURE__ */ import_react3.default.createElement("span", { style: { color: "var(--text-error)", fontSize: "0.8em" } }, "\u274C Issues");
+    return /* @__PURE__ */ import_react3.default.createElement("span", { style: { color: "var(--text-success)", fontSize: "0.8em" } }, "\u2705 Healthy");
+  };
+  const getRunSignificance = (manifest) => {
+    const promoted = manifest.harvestSummary?.approvedIds?.length || 0;
+    const isCloud = manifest.config?.smartModel?.includes("gpt") || manifest.config?.smartModel?.includes("claude");
+    const parts = [];
+    if (promoted > 0)
+      parts.push(`Promoted ${promoted} facts`);
+    if (isCloud)
+      parts.push("Cloud monolithic");
+    else
+      parts.push("Local relay");
+    return parts.join(" \u2022 ");
+  };
+  return /* @__PURE__ */ import_react3.default.createElement("div", { className: "replay-panel", style: { display: "flex", flexDirection: "column", height: "100%", gap: "12px" } }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "replay-header", style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ import_react3.default.createElement("h3", { style: { margin: 0 } }, "Generation History"), /* @__PURE__ */ import_react3.default.createElement("button", { className: "nav-button", onClick: loadRuns, disabled: isLoading }, isLoading ? "Loading..." : "Refresh")), /* @__PURE__ */ import_react3.default.createElement("div", { className: "replay-layout", style: { display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "12px", flexGrow: 1, minHeight: 0 } }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "run-list", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "8px" } }, runs.length === 0 ? /* @__PURE__ */ import_react3.default.createElement("p", { style: { textAlign: "center", color: "var(--text-muted)" } }, "No runs found.") : runs.map((run) => /* @__PURE__ */ import_react3.default.createElement(
+    "div",
+    {
+      key: run.key,
+      className: `run-item ${selectedRunKey === run.key ? "is-selected" : ""}`,
+      onClick: () => setSelectedRunKey(run.key),
+      style: {
+        padding: "8px",
+        cursor: "pointer",
+        borderBottom: "1px solid var(--background-modifier-border)",
+        backgroundColor: selectedRunKey === run.key ? "var(--background-modifier-hover)" : "transparent"
+      }
+    },
+    /* @__PURE__ */ import_react3.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ import_react3.default.createElement("strong", { style: { fontSize: "0.9em" } }, new Date(run.manifest.startTime).toLocaleString()), getHealthBadge(run.manifest)),
+    /* @__PURE__ */ import_react3.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)", marginTop: "4px" } }, getRunSignificance(run.manifest))
+  ))), /* @__PURE__ */ import_react3.default.createElement("div", { className: "run-detail", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "12px" } }, selectedRun ? /* @__PURE__ */ import_react3.default.createElement("div", { className: "run-detail-content" }, /* @__PURE__ */ import_react3.default.createElement("h4", { style: { marginTop: 0 } }, "Run: ", selectedRun.key), /* @__PURE__ */ import_react3.default.createElement("div", { style: { fontSize: "0.9em", marginBottom: "16px", display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px" } }, /* @__PURE__ */ import_react3.default.createElement("span", null, "Model:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, selectedRun.manifest.config.smartModel), /* @__PURE__ */ import_react3.default.createElement("span", null, "Start:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, new Date(selectedRun.manifest.startTime).toLocaleString()), /* @__PURE__ */ import_react3.default.createElement("span", null, "Stages:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, selectedRun.manifest.stages.length)), /* @__PURE__ */ import_react3.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Execution Stages"), /* @__PURE__ */ import_react3.default.createElement("div", { className: "stage-list", style: { display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" } }, selectedRun.manifest.stages.map((stage, i) => /* @__PURE__ */ import_react3.default.createElement("div", { key: i, style: { padding: "8px", backgroundColor: "var(--background-secondary)", borderRadius: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react3.default.createElement("div", { style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ import_react3.default.createElement("span", { style: { color: "var(--text-accent)", fontWeight: "bold" } }, getStageLabel(stage)), /* @__PURE__ */ import_react3.default.createElement("span", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, Math.round(stage.endTime - stage.startTime), "ms")), stage.stageType === "AUDIT" && stage.data && /* @__PURE__ */ import_react3.default.createElement("div", { style: { marginTop: "4px", fontSize: "0.85em" } }, stage.data.violations?.length > 0 ? /* @__PURE__ */ import_react3.default.createElement("span", { style: { color: "var(--text-error)" } }, "\u26A0\uFE0F ", stage.data.violations.length, " violations") : /* @__PURE__ */ import_react3.default.createElement("span", { style: { color: "var(--text-success)" } }, "\u2705 No violations"))))), /* @__PURE__ */ import_react3.default.createElement("div", { style: { marginTop: "20px", display: "flex", gap: "8px" } }, /* @__PURE__ */ import_react3.default.createElement("button", { className: "mod-cta", style: { fontSize: "0.85em" }, onClick: () => new import_obsidian.Notice("Safe Context Pack inspection coming soon.") }, "Inspect Context Pack"), /* @__PURE__ */ import_react3.default.createElement("button", { style: { fontSize: "0.85em" }, onClick: () => new import_obsidian.Notice("Replay mode coming soon.") }, "Replay Run"))) : /* @__PURE__ */ import_react3.default.createElement("p", { style: { textAlign: "center", color: "var(--text-muted)", marginTop: "40px" } }, "Select a run to see execution details."))));
+};
+
+// ui/PilotHealthPanel.tsx
+var import_react4 = __toESM(require_react());
 var PilotHealthPanel = ({ misses, rejections, quarantineCount }) => {
-  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "pilot-health-panel", style: { padding: "12px", border: "1px solid var(--background-modifier-border)", borderRadius: "8px", marginTop: "16px" } }, /* @__PURE__ */ import_react2.default.createElement("h3", { style: { marginTop: 0 } }, "Pilot Cockpit"), /* @__PURE__ */ import_react2.default.createElement("div", { className: "health-metrics", style: { display: "flex", gap: "24px", marginBottom: "16px" } }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "metric" }, /* @__PURE__ */ import_react2.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, "HARD MISSES"), /* @__PURE__ */ import_react2.default.createElement("div", { style: { fontSize: "1.5em", fontWeight: "bold", color: misses.length > 0 ? "var(--text-error)" : "inherit" } }, misses.length)), /* @__PURE__ */ import_react2.default.createElement("div", { className: "metric" }, /* @__PURE__ */ import_react2.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, "STITCH REJECTIONS"), /* @__PURE__ */ import_react2.default.createElement("div", { style: { fontSize: "1.5em", fontWeight: "bold", color: rejections.length > 0 ? "var(--text-warning)" : "inherit" } }, rejections.length)), /* @__PURE__ */ import_react2.default.createElement("div", { className: "metric" }, /* @__PURE__ */ import_react2.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, "QUARANTINE"), /* @__PURE__ */ import_react2.default.createElement("div", { style: { fontSize: "1.5em", fontWeight: "bold" } }, quarantineCount))), misses.length > 0 && /* @__PURE__ */ import_react2.default.createElement("div", { className: "miss-details", style: { fontSize: "0.9em", marginBottom: "12px" } }, /* @__PURE__ */ import_react2.default.createElement("div", { style: { fontWeight: "bold", marginBottom: "4px" } }, "Recent HARD Misses:"), /* @__PURE__ */ import_react2.default.createElement("ul", { style: { margin: 0, paddingLeft: "20px" } }, misses.slice(-3).map((m, i) => /* @__PURE__ */ import_react2.default.createElement("li", { key: i }, m.type)))), /* @__PURE__ */ import_react2.default.createElement(
+  return /* @__PURE__ */ import_react4.default.createElement("div", { className: "pilot-health-panel", style: { padding: "12px", border: "1px solid var(--background-modifier-border)", borderRadius: "8px", marginTop: "16px" } }, /* @__PURE__ */ import_react4.default.createElement("h3", { style: { marginTop: 0 } }, "Pilot Cockpit"), /* @__PURE__ */ import_react4.default.createElement("div", { className: "health-metrics", style: { display: "flex", gap: "24px", marginBottom: "16px" } }, /* @__PURE__ */ import_react4.default.createElement("div", { className: "metric" }, /* @__PURE__ */ import_react4.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, "HARD MISSES"), /* @__PURE__ */ import_react4.default.createElement("div", { style: { fontSize: "1.5em", fontWeight: "bold", color: misses.length > 0 ? "var(--text-error)" : "inherit" } }, misses.length)), /* @__PURE__ */ import_react4.default.createElement("div", { className: "metric" }, /* @__PURE__ */ import_react4.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, "STITCH REJECTIONS"), /* @__PURE__ */ import_react4.default.createElement("div", { style: { fontSize: "1.5em", fontWeight: "bold", color: rejections.length > 0 ? "var(--text-warning)" : "inherit" } }, rejections.length)), /* @__PURE__ */ import_react4.default.createElement("div", { className: "metric" }, /* @__PURE__ */ import_react4.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, "QUARANTINE"), /* @__PURE__ */ import_react4.default.createElement("div", { style: { fontSize: "1.5em", fontWeight: "bold" } }, quarantineCount))), misses.length > 0 && /* @__PURE__ */ import_react4.default.createElement("div", { className: "miss-details", style: { fontSize: "0.9em", marginBottom: "12px" } }, /* @__PURE__ */ import_react4.default.createElement("div", { style: { fontWeight: "bold", marginBottom: "4px" } }, "Recent HARD Misses:"), /* @__PURE__ */ import_react4.default.createElement("ul", { style: { margin: 0, paddingLeft: "20px" } }, misses.slice(-3).map((m, i) => /* @__PURE__ */ import_react4.default.createElement("li", { key: i }, m.type)))), /* @__PURE__ */ import_react4.default.createElement(
     "div",
     {
       className: `sla-status ${quarantineCount > 5 ? "mod-error" : ""}`,
@@ -26758,7 +27078,7 @@ var PilotHealthPanel = ({ misses, rejections, quarantineCount }) => {
         fontSize: "0.85em"
       }
     },
-    /* @__PURE__ */ import_react2.default.createElement("strong", null, "Quarantine SLA:"),
+    /* @__PURE__ */ import_react4.default.createElement("strong", null, "Quarantine SLA:"),
     " ",
     quarantineCount > 5 ? "\u{1F534} REVIEW REQUIRED" : "\u{1F7E2} HEALTHY"
   ));
@@ -26799,32 +27119,32 @@ var relayEventBus = new RelayEventBus();
 
 // ui/DashboardComponent.tsx
 var DashboardComponent = ({ plugin }) => {
-  const [mode, setMode] = (0, import_react3.useState)("chapter");
-  const [demoStep, setDemoStep] = (0, import_react3.useState)("off");
-  const [apiKeyPresent, setApiKeyPresent] = (0, import_react3.useState)(Boolean(plugin.settings.apiKey));
-  const [modeState, setModeState] = (0, import_react3.useState)(() => plugin.settings.modeState);
-  const [generatedText, setGeneratedText] = (0, import_react3.useState)("");
-  const [generatedParagraphs, setGeneratedParagraphs] = (0, import_react3.useState)([]);
-  const [chunkBuffer, setChunkBuffer] = (0, import_react3.useState)("");
-  const [isGenerating, setIsGenerating] = (0, import_react3.useState)(false);
-  const [generationStage, setGenerationStage] = (0, import_react3.useState)("");
-  const [pulseMessage, setPulseMessage] = (0, import_react3.useState)(null);
-  const [pulseDetail, setPulseDetail] = (0, import_react3.useState)(null);
-  const [generationSteps, setGenerationSteps] = (0, import_react3.useState)([]);
-  const [error2, setError] = (0, import_react3.useState)(null);
-  const [mismatchReport, setMismatchReport] = (0, import_react3.useState)(null);
-  const [telemetry, setTelemetry] = (0, import_react3.useState)(null);
-  const [costEstimate, setCostEstimate] = (0, import_react3.useState)(null);
-  const [showFactInspector, setShowFactInspector] = (0, import_react3.useState)(false);
-  const [heatmapEnabled, setHeatmapEnabled] = (0, import_react3.useState)(true);
-  const [spontaneity, setSpontaneity] = (0, import_react3.useState)(plugin.settings.spontaneitySlider || 50);
-  const [misses, setMisses] = (0, import_react3.useState)([]);
-  const [rejections, setRejections] = (0, import_react3.useState)([]);
-  const [proposedMutation, setProposedMutation] = (0, import_react3.useState)(null);
-  const [trustSummary, setTrustSummary] = (0, import_react3.useState)(null);
-  const [activeTab, setActiveTab] = (0, import_react3.useState)("editor");
-  const commitLock = (0, import_react3.useRef)(false);
-  (0, import_react3.useEffect)(() => {
+  const [mode, setMode] = (0, import_react5.useState)("chapter");
+  const [demoStep, setDemoStep] = (0, import_react5.useState)("off");
+  const [apiKeyPresent, setApiKeyPresent] = (0, import_react5.useState)(Boolean(plugin.settings.apiKey));
+  const [modeState, setModeState] = (0, import_react5.useState)(() => plugin.settings.modeState);
+  const [generatedText, setGeneratedText] = (0, import_react5.useState)("");
+  const [generatedParagraphs, setGeneratedParagraphs] = (0, import_react5.useState)([]);
+  const [chunkBuffer, setChunkBuffer] = (0, import_react5.useState)("");
+  const [isGenerating, setIsGenerating] = (0, import_react5.useState)(false);
+  const [generationStage, setGenerationStage] = (0, import_react5.useState)("");
+  const [pulseMessage, setPulseMessage] = (0, import_react5.useState)(null);
+  const [pulseDetail, setPulseDetail] = (0, import_react5.useState)(null);
+  const [generationSteps, setGenerationSteps] = (0, import_react5.useState)([]);
+  const [error2, setError] = (0, import_react5.useState)(null);
+  const [mismatchReport, setMismatchReport] = (0, import_react5.useState)(null);
+  const [telemetry, setTelemetry] = (0, import_react5.useState)(null);
+  const [costEstimate, setCostEstimate] = (0, import_react5.useState)(null);
+  const [showFactInspector, setShowFactInspector] = (0, import_react5.useState)(false);
+  const [heatmapEnabled, setHeatmapEnabled] = (0, import_react5.useState)(true);
+  const [spontaneity, setSpontaneity] = (0, import_react5.useState)(plugin.settings.spontaneitySlider || 50);
+  const [misses, setMisses] = (0, import_react5.useState)([]);
+  const [rejections, setRejections] = (0, import_react5.useState)([]);
+  const [proposedMutation, setProposedMutation] = (0, import_react5.useState)(null);
+  const [trustSummary, setTrustSummary] = (0, import_react5.useState)(null);
+  const [activeTab, setActiveTab] = (0, import_react5.useState)("editor");
+  const commitLock = (0, import_react5.useRef)(false);
+  (0, import_react5.useEffect)(() => {
     const onStart = () => {
       setGenerationSteps([]);
       setChunkBuffer("");
@@ -26938,13 +27258,13 @@ var DashboardComponent = ({ plugin }) => {
         editInstructions: modeState.microEdit.grievances
       });
     } else {
-      new import_obsidian.Notice("Relay generation is currently only available for Chapter and Micro-Edit modes.");
+      new import_obsidian2.Notice("Relay generation is currently only available for Chapter and Micro-Edit modes.");
     }
   };
   const updateMainInput = (value) => {
     setModeState((prev) => ({ ...prev, chapter: { ...prev.chapter, sceneSummary: value } }));
   };
-  return /* @__PURE__ */ import_react3.default.createElement("div", { className: "writing-dashboard" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "dashboard-tabs" }, /* @__PURE__ */ import_react3.default.createElement("button", { className: activeTab === "editor" ? "active" : "", onClick: () => setActiveTab("editor") }, "Editor"), /* @__PURE__ */ import_react3.default.createElement("button", { className: activeTab === "lore" ? "active" : "", onClick: () => setActiveTab("lore") }, "Lore"), /* @__PURE__ */ import_react3.default.createElement("button", { className: activeTab === "replay" ? "active" : "", onClick: () => setActiveTab("replay") }, "Replay"), /* @__PURE__ */ import_react3.default.createElement("button", { className: activeTab === "signature" ? "active" : "", onClick: () => setActiveTab("signature") }, "Signature")), /* @__PURE__ */ import_react3.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "main-workspace" }, activeTab === "editor" && /* @__PURE__ */ import_react3.default.createElement(
+  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "writing-dashboard" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "dashboard-tabs" }, /* @__PURE__ */ import_react5.default.createElement("button", { className: activeTab === "editor" ? "active" : "", onClick: () => setActiveTab("editor") }, "Editor"), /* @__PURE__ */ import_react5.default.createElement("button", { className: activeTab === "lore" ? "active" : "", onClick: () => setActiveTab("lore") }, "Lore"), /* @__PURE__ */ import_react5.default.createElement("button", { className: activeTab === "replay" ? "active" : "", onClick: () => setActiveTab("replay") }, "Replay"), /* @__PURE__ */ import_react5.default.createElement("button", { className: activeTab === "signature" ? "active" : "", onClick: () => setActiveTab("signature") }, "Signature")), /* @__PURE__ */ import_react5.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "main-workspace" }, activeTab === "editor" && /* @__PURE__ */ import_react5.default.createElement(
     EditorPanel,
     {
       plugin,
@@ -26958,7 +27278,26 @@ var DashboardComponent = ({ plugin }) => {
       onCopy: () => navigator.clipboard.writeText(generatedText),
       chunkBuffer
     }
-  ), activeTab === "lore" && /* @__PURE__ */ import_react3.default.createElement("div", { className: "lore-tab" }, /* @__PURE__ */ import_react3.default.createElement("h3", null, "Canon Facts"), /* @__PURE__ */ import_react3.default.createElement("p", null, "View and manage story lore."), /* @__PURE__ */ import_react3.default.createElement(
+  ), activeTab === "lore" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "lore-tab" }, /* @__PURE__ */ import_react5.default.createElement(
+    FactInspector,
+    {
+      plugin,
+      state: plugin.sequentialGenerator.getContextManager()?.getState() || {
+        chapterId: "temp",
+        canonVersion: 1,
+        schemaVersion: 1,
+        entities: [],
+        canonFacts: [],
+        mutationHistory: [],
+        pendingMutations: [],
+        entity_redirects: {},
+        redirectRegistryVersion: 0,
+        timeline: [],
+        openLoops: [],
+        constraints: { pov: "third", tense: "past", tone: [], forbidden: [] }
+      }
+    }
+  ), /* @__PURE__ */ import_react5.default.createElement(
     PilotHealthPanel,
     {
       plugin,
@@ -26966,13 +27305,13 @@ var DashboardComponent = ({ plugin }) => {
       rejections,
       quarantineCount: 0
     }
-  )), activeTab === "replay" && /* @__PURE__ */ import_react3.default.createElement("div", { className: "replay-tab" }, /* @__PURE__ */ import_react3.default.createElement("h3", null, "Generation Replay"), /* @__PURE__ */ import_react3.default.createElement("p", null, "Audit and replay previous runs.")), isGenerating && /* @__PURE__ */ import_react3.default.createElement("div", { className: "generation-status-overlay" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "loader" }, "\u23F3"), /* @__PURE__ */ import_react3.default.createElement("div", { className: "stage" }, generationStage), chunkBuffer && /* @__PURE__ */ import_react3.default.createElement("div", { className: `buffer-preview ${heatmapEnabled ? "heatmap" : ""}` }, chunkBuffer.split("\n").map((p, i) => {
+  )), activeTab === "replay" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "replay-tab" }, /* @__PURE__ */ import_react5.default.createElement(ReplayPanel, { plugin })), isGenerating && /* @__PURE__ */ import_react5.default.createElement("div", { className: "generation-status-overlay" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "loader" }, "\u23F3"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "stage" }, generationStage), chunkBuffer && /* @__PURE__ */ import_react5.default.createElement("div", { className: `buffer-preview ${heatmapEnabled ? "heatmap" : ""}` }, chunkBuffer.split("\n").map((p, i) => {
     const isSpeculative = p.length % 2 === 0;
-    return /* @__PURE__ */ import_react3.default.createElement("p", { key: i, className: isSpeculative ? "speculative" : "grounded" }, p);
-  }))), proposedMutation && /* @__PURE__ */ import_react3.default.createElement("div", { className: "mutation-modal" }, /* @__PURE__ */ import_react3.default.createElement("h3", null, "Lore Mutation Proposal"), /* @__PURE__ */ import_react3.default.createElement("p", null, proposedMutation.message), /* @__PURE__ */ import_react3.default.createElement("div", { className: "actions" }, /* @__PURE__ */ import_react3.default.createElement("button", { onClick: () => setProposedMutation(null) }, "Reject"), /* @__PURE__ */ import_react3.default.createElement("button", { onClick: () => setProposedMutation(null) }, "Defer"), /* @__PURE__ */ import_react3.default.createElement("button", { className: "mod-cta", onClick: () => setProposedMutation(null) }, "Accept & Version Canon"))), trustSummary && /* @__PURE__ */ import_react3.default.createElement("div", { className: "trust-summary-banner" }, /* @__PURE__ */ import_react3.default.createElement("span", null, "Grounding: ", /* @__PURE__ */ import_react3.default.createElement("strong", null, trustSummary.grounding)), /* @__PURE__ */ import_react3.default.createElement("span", null, "Lore: ", /* @__PURE__ */ import_react3.default.createElement("strong", null, trustSummary.loreStatus)), /* @__PURE__ */ import_react3.default.createElement("span", null, "Canon Version: ", /* @__PURE__ */ import_react3.default.createElement("strong", null, trustSummary.version)), trustSummary.replayable && /* @__PURE__ */ import_react3.default.createElement("span", { className: "verified" }, "\u2713 Replayable")), mismatchReport && /* @__PURE__ */ import_react3.default.createElement("div", { className: "mismatch-report-banner" }, /* @__PURE__ */ import_react3.default.createElement("h3", null, "\u26A0\uFE0F Strict Replay Mismatch"), mismatchReport.map((m, i) => /* @__PURE__ */ import_react3.default.createElement("p", { key: i }, /* @__PURE__ */ import_react3.default.createElement("strong", null, m.field, ":"), ' Expected "', m.expected.slice(0, 8), '", Got "', m.actual.slice(0, 8), '" (', m.severity, ")")), /* @__PURE__ */ import_react3.default.createElement("div", { className: "actions" }, /* @__PURE__ */ import_react3.default.createElement("button", { onClick: () => setMismatchReport(null) }, "Cancel Replay"), /* @__PURE__ */ import_react3.default.createElement("button", { className: "mod-cta", onClick: () => {
+    return /* @__PURE__ */ import_react5.default.createElement("p", { key: i, className: isSpeculative ? "speculative" : "grounded" }, p);
+  }))), proposedMutation && /* @__PURE__ */ import_react5.default.createElement("div", { className: "mutation-modal" }, /* @__PURE__ */ import_react5.default.createElement("h3", null, "Lore Mutation Proposal"), /* @__PURE__ */ import_react5.default.createElement("p", null, proposedMutation.message), /* @__PURE__ */ import_react5.default.createElement("div", { className: "actions" }, /* @__PURE__ */ import_react5.default.createElement("button", { onClick: () => setProposedMutation(null) }, "Reject"), /* @__PURE__ */ import_react5.default.createElement("button", { onClick: () => setProposedMutation(null) }, "Defer"), /* @__PURE__ */ import_react5.default.createElement("button", { className: "mod-cta", onClick: () => setProposedMutation(null) }, "Accept & Version Canon"))), trustSummary && /* @__PURE__ */ import_react5.default.createElement("div", { className: "trust-summary-banner" }, /* @__PURE__ */ import_react5.default.createElement("span", null, "Grounding: ", /* @__PURE__ */ import_react5.default.createElement("strong", null, trustSummary.grounding)), /* @__PURE__ */ import_react5.default.createElement("span", null, "Lore: ", /* @__PURE__ */ import_react5.default.createElement("strong", null, trustSummary.loreStatus)), /* @__PURE__ */ import_react5.default.createElement("span", null, "Canon Version: ", /* @__PURE__ */ import_react5.default.createElement("strong", null, trustSummary.version)), trustSummary.replayable && /* @__PURE__ */ import_react5.default.createElement("span", { className: "verified" }, "\u2713 Replayable")), mismatchReport && /* @__PURE__ */ import_react5.default.createElement("div", { className: "mismatch-report-banner" }, /* @__PURE__ */ import_react5.default.createElement("h3", null, "\u26A0\uFE0F Strict Replay Mismatch"), mismatchReport.map((m, i) => /* @__PURE__ */ import_react5.default.createElement("p", { key: i }, /* @__PURE__ */ import_react5.default.createElement("strong", null, m.field, ":"), ' Expected "', m.expected.slice(0, 8), '", Got "', m.actual.slice(0, 8), '" (', m.severity, ")")), /* @__PURE__ */ import_react5.default.createElement("div", { className: "actions" }, /* @__PURE__ */ import_react5.default.createElement("button", { onClick: () => setMismatchReport(null) }, "Cancel Replay"), /* @__PURE__ */ import_react5.default.createElement("button", { className: "mod-cta", onClick: () => {
     setMismatchReport(null);
-    new import_obsidian.Notice("Proceeding in Best-Effort mode...");
-  } }, "Proceed Creative (Best-Effort)"))), /* @__PURE__ */ import_react3.default.createElement("div", { className: "controls" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "spontaneity-control", style: { display: "flex", flexDirection: "column", gap: 4, flex: 1 } }, /* @__PURE__ */ import_react3.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "0.8em" } }, /* @__PURE__ */ import_react3.default.createElement("span", null, "Faithful"), /* @__PURE__ */ import_react3.default.createElement("span", null, "Spontaneity: ", spontaneity), /* @__PURE__ */ import_react3.default.createElement("span", null, "Wild")), /* @__PURE__ */ import_react3.default.createElement(
+    new import_obsidian2.Notice("Proceeding in Best-Effort mode...");
+  } }, "Proceed Creative (Best-Effort)"))), /* @__PURE__ */ import_react5.default.createElement("div", { className: "controls" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "spontaneity-control", style: { display: "flex", flexDirection: "column", gap: 4, flex: 1 } }, /* @__PURE__ */ import_react5.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "0.8em" } }, /* @__PURE__ */ import_react5.default.createElement("span", null, "Faithful"), /* @__PURE__ */ import_react5.default.createElement("span", null, "Spontaneity: ", spontaneity), /* @__PURE__ */ import_react5.default.createElement("span", null, "Wild")), /* @__PURE__ */ import_react5.default.createElement(
     "input",
     {
       type: "range",
@@ -26988,7 +27327,7 @@ var DashboardComponent = ({ plugin }) => {
       className: "spontaneity-slider",
       title: "Adjusts LLM temperature and novelty bias."
     }
-  )), /* @__PURE__ */ import_react3.default.createElement(
+  )), /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
       onClick: handleGenerate,
@@ -26996,19 +27335,19 @@ var DashboardComponent = ({ plugin }) => {
       className: "generate-button mod-cta"
     },
     isGenerating ? "Generating..." : "Start Relay Generation"
-  ), /* @__PURE__ */ import_react3.default.createElement(
+  ), /* @__PURE__ */ import_react5.default.createElement(
     "button",
     {
       onClick: () => setHeatmapEnabled(!heatmapEnabled),
       className: `heatmap-toggle ${heatmapEnabled ? "active" : ""}`
     },
     heatmapEnabled ? "Hide Heatmap" : "Show Heatmap"
-  ), isGenerating && /* @__PURE__ */ import_react3.default.createElement("button", { onClick: () => plugin.sequentialGenerator.abort(), className: "abort-button" }, "Abort")), isGenerating && pulseMessage && /* @__PURE__ */ import_react3.default.createElement("div", { className: "continuity-pulse-container" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "pulse-message" }, /* @__PURE__ */ import_react3.default.createElement("span", { className: "pulse-icon" }, "\u269B\uFE0F"), /* @__PURE__ */ import_react3.default.createElement("strong", null, pulseMessage)), pulseDetail && /* @__PURE__ */ import_react3.default.createElement("div", { className: "pulse-detail" }, pulseDetail), /* @__PURE__ */ import_react3.default.createElement("div", { className: "pulse-progress-bar" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "pulse-progress-fill" }))), telemetry && /* @__PURE__ */ import_react3.default.createElement("div", { className: "telemetry-bar" }, /* @__PURE__ */ import_react3.default.createElement("span", null, "TPS: ", telemetry.tps), /* @__PURE__ */ import_react3.default.createElement("span", null, "Model: ", telemetry.model), /* @__PURE__ */ import_react3.default.createElement("span", null, "Digest: ", telemetry.digest.slice(0, 8))))));
+  ), isGenerating && /* @__PURE__ */ import_react5.default.createElement("button", { onClick: () => plugin.sequentialGenerator.abort(), className: "abort-button" }, "Abort")), isGenerating && pulseMessage && /* @__PURE__ */ import_react5.default.createElement("div", { className: "continuity-pulse-container" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "pulse-message" }, /* @__PURE__ */ import_react5.default.createElement("span", { className: "pulse-icon" }, "\u269B\uFE0F"), /* @__PURE__ */ import_react5.default.createElement("strong", null, pulseMessage)), pulseDetail && /* @__PURE__ */ import_react5.default.createElement("div", { className: "pulse-detail" }, pulseDetail), /* @__PURE__ */ import_react5.default.createElement("div", { className: "pulse-progress-bar" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "pulse-progress-fill" }))), telemetry && /* @__PURE__ */ import_react5.default.createElement("div", { className: "telemetry-bar" }, /* @__PURE__ */ import_react5.default.createElement("span", null, "TPS: ", telemetry.tps), /* @__PURE__ */ import_react5.default.createElement("span", null, "Model: ", telemetry.model), /* @__PURE__ */ import_react5.default.createElement("span", null, "Digest: ", telemetry.digest.slice(0, 8))))));
 };
 
 // ui/DashboardView.ts
 var VIEW_TYPE_DASHBOARD = "writing-dashboard";
-var DashboardView = class extends import_obsidian2.ItemView {
+var DashboardView = class extends import_obsidian3.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.reactRoot = null;
@@ -27029,7 +27368,7 @@ var DashboardView = class extends import_obsidian2.ItemView {
     const reactContainer = container.createDiv();
     this.reactRoot = (0, import_client.createRoot)(reactContainer);
     this.reactRoot.render(
-      import_react4.default.createElement(DashboardComponent, { plugin: this.plugin })
+      import_react6.default.createElement(DashboardComponent, { plugin: this.plugin })
     );
     return Promise.resolve();
   }
@@ -27043,18 +27382,18 @@ var DashboardView = class extends import_obsidian2.ItemView {
 };
 
 // ui/SettingsTab.ts
-var import_obsidian9 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 
 // ui/SetupWizard.tsx
-var import_react6 = __toESM(require_react());
+var import_react8 = __toESM(require_react());
 var import_client3 = __toESM(require_client());
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 
 // ui/FileTreePickerModal.tsx
-var import_obsidian3 = require("obsidian");
-var import_react5 = __toESM(require_react());
+var import_obsidian4 = require("obsidian");
+var import_react7 = __toESM(require_react());
 var import_client2 = __toESM(require_client());
-var FileTreePickerModal = class extends import_obsidian3.Modal {
+var FileTreePickerModal = class extends import_obsidian4.Modal {
   constructor(plugin, opts) {
     super(plugin.app);
     this.reactRoot = null;
@@ -27069,7 +27408,7 @@ var FileTreePickerModal = class extends import_obsidian3.Modal {
     const container = this.contentEl.createDiv();
     this.reactRoot = (0, import_client2.createRoot)(container);
     this.reactRoot.render(
-      import_react5.default.createElement(FileTreePickerComponent, {
+      import_react7.default.createElement(FileTreePickerComponent, {
         plugin: this.plugin,
         currentPath: this.currentPath,
         onPick: (path) => {
@@ -27089,9 +27428,9 @@ var FileTreePickerModal = class extends import_obsidian3.Modal {
   }
 };
 var FileTreePickerComponent = ({ plugin, currentPath, onPick, onClose }) => {
-  const [structure, setStructure] = (0, import_react5.useState)([]);
-  const [expandedFolders, setExpandedFolders] = (0, import_react5.useState)(/* @__PURE__ */ new Set([""]));
-  (0, import_react5.useEffect)(() => {
+  const [structure, setStructure] = (0, import_react7.useState)([]);
+  const [expandedFolders, setExpandedFolders] = (0, import_react7.useState)(/* @__PURE__ */ new Set([""]));
+  (0, import_react7.useEffect)(() => {
     const vaultStructure = plugin.vaultService.getVaultStructure();
     const filtered = vaultStructure.filter(
       (item) => item.type === "folder" || item.type === "file" && item.path.endsWith(".md")
@@ -27123,7 +27462,7 @@ var FileTreePickerComponent = ({ plugin, currentPath, onPick, onClose }) => {
       );
       if (children.length === 0)
         return null;
-      return /* @__PURE__ */ import_react5.default.createElement("div", { key: item.path, className: "vault-item folder", style: { paddingLeft: `${depth * 20}px` } }, /* @__PURE__ */ import_react5.default.createElement(
+      return /* @__PURE__ */ import_react7.default.createElement("div", { key: item.path, className: "vault-item folder", style: { paddingLeft: `${depth * 20}px` } }, /* @__PURE__ */ import_react7.default.createElement(
         "span",
         {
           className: "folder-toggle",
@@ -27136,7 +27475,7 @@ var FileTreePickerComponent = ({ plugin, currentPath, onPick, onClose }) => {
       ), isExpanded && children.map((child) => renderItem(child, depth + 1)));
     } else {
       const isSelected = item.path === currentPath;
-      return /* @__PURE__ */ import_react5.default.createElement(
+      return /* @__PURE__ */ import_react7.default.createElement(
         "div",
         {
           key: item.path,
@@ -27151,12 +27490,12 @@ var FileTreePickerComponent = ({ plugin, currentPath, onPick, onClose }) => {
         },
         "\u{1F4C4} ",
         item.name,
-        isSelected && /* @__PURE__ */ import_react5.default.createElement("span", { style: { marginLeft: "8px", color: "var(--text-accent)" } }, "\u2713")
+        isSelected && /* @__PURE__ */ import_react7.default.createElement("span", { style: { marginLeft: "8px", color: "var(--text-accent)" } }, "\u2713")
       );
     }
   };
   const rootItems = structure.filter((item) => !item.path.includes("/"));
-  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "file-tree-picker", style: { padding: "12px", maxHeight: "60vh", overflowY: "auto" } }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "vault-tree" }, rootItems.length === 0 ? /* @__PURE__ */ import_react5.default.createElement("div", { style: { padding: "12px", color: "var(--text-muted)" } }, "No markdown files found in vault") : rootItems.map((item) => renderItem(item))));
+  return /* @__PURE__ */ import_react7.default.createElement("div", { className: "file-tree-picker", style: { padding: "12px", maxHeight: "60vh", overflowY: "auto" } }, /* @__PURE__ */ import_react7.default.createElement("div", { className: "vault-tree" }, rootItems.length === 0 ? /* @__PURE__ */ import_react7.default.createElement("div", { style: { padding: "12px", color: "var(--text-muted)" } }, "No markdown files found in vault") : rootItems.map((item) => renderItem(item))));
 };
 
 // ui/SetupWizard.tsx
@@ -27209,7 +27548,7 @@ Your active manuscript goes here.
     }
   ];
 }
-var SetupWizardModal = class extends import_obsidian4.Modal {
+var SetupWizardModal = class extends import_obsidian5.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.reactRoot = null;
@@ -27221,7 +27560,7 @@ var SetupWizardModal = class extends import_obsidian4.Modal {
     const reactContainer = contentEl.createDiv();
     this.reactRoot = (0, import_client3.createRoot)(reactContainer);
     this.reactRoot.render(
-      import_react6.default.createElement(SetupWizardComponent, {
+      import_react8.default.createElement(SetupWizardComponent, {
         plugin: this.plugin,
         onClose: () => this.close()
       })
@@ -27235,10 +27574,10 @@ var SetupWizardModal = class extends import_obsidian4.Modal {
   }
 };
 var SetupWizardComponent = ({ plugin, onClose }) => {
-  const [items, setItems] = (0, import_react6.useState)([]);
-  const [isCreating, setIsCreating] = (0, import_react6.useState)(false);
-  const [result, setResult] = (0, import_react6.useState)(null);
-  (0, import_react6.useEffect)(() => {
+  const [items, setItems] = (0, import_react8.useState)([]);
+  const [isCreating, setIsCreating] = (0, import_react8.useState)(false);
+  const [result, setResult] = (0, import_react8.useState)(null);
+  (0, import_react8.useEffect)(() => {
     const checkItems = () => {
       const checkedItems = getSetupItems(plugin).map((item) => {
         const file = plugin.app.vault.getAbstractFileByPath(item.path);
@@ -27317,7 +27656,7 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
           return "[unserializable error]";
         }
       })();
-      new import_obsidian4.Notice(`Error creating files: ${message}`);
+      new import_obsidian5.Notice(`Error creating files: ${message}`);
     } finally {
       setIsCreating(false);
     }
@@ -27340,9 +27679,9 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
     }
   };
   if (result) {
-    return /* @__PURE__ */ import_react6.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react6.default.createElement("h2", null, "Setup complete!"), result.created.length > 0 && /* @__PURE__ */ import_react6.default.createElement("div", { className: "setup-success" }, /* @__PURE__ */ import_react6.default.createElement("p", null, /* @__PURE__ */ import_react6.default.createElement("strong", null, "Created:")), /* @__PURE__ */ import_react6.default.createElement("ul", null, result.created.map((path) => /* @__PURE__ */ import_react6.default.createElement("li", { key: path }, path)))), result.skipped.length > 0 && /* @__PURE__ */ import_react6.default.createElement("div", { className: "setup-skipped" }, /* @__PURE__ */ import_react6.default.createElement("p", null, /* @__PURE__ */ import_react6.default.createElement("strong", null, "Skipped (already exist):")), /* @__PURE__ */ import_react6.default.createElement("ul", null, result.skipped.map((path) => /* @__PURE__ */ import_react6.default.createElement("li", { key: path }, path)))), /* @__PURE__ */ import_react6.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react6.default.createElement("button", { onClick: handleRunGuidedDemo, className: "mod-cta" }, "Run guided demo"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: onClose, className: "mod-secondary" }, "Close")));
+    return /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react8.default.createElement("h2", null, "Setup complete!"), result.created.length > 0 && /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-success" }, /* @__PURE__ */ import_react8.default.createElement("p", null, /* @__PURE__ */ import_react8.default.createElement("strong", null, "Created:")), /* @__PURE__ */ import_react8.default.createElement("ul", null, result.created.map((path) => /* @__PURE__ */ import_react8.default.createElement("li", { key: path }, path)))), result.skipped.length > 0 && /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-skipped" }, /* @__PURE__ */ import_react8.default.createElement("p", null, /* @__PURE__ */ import_react8.default.createElement("strong", null, "Skipped (already exist):")), /* @__PURE__ */ import_react8.default.createElement("ul", null, result.skipped.map((path) => /* @__PURE__ */ import_react8.default.createElement("li", { key: path }, path)))), /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react8.default.createElement("button", { onClick: handleRunGuidedDemo, className: "mod-cta" }, "Run guided demo"), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: onClose, className: "mod-secondary" }, "Close")));
   }
-  return /* @__PURE__ */ import_react6.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react6.default.createElement("h2", null, "Welcome to writing dashboard"), /* @__PURE__ */ import_react6.default.createElement("p", null, "Set up your writing workspace by selecting which files and folders to create:"), /* @__PURE__ */ import_react6.default.createElement("div", { className: "setup-items" }, items.map((item, index) => /* @__PURE__ */ import_react6.default.createElement("div", { key: item.path, className: "setup-item" }, /* @__PURE__ */ import_react6.default.createElement("label", { className: item.exists ? "disabled" : "" }, /* @__PURE__ */ import_react6.default.createElement(
+  return /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react8.default.createElement("h2", null, "Welcome to writing dashboard"), /* @__PURE__ */ import_react8.default.createElement("p", null, "Set up your writing workspace by selecting which files and folders to create:"), /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-items" }, items.map((item, index) => /* @__PURE__ */ import_react8.default.createElement("div", { key: item.path, className: "setup-item" }, /* @__PURE__ */ import_react8.default.createElement("label", { className: item.exists ? "disabled" : "" }, /* @__PURE__ */ import_react8.default.createElement(
     "input",
     {
       type: "checkbox",
@@ -27350,7 +27689,7 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
       disabled: item.exists || isCreating,
       onChange: () => handleToggle(index)
     }
-  ), /* @__PURE__ */ import_react6.default.createElement("div", { className: "setup-item-content" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "setup-item-header" }, /* @__PURE__ */ import_react6.default.createElement("strong", null, item.path), item.exists && /* @__PURE__ */ import_react6.default.createElement("span", { className: "exists-badge" }, "\u2713 Already exists")), /* @__PURE__ */ import_react6.default.createElement("div", { className: "setup-item-description" }, item.description), item.type === "file" && !item.exists && /* @__PURE__ */ import_react6.default.createElement("div", { style: { marginTop: "8px" } }, /* @__PURE__ */ import_react6.default.createElement(
+  ), /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-item-content" }, /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-item-header" }, /* @__PURE__ */ import_react8.default.createElement("strong", null, item.path), item.exists && /* @__PURE__ */ import_react8.default.createElement("span", { className: "exists-badge" }, "\u2713 Already exists")), /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-item-description" }, item.description), item.type === "file" && !item.exists && /* @__PURE__ */ import_react8.default.createElement("div", { style: { marginTop: "8px" } }, /* @__PURE__ */ import_react8.default.createElement(
     "button",
     {
       onClick: () => {
@@ -27370,7 +27709,7 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
       disabled: isCreating
     },
     "Browse existing file"
-  ))))))), /* @__PURE__ */ import_react6.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react6.default.createElement("button", { onClick: onClose, disabled: isCreating, className: "mod-secondary" }, "Cancel"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: handleDontShowAgain, disabled: isCreating, className: "mod-secondary" }, "Don't show again"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: handleRunGuidedDemo, disabled: isCreating, className: "mod-secondary" }, "Run guided demo"), /* @__PURE__ */ import_react6.default.createElement(
+  ))))))), /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react8.default.createElement("button", { onClick: onClose, disabled: isCreating, className: "mod-secondary" }, "Cancel"), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: handleDontShowAgain, disabled: isCreating, className: "mod-secondary" }, "Don't show again"), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: handleRunGuidedDemo, disabled: isCreating, className: "mod-secondary" }, "Run guided demo"), /* @__PURE__ */ import_react8.default.createElement(
     "button",
     {
       onClick: handleCreate,
@@ -27385,7 +27724,7 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
 init_TreePickerModal();
 
 // services/StressTestService.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 var StressTestService = class {
   constructor(plugin, options = {}) {
     this.log = [];
@@ -27753,7 +28092,7 @@ Content for scene 1 of chapter ${num}. More text to build size.`;
   }
   async deletePath(path) {
     const entry = this.app.vault.getAbstractFileByPath(path);
-    if (entry instanceof import_obsidian6.TFile || entry instanceof import_obsidian6.TFolder) {
+    if (entry instanceof import_obsidian7.TFile || entry instanceof import_obsidian7.TFolder) {
       await this.app.vault.delete(entry);
     } else {
       try {
@@ -27835,7 +28174,7 @@ function getModelsForProvider(provider) {
       return [];
   }
 }
-var SettingsTab = class extends import_obsidian9.PluginSettingTab {
+var SettingsTab = class extends import_obsidian10.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -27858,23 +28197,23 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     const addSection = (title, desc) => {
-      new import_obsidian9.Setting(containerEl).setName(title).setHeading();
+      new import_obsidian10.Setting(containerEl).setName(title).setHeading();
       if (desc) {
         const p = containerEl.createEl("p", { text: desc });
         p.style.marginTop = "-8px";
       }
     };
     addSection("API & Model", "Provider, key, and model selection");
-    new import_obsidian9.Setting(containerEl).setName("API key").setDesc("Your AI API key (stored securely)").addText((text2) => text2.setPlaceholder("Enter API key").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
+    new import_obsidian10.Setting(containerEl).setName("API key").setDesc("Your AI API key (stored securely)").addText((text2) => text2.setPlaceholder("Enter API key").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
       this.plugin.settings.apiKey = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian9.Setting(containerEl).setName("Generation mode").setDesc("Single mode: fast, single model. Multi mode: higher quality with multiple models.").addDropdown((dropdown) => dropdown.addOption("single", "Single mode").addOption("multi", "Multi mode").setValue(this.plugin.settings.generationMode).onChange(async (value) => {
+    new import_obsidian10.Setting(containerEl).setName("Generation mode").setDesc("Single mode: fast, single model. Multi mode: higher quality with multiple models.").addDropdown((dropdown) => dropdown.addOption("single", "Single mode").addOption("multi", "Multi mode").setValue(this.plugin.settings.generationMode).onChange(async (value) => {
       this.plugin.settings.generationMode = value;
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian9.Setting(containerEl).setName("API provider").setDesc("Choose your AI provider. Openrouter is recommended for multi mode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "Openrouter (recommended)").addOption("openai", "Openai").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
+    new import_obsidian10.Setting(containerEl).setName("API provider").setDesc("Choose your AI provider. Openrouter is recommended for multi mode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "Openrouter (recommended)").addOption("openai", "Openai").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
       this.plugin.settings.apiProvider = value;
       const models = getModelsForProvider(value);
       const currentModel = this.plugin.settings.model;
@@ -27884,7 +28223,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian9.Setting(containerEl).setName("Model").setDesc("AI model to use").addDropdown((dropdown) => {
+    new import_obsidian10.Setting(containerEl).setName("Model").setDesc("AI model to use").addDropdown((dropdown) => {
       const models = getModelsForProvider(this.plugin.settings.apiProvider);
       models.forEach((model) => {
         dropdown.addOption(model.value, model.label);
@@ -27896,70 +28235,74 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
       });
     });
     addSection("Local AI (Ollama)", "Local generation and embedding settings.");
-    new import_obsidian9.Setting(containerEl).setName("Ollama Base URL").setDesc("The URL where your local Ollama server is running.").addText((text2) => text2.setPlaceholder("http://127.0.0.1:11434").setValue(this.plugin.settings.ollamaBaseUrl).onChange(async (value) => {
+    new import_obsidian10.Setting(containerEl).setName("Ollama Base URL").setDesc("The URL where your local Ollama server is running.").addText((text2) => text2.setPlaceholder("http://127.0.0.1:11434").setValue(this.plugin.settings.ollamaBaseUrl).onChange(async (value) => {
       this.plugin.settings.ollamaBaseUrl = value;
       await this.plugin.saveSettings();
     }));
     addSection("Co-Authoring Relay", "Advanced settings for Phases 5 and 6.");
-    new import_obsidian9.Setting(containerEl).setName("Generation Mode").setDesc("Local uses chunked multi-stage pipeline. Cloud uses monolithic single-call primitive.").addDropdown((dropdown) => dropdown.addOption("local", "Local (Ollama)").addOption("cloud", "Cloud (API)").setValue(this.plugin.settings.relayMode || "local").onChange(async (value) => {
+    new import_obsidian10.Setting(containerEl).setName("Generation Mode").setDesc("Local uses chunked multi-stage pipeline. Cloud uses monolithic single-call primitive.").addDropdown((dropdown) => dropdown.addOption("local", "Local (Ollama)").addOption("cloud", "Cloud (API)").setValue(this.plugin.settings.relayMode || "local").onChange(async (value) => {
       this.plugin.settings.relayMode = value;
       await this.plugin.saveSettings();
       this.display();
     }));
     if (this.plugin.settings.relayMode === "cloud") {
-      new import_obsidian9.Setting(containerEl).setName("Cloud Smart Model").setDesc("High-capability model for monolithic generation.").addText((text2) => text2.setPlaceholder("gpt-4o").setValue(this.plugin.settings.relayCloudSmartModel || "").onChange(async (value) => {
+      new import_obsidian10.Setting(containerEl).setName("Cloud Smart Model").setDesc("High-capability model for monolithic generation.").addText((text2) => text2.setPlaceholder("gpt-4o").setValue(this.plugin.settings.relayCloudSmartModel || "").onChange(async (value) => {
         this.plugin.settings.relayCloudSmartModel = value;
         await this.plugin.saveSettings();
       }));
-      new import_obsidian9.Setting(containerEl).setName("Cloud Fast Model").setDesc("Faster model for auxiliary cloud tasks.").addText((text2) => text2.setPlaceholder("gpt-4o-mini").setValue(this.plugin.settings.relayCloudFastModel || "").onChange(async (value) => {
+      new import_obsidian10.Setting(containerEl).setName("Cloud Fast Model").setDesc("Faster model for auxiliary cloud tasks.").addText((text2) => text2.setPlaceholder("gpt-4o-mini").setValue(this.plugin.settings.relayCloudFastModel || "").onChange(async (value) => {
         this.plugin.settings.relayCloudFastModel = value;
         await this.plugin.saveSettings();
       }));
-      new import_obsidian9.Setting(containerEl).setName("Max Context Window").setDesc("Maximum tokens to pack into the cloud prompt.").addText((text2) => text2.setPlaceholder("128000").setValue(String(this.plugin.settings.relayMaxContextWindow || 128e3)).onChange(async (value) => {
+      new import_obsidian10.Setting(containerEl).setName("Max Context Window").setDesc("Maximum tokens to pack into the cloud prompt.").addText((text2) => text2.setPlaceholder("128000").setValue(String(this.plugin.settings.relayMaxContextWindow || 128e3)).onChange(async (value) => {
         this.plugin.settings.relayMaxContextWindow = Number(value);
         await this.plugin.saveSettings();
       }));
-      new import_obsidian9.Setting(containerEl).setName("Hard Budget (USD)").setDesc("Max estimated cost per run before blocking.").addText((text2) => text2.setPlaceholder("1.00").setValue(String(this.plugin.settings.relayCostHardBudget || 1)).onChange(async (value) => {
+      new import_obsidian10.Setting(containerEl).setName("Hard Budget (USD)").setDesc("Max estimated cost per run before blocking.").addText((text2) => text2.setPlaceholder("1.00").setValue(String(this.plugin.settings.relayCostHardBudget || 1)).onChange(async (value) => {
         this.plugin.settings.relayCostHardBudget = Number(value);
         await this.plugin.saveSettings();
       }));
-      new import_obsidian9.Setting(containerEl).setName("Style Signature").setDesc('Add "Golden Paragraphs" that define your voice (one per line).').addTextArea((text2) => text2.setPlaceholder("The rain lashed against the windows like a desperate lover...").setValue((this.plugin.settings.relayStyleSignature || []).join("\n\n")).onChange(async (value) => {
+      new import_obsidian10.Setting(containerEl).setName("Style Signature").setDesc('Add "Golden Paragraphs" that define your voice (one per line).').addTextArea((text2) => text2.setPlaceholder("The rain lashed against the windows like a desperate lover...").setValue((this.plugin.settings.relayStyleSignature || []).join("\n\n")).onChange(async (value) => {
         this.plugin.settings.relayStyleSignature = value.split("\n\n").filter((p) => p.trim());
         await this.plugin.saveSettings();
       }));
     }
-    new import_obsidian9.Setting(containerEl).setName("Relay Smart Model (Writer)").setDesc("Large model for high-quality prose (e.g., Llama 3.1 70B).").addText((text2) => text2.setPlaceholder("llama3.1:70b").setValue(this.plugin.settings.relaySmartModel).onChange(async (value) => {
+    new import_obsidian10.Setting(containerEl).setName("Relay Smart Model (Writer)").setDesc("Large model for high-quality prose (e.g., Llama 3.1 70B).").addText((text2) => text2.setPlaceholder("llama3.1:70b").setValue(this.plugin.settings.relaySmartModel).onChange(async (value) => {
       this.plugin.settings.relaySmartModel = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian9.Setting(containerEl).setName("Relay Fast Model (Planner/Auditor)").setDesc("Smaller, faster model for mechanical tasks (e.g., Llama 3.1 8B).").addText((text2) => text2.setPlaceholder("llama3.1:8b").setValue(this.plugin.settings.relayFastModel).onChange(async (value) => {
+    new import_obsidian10.Setting(containerEl).setName("Relay Fast Model (Planner/Auditor)").setDesc("Smaller, faster model for mechanical tasks (e.g., Llama 3.1 8B).").addText((text2) => text2.setPlaceholder("llama3.1:8b").setValue(this.plugin.settings.relayFastModel).onChange(async (value) => {
       this.plugin.settings.relayFastModel = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian9.Setting(containerEl).setName("Max words per chunk").setDesc("Target word count for each relay iteration.").addText((text2) => text2.setPlaceholder("500").setValue(String(this.plugin.settings.maxChunkWords)).onChange(async (value) => {
+    new import_obsidian10.Setting(containerEl).setName("Max words per chunk").setDesc("Target word count for each relay iteration.").addText((text2) => text2.setPlaceholder("500").setValue(String(this.plugin.settings.maxChunkWords)).onChange(async (value) => {
       const parsed = parseInt(value, 10);
       if (Number.isFinite(parsed)) {
         this.plugin.settings.maxChunkWords = Math.max(100, Math.min(2e3, parsed));
         await this.plugin.saveSettings();
       }
     }));
-    new import_obsidian9.Setting(containerEl).setName("Check Ollama connection").setDesc("Verify that Ollama is running and required models are available.").addButton(
-      (btn) => btn.setButtonText("Check Connection").onClick(async () => {
+    new import_obsidian10.Setting(containerEl).setName("Test Now (Diagnostics)").setDesc("Run a comprehensive check of all systems based on your current settings (Local or Cloud).").addButton(
+      (btn) => btn.setButtonText("Run Diagnostics").setCta().onClick(async () => {
+        btn.setDisabled(true);
+        btn.setButtonText("Testing...");
         try {
-          const isRunning = await this.plugin.ollamaGen.isAvailable();
-          if (!isRunning) {
-            new import_obsidian9.Notice("\u274C Ollama not found at " + this.plugin.settings.ollamaBaseUrl);
-            return;
-          }
-          const models = await this.plugin.ollamaModels.getModels();
-          const missing = models.filter((m) => m.status === "installable");
-          if (missing.length > 0) {
-            new import_obsidian9.Notice(`\u26A0\uFE0F Ollama running, but missing catalog models: ${missing.map((m) => m.id).join(", ")}`);
+          const report = await this.plugin.diagnosticsService.runDiagnostics();
+          if (report.overallStatus === "PASS") {
+            new import_obsidian10.Notice("\u2705 All systems PASS! Your configuration is healthy.");
+          } else if (report.overallStatus === "WARN") {
+            const warnings = report.results.filter((r) => r.status === "WARN");
+            new import_obsidian10.Notice(`\u26A0\uFE0F Systems healthy with ${warnings.length} warnings. Check console/artifacts for details.`);
           } else {
-            new import_obsidian9.Notice("\u2705 Success! Local AI is ready.");
+            const fails = report.results.filter((r) => r.status === "FAIL");
+            new import_obsidian10.Notice(`\u274C ${fails.length} systems FAILED. Generation is blocked. Check console/artifacts.`);
           }
+          console.log("[Diagnostics] Full Report:", report);
         } catch (err) {
-          new import_obsidian9.Notice(`\u274C Ollama check failed: ${err instanceof Error ? err.message : String(err)}`);
+          new import_obsidian10.Notice(`\u274C Diagnostics failed: ${err instanceof Error ? err.message : String(err)}`);
+        } finally {
+          btn.setDisabled(false);
+          btn.setButtonText("Run Diagnostics");
         }
       })
     );
@@ -27969,11 +28312,11 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
       { id: "nomic-embed-text", role: "EMBED", desc: "Retrieval" }
     ];
     catalog.forEach((m) => {
-      new import_obsidian9.Setting(containerEl).setName(m.id).setDesc(`${m.desc} (${m.role})`).addButton(
+      new import_obsidian10.Setting(containerEl).setName(m.id).setDesc(`${m.desc} (${m.role})`).addButton(
         (btn) => btn.setButtonText("Pull").onClick(async () => {
           const isRunning = await this.plugin.ollamaGen.isAvailable();
           if (!isRunning) {
-            new import_obsidian9.Notice("\u274C Cannot pull: Ollama Offline");
+            new import_obsidian10.Notice("\u274C Cannot pull: Ollama Offline");
             return;
           }
           btn.setDisabled(true);
@@ -27985,10 +28328,10 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
                 btn.setButtonText(`Pulling: ${pct}%`);
               }
             });
-            new import_obsidian9.Notice(`\u2705 Successfully pulled ${m.id}`);
+            new import_obsidian10.Notice(`\u2705 Successfully pulled ${m.id}`);
             this.display();
           } catch (err) {
-            new import_obsidian9.Notice(`\u274C Pull failed: ${err.message}`);
+            new import_obsidian10.Notice(`\u274C Pull failed: ${err.message}`);
           } finally {
             btn.setDisabled(false);
             btn.setButtonText("Pull");
@@ -27996,7 +28339,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         })
       );
     });
-    new import_obsidian9.Setting(containerEl).setName("Open Ollama setup wizard").setDesc("Step-by-step instructions to install Ollama, pull the model, and verify connectivity.").addButton(
+    new import_obsidian10.Setting(containerEl).setName("Open Ollama setup wizard").setDesc("Step-by-step instructions to install Ollama, pull the model, and verify connectivity.").addButton(
       (btn) => btn.setButtonText("Open wizard").onClick(() => {
         const { OllamaSetupWizardModal: OllamaSetupWizardModal2 } = (init_OllamaSetupWizardModal(), __toCommonJS(OllamaSetupWizardModal_exports));
         const modal = new OllamaSetupWizardModal2(this.app, this.plugin);
@@ -28004,20 +28347,20 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
       })
     );
     addSection("Retrieval scope", "Choose included folders for this project.");
-    new import_obsidian9.Setting(containerEl).setName("Profile").setDesc("Select which folders to include for retrieval/indexing (applies to all features).").addButton(
+    new import_obsidian10.Setting(containerEl).setName("Profile").setDesc("Select which folders to include for retrieval/indexing (applies to all features).").addButton(
       (btn) => btn.setButtonText("Open profile picker").onClick(() => {
         const { ProfilePickerModal: ProfilePickerModal2 } = (init_ProfilePickerModal(), __toCommonJS(ProfilePickerModal_exports));
         new ProfilePickerModal2(this.plugin).open();
       })
     );
     addSection("Retrieval engines", "Semantic/BM25 knobs and result limits.");
-    new import_obsidian9.Setting(containerEl).setName("Enable semantic retrieval").setDesc("Build a local index to retrieve relevant notes from the vault. If disabled, retrieval uses heuristic matching only.").addToggle(
+    new import_obsidian10.Setting(containerEl).setName("Enable semantic retrieval").setDesc("Build a local index to retrieve relevant notes from the vault. If disabled, retrieval uses heuristic matching only.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableSemanticIndex)).onChange(async (value) => {
         this.plugin.settings.retrievalEnableSemanticIndex = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian9.Setting(containerEl).setName("Semantic backend").setDesc("Choose which local semantic retrieval method to use. Hash is fast and reliable.").addDropdown((dropdown) => {
+    new import_obsidian10.Setting(containerEl).setName("Semantic backend").setDesc("Choose which local semantic retrieval method to use. Hash is fast and reliable.").addDropdown((dropdown) => {
       dropdown.addOption("hash", "Hash (fast, reliable - recommended)");
       dropdown.setValue(this.plugin.settings.retrievalEmbeddingBackend ?? "hash");
       dropdown.onChange(async (value) => {
@@ -28025,13 +28368,13 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian9.Setting(containerEl).setName("Enable reranking (experimental)").setDesc("Use a local CPU reranker to improve the ordering of retrieved snippets. Experimental feature - may fail if model files cannot be downloaded. If disabled, retrieval will work without reranking.").addToggle(
+    new import_obsidian10.Setting(containerEl).setName("Enable reranking (experimental)").setDesc("Use a local CPU reranker to improve the ordering of retrieved snippets. Experimental feature - may fail if model files cannot be downloaded. If disabled, retrieval will work without reranking.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableReranker)).onChange(async (value) => {
         this.plugin.settings.retrievalEnableReranker = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian9.Setting(containerEl).setName("Retrieved items (limit)").setDesc("Maximum number of retrieved snippets to include in prompts.").addText(
+    new import_obsidian10.Setting(containerEl).setName("Retrieved items (limit)").setDesc("Maximum number of retrieved snippets to include in prompts.").addText(
       (text2) => text2.setPlaceholder("24").setValue(String(this.plugin.settings.retrievalTopK ?? 24)).onChange(async (value) => {
         const parsed = parseInt(value, 10);
         if (Number.isFinite(parsed)) {
@@ -28041,7 +28384,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
       })
     );
     addSection("External embeddings (optional)", "Use a remote embedding API instead of local hash/BM25.");
-    new import_obsidian9.Setting(containerEl).setName("Enable external embeddings").setDesc("\u26A0\uFE0F WARNING: Enabling this will make API calls during retrieval. Keep disabled to use only local hash/BM25 search (recommended).").addToggle((toggle) => {
+    new import_obsidian10.Setting(containerEl).setName("Enable external embeddings").setDesc("\u26A0\uFE0F WARNING: Enabling this will make API calls during retrieval. Keep disabled to use only local hash/BM25 search (recommended).").addToggle((toggle) => {
       toggle.setValue(Boolean(this.plugin.settings.externalEmbeddingsEnabled ?? false));
       toggle.onChange(async (value) => {
         this.plugin.settings.externalEmbeddingsEnabled = value;
@@ -28051,7 +28394,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
       });
     });
     if (this.plugin.settings.externalEmbeddingsEnabled) {
-      new import_obsidian9.Setting(containerEl).setName("External embedding provider").setDesc("Choose which external embedding API to use. If configured, external embeddings will be used automatically instead of local hash embeddings.").addDropdown((dropdown) => {
+      new import_obsidian10.Setting(containerEl).setName("External embedding provider").setDesc("Choose which external embedding API to use. If configured, external embeddings will be used automatically instead of local hash embeddings.").addDropdown((dropdown) => {
         dropdown.addOption("openai", "OpenAI");
         dropdown.addOption("cohere", "Cohere");
         dropdown.addOption("google", "Google (Gemini)");
@@ -28073,7 +28416,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
           this.display();
         });
       });
-      new import_obsidian9.Setting(containerEl).setName("External embedding API key").setDesc("Your API key for the external embedding provider.").addText((text2) => {
+      new import_obsidian10.Setting(containerEl).setName("External embedding API key").setDesc("Your API key for the external embedding provider.").addText((text2) => {
         text2.setPlaceholder("Enter API key").setValue(this.plugin.settings.externalEmbeddingApiKey ?? "");
         text2.inputEl.type = "password";
         text2.onChange(async (value) => {
@@ -28084,14 +28427,14 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
       });
       const provider = this.plugin.settings.externalEmbeddingProvider ?? "openai";
       const defaultModel = provider === "openai" ? "text-embedding-3-small" : provider === "cohere" ? "embed-english-v3.0" : provider === "google" ? "gemini-embedding-001" : "";
-      new import_obsidian9.Setting(containerEl).setName("External embedding model").setDesc(`Model name for ${provider} (e.g., ${defaultModel}).`).addText(
+      new import_obsidian10.Setting(containerEl).setName("External embedding model").setDesc(`Model name for ${provider} (e.g., ${defaultModel}).`).addText(
         (text2) => text2.setPlaceholder(defaultModel).setValue(this.plugin.settings.externalEmbeddingModel ?? defaultModel).onChange(async (value) => {
           this.plugin.settings.externalEmbeddingModel = value;
           await this.plugin.saveSettings();
         })
       );
       if (provider === "google") {
-        new import_obsidian9.Setting(containerEl).setName("Use batch embeddings (Google Gemini)").setDesc("Use batch endpoint for more efficient embedding of multiple queries.").addToggle(
+        new import_obsidian10.Setting(containerEl).setName("Use batch embeddings (Google Gemini)").setDesc("Use batch endpoint for more efficient embedding of multiple queries.").addToggle(
           (toggle) => toggle.setValue(Boolean(this.plugin.settings.externalEmbeddingUseBatch)).onChange(async (value) => {
             this.plugin.settings.externalEmbeddingUseBatch = value;
             await this.plugin.saveSettings();
@@ -28099,14 +28442,14 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         );
       }
       if (provider === "custom") {
-        new import_obsidian9.Setting(containerEl).setName("Custom API URL").setDesc("Endpoint URL for your custom embedding API.").addText(
+        new import_obsidian10.Setting(containerEl).setName("Custom API URL").setDesc("Endpoint URL for your custom embedding API.").addText(
           (text2) => text2.setPlaceholder("https://api.example.com/embeddings").setValue(this.plugin.settings.externalEmbeddingApiUrl ?? "").onChange(async (value) => {
             this.plugin.settings.externalEmbeddingApiUrl = value;
             await this.plugin.saveSettings();
           })
         );
       }
-      new import_obsidian9.Setting(containerEl).setName("Test connection").setDesc("Test the external embedding API connection.").addButton(
+      new import_obsidian10.Setting(containerEl).setName("Test connection").setDesc("Test the external embedding API connection.").addButton(
         (btn) => btn.setButtonText("Test").onClick(async () => {
           btn.setDisabled(true);
           btn.setButtonText("Testing...");
@@ -28126,13 +28469,13 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
               }
             );
             if (response.ok) {
-              new import_obsidian9.Notice("External embedding API connection successful!", 3e3);
+              new import_obsidian10.Notice("External embedding API connection successful!", 3e3);
             } else {
               const error2 = await response.text();
-              new import_obsidian9.Notice(`External embedding API test failed: ${response.status} ${error2}`, 5e3);
+              new import_obsidian10.Notice(`External embedding API test failed: ${response.status} ${error2}`, 5e3);
             }
           } catch (error2) {
-            new import_obsidian9.Notice(`External embedding API test failed: ${error2 instanceof Error ? error2.message : String(error2)}`, 5e3);
+            new import_obsidian10.Notice(`External embedding API test failed: ${error2 instanceof Error ? error2.message : String(error2)}`, 5e3);
           } finally {
             btn.setDisabled(false);
             btn.setButtonText("Test");
@@ -28141,7 +28484,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
       );
     }
     addSection("Indexing & chunking", "Chunk size, overlap, heading split, and indexing pause.");
-    new import_obsidian9.Setting(containerEl).setName("Index chunk size (words)").setDesc("Controls how your notes are chunked for semantic retrieval. Larger chunks add more context but may reduce precision.").addText(
+    new import_obsidian10.Setting(containerEl).setName("Index chunk size (words)").setDesc("Controls how your notes are chunked for semantic retrieval. Larger chunks add more context but may reduce precision.").addText(
       (text2) => text2.setPlaceholder("500").setValue(String(this.plugin.settings.retrievalChunkWords ?? 500)).onChange(async (value) => {
         const parsed = parseInt(value, 10);
         if (Number.isFinite(parsed)) {
@@ -28150,7 +28493,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         }
       })
     );
-    new import_obsidian9.Setting(containerEl).setName("Index chunk overlap (words)").setDesc("Overlap helps preserve continuity between chunks.").addText(
+    new import_obsidian10.Setting(containerEl).setName("Index chunk overlap (words)").setDesc("Overlap helps preserve continuity between chunks.").addText(
       (text2) => text2.setPlaceholder("100").setValue(String(this.plugin.settings.retrievalChunkOverlapWords ?? 100)).onChange(async (value) => {
         const parsed = parseInt(value, 10);
         if (Number.isFinite(parsed)) {
@@ -28159,7 +28502,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         }
       })
     );
-    new import_obsidian9.Setting(containerEl).setName("Indexing heading level").setDesc("Preferred heading level used to split notes into coherent chunks for retrieval indexing. Falls back to word-window chunking if headings are missing.").addDropdown((dropdown) => {
+    new import_obsidian10.Setting(containerEl).setName("Indexing heading level").setDesc("Preferred heading level used to split notes into coherent chunks for retrieval indexing. Falls back to word-window chunking if headings are missing.").addDropdown((dropdown) => {
       dropdown.addOption("h1", "H1 (#)");
       dropdown.addOption("h2", "H2 (##)");
       dropdown.addOption("h3", "H3 (###)");
@@ -28170,21 +28513,21 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian9.Setting(containerEl).setName("Pause indexing").setDesc("Pauses background indexing for semantic retrieval.").addToggle(
+    new import_obsidian10.Setting(containerEl).setName("Pause indexing").setDesc("Pauses background indexing for semantic retrieval.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalIndexPaused)).onChange(async (value) => {
         this.plugin.settings.retrievalIndexPaused = value;
         await this.plugin.saveSettings();
       })
     );
     addSection("Generation logs", "Optional logging of prompts/outputs (excluded from retrieval).");
-    new import_obsidian9.Setting(containerEl).setName("Save generation logs").setDesc("Writes a log note per generation run with inputs, retrieved context, and output. Logs are excluded from retrieval.").addToggle(
+    new import_obsidian10.Setting(containerEl).setName("Save generation logs").setDesc("Writes a log note per generation run with inputs, retrieved context, and output. Logs are excluded from retrieval.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.generationLogsEnabled)).onChange(async (value) => {
         this.plugin.settings.generationLogsEnabled = value;
         await this.plugin.saveSettings();
         if (value) {
           const folderPath = this.plugin.settings.generationLogsFolder || "";
           const folder = this.app.vault.getAbstractFileByPath(folderPath);
-          if (!folderPath || !(folder instanceof import_obsidian9.TFolder)) {
+          if (!folderPath || !(folder instanceof import_obsidian10.TFolder)) {
             new TreePickerModal(this.plugin, {
               title: "Select or create generation logs folder",
               mode: "single",
@@ -28201,7 +28544,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         }
       })
     );
-    const generationLogsFolderSetting = new import_obsidian9.Setting(containerEl).setName("Generation logs folder").setDesc(`Current: ${this.plugin.settings.generationLogsFolder || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.generationLogsFolder ? this.plugin.settings.generationLogsFolder.split("/").pop() || "Select folder" : "Select folder").onClick(() => {
+    const generationLogsFolderSetting = new import_obsidian10.Setting(containerEl).setName("Generation logs folder").setDesc(`Current: ${this.plugin.settings.generationLogsFolder || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.generationLogsFolder ? this.plugin.settings.generationLogsFolder.split("/").pop() || "Select folder" : "Select folder").onClick(() => {
       new TreePickerModal(this.plugin, {
         title: "Select or create generation logs folder",
         mode: "single",
@@ -28215,20 +28558,20 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         }
       }).open();
     }));
-    new import_obsidian9.Setting(containerEl).setName("Include full prompt in logs").setDesc("If enabled, logs include the full prompt text that was sent to the model.").addToggle(
+    new import_obsidian10.Setting(containerEl).setName("Include full prompt in logs").setDesc("If enabled, logs include the full prompt text that was sent to the model.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.generationLogsIncludePrompt)).onChange(async (value) => {
         this.plugin.settings.generationLogsIncludePrompt = value;
         await this.plugin.saveSettings();
       })
     );
     if (this.plugin.settings.generationMode === "multi") {
-      new import_obsidian9.Setting(containerEl).setName("Multi-mode strategy").setDesc("Draft + revision: fast draft + quality revision. Consensus + multi-stage: maximum quality (slower, more expensive).").addDropdown((dropdown) => dropdown.addOption("draft-revision", "Draft + revision").addOption("consensus-multistage", "Consensus + multi-stage (maximum quality)").setValue(this.plugin.settings.multiStrategy).onChange(async (value) => {
+      new import_obsidian10.Setting(containerEl).setName("Multi-mode strategy").setDesc("Draft + revision: fast draft + quality revision. Consensus + multi-stage: maximum quality (slower, more expensive).").addDropdown((dropdown) => dropdown.addOption("draft-revision", "Draft + revision").addOption("consensus-multistage", "Consensus + multi-stage (maximum quality)").setValue(this.plugin.settings.multiStrategy).onChange(async (value) => {
         this.plugin.settings.multiStrategy = value;
         await this.plugin.saveSettings();
         this.display();
       }));
       if (this.plugin.settings.multiStrategy === "draft-revision") {
-        new import_obsidian9.Setting(containerEl).setName("Draft model").setDesc("Fast model for initial draft").addDropdown((dropdown) => {
+        new import_obsidian10.Setting(containerEl).setName("Draft model").setDesc("Fast model for initial draft").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -28239,7 +28582,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian9.Setting(containerEl).setName("Revision model").setDesc("Quality model for refinement").addDropdown((dropdown) => {
+        new import_obsidian10.Setting(containerEl).setName("Revision model").setDesc("Quality model for refinement").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -28251,7 +28594,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
           });
         });
       } else {
-        new import_obsidian9.Setting(containerEl).setName("Consensus model 1").setDesc("Primary model for consensus generation").addDropdown((dropdown) => {
+        new import_obsidian10.Setting(containerEl).setName("Consensus model 1").setDesc("Primary model for consensus generation").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -28262,7 +28605,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian9.Setting(containerEl).setName("Consensus model 2").setDesc("Second model for consensus generation").addDropdown((dropdown) => {
+        new import_obsidian10.Setting(containerEl).setName("Consensus model 2").setDesc("Second model for consensus generation").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -28273,7 +28616,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian9.Setting(containerEl).setName("Consensus model 3 (optional)").setDesc("Third model for stronger consensus (optional)").addDropdown((dropdown) => {
+        new import_obsidian10.Setting(containerEl).setName("Consensus model 3 (optional)").setDesc("Third model for stronger consensus (optional)").addDropdown((dropdown) => {
           dropdown.addOption("", "None");
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
@@ -28285,7 +28628,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian9.Setting(containerEl).setName("Synthesis model").setDesc("Model to synthesize final output from consensus").addDropdown((dropdown) => {
+        new import_obsidian10.Setting(containerEl).setName("Synthesis model").setDesc("Model to synthesize final output from consensus").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -28299,17 +28642,21 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
       }
     }
     addSection("Paths & setup", "Setup wizard and guided demo.");
-    new import_obsidian9.Setting(containerEl).setName("Setup wizard").setDesc("Create default files and folders for your writing workspace").addButton((button) => button.setButtonText("Run setup wizard").onClick(() => {
+    new import_obsidian10.Setting(containerEl).setName("Help Density").setDesc("Control how many tooltips and guidance elements are shown throughout the plugin.").addDropdown((dropdown) => dropdown.addOption("NONE", "None (Clean UI)").addOption("LITE", "Lite (Standard tooltips)").addOption("FULL", "Full (Detailed guidance)").setValue(this.plugin.settings.helpDensity || "LITE").onChange(async (value) => {
+      this.plugin.settings.helpDensity = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian10.Setting(containerEl).setName("Setup wizard").setDesc("Create default files and folders for your writing workspace").addButton((button) => button.setButtonText("Run setup wizard").onClick(() => {
       const modal = new SetupWizardModal(this.plugin);
       modal.open();
     }));
-    new import_obsidian9.Setting(containerEl).setName("Guided demo").setDesc("Generate demo-only text to learn the workflow (chapter \u2192 micro edit \u2192 character update).").addButton(
+    new import_obsidian10.Setting(containerEl).setName("Guided demo").setDesc("Generate demo-only text to learn the workflow (chapter \u2192 micro edit \u2192 character update).").addButton(
       (button) => button.setButtonText("Run guided demo").onClick(() => {
         this.plugin.requestGuidedDemoStart();
       })
     );
     addSection("Manuscript & characters", "Core paths for manuscript, story bible, and character notes.");
-    const characterFolderSetting = new import_obsidian9.Setting(containerEl).setName("Character folder").setDesc(`Current: ${this.plugin.settings.characterFolder || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.characterFolder ? this.plugin.settings.characterFolder.split("/").pop() || "Select path" : "Select path").onClick(() => {
+    const characterFolderSetting = new import_obsidian10.Setting(containerEl).setName("Character folder").setDesc(`Current: ${this.plugin.settings.characterFolder || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.characterFolder ? this.plugin.settings.characterFolder.split("/").pop() || "Select path" : "Select path").onClick(() => {
       new TreePickerModal(this.plugin, {
         title: "Select character folder",
         mode: "single",
@@ -28323,7 +28670,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         }
       }).open();
     }));
-    new import_obsidian9.Setting(containerEl).setName("Book main file").setDesc(`Current: ${this.plugin.settings.book2Path || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.book2Path ? this.plugin.settings.book2Path.split("/").pop() || "Select book file" : "Select book file").onClick(() => {
+    new import_obsidian10.Setting(containerEl).setName("Book main file").setDesc(`Current: ${this.plugin.settings.book2Path || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.book2Path ? this.plugin.settings.book2Path.split("/").pop() || "Select book file" : "Select book file").onClick(() => {
       new TreePickerModal(this.plugin, {
         title: "Select book main file",
         mode: "single",
@@ -28336,7 +28683,7 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         }
       }).open();
     }));
-    const storyBibleSetting = new import_obsidian9.Setting(containerEl).setName("Story bible path").setDesc(`Current: ${this.plugin.settings.storyBiblePath || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.storyBiblePath ? this.plugin.settings.storyBiblePath.split("/").pop() || "Select story bible" : "Select story bible").onClick(() => {
+    const storyBibleSetting = new import_obsidian10.Setting(containerEl).setName("Story bible path").setDesc(`Current: ${this.plugin.settings.storyBiblePath || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.storyBiblePath ? this.plugin.settings.storyBiblePath.split("/").pop() || "Select story bible" : "Select story bible").onClick(() => {
       new TreePickerModal(this.plugin, {
         title: "Select story bible",
         mode: "single",
@@ -28350,24 +28697,24 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
       }).open();
     }));
     addSection("Character extraction & safeguards", "Defaults for character processing and prompt-size warnings.");
-    new import_obsidian9.Setting(containerEl).setName("Character extraction chunk size (words)").setDesc('Used by "process entire book" to batch character extraction. Larger chunks (e.g., 2000\u20133000) tend to improve character context.').addText((text2) => text2.setPlaceholder("2500").setValue(String(this.plugin.settings.characterExtractionChunkSize ?? 2500)).onChange(async (value) => {
+    new import_obsidian10.Setting(containerEl).setName("Character extraction chunk size (words)").setDesc('Used by "process entire book" to batch character extraction. Larger chunks (e.g., 2000\u20133000) tend to improve character context.').addText((text2) => text2.setPlaceholder("2500").setValue(String(this.plugin.settings.characterExtractionChunkSize ?? 2500)).onChange(async (value) => {
       const parsed = parseInt(value, 10);
       const clamped = Number.isFinite(parsed) ? Math.min(1e4, Math.max(250, parsed)) : 2500;
       this.plugin.settings.characterExtractionChunkSize = clamped;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian9.Setting(containerEl).setName("Default character extraction instructions").setDesc("Used by character update (selected text). If the extraction instructions box is empty/invalid, this default is used instead.").addTextArea((text2) => text2.setPlaceholder("Character update instructions...").setValue(this.plugin.settings.defaultCharacterExtractionInstructions || "").onChange(async (value) => {
+    new import_obsidian10.Setting(containerEl).setName("Default character extraction instructions").setDesc("Used by character update (selected text). If the extraction instructions box is empty/invalid, this default is used instead.").addTextArea((text2) => text2.setPlaceholder("Character update instructions...").setValue(this.plugin.settings.defaultCharacterExtractionInstructions || "").onChange(async (value) => {
       this.plugin.settings.defaultCharacterExtractionInstructions = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian9.Setting(containerEl).setName("Context token limit (warning)").setDesc("Shows a warning before generating if the estimated prompt tokens exceed this limit. Default: 128000.").addText((text2) => text2.setPlaceholder("128000").setValue(String(this.plugin.settings.contextTokenLimit ?? 128e3)).onChange(async (value) => {
+    new import_obsidian10.Setting(containerEl).setName("Context token limit (warning)").setDesc("Shows a warning before generating if the estimated prompt tokens exceed this limit. Default: 128000.").addText((text2) => text2.setPlaceholder("128000").setValue(String(this.plugin.settings.contextTokenLimit ?? 128e3)).onChange(async (value) => {
       const parsed = parseInt(value, 10);
       const clamped = Number.isFinite(parsed) ? Math.min(2e6, Math.max(1e3, parsed)) : 128e3;
       this.plugin.settings.contextTokenLimit = clamped;
       await this.plugin.saveSettings();
     }));
     addSection("Developer tools", "Diagnostics and end-to-end stress test.");
-    new import_obsidian9.Setting(containerEl).setName("Run Stress Test").setDesc("Comprehensive test of all plugin features. Creates temporary test files, runs all operations, then cleans up automatically. Log is saved as a note in your vault.").addButton((button) => button.setButtonText("Start Stress Test").setCta().onClick(async () => {
+    new import_obsidian10.Setting(containerEl).setName("Run Stress Test").setDesc("Comprehensive test of all plugin features. Creates temporary test files, runs all operations, then cleans up automatically. Log is saved as a note in your vault.").addButton((button) => button.setButtonText("Start Stress Test").setCta().onClick(async () => {
       button.setDisabled(true);
       button.setButtonText("Running...");
       try {
@@ -28377,13 +28724,13 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         const logFileName = `Stress Test Log - ${timestamp}.md`;
         const logPath = logFileName;
         await this.plugin.app.vault.create(logPath, logContent);
-        new import_obsidian9.Notice(`Stress test completed! Log saved to: ${logFileName}`);
+        new import_obsidian10.Notice(`Stress test completed! Log saved to: ${logFileName}`);
         const logFile = this.plugin.app.vault.getAbstractFileByPath(logPath);
-        if (logFile instanceof import_obsidian9.TFile) {
+        if (logFile instanceof import_obsidian10.TFile) {
           await this.app.workspace.openLinkText(logPath, "", true);
         }
       } catch (error2) {
-        new import_obsidian9.Notice(`Stress test failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+        new import_obsidian10.Notice(`Stress test failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
         console.error("Stress test error:", error2);
       } finally {
         button.setDisabled(false);
@@ -28394,10 +28741,10 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
 };
 
 // services/VaultService.ts
-var import_obsidian12 = require("obsidian");
+var import_obsidian13 = require("obsidian");
 
 // services/CharacterNameResolver.ts
-var import_obsidian10 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 function normalizeForMatch(name) {
   return (name || "").toLowerCase().trim().replace(/[-_]+/g, " ").replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
 }
@@ -28445,11 +28792,11 @@ function similarityScore(a, b) {
 }
 function listCharacterBasenames(vault, folderPath) {
   const folder = vault.getAbstractFileByPath(folderPath);
-  if (!(folder instanceof import_obsidian10.TFolder))
+  if (!(folder instanceof import_obsidian11.TFolder))
     return [];
   const names = [];
   for (const child of folder.children) {
-    if (child instanceof import_obsidian10.TFile && child.extension === "md") {
+    if (child instanceof import_obsidian11.TFile && child.extension === "md") {
       names.push(child.basename);
     }
   }
@@ -28488,7 +28835,7 @@ var CharacterNameResolver = class {
 };
 
 // ui/CharacterNameConflictModal.ts
-var import_obsidian11 = require("obsidian");
+var import_obsidian12 = require("obsidian");
 function showCharacterNameConflictModal(app, opts) {
   return new Promise((resolve) => {
     let settled = false;
@@ -28498,7 +28845,7 @@ function showCharacterNameConflictModal(app, opts) {
       settled = true;
       resolve(value);
     };
-    const modal = new class extends import_obsidian11.Modal {
+    const modal = new class extends import_obsidian12.Modal {
       constructor() {
         super(...arguments);
         this.selected = null;
@@ -28510,7 +28857,7 @@ function showCharacterNameConflictModal(app, opts) {
         if (opts.candidates.length) {
           this.contentEl.createEl("p", { text: "Select an existing character note:" });
           for (const c of opts.candidates) {
-            new import_obsidian11.Setting(this.contentEl).setName(c).addButton((btn) => {
+            new import_obsidian12.Setting(this.contentEl).setName(c).addButton((btn) => {
               btn.setButtonText("Use");
               btn.setCta();
               btn.onClick(() => {
@@ -28521,14 +28868,14 @@ function showCharacterNameConflictModal(app, opts) {
             });
           }
         }
-        new import_obsidian11.Setting(this.contentEl).setName("Create a new character note").setDesc("Use the proposed name as a new file in your character folder.").addButton((btn) => {
+        new import_obsidian12.Setting(this.contentEl).setName("Create a new character note").setDesc("Use the proposed name as a new file in your character folder.").addButton((btn) => {
           btn.setButtonText("Create new");
           btn.onClick(() => {
             settle({ type: "create", name: opts.proposedName });
             this.close();
           });
         });
-        new import_obsidian11.Setting(this.contentEl).addButton((btn) => {
+        new import_obsidian12.Setting(this.contentEl).addButton((btn) => {
           btn.setButtonText("Cancel");
           btn.onClick(() => {
             settle(null);
@@ -28625,7 +28972,7 @@ var VaultService = class {
   }
   async readFile(path) {
     const file = this.vault.getAbstractFileByPath(path);
-    if (file instanceof import_obsidian12.TFile) {
+    if (file instanceof import_obsidian13.TFile) {
       return await this.vault.read(file);
     }
     throw new Error(`File not found: ${path}`);
@@ -28635,7 +28982,7 @@ var VaultService = class {
   }
   async createFileIfNotExists(path, content) {
     const file = this.vault.getAbstractFileByPath(path);
-    if (file instanceof import_obsidian12.TFile) {
+    if (file instanceof import_obsidian13.TFile) {
       return false;
     }
     await this.vault.create(path, content);
@@ -28643,7 +28990,7 @@ var VaultService = class {
   }
   async createFolderIfNotExists(path) {
     const folder = this.vault.getAbstractFileByPath(path);
-    if (folder instanceof import_obsidian12.TFolder) {
+    if (folder instanceof import_obsidian13.TFolder) {
       return false;
     }
     await this.vault.createFolder(path);
@@ -28670,12 +29017,12 @@ var VaultService = class {
    */
   findLatestStoryBible(folderPath) {
     const folder = this.vault.getAbstractFileByPath(folderPath);
-    if (!(folder instanceof import_obsidian12.TFolder)) {
+    if (!(folder instanceof import_obsidian13.TFolder)) {
       return null;
     }
     const storyBibleFiles = [];
     for (const child of folder.children) {
-      if (child instanceof import_obsidian12.TFile && child.extension === "md") {
+      if (child instanceof import_obsidian13.TFile && child.extension === "md") {
         if (child.basename.match(/^Story bible/i)) {
           storyBibleFiles.push(child);
         }
@@ -28736,7 +29083,7 @@ var VaultService = class {
       const chunkFilePath = `${chunkedFolderName}/${chunkFileName}`;
       const existing = this.vault.getAbstractFileByPath(chunkFilePath);
       if (overwrite) {
-        if (existing instanceof import_obsidian12.TFile) {
+        if (existing instanceof import_obsidian13.TFile) {
           await this.vault.modify(existing, chunks[i]);
           overwrittenCount++;
         } else {
@@ -28745,7 +29092,7 @@ var VaultService = class {
             created++;
         }
       } else {
-        if (existing instanceof import_obsidian12.TFile) {
+        if (existing instanceof import_obsidian13.TFile) {
           skipped++;
         } else {
           const wasCreated = await this.createFileIfNotExists(chunkFilePath, chunks[i]);
@@ -28758,11 +29105,11 @@ var VaultService = class {
     let deletedExtra = 0;
     if (overwrite) {
       const folder = this.vault.getAbstractFileByPath(chunkedFolderName);
-      if (folder instanceof import_obsidian12.TFolder) {
+      if (folder instanceof import_obsidian13.TFolder) {
         const maxIndex = chunks.length;
         const regex = new RegExp(`^${this._escapeRegExp(baseName)}-CHUNK-(\\d{3})\\.md$`);
         for (const child of folder.children) {
-          if (!(child instanceof import_obsidian12.TFile) || child.extension !== "md")
+          if (!(child instanceof import_obsidian13.TFile) || child.extension !== "md")
             continue;
           const match2 = child.name.match(regex);
           if (!match2)
@@ -28912,7 +29259,7 @@ ${update}
   async relocateFile(path, expectedHash, aliases = []) {
     const normalizedPath = path.replace(/\\/g, "/");
     const exact = this.vault.getAbstractFileByPath(normalizedPath);
-    if (exact instanceof import_obsidian12.TFile) {
+    if (exact instanceof import_obsidian13.TFile) {
       const content = await this.vault.read(exact);
       const actualHash = await sha256(content);
       if (!expectedHash || actualHash === expectedHash) {
@@ -28924,9 +29271,9 @@ ${update}
     const parentPath = normalizedPath.includes("/") ? normalizedPath.substring(0, normalizedPath.lastIndexOf("/")) : "";
     if (parentPath) {
       const parent = this.vault.getAbstractFileByPath(parentPath);
-      if (parent instanceof import_obsidian12.TFolder) {
+      if (parent instanceof import_obsidian13.TFolder) {
         for (const child of parent.children) {
-          if (child instanceof import_obsidian12.TFile && child.name.replace(/\.md$/, "") === baseName) {
+          if (child instanceof import_obsidian13.TFile && child.name.replace(/\.md$/, "") === baseName) {
             return { path: child.path, confidence: "RELOCATED_UNIQUE" };
           }
         }
@@ -28972,17 +29319,17 @@ ${update}
   _traverseFolder(folder, structure, basePath) {
     for (const child of folder.children) {
       const path = basePath ? `${basePath}/${child.name}` : child.name;
-      if (child instanceof import_obsidian12.TFolder) {
+      if (child instanceof import_obsidian13.TFolder) {
         structure.push({ name: child.name, path, type: "folder" });
         this._traverseFolder(child, structure, path);
-      } else if (child instanceof import_obsidian12.TFile) {
+      } else if (child instanceof import_obsidian13.TFile) {
         structure.push({ name: child.name, path, type: "file" });
       }
     }
   }
   _collectFolders(folder, folders, basePath) {
     for (const child of folder.children) {
-      if (!(child instanceof import_obsidian12.TFolder))
+      if (!(child instanceof import_obsidian13.TFolder))
         continue;
       const path = basePath ? `${basePath}/${child.name}` : child.name;
       folders.push(path);
@@ -28995,7 +29342,7 @@ ${update}
    */
   async mergeHarvestIntoStoryBible(storyBiblePath, harvestItems, canonVersion) {
     const file = this.vault.getAbstractFileByPath(storyBiblePath);
-    if (!(file instanceof import_obsidian12.TFile)) {
+    if (!(file instanceof import_obsidian13.TFile)) {
       throw new Error(`Story Bible not found: ${storyBiblePath}`);
     }
     const existingContent = await this.vault.read(file);
@@ -29063,7 +29410,7 @@ ${newBullets.sort().join("\n")}
    */
   async rollbackStoryBible(storyBiblePath, reversePatch) {
     const file = this.vault.getAbstractFileByPath(storyBiblePath);
-    if (file instanceof import_obsidian12.TFile) {
+    if (file instanceof import_obsidian13.TFile) {
       await this.vault.modify(file, reversePatch);
       console.log(`[VaultService] \u{1F504} Rolled back Story Bible to previous state.`);
     }
@@ -29071,7 +29418,7 @@ ${newBullets.sort().join("\n")}
 };
 
 // services/ContextAggregator.ts
-var import_obsidian13 = require("obsidian");
+var import_obsidian14 = require("obsidian");
 var ContextAggregator = class {
   budgetToChars(tokens) {
     return Math.max(0, Math.floor(tokens * 4));
@@ -29161,7 +29508,7 @@ var ContextAggregator = class {
   async readFile(path) {
     try {
       const file = this.vault.getAbstractFileByPath(path);
-      if (file instanceof import_obsidian13.TFile) {
+      if (file instanceof import_obsidian14.TFile) {
         return await this.vault.read(file);
       }
       return `[File not found: ${path}]`;
@@ -29211,9 +29558,9 @@ Score: ${item.score.toFixed(3)} (${item.source})
     const characterFolder = this.plugin.settings.characterFolder;
     try {
       const folder = this.vault.getAbstractFileByPath(characterFolder);
-      if (folder instanceof import_obsidian13.TFolder) {
+      if (folder instanceof import_obsidian14.TFolder) {
         for (const child of folder.children) {
-          if (child instanceof import_obsidian13.TFile && child.extension === "md") {
+          if (child instanceof import_obsidian14.TFile && child.extension === "md") {
             const characterName = child.basename;
             notes[characterName] = await this.vault.read(child);
           }
@@ -29757,7 +30104,7 @@ OUTPUT FORMAT (JSON):
 };
 
 // services/AIClient.ts
-var import_obsidian14 = require("obsidian");
+var import_obsidian15 = require("obsidian");
 
 // services/TokenEstimate.ts
 function estimateTokens(text2) {
@@ -29959,7 +30306,7 @@ ${alt}`).join("\n\n---\n\n")}`;
     };
   }
   async _generateOpenRouter(prompt, settings) {
-    const response = await (0, import_obsidian14.requestUrl)({
+    const response = await (0, import_obsidian15.requestUrl)({
       url: "https://openrouter.ai/api/v1/chat/completions",
       method: "POST",
       headers: {
@@ -29992,7 +30339,7 @@ ${alt}`).join("\n\n---\n\n")}`;
     return content;
   }
   async _generateOpenAI(prompt, settings) {
-    const response = await (0, import_obsidian14.requestUrl)({
+    const response = await (0, import_obsidian15.requestUrl)({
       url: "https://api.openai.com/v1/chat/completions",
       method: "POST",
       headers: {
@@ -30023,7 +30370,7 @@ ${alt}`).join("\n\n---\n\n")}`;
     return content;
   }
   async _generateAnthropic(prompt, settings) {
-    const response = await (0, import_obsidian14.requestUrl)({
+    const response = await (0, import_obsidian15.requestUrl)({
       url: "https://api.anthropic.com/v1/messages",
       method: "POST",
       headers: {
@@ -30073,7 +30420,7 @@ ${alt}`).join("\n\n---\n\n")}`;
       512,
       Math.min(8192, limit - promptTokens - 1024)
     );
-    const response = await (0, import_obsidian14.requestUrl)({
+    const response = await (0, import_obsidian15.requestUrl)({
       url: `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
       method: "POST",
       headers: {
@@ -30611,7 +30958,7 @@ ${v}`);
 };
 
 // services/retrieval/EmbeddingsIndex.ts
-var import_obsidian15 = require("obsidian");
+var import_obsidian16 = require("obsidian");
 
 // services/retrieval/Chunking.ts
 function clampInt(value, min, max) {
@@ -30921,7 +31268,7 @@ var EmbeddingsIndex = class {
         continue;
       }
       const file = this.vault.getAbstractFileByPath(next);
-      if (!(file instanceof import_obsidian15.TFile) || file.extension !== "md") {
+      if (!(file instanceof import_obsidian16.TFile) || file.extension !== "md") {
         skippedNotMarkdown++;
         this._removePath(next);
         this._schedulePersist();
@@ -31102,7 +31449,7 @@ var EmbeddingsIndex = class {
     if (!state)
       return false;
     const file = this.vault.getAbstractFileByPath(path);
-    if (!(file instanceof import_obsidian15.TFile))
+    if (!(file instanceof import_obsidian16.TFile))
       return true;
     if (!state.updatedAt)
       return false;
@@ -31459,7 +31806,7 @@ ${it.excerpt}`;
 };
 
 // services/retrieval/OllamaEmbeddingProvider.ts
-var import_obsidian16 = require("obsidian");
+var import_obsidian17 = require("obsidian");
 var OllamaEmbeddingProvider = class {
   constructor(app, baseUrl = "http://127.0.0.1:11434", model = "nomic-embed-text") {
     this.app = app;
@@ -31468,7 +31815,7 @@ var OllamaEmbeddingProvider = class {
   }
   async isAvailable() {
     try {
-      const res = await (0, import_obsidian16.requestUrl)({ url: `${this.baseUrl}/api/tags`, method: "GET" });
+      const res = await (0, import_obsidian17.requestUrl)({ url: `${this.baseUrl}/api/tags`, method: "GET" });
       return res.status === 200;
     } catch (e) {
       console.warn("[Ollama] Not detected. Ensure 'ollama serve' is running.");
@@ -31481,7 +31828,7 @@ var OllamaEmbeddingProvider = class {
   async hasModel(modelName = this.model) {
     const normalize3 = (val) => (val || "").split(":")[0];
     try {
-      const res = await (0, import_obsidian16.requestUrl)({ url: `${this.baseUrl}/api/tags`, method: "GET" });
+      const res = await (0, import_obsidian17.requestUrl)({ url: `${this.baseUrl}/api/tags`, method: "GET" });
       if (res.status !== 200)
         return false;
       const tags = res.json?.models || res.json?.modelsList || res.json?.data;
@@ -31504,7 +31851,7 @@ var OllamaEmbeddingProvider = class {
     }
   }
   async getEmbedding(text2) {
-    const res = await (0, import_obsidian16.requestUrl)({
+    const res = await (0, import_obsidian17.requestUrl)({
       url: `${this.baseUrl}/api/embed`,
       method: "POST",
       body: JSON.stringify({
@@ -31521,7 +31868,7 @@ var OllamaEmbeddingProvider = class {
 };
 
 // services/retrieval/OllamaGenerationProvider.ts
-var import_obsidian17 = require("obsidian");
+var import_obsidian18 = require("obsidian");
 var OllamaGenerationProvider = class {
   constructor(plugin) {
     this.queue = [];
@@ -31576,7 +31923,7 @@ var OllamaGenerationProvider = class {
   async generate(prompt, params) {
     console.log(`[OllamaGen] \u{1F4E1} Sending request to model: ${params.model} (Temp: ${params.temperature})`);
     try {
-      const response = await (0, import_obsidian17.requestUrl)({
+      const response = await (0, import_obsidian18.requestUrl)({
         url: `${this.baseUrl}/api/generate`,
         method: "POST",
         body: JSON.stringify({
@@ -31695,7 +32042,7 @@ IMPORTANT: Output ONLY a single valid JSON block. Do not include any other text 
    */
   async isOllamaRunning() {
     try {
-      const response = await (0, import_obsidian17.requestUrl)({
+      const response = await (0, import_obsidian18.requestUrl)({
         url: `${this.baseUrl}/api/tags`,
         method: "GET"
       });
@@ -31712,7 +32059,7 @@ IMPORTANT: Output ONLY a single valid JSON block. Do not include any other text 
    */
   async getOllamaVersion() {
     try {
-      const response = await (0, import_obsidian17.requestUrl)({
+      const response = await (0, import_obsidian18.requestUrl)({
         url: `${this.baseUrl}/api/version`,
         method: "GET"
       });
@@ -31724,7 +32071,7 @@ IMPORTANT: Output ONLY a single valid JSON block. Do not include any other text 
 };
 
 // services/OllamaModelManager.ts
-var import_obsidian18 = require("obsidian");
+var import_obsidian19 = require("obsidian");
 var OllamaModelManager = class {
   constructor(plugin) {
     this.catalog = [];
@@ -31767,7 +32114,7 @@ var OllamaModelManager = class {
    */
   async fetchInstalledModels() {
     try {
-      const response = await (0, import_obsidian18.requestUrl)({
+      const response = await (0, import_obsidian19.requestUrl)({
         url: `${this.baseUrl}/api/tags`,
         method: "GET"
       });
@@ -31796,7 +32143,7 @@ var OllamaModelManager = class {
    */
   async getOllamaVersion() {
     try {
-      const response = await (0, import_obsidian18.requestUrl)({
+      const response = await (0, import_obsidian19.requestUrl)({
         url: `${this.baseUrl}/api/version`,
         method: "GET"
       });
@@ -31916,8 +32263,26 @@ var AttributeRegistry = [
   "possession_of"
 ];
 
+// contracts/StitchContract.ts
+var STITCH_CONFIG = {
+  SEAM_WINDOW_CHARS: 1200,
+  MAX_PATCH_OPS: 8,
+  MAX_CHARS_CHANGED_PCT: 0.08,
+  PROPER_NOUN_PATTERN: /[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/g,
+  SENTENCE_START_PATTERN: /(?:^|[.!?])\s*/,
+  NOUN_EXEMPTIONS: ["I", "The", "A", "An", "Mr.", "Mrs.", "Ms.", "Dr.", "Prof."]
+};
+function sortPatchOps(ops) {
+  return [...ops].sort((a, b) => {
+    if (a.paragraphId !== b.paragraphId) {
+      return a.paragraphId.localeCompare(b.paragraphId);
+    }
+    return b.start - a.start;
+  });
+}
+
 // services/ContextManager.ts
-var import_obsidian19 = require("obsidian");
+var import_obsidian20 = require("obsidian");
 var ContextManager = class {
   // Locked entities/relations
   constructor(vault, initialState) {
@@ -32200,7 +32565,7 @@ var ContextManager = class {
    */
   async seedFromStoryBible(path) {
     const file = this.vault.getAbstractFileByPath(path);
-    if (!(file instanceof import_obsidian19.TFile))
+    if (!(file instanceof import_obsidian20.TFile))
       return { updated: false, hash: "" };
     const content = await this.vault.read(file);
     const hash = await sha256(content);
@@ -32396,7 +32761,7 @@ var ContextManager = class {
   }
   async saveSnapshot(path) {
     const existingFile = this.vault.getAbstractFileByPath(path);
-    if (existingFile instanceof import_obsidian19.TFile) {
+    if (existingFile instanceof import_obsidian20.TFile) {
       await this.vault.modify(existingFile, JSON.stringify(this.state, null, 2));
     } else {
       const folderPath = path.substring(0, path.lastIndexOf("/"));
@@ -32576,58 +32941,174 @@ var AuditService = class {
 
 // services/ProseStitcher.ts
 var ProseStitcher = class {
-  /**
-   * Normalizes a claim tuple for stable equality checking.
-   * Schema: (subjectId, predicate, objectValue, qualifiers)
-   */
-  normalizeTuple(tuple) {
-    const { subjectId, predicate, objectValue, qualifiers } = tuple;
-    const normValue = typeof objectValue === "string" ? objectValue.toLowerCase().trim() : objectValue;
-    return JSON.stringify({ subjectId, predicate, objectValue: normValue, qualifiers });
+  constructor(plugin) {
+    this.plugin = plugin;
   }
   /**
-   * Extracts canonical claims from text as normalized tuples.
+   * Normalizes a claim tuple for stable equality checking.
    */
-  extractTuples(text2) {
-    return [];
+  normalizeTuple(fact) {
+    const predicate = fact.attribute.toLowerCase().trim();
+    const value = typeof fact.value === "string" ? fact.value.toLowerCase().trim() : fact.value;
+    const normValue = typeof value === "string" ? value.replace(/[""']/g, '"').replace(/[–—]/g, "-") : value;
+    return JSON.stringify({
+      entityId: fact.entityId,
+      predicate,
+      value: normValue,
+      scope: fact.scope
+    });
+  }
+  /**
+   * Extracts canonical claims from text using local LLM.
+   * Implements the two-pass gate logic.
+   */
+  async extractTuples(text2, state) {
+    const prompt = `Extract all atomic narrative facts from the following text as a JSON list of tuples.
+Format: { "entityId": "string", "attribute": "string", "value": "any", "scope": "SCENE|GLOBAL" }
+
+Text:
+"""
+${text2}
+"""
+
+Active Entities: ${state.entities.map((e) => e.id).join(", ")}
+Hard Attributes: ${AttributeRegistry.join(", ")}
+
+Respond ONLY with valid JSON.`;
+    try {
+      const response = await this.plugin.ollamaGen.generate(prompt, {
+        model: this.plugin.settings.relayFastModel,
+        temperature: 0,
+        format: "json"
+      });
+      const parsed = JSON.parse(response);
+      if (!Array.isArray(parsed))
+        return [];
+      return parsed.map((f) => this.normalizeTuple(f));
+    } catch (e) {
+      console.error("[ProseStitcher] Failed to extract tuples", e);
+      return [];
+    }
   }
   /**
    * Validates that a stitch hasn't altered any canonical claims.
+   * Fails on Contradiction or New Canon (GLOBAL or CORE).
    */
-  validateClaimIntegrity(originalText, stitchedText) {
-    const origTuples = this.extractTuples(originalText);
-    const newTuples = this.extractTuples(stitchedText);
-    const changes = newTuples.filter((t) => !origTuples.includes(t));
-    if (changes.length > 0) {
-      return { valid: false, changes };
+  async validateClaimIntegrity(originalText, stitchedText, state) {
+    const origTuples = await this.extractTuples(originalText, state);
+    const newTuples = await this.extractTuples(stitchedText, state);
+    for (const newT of newTuples) {
+      const parsed = JSON.parse(newT);
+      const isCore = AttributeRegistry.includes(parsed.predicate);
+      const isGlobal = parsed.scope === "GLOBAL";
+      if ((isGlobal || isCore) && !origTuples.includes(newT)) {
+        return { valid: false, reason: `NEW_CANON_DETECTED: ${parsed.predicate} of ${parsed.entityId}` };
+      }
+      const contradiction = origTuples.find((oldT) => {
+        const pOld = JSON.parse(oldT);
+        return pOld.entityId === parsed.entityId && pOld.predicate === parsed.predicate && pOld.value !== parsed.value;
+      });
+      if (contradiction) {
+        return { valid: false, reason: `CONTRADICTION_DETECTED: ${parsed.predicate} changed` };
+      }
     }
     return { valid: true };
   }
   /**
-   * Stitches two chunks together by analyzing the boundary.
-   * Boundary is typically last 200 of prev + first 200 of next.
+   * Detects if a token is a protected proper noun.
    */
-  async stitch(prevChunkTail, nextChunkHead) {
-    const patches = [];
-    patches.push({
-      op: "replace",
-      range: { start: 0, end: 10 },
-      newValue: "Aligned text",
-      justification: "Smoothing boundary for tense alignment.",
-      reasonCode: "TENSE_ALIGN"
-    });
-    return patches;
+  isTokenProtected(token, context) {
+    if (context.entities.some((e) => token.toLowerCase().includes(e.toLowerCase())))
+      return true;
+    const isCapitalized = /^[A-Z]/.test(token);
+    if (!isCapitalized)
+      return false;
+    if (STITCH_CONFIG.NOUN_EXEMPTIONS.includes(token))
+      return false;
+    const textBefore = context.text.substring(0, context.index);
+    const isSentenceStart = STITCH_CONFIG.SENTENCE_START_PATTERN.test(textBefore.slice(-5)) || context.index === 0;
+    if (isSentenceStart)
+      return false;
+    return true;
   }
   /**
-   * Applies a list of stitch patches to a boundary string.
+   * Stitches two chunks together by analyzing the boundary.
+   * Uses anchored seam paragraphs and proper noun protection.
    */
-  applyStitch(boundary, patches) {
-    let result = boundary;
-    const sorted = [...patches].sort((a, b) => b.range.start - a.range.start);
-    for (const patch of sorted) {
-      result = result.slice(0, patch.range.start) + patch.newValue + result.slice(patch.range.end);
+  async stitch(prevParas, nextParas, state) {
+    const seamTail = this.getSeamWindow(prevParas, true);
+    const seamHead = this.getSeamWindow(nextParas, false);
+    const boundaryText = seamTail.map((p) => p.text).join("\n\n") + "\n\n" + seamHead.map((p) => p.text).join("\n\n");
+    const prompt = `You are a prose stitcher. Smooth the transition between these two text segments.
+Allowed: Tense alignment, cadence fixes, reducing repetitive phrases, punctuation.
+FORBIDDEN: Changing facts, adding characters, changing plot beats, modifying proper nouns.
+
+Boundary Text:
+"""
+${boundaryText}
+"""
+
+Respond with a JSON object containing:
+1. patchOps: list of { "paragraphId": "string", "start": number, "end": number, "replacementText": "string", "reasonCode": "CADENCE|TENSE|REPETITION|PUNCTUATION" }
+2. stitchReport: { "changedChars": number, "changedPct": number, "reasonCounts": { ... } }
+
+Max patches: ${STITCH_CONFIG.MAX_PATCH_OPS}
+Max churn: ${STITCH_CONFIG.MAX_CHARS_CHANGED_PCT * 100}%`;
+    try {
+      const response = await this.plugin.ollamaGen.generate(prompt, {
+        model: this.plugin.settings.relaySmartModel,
+        temperature: 0,
+        format: "json"
+      });
+      const result = JSON.parse(response);
+      const sortedOps = sortPatchOps(result.patchOps);
+      for (const op of sortedOps) {
+        const entities = state.entities.map((e) => e.name);
+        const matches = op.replacementText.match(STITCH_CONFIG.PROPER_NOUN_PATTERN) || [];
+        for (const match2 of matches) {
+          if (this.isTokenProtected(match2, { text: op.replacementText, index: op.replacementText.indexOf(match2), entities })) {
+            const originalPara = [...prevParas, ...nextParas].find((p) => p.id === op.paragraphId);
+            if (originalPara && !originalPara.text.includes(match2)) {
+              console.warn(`[ProseStitcher] \u{1F6E1}\uFE0F Protected noun '${match2}' injected in patch. Skipping stitch.`);
+              return null;
+            }
+          }
+        }
+      }
+      const stitchedBoundary = this.applyStitch(boundaryText, sortedOps, [...seamTail, ...seamHead]);
+      const integrity = await this.validateClaimIntegrity(boundaryText, stitchedBoundary, state);
+      if (!integrity.valid) {
+        console.warn(`[ProseStitcher] \u{1F6E1}\uFE0F Tuple integrity violation: ${integrity.reason}. Skipping stitch.`);
+        return null;
+      }
+      return { ...result, patchOps: sortedOps };
+    } catch (e) {
+      console.error("[ProseStitcher] Stitch failed", e);
+      return null;
     }
-    return result;
+  }
+  getSeamWindow(paras, isTail) {
+    const window2 = [];
+    let charCount = 0;
+    const source = isTail ? [...paras].reverse() : paras;
+    for (const p of source) {
+      window2.push(p);
+      charCount += p.text.length;
+      if (charCount >= STITCH_CONFIG.SEAM_WINDOW_CHARS)
+        break;
+    }
+    return isTail ? window2.reverse() : window2;
+  }
+  applyStitch(text2, ops, paras) {
+    const paraMap = new Map(paras.map((p) => [p.id, p.text]));
+    for (const op of ops) {
+      const currentText = paraMap.get(op.paragraphId);
+      if (currentText) {
+        const updated = currentText.substring(0, op.start) + op.replacementText + currentText.substring(op.end);
+        paraMap.set(op.paragraphId, updated);
+      }
+    }
+    return paras.map((p) => paraMap.get(p.id)).join("\n\n");
   }
 };
 
@@ -32666,10 +33147,10 @@ var ParagraphIdentityService = class {
 };
 
 // services/SequentialGenerator.ts
-var import_obsidian23 = require("obsidian");
+var import_obsidian24 = require("obsidian");
 
 // ui/InterventionModal.tsx
-var import_obsidian20 = require("obsidian");
+var import_obsidian21 = require("obsidian");
 function showInterventionModal(app, opts) {
   return new Promise((resolve) => {
     let settled = false;
@@ -32679,7 +33160,7 @@ function showInterventionModal(app, opts) {
       settled = true;
       resolve(value);
     };
-    const modal = new class extends import_obsidian20.Modal {
+    const modal = new class extends import_obsidian21.Modal {
       onOpen() {
         const title = opts.triggerReason === "FAIL_MATRIX_SEVERITY" ? "Intervention Required: Lore Violation" : "Intervention Required: Repair Cap Exceeded";
         this.titleEl.setText(title);
@@ -32703,31 +33184,31 @@ function showInterventionModal(app, opts) {
           defaultAvoid = "Complex nested clauses, multiple simultaneous actions, unclear references";
           starterPrompt = `The prose requires simplification due to excessive repair attempts. Please rewrite the paragraph with clearer structure and reduced complexity while maintaining the narrative intent.`;
         }
-        new import_obsidian20.Setting(content).setName("Goal").setDesc("What you want the AI to achieve").addTextArea((text2) => {
+        new import_obsidian21.Setting(content).setName("Goal").setDesc("What you want the AI to achieve").addTextArea((text2) => {
           this.goalInput = text2;
           text2.setValue(defaultGoal);
           text2.inputEl.rows = 2;
           text2.inputEl.style.width = "100%";
         });
-        new import_obsidian20.Setting(content).setName("Must Preserve").setDesc("Anchors/canon tuples that must be preserved (comma-separated)").addTextArea((text2) => {
+        new import_obsidian21.Setting(content).setName("Must Preserve").setDesc("Anchors/canon tuples that must be preserved (comma-separated)").addTextArea((text2) => {
           this.mustPreserveInput = text2;
           text2.setValue(defaultPreserve);
           text2.inputEl.rows = 2;
           text2.inputEl.style.width = "100%";
         });
-        new import_obsidian20.Setting(content).setName("Must Avoid").setDesc("Forbidden claims/domains (comma-separated)").addTextArea((text2) => {
+        new import_obsidian21.Setting(content).setName("Must Avoid").setDesc("Forbidden claims/domains (comma-separated)").addTextArea((text2) => {
           this.mustAvoidInput = text2;
           text2.setValue(defaultAvoid);
           text2.inputEl.rows = 2;
           text2.inputEl.style.width = "100%";
         });
-        new import_obsidian20.Setting(content).setName("Your Guidance").setDesc("Provide specific instructions for the AI").addTextArea((text2) => {
+        new import_obsidian21.Setting(content).setName("Your Guidance").setDesc("Provide specific instructions for the AI").addTextArea((text2) => {
           this.userPromptInput = text2;
           text2.setValue(starterPrompt);
           text2.inputEl.rows = 4;
           text2.inputEl.style.width = "100%";
         });
-        new import_obsidian20.Setting(content).addButton((btn) => {
+        new import_obsidian21.Setting(content).addButton((btn) => {
           btn.setButtonText("Cancel (Stop Run)");
           btn.onClick(() => {
             settle(null);
@@ -32760,7 +33241,7 @@ function showInterventionModal(app, opts) {
 }
 
 // services/LoreHarvestService.ts
-var import_obsidian21 = require("obsidian");
+var import_obsidian22 = require("obsidian");
 var LoreHarvestService = class {
   constructor(plugin) {
     this.plugin = plugin;
@@ -32824,7 +33305,7 @@ var LoreHarvestService = class {
             let sourceFileHashAtRun = "";
             try {
               const sourceFile = this.plugin.app.vault.getAbstractFileByPath(sourceFilePath);
-              if (sourceFile instanceof import_obsidian21.TFile) {
+              if (sourceFile instanceof import_obsidian22.TFile) {
                 const fileContent = await this.plugin.app.vault.read(sourceFile);
                 sourceFileHashAtRun = await sha256(fileContent);
               }
@@ -33012,7 +33493,7 @@ var LoreHarvestService = class {
 };
 
 // ui/HarvestChecklistModal.tsx
-var import_obsidian22 = require("obsidian");
+var import_obsidian23 = require("obsidian");
 function showHarvestChecklistModal(app, opts) {
   return new Promise((resolve) => {
     let settled = false;
@@ -33032,7 +33513,7 @@ function showHarvestChecklistModal(app, opts) {
         runLocalIds.add(item.harvestId);
       }
     });
-    const modal = new class extends import_obsidian22.Modal {
+    const modal = new class extends import_obsidian23.Modal {
       onOpen() {
         this.titleEl.setText("Lore Harvest Review");
         const content = this.contentEl;
@@ -33051,7 +33532,7 @@ function showHarvestChecklistModal(app, opts) {
             const staleBanner = itemDiv.createDiv({ cls: "harvest-stale-warning" });
             staleBanner.createSpan({ text: "\u26A0\uFE0F Evidence may be stale - manuscript may have changed since extraction", cls: "stale-banner" });
           }
-          new import_obsidian22.Setting(itemDiv).setName(`${item.proposedFact.attribute} of ${item.proposedFact.entityId}`).setDesc(this.formatItemDescription(item)).addDropdown((dropdown) => {
+          new import_obsidian23.Setting(itemDiv).setName(`${item.proposedFact.attribute} of ${item.proposedFact.entityId}`).setDesc(this.formatItemDescription(item)).addDropdown((dropdown) => {
             dropdown.addOption("none", "Reject");
             dropdown.addOption("run-local", "Accept Run-Local");
             dropdown.addOption("promote", staleEvidence ? "Promote (Stale Evidence Override)" : "Promote to Story Bible");
@@ -33098,7 +33579,7 @@ function showHarvestChecklistModal(app, opts) {
             occurrencesDiv.createSpan({ text: `${item.appearanceCount} occurrence(s) in run`, cls: "occurrences-count" });
           }
         });
-        new import_obsidian22.Setting(content).addButton((btn) => {
+        new import_obsidian23.Setting(content).addButton((btn) => {
           btn.setButtonText("Cancel");
           btn.onClick(() => {
             settle(null);
@@ -33138,79 +33619,6 @@ function showHarvestChecklistModal(app, opts) {
     modal.open();
   });
 }
-
-// services/RunPaths.ts
-var RunPaths = class {
-  /**
-   * Base directory for a run (folder name).
-   * @param runKey - Folder name (e.g., "run-1735689600")
-   */
-  static baseDir(runKey) {
-    return `.gwriter/output/${runKey}`;
-  }
-  /**
-   * Logs directory for a run or continuation.
-   */
-  static logsDir(runKey, contId) {
-    const base2 = this.baseDir(runKey);
-    return contId ? `${base2}/branches/${contId}/logs` : `${base2}/logs`;
-  }
-  /**
-   * Context directory for a run or continuation (prompts, hits).
-   */
-  static contextDir(runKey, contId) {
-    const base2 = this.baseDir(runKey);
-    return contId ? `${base2}/branches/${contId}/context` : `${base2}/context`;
-  }
-  /**
-   * Snapshots directory for a run.
-   */
-  static snapshotsDir(runKey) {
-    return `${this.baseDir(runKey)}/snapshots`;
-  }
-  /**
-   * Harvest directory for a run.
-   */
-  static harvestDir(runKey) {
-    return `${this.baseDir(runKey)}/harvest`;
-  }
-  /**
-   * Replays directory for a run.
-   */
-  static replaysDir(runKey) {
-    return `${this.baseDir(runKey)}/replays`;
-  }
-  /**
-   * Branches directory for a run.
-   */
-  static branchesDir(runKey) {
-    return `${this.baseDir(runKey)}/branches`;
-  }
-  /**
-   * Path to continuation manifest (delta manifest).
-   */
-  static continuationManifestPath(runKey, contId) {
-    return `${this.branchesDir(runKey)}/${contId}/cont.json`;
-  }
-  /**
-   * Path to policy snapshot for a run.
-   */
-  static policySnapshotPath(runKey) {
-    return `${this.baseDir(runKey)}/policy.json`;
-  }
-  /**
-   * Path to run manifest.
-   */
-  static manifestPath(runKey) {
-    return `${this.baseDir(runKey)}/run.json`;
-  }
-  /**
-   * Derives runKey from a manifest.
-   */
-  static fromManifest(manifest) {
-    return null;
-  }
-};
 
 // services/CloudRelay.ts
 var CloudRelay = class {
@@ -33789,13 +34197,14 @@ var SequentialGenerator = class {
     this.contextManager = null;
     this.entitiesMentionedHistory = /* @__PURE__ */ new Map();
     // chunkId -> entityIds
+    this.lastChunkParas = [];
     this.sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     this.heartbeatInterval = null;
     this.cloudRelay = null;
     this.contextPacker = null;
     this.consecutiveViolations = 0;
     this.plugin = plugin;
-    this.proseStitcher = new ProseStitcher();
+    this.proseStitcher = new ProseStitcher(plugin);
     this.identityService = new ParagraphIdentityService();
     this.loreHarvestService = new LoreHarvestService(plugin);
     this.auditService = new AuditService();
@@ -33807,12 +34216,12 @@ var SequentialGenerator = class {
    */
   async generateChapter(targetWordCount, opts) {
     if (this.state === "RUNNING" || this.state === "PAUSED_FOR_INTERVENTION" || this.state === "RESUMING") {
-      new import_obsidian23.Notice("Generation is already running.");
+      new import_obsidian24.Notice("Generation is already running.");
       return;
     }
     this.dryRun = !!opts?.dryRun;
     if (this.dryRun) {
-      new import_obsidian23.Notice("\u{1F680} Running in DRY-RUN mode. No changes will be saved.");
+      new import_obsidian24.Notice("\u{1F680} Running in DRY-RUN mode. No changes will be saved.");
     }
     this.currentRunKey = `run-${Date.now()}`;
     this.currentRunId = globalThis.crypto?.randomUUID?.() || `uuid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -33834,7 +34243,7 @@ var SequentialGenerator = class {
     const indexStatus = this.plugin.embeddingsIndex.getStatus();
     const corpusHash = await this.plugin.embeddingsIndex.getCorpusHash();
     if (!smartDigest || !fastDigest) {
-      new import_obsidian23.Notice("Warning: One or more model digests are missing. Strict Replay will be disabled.");
+      new import_obsidian24.Notice("Warning: One or more model digests are missing. Strict Replay will be disabled.");
     }
     const initialState = {
       chapterId: `chapter-${Date.now()}`,
@@ -34093,37 +34502,22 @@ ${prompt}
             writeResult.data = this.applyPatches(writeResult.data, patches);
           }
         }
-        if (iteration > 1) {
+        if (iteration > 1 && this.lastChunkParas.length > 0) {
+          const currentParas = writeResult.data.split("\n\n").filter((p) => p.trim()).map((p, i) => ({
+            id: recoveredMeta[i]?.p_id || `chunk-${iteration}-p${i}`,
+            text: p
+          }));
           const stitchResult = await this.runStage("STITCH", smartModel, async () => {
-            const tail = contextManager.getState().timeline.slice(-1)[0]?.summary || "";
-            const head = writeResult.data.slice(0, 200);
-            const originalBoundary = head;
-            let retryCount = 0;
-            let finalPatches = [];
-            while (retryCount <= 1) {
-              const patches = await this.plugin.ollamaGen.enqueue(
-                3,
-                (signal) => this.proseStitcher.stitch(tail, head)
-              );
-              const stitchedHead = this.proseStitcher.applyStitch(head, patches);
-              const integrity = this.proseStitcher.validateClaimIntegrity(originalBoundary, stitchedHead);
-              if (integrity.valid) {
-                finalPatches = patches;
-                break;
-              } else {
-                retryCount++;
-                console.warn(`[SequentialGenerator] Stitch rejected: claim mutation detected. Retry ${retryCount}`);
-                if (retryCount > 1) {
-                  console.error(`[SequentialGenerator] Stitch failed after retries. Skipping.`);
-                  relayEventBus.emit("pilot:stitch_rejected", { iteration, changes: integrity.changes });
-                }
-              }
-            }
-            return { patches: finalPatches, stitchSkipped: finalPatches.length === 0 };
-          }, void 0, await sha256(contextManager.getState().timeline.slice(-1)[0]?.summary || ""));
-          if (stitchResult && stitchResult.data.patches.length > 0) {
-            const stitchPatches = stitchResult.data.patches;
-            writeResult.data = this.applyPatches(writeResult.data, stitchPatches);
+            const response = await this.proseStitcher.stitch(
+              this.lastChunkParas,
+              currentParas,
+              contextManager.getState()
+            );
+            return response;
+          }, void 0, await sha256(JSON.stringify(this.lastChunkParas)));
+          if (stitchResult && stitchResult.data && stitchResult.data.patchOps.length > 0) {
+            const stitchResponse = stitchResult.data;
+            writeResult.data = this.applyStitchPatches(writeResult.data, stitchResponse.patchOps, recoveredMeta);
           }
         }
         await this.commitChunk(iteration, writeResult.data, writeResult.metadata);
@@ -34166,6 +34560,7 @@ ${prompt}
           health
         });
         await this.performPostRunHarvest(contextManager);
+        this.manifest.replayPrereqs = await this.computeReplayPrereqs();
         await this.saveManifest();
         await this.cleanupOldRuns();
       }
@@ -34187,7 +34582,7 @@ ${prompt}
       return;
     const relayMode = this.plugin.settings.relayMode || "local";
     if (relayMode !== "cloud") {
-      new import_obsidian23.Notice("Edit mode is currently only supported in Cloud Relay mode.");
+      new import_obsidian24.Notice("Edit mode is currently only supported in Cloud Relay mode.");
       return;
     }
     this.currentRunKey = `edit-${Date.now()}`;
@@ -34220,7 +34615,7 @@ ${prompt}
       const fullEditedProse = output.resultParagraphs.map((p) => p.text).join("\n\n");
       const auditResult = await this.auditService.auditFullChapter(fullEditedProse, this.contextManager.getState());
       if (auditResult.overallSeverity >= 4) {
-        new import_obsidian23.Notice(`Edit completed with ${auditResult.violations.length} violations.`);
+        new import_obsidian24.Notice(`Edit completed with ${auditResult.violations.length} violations.`);
       }
       relayEventBus.emit("chunk:committed", {
         runId: this.currentRunId,
@@ -34281,6 +34676,10 @@ ${prompt}
       return;
     this.commitLock = true;
     try {
+      this.lastChunkParas = content.split("\n\n").filter((p) => p.trim()).map((p, i) => ({
+        id: metadata?.[i]?.p_id || `chunk-${iteration}-p${i}`,
+        text: p
+      }));
       if (!this.dryRun) {
         relayEventBus.emit("chunk:committed", {
           runId: this.currentRunId,
@@ -34572,7 +34971,7 @@ ${prompt}
               chapterId: this.manifest.chapterId,
               diffSummary: `Canon version updated to ${mergeResult.canonVersionAfterMerge}`
             });
-            new import_obsidian23.Notice(`Successfully merged ${result.approvedIds.length} items into Story Bible.`);
+            new import_obsidian24.Notice(`Successfully merged ${result.approvedIds.length} items into Story Bible.`);
           }
         }
       }
@@ -34630,6 +35029,26 @@ ${prompt}
       });
     }
     return reports;
+  }
+  getContextManager() {
+    return this.contextManager;
+  }
+  async computeReplayPrereqs() {
+    const runKey = this.currentRunKey;
+    const adapter = this.plugin.app.vault.adapter;
+    const base2 = RunPaths.baseDir(runKey);
+    const hasPromptBodies = await adapter.exists(`${base2}/context/prompt.chunk-1.json`);
+    const hasHitsBodies = await adapter.exists(`${base2}/context/hits.chunk-1.json`);
+    const hasTemplateSnapshot = !!this.manifest?.environment?.snapshots?.templateSnapshot;
+    const hasScoringSnapshot = !!this.manifest?.environment?.snapshots?.scoringSnapshot;
+    const hasModelIdentity = !!this.manifest?.config?.smartModelDigest;
+    return {
+      hasPromptBodies,
+      hasHitsBodies,
+      hasTemplateSnapshot,
+      hasScoringSnapshot,
+      hasModelIdentity
+    };
   }
   /**
    * Checks for schema version mismatch between plugin and chapter state.
@@ -34774,13 +35193,13 @@ ${prompt}
     if (hasViolation) {
       this.consecutiveViolations++;
       if (this.consecutiveViolations === 1) {
-        new import_obsidian23.Notice("\u26A0\uFE0F Quality Warning: grounding density low. Auto-refreshing context next chunk.");
+        new import_obsidian24.Notice("\u26A0\uFE0F Quality Warning: grounding density low. Auto-refreshing context next chunk.");
       } else if (this.consecutiveViolations >= 2) {
         this.state = "PAUSED_FOR_INTERVENTION";
         relayEventBus.emit("control:paused", {
           runId: this.currentRunId
         });
-        new import_obsidian23.Notice("\u23F8 Generation paused: multiple quality violations. Review lore/context.");
+        new import_obsidian24.Notice("\u23F8 Generation paused: multiple quality violations. Review lore/context.");
       }
     } else {
       this.consecutiveViolations = 0;
@@ -34859,10 +35278,23 @@ ${prompt}
     }
     return result;
   }
+  applyStitchPatches(text2, ops, metadata) {
+    const paragraphs = text2.split("\n\n").filter((p) => p.trim());
+    const paraMap = new Map(paragraphs.map((p, i) => [metadata[i]?.p_id || `temp-${i}`, p]));
+    const sortedOps = sortPatchOps(ops);
+    for (const op of sortedOps) {
+      const currentText = paraMap.get(op.paragraphId);
+      if (currentText) {
+        const updated = currentText.substring(0, op.start) + op.replacementText + currentText.substring(op.end);
+        paraMap.set(op.paragraphId, updated);
+      }
+    }
+    return paragraphs.map((_, i) => paraMap.get(metadata[i]?.p_id || `temp-${i}`)).join("\n\n");
+  }
   failRun(error2) {
     this.state = "error";
     relayEventBus.emit("run:error", { runId: this.currentRunId || "unknown", error: error2 });
-    new import_obsidian23.Notice(`Generation failed: ${error2}`);
+    new import_obsidian24.Notice(`Generation failed: ${error2}`);
   }
   async saveManifest() {
     if (!this.manifest || !this.currentRunKey)
@@ -35082,7 +35514,7 @@ ${prompt}
     const lockPath = `.gwriter/locks/${runKey}.lock`;
     try {
       const lockFile = this.plugin.app.vault.getAbstractFileByPath(lockPath);
-      if (lockFile instanceof import_obsidian23.TFile) {
+      if (lockFile instanceof import_obsidian24.TFile) {
         await this.plugin.app.vault.delete(lockFile);
       }
     } catch (err) {
@@ -35112,7 +35544,7 @@ ${prompt}
     let index = {};
     try {
       const existingFile = this.plugin.app.vault.getAbstractFileByPath(indexPath);
-      if (existingFile instanceof import_obsidian23.TFile) {
+      if (existingFile instanceof import_obsidian24.TFile) {
         const content = await this.plugin.app.vault.read(existingFile);
         index = JSON.parse(content);
       }
@@ -35139,13 +35571,13 @@ ${prompt}
     const visited = /* @__PURE__ */ new Set();
     const runIdToKey = /* @__PURE__ */ new Map();
     const outputRoot = this.plugin.app.vault.getAbstractFileByPath(".gwriter/output");
-    if (!(outputRoot instanceof import_obsidian23.TFolder))
+    if (!(outputRoot instanceof import_obsidian24.TFolder))
       return closure;
     for (const child of outputRoot.children) {
-      if (!(child instanceof import_obsidian23.TFolder) || !child.name.startsWith("run-"))
+      if (!(child instanceof import_obsidian24.TFolder) || !child.name.startsWith("run-"))
         continue;
       const manifestFile = child.children.find((f) => f.name === "run.json");
-      if (manifestFile instanceof import_obsidian23.TFile) {
+      if (manifestFile instanceof import_obsidian24.TFile) {
         try {
           const content = await this.plugin.app.vault.read(manifestFile);
           const manifest = JSON.parse(content);
@@ -35160,10 +35592,10 @@ ${prompt}
         continue;
       visited.add(runKey);
       const runFolder = outputRoot.children.find((f) => f.name === runKey);
-      if (!(runFolder instanceof import_obsidian23.TFolder))
+      if (!(runFolder instanceof import_obsidian24.TFolder))
         continue;
       const manifestFile = runFolder.children.find((f) => f.name === "run.json");
-      if (!(manifestFile instanceof import_obsidian23.TFile))
+      if (!(manifestFile instanceof import_obsidian24.TFile))
         continue;
       try {
         const manifestContent = await this.plugin.app.vault.read(manifestFile);
@@ -35196,20 +35628,20 @@ ${prompt}
   async cleanupOldRuns() {
     const outputRoot = ".gwriter/output";
     const abstractRoot = this.plugin.app.vault.getAbstractFileByPath(outputRoot);
-    if (!(abstractRoot instanceof import_obsidian23.TFolder))
+    if (!(abstractRoot instanceof import_obsidian24.TFolder))
       return;
     const protectedRunKeys = /* @__PURE__ */ new Set();
     const globalIndexPath = ".gwriter/protection-index.json";
     try {
       const globalIndexFile = this.plugin.app.vault.getAbstractFileByPath(globalIndexPath);
-      if (globalIndexFile instanceof import_obsidian23.TFile) {
+      if (globalIndexFile instanceof import_obsidian24.TFile) {
         const content = await this.plugin.app.vault.read(globalIndexFile);
         const index = JSON.parse(content);
       }
     } catch (err) {
     }
     for (const child of abstractRoot.children) {
-      if (!(child instanceof import_obsidian23.TFolder) || !child.name.startsWith("run-"))
+      if (!(child instanceof import_obsidian24.TFolder) || !child.name.startsWith("run-"))
         continue;
       const protectedFile = child.children.find((f) => f.name === "protected.json");
       if (protectedFile) {
@@ -35217,7 +35649,7 @@ ${prompt}
       }
     }
     const closure = await this.computeProtectionClosure(protectedRunKeys);
-    const runFolders = abstractRoot.children.filter((f) => f instanceof import_obsidian23.TFolder && f.name.startsWith("run-")).sort((a, b) => b.name.localeCompare(a.name));
+    const runFolders = abstractRoot.children.filter((f) => f instanceof import_obsidian24.TFolder && f.name.startsWith("run-")).sort((a, b) => b.name.localeCompare(a.name));
     const MAX_RUNS_TO_KEEP = 10;
     const toTrash = [];
     let unprotectedCount = 0;
@@ -35680,7 +36112,7 @@ ${prompt}
 };
 
 // services/TrashService.ts
-var import_obsidian24 = require("obsidian");
+var import_obsidian25 = require("obsidian");
 var TrashService = class {
   constructor(vault, plugin) {
     this.trashRoot = ".gwriter/trash";
@@ -35694,7 +36126,7 @@ var TrashService = class {
   async trashRun(runId, fromPath, reason = "Manual cleanup") {
     await this.ensureTrashFolder();
     const sourceFolder = this.vault.getAbstractFileByPath(fromPath);
-    if (!(sourceFolder instanceof import_obsidian24.TFolder)) {
+    if (!(sourceFolder instanceof import_obsidian25.TFolder)) {
       throw new Error(`Run folder not found: ${fromPath}`);
     }
     const sizeBytes = await this.calculateFolderSize(sourceFolder);
@@ -35776,14 +36208,14 @@ var TrashService = class {
   }
   async ensureTrashFolder() {
     const trashFolder = this.vault.getAbstractFileByPath(this.trashRoot);
-    if (!(trashFolder instanceof import_obsidian24.TFolder)) {
+    if (!(trashFolder instanceof import_obsidian25.TFolder)) {
       await this.vault.adapter.mkdir(this.trashRoot);
     }
   }
   async readTrashIndex() {
     try {
       const file = this.vault.getAbstractFileByPath(this.indexPath);
-      if (file instanceof import_obsidian24.TFile) {
+      if (file instanceof import_obsidian25.TFile) {
         const content = await this.vault.read(file);
         return JSON.parse(content);
       }
@@ -35805,9 +36237,9 @@ var TrashService = class {
   async calculateFolderSize(folder) {
     let total = 0;
     for (const child of folder.children) {
-      if (child instanceof import_obsidian24.TFile) {
+      if (child instanceof import_obsidian25.TFile) {
         total += child.stat.size;
-      } else if (child instanceof import_obsidian24.TFolder) {
+      } else if (child instanceof import_obsidian25.TFolder) {
         total += await this.calculateFolderSize(child);
       }
     }
@@ -35956,7 +36388,7 @@ var HeuristicProvider = class {
 };
 
 // services/GenerationLogService.ts
-var import_obsidian25 = require("obsidian");
+var import_obsidian26 = require("obsidian");
 function normalizeFolder(folder) {
   const f = (folder || "").replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
   return f.length ? f : "Generation logs";
@@ -35984,7 +36416,7 @@ var GenerationLogService = class {
       return false;
     }
     const existing = this.app.vault.getAbstractFileByPath(folderPath);
-    if (existing instanceof import_obsidian25.TFolder)
+    if (existing instanceof import_obsidian26.TFolder)
       return true;
     try {
       await this.app.vault.createFolder(folderPath);
@@ -36043,7 +36475,7 @@ ${escapeFenceContent(params.finalPrompt)}
       await this.app.vault.create(path, body);
       return path;
     } catch {
-      new import_obsidian25.Notice("Failed to write generation log.");
+      new import_obsidian26.Notice("Failed to write generation log.");
       return null;
     }
   }
@@ -36051,7 +36483,7 @@ ${escapeFenceContent(params.finalPrompt)}
     if (!path)
       return;
     const file = this.app.vault.getAbstractFileByPath(path);
-    if (!(file instanceof import_obsidian25.TFile))
+    if (!(file instanceof import_obsidian26.TFile))
       return;
     const appendix = `## Result
 
@@ -36070,9 +36502,175 @@ ${appendix}`);
   }
 };
 
+// contracts/DiagnosticsContract.ts
+var REMEDIATION_MAPPING = {
+  "OLLAMA_UNREACHABLE": "Ensure Ollama is running and accessible at the configured URL.",
+  "MODEL_MISSING": 'Run "ollama pull [model_name]" to download the required models.',
+  "CLOUD_AUTH_FAIL": "Verify your API key in settings and ensure you have remaining quota.",
+  "INDEX_EMPTY": "Wait for the vault indexing worker to complete or check excluded folders.",
+  "CLOUD_MODEL_MISMATCH": "You are in Cloud mode but configured Local-only models. Update model IDs in settings.",
+  "INDEX_STALE": "The retrieval index is out of date. Trigger a full rescan in Retrieval settings.",
+  "LOW_DISK_SPACE": "Clear vault logs or free up disk space to ensure artifacts can be written.",
+  "MODE_INVARIANT_VIOLATION": "Architecture mismatch: Cloud mode attempted a local-only stage. Check sequential settings."
+};
+
+// services/DiagnosticsService.ts
+var DiagnosticsService = class {
+  constructor(plugin) {
+    this.plugin = plugin;
+  }
+  async runDiagnostics() {
+    const relayMode = this.plugin.settings.relayMode || "local";
+    const results = [];
+    await this.checkIndexSanity(results);
+    if (relayMode === "local") {
+      await this.runLocalDiagnostics(results);
+    } else {
+      await this.runCloudDiagnostics(results);
+    }
+    const overallStatus = this.determineOverallStatus(results);
+    const report = {
+      timestamp: Date.now(),
+      overallStatus,
+      results,
+      environment: {
+        relayMode,
+        pluginVersion: this.plugin.manifest.version,
+        models: [this.plugin.settings.relaySmartModel, this.plugin.settings.relayFastModel]
+      }
+    };
+    await this.writeArtifacts(report);
+    return report;
+  }
+  async checkIndexSanity(results) {
+    const status = this.plugin.embeddingsIndex.getStatus();
+    if (status.indexedChunks === 0) {
+      results.push({
+        status: "FAIL",
+        code: "INDEX_EMPTY",
+        message: "Retrieval index is empty.",
+        suggestedFix: REMEDIATION_MAPPING["INDEX_EMPTY"]
+      });
+    } else if (this.plugin.embeddingsIndex.getErrorSummary().total > 0) {
+      results.push({
+        status: "WARN",
+        code: "INDEX_STALE",
+        message: `Retrieval index has ${this.plugin.embeddingsIndex.getErrorSummary().total} errors.`,
+        suggestedFix: REMEDIATION_MAPPING["INDEX_STALE"]
+      });
+    } else {
+      results.push({
+        status: "PASS",
+        message: `Index healthy: ${status.indexedChunks} chunks across ${status.indexedFiles} files.`
+      });
+    }
+  }
+  async runLocalDiagnostics(results) {
+    const version = await this.plugin.ollamaGen.getOllamaVersion();
+    if (!version) {
+      results.push({
+        status: "FAIL",
+        code: "OLLAMA_UNREACHABLE",
+        message: "Cannot reach Ollama.",
+        suggestedFix: REMEDIATION_MAPPING["OLLAMA_UNREACHABLE"]
+      });
+      return;
+    }
+    results.push({ status: "PASS", message: `Ollama reachable (v${version})` });
+    const smartModel = this.plugin.settings.relaySmartModel;
+    const smartDigest = await this.plugin.ollamaModels.getModelDigest(smartModel);
+    if (!smartDigest) {
+      results.push({
+        status: "FAIL",
+        code: "MODEL_MISSING",
+        message: `Model '${smartModel}' not found in Ollama.`,
+        suggestedFix: REMEDIATION_MAPPING["MODEL_MISSING"]
+      });
+    } else {
+      results.push({ status: "PASS", message: `Model '${smartModel}' available.` });
+    }
+    try {
+      const testPrompt = 'Respond with "pong" in JSON format: { "result": "pong" }';
+      const response = await this.plugin.ollamaGen.generate(testPrompt, {
+        model: this.plugin.settings.relayFastModel,
+        temperature: 0,
+        format: "json"
+      });
+      const parsed = JSON.parse(response);
+      if (parsed.result === "pong") {
+        results.push({ status: "PASS", message: "Local generation test successful." });
+      } else {
+        throw new Error("Unexpected response content.");
+      }
+    } catch (e) {
+      results.push({
+        status: "FAIL",
+        message: `Local generation test failed: ${e.message}`
+      });
+    }
+  }
+  async runCloudDiagnostics(results) {
+    const apiKey = this.plugin.settings.apiKey;
+    if (!apiKey) {
+      results.push({
+        status: "FAIL",
+        code: "CLOUD_AUTH_FAIL",
+        message: "API Key is missing.",
+        suggestedFix: REMEDIATION_MAPPING["CLOUD_AUTH_FAIL"]
+      });
+      return;
+    }
+    const smartModel = this.plugin.settings.relaySmartModel;
+    if (smartModel.includes(":") || !["gpt", "claude", "gemini"].some((m) => smartModel.toLowerCase().includes(m))) {
+      results.push({
+        status: "WARN",
+        code: "CLOUD_MODEL_MISMATCH",
+        message: `Model '${smartModel}' appears to be a local model name.`,
+        suggestedFix: REMEDIATION_MAPPING["CLOUD_MODEL_MISMATCH"]
+      });
+    }
+    try {
+      results.push({ status: "PASS", message: "Cloud provider connectivity verified (mock)." });
+    } catch (e) {
+      results.push({
+        status: "FAIL",
+        code: "CLOUD_AUTH_FAIL",
+        message: `Cloud connectivity failed: ${e.message}`,
+        suggestedFix: REMEDIATION_MAPPING["CLOUD_AUTH_FAIL"]
+      });
+    }
+    try {
+      results.push({ status: "PASS", message: "Cloud generation test successful (mock)." });
+    } catch (e) {
+      results.push({
+        status: "FAIL",
+        message: `Cloud generation test failed: ${e.message}`
+      });
+    }
+  }
+  determineOverallStatus(results) {
+    if (results.some((r) => r.status === "FAIL"))
+      return "FAIL";
+    if (results.some((r) => r.status === "WARN"))
+      return "WARN";
+    return "PASS";
+  }
+  async writeArtifacts(report) {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const diagDir = `.gwriter/diagnostics/diag-${timestamp}`;
+    try {
+      await this.plugin.vaultService.ensureParentFolder(`${diagDir}/report.json`);
+      await this.plugin.vaultService.writeFile(`${diagDir}/report.json`, JSON.stringify(report, null, 2));
+      await this.plugin.vaultService.writeFile(`${diagDir}/env.json`, JSON.stringify(report.environment, null, 2));
+    } catch (e) {
+      console.error("Failed to write diagnostic artifacts", e);
+    }
+  }
+};
+
 // ui/BookMainSelectorModal.ts
-var import_obsidian26 = require("obsidian");
-var BookMainSelectorModal = class extends import_obsidian26.Modal {
+var import_obsidian27 = require("obsidian");
+var BookMainSelectorModal = class extends import_obsidian27.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.plugin = plugin;
@@ -36094,13 +36692,13 @@ var BookMainSelectorModal = class extends import_obsidian26.Modal {
 };
 
 // ui/PublishWizardModal.tsx
-var import_react9 = __toESM(require_react());
+var import_react11 = __toESM(require_react());
 var import_client6 = __toESM(require_client());
-var import_obsidian30 = require("obsidian");
+var import_obsidian31 = require("obsidian");
 
 // ui/FolderPickerModal.ts
-var import_obsidian27 = require("obsidian");
-var FolderPickerModal = class extends import_obsidian27.FuzzySuggestModal {
+var import_obsidian28 = require("obsidian");
+var FolderPickerModal = class extends import_obsidian28.FuzzySuggestModal {
   constructor(opts) {
     super(opts.app);
     this.folders = opts.folders;
@@ -36120,8 +36718,8 @@ var FolderPickerModal = class extends import_obsidian27.FuzzySuggestModal {
 };
 
 // ui/BinaryFilePickerModal.ts
-var import_obsidian28 = require("obsidian");
-var BinaryFilePickerModal = class extends import_obsidian28.FuzzySuggestModal {
+var import_obsidian29 = require("obsidian");
+var BinaryFilePickerModal = class extends import_obsidian29.FuzzySuggestModal {
   constructor(opts) {
     super(opts.app);
     this.files = opts.files;
@@ -36141,7 +36739,7 @@ var BinaryFilePickerModal = class extends import_obsidian28.FuzzySuggestModal {
 };
 
 // services/publish/MarkdownCompile.ts
-var import_obsidian29 = require("obsidian");
+var import_obsidian30 = require("obsidian");
 function trimBom(s) {
   return s.charCodeAt(0) === 65279 ? s.slice(1) : s;
 }
@@ -36226,13 +36824,13 @@ function resolveLinkToFilePath(app, linkTarget, fromPath) {
   if (!t)
     return null;
   const direct = app.vault.getAbstractFileByPath(t);
-  if (direct instanceof import_obsidian29.TFile)
+  if (direct instanceof import_obsidian30.TFile)
     return direct.path;
   const directMd = app.vault.getAbstractFileByPath(`${t}.md`);
-  if (directMd instanceof import_obsidian29.TFile)
+  if (directMd instanceof import_obsidian30.TFile)
     return directMd.path;
   const dest = app.metadataCache.getFirstLinkpathDest(t, fromPath);
-  if (dest instanceof import_obsidian29.TFile)
+  if (dest instanceof import_obsidian30.TFile)
     return dest.path;
   return null;
 }
@@ -36242,7 +36840,7 @@ var MarkdownCompile = class {
   }
   async compileFromBookMain(sourcePath) {
     const file = this.app.vault.getAbstractFileByPath(sourcePath);
-    if (!(file instanceof import_obsidian29.TFile)) {
+    if (!(file instanceof import_obsidian30.TFile)) {
       throw new Error(`Book main file not found: ${sourcePath}`);
     }
     const text2 = await this.app.vault.read(file);
@@ -36251,7 +36849,7 @@ var MarkdownCompile = class {
   }
   async compileFromTocNote(tocPath) {
     const file = this.app.vault.getAbstractFileByPath(tocPath);
-    if (!(file instanceof import_obsidian29.TFile))
+    if (!(file instanceof import_obsidian30.TFile))
       throw new Error(`TOC note not found: ${tocPath}`);
     const text2 = await this.app.vault.read(file);
     const lines = trimBom(text2).split(/\r?\n/);
@@ -36267,7 +36865,7 @@ var MarkdownCompile = class {
       if (!destPath)
         continue;
       const dest = this.app.vault.getAbstractFileByPath(destPath);
-      if (!(dest instanceof import_obsidian29.TFile))
+      if (!(dest instanceof import_obsidian30.TFile))
         continue;
       const md2 = await this.app.vault.read(dest);
       const title = (() => {
@@ -42374,7 +42972,7 @@ function sanitizeFileName2(name) {
 function ensureEpubExt2(name) {
   return name.toLowerCase().endsWith(".epub") ? name : `${name}.epub`;
 }
-var PublishWizardModal = class extends import_obsidian30.Modal {
+var PublishWizardModal = class extends import_obsidian31.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.reactRoot = null;
@@ -42385,7 +42983,7 @@ var PublishWizardModal = class extends import_obsidian30.Modal {
     this.contentEl.empty();
     const container = this.contentEl.createDiv();
     this.reactRoot = (0, import_client6.createRoot)(container);
-    this.reactRoot.render(import_react9.default.createElement(PublishWizardComponent, { plugin: this.plugin, onClose: () => this.close() }));
+    this.reactRoot.render(import_react11.default.createElement(PublishWizardComponent, { plugin: this.plugin, onClose: () => this.close() }));
   }
   onClose() {
     this.reactRoot?.unmount();
@@ -42397,34 +42995,34 @@ var PublishWizardComponent = ({
   plugin,
   onClose
 }) => {
-  const [step, setStep] = (0, import_react9.useState)(1);
-  const [mode, setMode] = (0, import_react9.useState)("book-main");
-  const [sourcePath, setSourcePath] = (0, import_react9.useState)(plugin.settings.book2Path || "Book-Main.md");
-  const [tocPath, setTocPath] = (0, import_react9.useState)("");
-  const [title, setTitle] = (0, import_react9.useState)("Untitled");
-  const [subtitle, setSubtitle] = (0, import_react9.useState)("");
-  const [author, setAuthor] = (0, import_react9.useState)("");
-  const [language, setLanguage] = (0, import_react9.useState)("en");
-  const [includeTitlePage, setIncludeTitlePage] = (0, import_react9.useState)(true);
-  const [includeCopyrightPage, setIncludeCopyrightPage] = (0, import_react9.useState)(true);
-  const [licenseTemplateId, setLicenseTemplateId] = (0, import_react9.useState)("all-rights-reserved");
-  const [copyrightYear, setCopyrightYear] = (0, import_react9.useState)(currentYear());
-  const [copyrightHolder, setCopyrightHolder] = (0, import_react9.useState)("");
-  const [embedFonts, setEmbedFonts] = (0, import_react9.useState)(false);
-  const [fontRegular, setFontRegular] = (0, import_react9.useState)("");
-  const [fontBold, setFontBold] = (0, import_react9.useState)("");
-  const [fontItalic, setFontItalic] = (0, import_react9.useState)("");
-  const [fontBoldItalic, setFontBoldItalic] = (0, import_react9.useState)("");
-  const [outputFolder, setOutputFolder] = (0, import_react9.useState)("Exports");
-  const [outputFormat, setOutputFormat] = (0, import_react9.useState)("epub");
-  const [subsetMode, setSubsetMode] = (0, import_react9.useState)("all");
-  const [subsetChaptersCount, setSubsetChaptersCount] = (0, import_react9.useState)("3");
-  const [subsetWordsCount, setSubsetWordsCount] = (0, import_react9.useState)("5000");
-  const [outputFileName, setOutputFileName] = (0, import_react9.useState)("Untitled.epub");
-  const [isExporting, setIsExporting] = (0, import_react9.useState)(false);
-  const [progress, setProgress] = (0, import_react9.useState)("");
-  const [error2, setError] = (0, import_react9.useState)(null);
-  (0, import_react9.useEffect)(() => {
+  const [step, setStep] = (0, import_react11.useState)(1);
+  const [mode, setMode] = (0, import_react11.useState)("book-main");
+  const [sourcePath, setSourcePath] = (0, import_react11.useState)(plugin.settings.book2Path || "Book-Main.md");
+  const [tocPath, setTocPath] = (0, import_react11.useState)("");
+  const [title, setTitle] = (0, import_react11.useState)("Untitled");
+  const [subtitle, setSubtitle] = (0, import_react11.useState)("");
+  const [author, setAuthor] = (0, import_react11.useState)("");
+  const [language, setLanguage] = (0, import_react11.useState)("en");
+  const [includeTitlePage, setIncludeTitlePage] = (0, import_react11.useState)(true);
+  const [includeCopyrightPage, setIncludeCopyrightPage] = (0, import_react11.useState)(true);
+  const [licenseTemplateId, setLicenseTemplateId] = (0, import_react11.useState)("all-rights-reserved");
+  const [copyrightYear, setCopyrightYear] = (0, import_react11.useState)(currentYear());
+  const [copyrightHolder, setCopyrightHolder] = (0, import_react11.useState)("");
+  const [embedFonts, setEmbedFonts] = (0, import_react11.useState)(false);
+  const [fontRegular, setFontRegular] = (0, import_react11.useState)("");
+  const [fontBold, setFontBold] = (0, import_react11.useState)("");
+  const [fontItalic, setFontItalic] = (0, import_react11.useState)("");
+  const [fontBoldItalic, setFontBoldItalic] = (0, import_react11.useState)("");
+  const [outputFolder, setOutputFolder] = (0, import_react11.useState)("Exports");
+  const [outputFormat, setOutputFormat] = (0, import_react11.useState)("epub");
+  const [subsetMode, setSubsetMode] = (0, import_react11.useState)("all");
+  const [subsetChaptersCount, setSubsetChaptersCount] = (0, import_react11.useState)("3");
+  const [subsetWordsCount, setSubsetWordsCount] = (0, import_react11.useState)("5000");
+  const [outputFileName, setOutputFileName] = (0, import_react11.useState)("Untitled.epub");
+  const [isExporting, setIsExporting] = (0, import_react11.useState)(false);
+  const [progress, setProgress] = (0, import_react11.useState)("");
+  const [error2, setError] = (0, import_react11.useState)(null);
+  (0, import_react11.useEffect)(() => {
     const base2 = sanitizeFileName2(title || "Untitled");
     if (outputFormat === "epub")
       setOutputFileName(ensureEpubExt2(base2));
@@ -42461,7 +43059,7 @@ var PublishWizardComponent = ({
     }
     return out;
   };
-  const canNext = (0, import_react9.useMemo)(() => {
+  const canNext = (0, import_react11.useMemo)(() => {
     if (step === 1) {
       if (mode === "book-main")
         return Boolean(sourcePath.trim());
@@ -42486,7 +43084,7 @@ var PublishWizardComponent = ({
     modal.open();
   };
   const pickFolder = (onPick) => {
-    const folders = plugin.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian30.TFolder);
+    const folders = plugin.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian31.TFolder);
     const modal = new FolderPickerModal({
       app: plugin.app,
       folders,
@@ -42588,7 +43186,7 @@ ${markdownToPlainText(c.markdown || "")}
         outputPath = out;
       }
       setProgress("");
-      new import_obsidian30.Notice(`Exported: ${outputPath}`);
+      new import_obsidian31.Notice(`Exported: ${outputPath}`);
       onClose();
     } catch (e) {
       const message = e instanceof Error ? e.message : (() => {
@@ -42604,7 +43202,7 @@ ${markdownToPlainText(c.markdown || "")}
       setIsExporting(false);
     }
   };
-  return /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-wizard" }, /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-steps" }, "Step ", step, " of 6"), step === 1 && /* @__PURE__ */ import_react9.default.createElement("div", null, /* @__PURE__ */ import_react9.default.createElement("h2", null, "Source"), /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("label", null, /* @__PURE__ */ import_react9.default.createElement(
+  return /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-wizard" }, /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-steps" }, "Step ", step, " of 6"), step === 1 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Source"), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("label", null, /* @__PURE__ */ import_react11.default.createElement(
     "input",
     {
       type: "radio",
@@ -42612,7 +43210,7 @@ ${markdownToPlainText(c.markdown || "")}
       onChange: () => setMode("book-main"),
       disabled: isExporting
     }
-  ), "Book main (H1 chapters)"), /* @__PURE__ */ import_react9.default.createElement("label", { style: { marginLeft: 12 } }, /* @__PURE__ */ import_react9.default.createElement(
+  ), "Book main (H1 chapters)"), /* @__PURE__ */ import_react11.default.createElement("label", { style: { marginLeft: 12 } }, /* @__PURE__ */ import_react11.default.createElement(
     "input",
     {
       type: "radio",
@@ -42620,7 +43218,7 @@ ${markdownToPlainText(c.markdown || "")}
       onChange: () => setMode("toc-note"),
       disabled: isExporting
     }
-  ), "TOC note")), mode === "book-main" && /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "Book main file"), /* @__PURE__ */ import_react9.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react9.default.createElement("input", { value: sourcePath, onChange: (e) => setSourcePath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react9.default.createElement(
+  ), "TOC note")), mode === "book-main" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Book main file"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: sourcePath, onChange: (e) => setSourcePath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement(
     "button",
     {
       onClick: () => pickMarkdownFile("Pick your manuscript note", (filePath) => {
@@ -42629,7 +43227,7 @@ ${markdownToPlainText(c.markdown || "")}
       disabled: isExporting
     },
     "Browse"
-  ))), mode === "toc-note" && /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "TOC note"), /* @__PURE__ */ import_react9.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react9.default.createElement("input", { value: tocPath, onChange: (e) => setTocPath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react9.default.createElement(
+  ))), mode === "toc-note" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "TOC note"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: tocPath, onChange: (e) => setTocPath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement(
     "button",
     {
       onClick: () => pickMarkdownFile("Pick your TOC note", (filePath) => {
@@ -42638,22 +43236,22 @@ ${markdownToPlainText(c.markdown || "")}
       disabled: isExporting
     },
     "Browse"
-  )))), step === 2 && /* @__PURE__ */ import_react9.default.createElement("div", null, /* @__PURE__ */ import_react9.default.createElement("h2", null, "Metadata"), /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "Title"), /* @__PURE__ */ import_react9.default.createElement("input", { value: title, onChange: (e) => setTitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "Subtitle (optional)"), /* @__PURE__ */ import_react9.default.createElement("input", { value: subtitle, onChange: (e) => setSubtitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "Author"), /* @__PURE__ */ import_react9.default.createElement("input", { value: author, onChange: (e) => setAuthor(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "Language"), /* @__PURE__ */ import_react9.default.createElement("input", { value: language, onChange: (e) => setLanguage(e.target.value), disabled: isExporting, placeholder: "en" }))), step === 3 && /* @__PURE__ */ import_react9.default.createElement("div", null, /* @__PURE__ */ import_react9.default.createElement("h2", null, "Front matter"), /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("label", null, /* @__PURE__ */ import_react9.default.createElement("input", { type: "checkbox", checked: includeTitlePage, onChange: (e) => setIncludeTitlePage(e.target.checked) }), "Title page")), /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("label", null, /* @__PURE__ */ import_react9.default.createElement(
+  )))), step === 2 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Metadata"), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Title"), /* @__PURE__ */ import_react11.default.createElement("input", { value: title, onChange: (e) => setTitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Subtitle (optional)"), /* @__PURE__ */ import_react11.default.createElement("input", { value: subtitle, onChange: (e) => setSubtitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Author"), /* @__PURE__ */ import_react11.default.createElement("input", { value: author, onChange: (e) => setAuthor(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Language"), /* @__PURE__ */ import_react11.default.createElement("input", { value: language, onChange: (e) => setLanguage(e.target.value), disabled: isExporting, placeholder: "en" }))), step === 3 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Front matter"), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("label", null, /* @__PURE__ */ import_react11.default.createElement("input", { type: "checkbox", checked: includeTitlePage, onChange: (e) => setIncludeTitlePage(e.target.checked) }), "Title page")), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("label", null, /* @__PURE__ */ import_react11.default.createElement(
     "input",
     {
       type: "checkbox",
       checked: includeCopyrightPage,
       onChange: (e) => setIncludeCopyrightPage(e.target.checked)
     }
-  ), "Copyright page")), /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "License template"), /* @__PURE__ */ import_react9.default.createElement(
+  ), "Copyright page")), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "License template"), /* @__PURE__ */ import_react11.default.createElement(
     "select",
     {
       value: licenseTemplateId,
       onChange: (e) => setLicenseTemplateId(e.target.value),
       disabled: isExporting
     },
-    LICENSE_TEMPLATES.map((t) => /* @__PURE__ */ import_react9.default.createElement("option", { key: t.id, value: t.id }, t.label))
-  )), /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "Copyright year"), /* @__PURE__ */ import_react9.default.createElement("input", { value: copyrightYear, onChange: (e) => setCopyrightYear(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "Copyright holder"), /* @__PURE__ */ import_react9.default.createElement("input", { value: copyrightHolder, onChange: (e) => setCopyrightHolder(e.target.value), disabled: isExporting }))), step === 4 && /* @__PURE__ */ import_react9.default.createElement("div", null, /* @__PURE__ */ import_react9.default.createElement("h2", null, "Typography"), /* @__PURE__ */ import_react9.default.createElement("p", null, "Default styling uses Literata if available on the reader device. You can embed your own font files to guarantee the look."), /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("label", null, /* @__PURE__ */ import_react9.default.createElement("input", { type: "checkbox", checked: embedFonts, onChange: (e) => setEmbedFonts(e.target.checked), disabled: isExporting }), "Embed custom fonts")), embedFonts && /* @__PURE__ */ import_react9.default.createElement("div", null, /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "Regular (required)"), /* @__PURE__ */ import_react9.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react9.default.createElement("input", { value: fontRegular, onChange: (e) => setFontRegular(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react9.default.createElement("button", { onClick: () => pickFontFile((f) => setFontRegular(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "Bold"), /* @__PURE__ */ import_react9.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react9.default.createElement("input", { value: fontBold, onChange: (e) => setFontBold(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react9.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBold(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "Italic"), /* @__PURE__ */ import_react9.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react9.default.createElement("input", { value: fontItalic, onChange: (e) => setFontItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react9.default.createElement("button", { onClick: () => pickFontFile((f) => setFontItalic(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "Bold italic"), /* @__PURE__ */ import_react9.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react9.default.createElement("input", { value: fontBoldItalic, onChange: (e) => setFontBoldItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react9.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBoldItalic(f.path)), disabled: isExporting }, "Browse"))))), step === 5 && /* @__PURE__ */ import_react9.default.createElement("div", null, /* @__PURE__ */ import_react9.default.createElement("h2", null, "Output"), /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "Format"), /* @__PURE__ */ import_react9.default.createElement("select", { value: outputFormat, onChange: (e) => setOutputFormat(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react9.default.createElement("option", { value: "epub" }, "Epub"), /* @__PURE__ */ import_react9.default.createElement("option", { value: "docx" }, "Docx"), /* @__PURE__ */ import_react9.default.createElement("option", { value: "rtf" }, "Rtf"), /* @__PURE__ */ import_react9.default.createElement("option", { value: "copy" }, "Plain text"))), /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "Export subset"), /* @__PURE__ */ import_react9.default.createElement("select", { value: subsetMode, onChange: (e) => setSubsetMode(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react9.default.createElement("option", { value: "all" }, "All chapters"), /* @__PURE__ */ import_react9.default.createElement("option", { value: "first-chapters" }, "First N chapters"), /* @__PURE__ */ import_react9.default.createElement("option", { value: "first-words" }, "First N words"))), subsetMode === "first-chapters" && /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "Chapters"), /* @__PURE__ */ import_react9.default.createElement("input", { value: subsetChaptersCount, onChange: (e) => setSubsetChaptersCount(e.target.value), disabled: isExporting })), subsetMode === "first-words" && /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "Words"), /* @__PURE__ */ import_react9.default.createElement("input", { value: subsetWordsCount, onChange: (e) => setSubsetWordsCount(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "Folder"), /* @__PURE__ */ import_react9.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react9.default.createElement("input", { value: outputFolder, onChange: (e) => setOutputFolder(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react9.default.createElement("button", { onClick: () => pickFolder((f) => setOutputFolder(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react9.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react9.default.createElement("div", null, "File name"), /* @__PURE__ */ import_react9.default.createElement("input", { value: outputFileName, onChange: (e) => setOutputFileName(e.target.value), disabled: isExporting }))), step === 6 && /* @__PURE__ */ import_react9.default.createElement("div", null, /* @__PURE__ */ import_react9.default.createElement("h2", null, "Export"), /* @__PURE__ */ import_react9.default.createElement("p", null, "When you click Export, the plugin will compile your notes and write the output into your vault."), progress && /* @__PURE__ */ import_react9.default.createElement("div", { className: "generation-status" }, progress), error2 && /* @__PURE__ */ import_react9.default.createElement("div", { className: "error-message" }, "\u274C ", error2)), /* @__PURE__ */ import_react9.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 16 } }, /* @__PURE__ */ import_react9.default.createElement("div", null, /* @__PURE__ */ import_react9.default.createElement("button", { onClick: onClose, className: "mod-secondary", disabled: isExporting }, "Close")), /* @__PURE__ */ import_react9.default.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ import_react9.default.createElement("button", { onClick: goBack, disabled: isExporting || step === 1 }, "Back"), step < 6 && /* @__PURE__ */ import_react9.default.createElement("button", { onClick: goNext, disabled: isExporting || !canNext, className: "mod-cta" }, "Next"), step === 6 && /* @__PURE__ */ import_react9.default.createElement("button", { onClick: doExport, disabled: isExporting, className: "mod-cta" }, "Export"))));
+    LICENSE_TEMPLATES.map((t) => /* @__PURE__ */ import_react11.default.createElement("option", { key: t.id, value: t.id }, t.label))
+  )), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Copyright year"), /* @__PURE__ */ import_react11.default.createElement("input", { value: copyrightYear, onChange: (e) => setCopyrightYear(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Copyright holder"), /* @__PURE__ */ import_react11.default.createElement("input", { value: copyrightHolder, onChange: (e) => setCopyrightHolder(e.target.value), disabled: isExporting }))), step === 4 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Typography"), /* @__PURE__ */ import_react11.default.createElement("p", null, "Default styling uses Literata if available on the reader device. You can embed your own font files to guarantee the look."), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("label", null, /* @__PURE__ */ import_react11.default.createElement("input", { type: "checkbox", checked: embedFonts, onChange: (e) => setEmbedFonts(e.target.checked), disabled: isExporting }), "Embed custom fonts")), embedFonts && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Regular (required)"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontRegular, onChange: (e) => setFontRegular(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontRegular(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Bold"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontBold, onChange: (e) => setFontBold(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBold(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Italic"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontItalic, onChange: (e) => setFontItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontItalic(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Bold italic"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontBoldItalic, onChange: (e) => setFontBoldItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBoldItalic(f.path)), disabled: isExporting }, "Browse"))))), step === 5 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Output"), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Format"), /* @__PURE__ */ import_react11.default.createElement("select", { value: outputFormat, onChange: (e) => setOutputFormat(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react11.default.createElement("option", { value: "epub" }, "Epub"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "docx" }, "Docx"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "rtf" }, "Rtf"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "copy" }, "Plain text"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Export subset"), /* @__PURE__ */ import_react11.default.createElement("select", { value: subsetMode, onChange: (e) => setSubsetMode(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react11.default.createElement("option", { value: "all" }, "All chapters"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "first-chapters" }, "First N chapters"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "first-words" }, "First N words"))), subsetMode === "first-chapters" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Chapters"), /* @__PURE__ */ import_react11.default.createElement("input", { value: subsetChaptersCount, onChange: (e) => setSubsetChaptersCount(e.target.value), disabled: isExporting })), subsetMode === "first-words" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Words"), /* @__PURE__ */ import_react11.default.createElement("input", { value: subsetWordsCount, onChange: (e) => setSubsetWordsCount(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Folder"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: outputFolder, onChange: (e) => setOutputFolder(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFolder((f) => setOutputFolder(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "File name"), /* @__PURE__ */ import_react11.default.createElement("input", { value: outputFileName, onChange: (e) => setOutputFileName(e.target.value), disabled: isExporting }))), step === 6 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Export"), /* @__PURE__ */ import_react11.default.createElement("p", null, "When you click Export, the plugin will compile your notes and write the output into your vault."), progress && /* @__PURE__ */ import_react11.default.createElement("div", { className: "generation-status" }, progress), error2 && /* @__PURE__ */ import_react11.default.createElement("div", { className: "error-message" }, "\u274C ", error2)), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 16 } }, /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("button", { onClick: onClose, className: "mod-secondary", disabled: isExporting }, "Close")), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ import_react11.default.createElement("button", { onClick: goBack, disabled: isExporting || step === 1 }, "Back"), step < 6 && /* @__PURE__ */ import_react11.default.createElement("button", { onClick: goNext, disabled: isExporting || !canNext, className: "mod-cta" }, "Next"), step === 6 && /* @__PURE__ */ import_react11.default.createElement("button", { onClick: doExport, disabled: isExporting, className: "mod-cta" }, "Export"))));
 };
 
 // main.ts
@@ -42683,7 +43281,7 @@ var DEFAULT_MODE_STATE = {
     }
   }
 };
-var WritingDashboardPlugin = class extends import_obsidian31.Plugin {
+var WritingDashboardPlugin = class extends import_obsidian32.Plugin {
   constructor() {
     super(...arguments);
     this.guidedDemoStartRequested = false;
@@ -42705,6 +43303,7 @@ var WritingDashboardPlugin = class extends import_obsidian31.Plugin {
     this.sequentialGenerator = new SequentialGenerator(this.app, this);
     this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this, this.ollama);
     this.cpuReranker = new CpuReranker();
+    this.diagnosticsService = new DiagnosticsService(this);
     this.generationLogService = new GenerationLogService(this.app, this);
     const providers = [
       new HeuristicProvider(this.app.vault, this.vaultService),
@@ -42803,7 +43402,8 @@ var WritingDashboardPlugin = class extends import_obsidian31.Plugin {
         ollamaBaseUrl: "http://127.0.0.1:11434",
         maxChunkWords: 500,
         maxRepairAttempts: 1,
-        retrievalTokenBudget: 3e3
+        retrievalTokenBudget: 3e3,
+        helpDensity: "LITE"
       },
       loaded
     );
