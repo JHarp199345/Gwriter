@@ -196,54 +196,56 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 			<div className="dashboard-layout">
 				<div className="main-workspace">
-					{activeTab === 'editor' && (
-						<EditorPanel 
-							plugin={plugin}
-							mode={mode}
-							selectedText={modeState.chapter.sceneSummary}
-							onSelectionChange={updateMainInput}
-							generatedText={generatedText}
-							generatedParagraphs={generatedParagraphs}
-							heatmapEnabled={heatmapEnabled}
-							onGeneratedChange={setGeneratedText}
-							onCopy={() => navigator.clipboard.writeText(generatedText)}
-							chunkBuffer={chunkBuffer}
-						/>
-					)}
-
-					{activeTab === 'lore' && (
-						<div className="lore-tab">
-							<FactInspector 
+					<div className="tab-content-wrapper" style={{ flex: '1 1 auto', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+						{activeTab === 'editor' && (
+							<EditorPanel 
 								plugin={plugin}
-								state={plugin.sequentialGenerator.getContextManager()?.getState() || {
-									chapterId: 'temp',
-									canonVersion: 1,
-									schemaVersion: 1,
-									entities: [],
-									canonFacts: [],
-									mutationHistory: [],
-									pendingMutations: [],
-									entity_redirects: {},
-									redirectRegistryVersion: 0,
-									timeline: [],
-									openLoops: [],
-									constraints: { pov: 'third', tense: 'past', tone: [], forbidden: [] }
-								}} 
+								mode={mode}
+								selectedText={modeState.chapter.sceneSummary}
+								onSelectionChange={updateMainInput}
+								generatedText={generatedText}
+								generatedParagraphs={generatedParagraphs}
+								heatmapEnabled={heatmapEnabled}
+								onGeneratedChange={setGeneratedText}
+								onCopy={() => navigator.clipboard.writeText(generatedText)}
+								chunkBuffer={chunkBuffer}
 							/>
-							<PilotHealthPanel 
-								plugin={plugin} 
-								misses={misses} 
-								rejections={rejections} 
-								quarantineCount={0} 
-							/>
-						</div>
-					)}
+						)}
 
-					{activeTab === 'replay' && (
-						<div className="replay-tab">
-							<ReplayPanel plugin={plugin} />
-						</div>
-					)}
+						{activeTab === 'lore' && (
+							<div className="lore-tab">
+								<FactInspector 
+									plugin={plugin}
+									state={plugin.sequentialGenerator.getContextManager()?.getState() || {
+										chapterId: 'temp',
+										canonVersion: 1,
+										schemaVersion: 1,
+										entities: [],
+										canonFacts: [],
+										mutationHistory: [],
+										pendingMutations: [],
+										entity_redirects: {},
+										redirectRegistryVersion: 0,
+										timeline: [],
+										openLoops: [],
+										constraints: { pov: 'third', tense: 'past', tone: [], forbidden: [] }
+									}} 
+								/>
+								<PilotHealthPanel 
+									plugin={plugin} 
+									misses={misses} 
+									rejections={rejections} 
+									quarantineCount={0} 
+								/>
+							</div>
+						)}
+
+						{activeTab === 'replay' && (
+							<div className="replay-tab">
+								<ReplayPanel plugin={plugin} />
+							</div>
+						)}
+					</div>
 
 					{isGenerating && (
 						<div className="generation-status-overlay">

@@ -42,7 +42,7 @@ export const FactInspector: React.FC<FactInspectorProps> = ({ plugin, state }) =
     });
 
     return (
-        <div className="fact-inspector" style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '12px' }}>
+        <div className="fact-inspector" style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: '1 1 auto', minHeight: 0 }}>
             <div className="inspector-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ margin: 0 }}>Lore Inspector <HelpTooltip id="grounding-heatmap" density={plugin.settings.helpDensity || 'LITE'} /></h3>
                 <div className="filter-bar" style={{ display: 'flex', gap: '4px' }}>

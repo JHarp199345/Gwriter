@@ -421,6 +421,9 @@
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
+	padding-top: 16px;
+	border-top: 1px solid var(--background-modifier-border);
+	margin-top: auto; /* Push to bottom of flex container */
 }
 
 .button-group {
@@ -615,7 +618,14 @@
     background-color: var(--background-primary);
     padding: 16px;
     border-radius: 8px;
-    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.lore-tab, .replay-tab {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
 
 .fact-item:hover, .run-item:hover {
