@@ -32426,10 +32426,20 @@ var OllamaModelManager = class {
   }
   /**
    * Gets the specific digest for a model by name.
+   * Smart matching: handles ':latest' tags and case-insensitivity.
    */
   async getModelDigest(name) {
     const models = await this.fetchInstalledModels();
-    return models.find((m) => m.id === name)?.digest;
+    const searchLower = name.toLowerCase().trim();
+    const searchBase = searchLower.split(":")[0];
+    const exact = models.find((m) => m.id?.toLowerCase() === searchLower);
+    if (exact)
+      return exact.digest;
+    const baseMatch = models.find((m) => {
+      const idLower = (m.id || "").toLowerCase();
+      return idLower === `${searchLower}:latest` || idLower.split(":")[0] === searchBase;
+    });
+    return baseMatch?.digest;
   }
   /**
    * Returns the current version of the Ollama server.

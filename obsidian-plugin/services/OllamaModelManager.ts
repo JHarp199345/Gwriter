@@ -88,10 +88,25 @@ export class OllamaModelManager {
 
     /**
      * Gets the specific digest for a model by name.
+     * Smart matching: handles ':latest' tags and case-insensitivity.
      */
     async getModelDigest(name: string): Promise<string | undefined> {
         const models = await this.fetchInstalledModels();
-        return models.find(m => m.id === name)?.digest;
+        const searchLower = name.toLowerCase().trim();
+        const searchBase = searchLower.split(':')[0];
+
+        // 1. Try exact match
+        const exact = models.find(m => m.id?.toLowerCase() === searchLower);
+        if (exact) return exact.digest;
+
+        // 2. Try base name match (e.g. 'nomic-embed-text' matches 'nomic-embed-text:latest')
+        const baseMatch = models.find(m => {
+            const idLower = (m.id || '').toLowerCase();
+            return idLower === `${searchLower}:latest` || 
+                   idLower.split(':')[0] === searchBase;
+        });
+        
+        return baseMatch?.digest;
     }
 
     /**
