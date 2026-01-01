@@ -28160,6 +28160,22 @@ var OPENROUTER_MODELS = [
   { value: "google/gemini-1.5-flash", label: "Google Gemini 1.5 Flash" },
   { value: "google/gemini-pro", label: "Google Gemini Pro" }
 ];
+var MAJOR_OLLAMA_MODELS = [
+  "llama3.1",
+  "llama3.1:70b",
+  "llama3.1:8b",
+  "mistral",
+  "gemma2",
+  "gemma2:27b",
+  "gemma2:9b",
+  "phi3",
+  "phi3:medium",
+  "phi3:mini",
+  "qwen2",
+  "codellama",
+  "starcoder2",
+  "nomic-embed-text"
+];
 function getModelsForProvider(provider) {
   switch (provider) {
     case "openai":
@@ -28263,38 +28279,62 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         await this.plugin.saveSettings();
       }));
     }
-    new import_obsidian10.Setting(containerEl).setName("Relay Smart Model (Writer)").setDesc("Large model for high-quality prose. (Fetched from your Ollama library)").addDropdown(async (dropdown) => {
-      try {
-        const models = await this.plugin.ollamaModels.getModels();
-        if (models.length === 0) {
-          dropdown.addOption(this.plugin.settings.relaySmartModel, this.plugin.settings.relaySmartModel);
-        } else {
-          models.forEach((m) => dropdown.addOption(m.id, m.id));
-        }
-      } catch (e) {
-        dropdown.addOption(this.plugin.settings.relaySmartModel, this.plugin.settings.relaySmartModel);
-      }
+    new import_obsidian10.Setting(containerEl).setName("Relay Smart Model (Writer)").setDesc("Large model for high-quality prose.").addDropdown(async (dropdown) => {
+      const installed = await this.plugin.ollamaModels.getModels().catch(() => []);
+      const catalog2 = this.plugin.settings.verifiedModelsCatalog || [];
+      const allOptions = /* @__PURE__ */ new Set([
+        ...MAJOR_OLLAMA_MODELS,
+        ...installed.map((m) => m.id),
+        ...catalog2
+      ]);
+      allOptions.forEach((id) => dropdown.addOption(id, id));
       dropdown.setValue(this.plugin.settings.relaySmartModel).onChange(async (value) => {
         this.plugin.settings.relaySmartModel = value;
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian10.Setting(containerEl).setName("Relay Fast Model (Planner/Auditor)").setDesc("Smaller, faster model for mechanical tasks. (Fetched from your Ollama library)").addDropdown(async (dropdown) => {
-      try {
-        const models = await this.plugin.ollamaModels.getModels();
-        if (models.length === 0) {
-          dropdown.addOption(this.plugin.settings.relayFastModel, this.plugin.settings.relayFastModel);
-        } else {
-          models.forEach((m) => dropdown.addOption(m.id, m.id));
-        }
-      } catch (e) {
-        dropdown.addOption(this.plugin.settings.relayFastModel, this.plugin.settings.relayFastModel);
-      }
+    new import_obsidian10.Setting(containerEl).setName("Relay Fast Model (Planner/Auditor)").setDesc("Smaller, faster model for mechanical tasks.").addDropdown(async (dropdown) => {
+      const installed = await this.plugin.ollamaModels.getModels().catch(() => []);
+      const catalog2 = this.plugin.settings.verifiedModelsCatalog || [];
+      const allOptions = /* @__PURE__ */ new Set([
+        ...MAJOR_OLLAMA_MODELS,
+        ...installed.map((m) => m.id),
+        ...catalog2
+      ]);
+      allOptions.forEach((id) => dropdown.addOption(id, id));
       dropdown.setValue(this.plugin.settings.relayFastModel).onChange(async (value) => {
         this.plugin.settings.relayFastModel = value;
         await this.plugin.saveSettings();
       });
     });
+    let customModelToAdd = "";
+    new import_obsidian10.Setting(containerEl).setName("Add Custom Ollama Model").setDesc("Enter a model name to verify and add to your persistent catalog.").addText((text2) => text2.setPlaceholder("e.g., hermes-pro-3").onChange((v) => customModelToAdd = v)).addButton((btn) => btn.setButtonText("Verify & Add").onClick(async () => {
+      if (!customModelToAdd)
+        return;
+      btn.setDisabled(true);
+      btn.setButtonText("Verifying...");
+      try {
+        const isInstalled = (await this.plugin.ollamaModels.getModels()).some((m) => m.id === customModelToAdd || m.id.split(":")[0] === customModelToAdd);
+        if (isInstalled) {
+          const catalog2 = this.plugin.settings.verifiedModelsCatalog || [];
+          if (!catalog2.includes(customModelToAdd)) {
+            this.plugin.settings.verifiedModelsCatalog = [...catalog2, customModelToAdd];
+            await this.plugin.saveSettings();
+            new import_obsidian10.Notice(`\u2705 Verified and added ${customModelToAdd} to catalog.`);
+            this.display();
+          } else {
+            new import_obsidian10.Notice("Model already in catalog.");
+          }
+        } else {
+          new import_obsidian10.Notice(`\u274C Model '${customModelToAdd}' not found in your Ollama library. Pull it first to verify.`);
+        }
+      } catch (e) {
+        new import_obsidian10.Notice(`\u274C Verification failed: ${e.message}`);
+      } finally {
+        btn.setDisabled(false);
+        btn.setButtonText("Verify & Add");
+      }
+    }));
     new import_obsidian10.Setting(containerEl).setName("Max words per chunk").setDesc("Target word count for each relay iteration.").addText((text2) => text2.setPlaceholder("500").setValue(String(this.plugin.settings.maxChunkWords)).onChange(async (value) => {
       const parsed = parseInt(value, 10);
       if (Number.isFinite(parsed)) {
@@ -43422,7 +43462,8 @@ var WritingDashboardPlugin = class extends import_obsidian32.Plugin {
         maxChunkWords: 500,
         maxRepairAttempts: 1,
         retrievalTokenBudget: 3e3,
-        helpDensity: "LITE"
+        helpDensity: "LITE",
+        verifiedModelsCatalog: []
       },
       loaded
     );

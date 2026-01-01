@@ -67,6 +67,23 @@ const OPENROUTER_MODELS = [
 	{ value: 'google/gemini-pro', label: 'Google Gemini Pro' }
 ];
 
+const MAJOR_OLLAMA_MODELS = [
+	'llama3.1',
+	'llama3.1:70b',
+	'llama3.1:8b',
+	'mistral',
+	'gemma2',
+	'gemma2:27b',
+	'gemma2:9b',
+	'phi3',
+	'phi3:medium',
+	'phi3:mini',
+	'qwen2',
+	'codellama',
+	'starcoder2',
+	'nomic-embed-text'
+];
+
 function getModelsForProvider(provider: string): Array<{ value: string; label: string }> {
 	switch (provider) {
 		case 'openai':
@@ -259,18 +276,20 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Relay Smart Model (Writer)')
-			.setDesc('Large model for high-quality prose. (Fetched from your Ollama library)')
+			.setDesc('Large model for high-quality prose.')
 			.addDropdown(async (dropdown) => {
-				try {
-					const models = await this.plugin.ollamaModels.getModels();
-					if (models.length === 0) {
-						dropdown.addOption(this.plugin.settings.relaySmartModel, this.plugin.settings.relaySmartModel);
-					} else {
-						models.forEach(m => dropdown.addOption(m.id, m.id));
-					}
-				} catch (e) {
-					dropdown.addOption(this.plugin.settings.relaySmartModel, this.plugin.settings.relaySmartModel);
-				}
+				const installed = await this.plugin.ollamaModels.getModels().catch(() => []);
+				const catalog = this.plugin.settings.verifiedModelsCatalog || [];
+				
+				// Unique set of all model IDs
+				const allOptions = new Set([
+					...MAJOR_OLLAMA_MODELS,
+					...installed.map(m => m.id),
+					...catalog
+				]);
+
+				allOptions.forEach(id => dropdown.addOption(id, id));
+				
 				dropdown.setValue(this.plugin.settings.relaySmartModel)
 					.onChange(async (value) => {
 						this.plugin.settings.relaySmartModel = value;
@@ -280,24 +299,68 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Relay Fast Model (Planner/Auditor)')
-			.setDesc('Smaller, faster model for mechanical tasks. (Fetched from your Ollama library)')
+			.setDesc('Smaller, faster model for mechanical tasks.')
 			.addDropdown(async (dropdown) => {
-				try {
-					const models = await this.plugin.ollamaModels.getModels();
-					if (models.length === 0) {
-						dropdown.addOption(this.plugin.settings.relayFastModel, this.plugin.settings.relayFastModel);
-					} else {
-						models.forEach(m => dropdown.addOption(m.id, m.id));
-					}
-				} catch (e) {
-					dropdown.addOption(this.plugin.settings.relayFastModel, this.plugin.settings.relayFastModel);
-				}
+				const installed = await this.plugin.ollamaModels.getModels().catch(() => []);
+				const catalog = this.plugin.settings.verifiedModelsCatalog || [];
+				
+				const allOptions = new Set([
+					...MAJOR_OLLAMA_MODELS,
+					...installed.map(m => m.id),
+					...catalog
+				]);
+
+				allOptions.forEach(id => dropdown.addOption(id, id));
+
 				dropdown.setValue(this.plugin.settings.relayFastModel)
 					.onChange(async (value) => {
 						this.plugin.settings.relayFastModel = value;
 						await this.plugin.saveSettings();
 					});
 			});
+
+		let customModelToAdd = '';
+		new Setting(containerEl)
+			.setName('Add Custom Ollama Model')
+			.setDesc('Enter a model name to verify and add to your persistent catalog.')
+			.addText(text => text
+				.setPlaceholder('e.g., hermes-pro-3')
+				.onChange(v => customModelToAdd = v))
+			.addButton(btn => btn
+				.setButtonText('Verify & Add')
+				.onClick(async () => {
+					if (!customModelToAdd) return;
+					btn.setDisabled(true);
+					btn.setButtonText('Verifying...');
+					
+					try {
+						// Verification logic: try to get model info from Ollama
+						const isInstalled = (await this.plugin.ollamaModels.getModels())
+							.some(m => m.id === customModelToAdd || m.id.split(':')[0] === customModelToAdd);
+						
+						if (isInstalled) {
+							const catalog = this.plugin.settings.verifiedModelsCatalog || [];
+							if (!catalog.includes(customModelToAdd)) {
+								this.plugin.settings.verifiedModelsCatalog = [...catalog, customModelToAdd];
+								await this.plugin.saveSettings();
+								new Notice(`✅ Verified and added ${customModelToAdd} to catalog.`);
+								this.display(); // Refresh dropdowns
+							} else {
+								new Notice('Model already in catalog.');
+							}
+						} else {
+							// Try to pull metadata if not installed? 
+							// Actually, user said "only saved when verified as working modal".
+							// Let's try a simple generation test or tags check.
+							new Notice(`❌ Model '${customModelToAdd}' not found in your Ollama library. Pull it first to verify.`);
+						}
+					} catch (e) {
+						new Notice(`❌ Verification failed: ${e.message}`);
+					} finally {
+						btn.setDisabled(false);
+						btn.setButtonText('Verify & Add');
+					}
+				}));
 
 		new Setting(containerEl)
 			.setName('Max words per chunk')

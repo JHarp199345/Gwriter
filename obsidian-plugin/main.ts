@@ -105,6 +105,7 @@ export type DashboardSettings = {
 	maxRepairAttempts: number;
 	retrievalTokenBudget: number;
 	helpDensity?: HelpDensity;
+	verifiedModelsCatalog?: string[];
 	[key: string]: any;
 };
 
@@ -260,7 +261,8 @@ export default class WritingDashboardPlugin extends Plugin {
 				maxChunkWords: 500,
 				maxRepairAttempts: 1,
 				retrievalTokenBudget: 3000,
-				helpDensity: 'LITE'
+				helpDensity: 'LITE',
+				verifiedModelsCatalog: []
 			},
 			loaded
 		);
