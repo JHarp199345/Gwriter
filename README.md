@@ -66,8 +66,32 @@ A writing dashboard plugin that integrates AI-powered chapter generation, micro-
 The plugin provides dedicated tools for maintaining your local semantic index:
 - **Re-index Vault**: Manually trigger a full rescan and re-embedding of your vault.
 - **Clear Index**: Wipe the local vector cache to fix corrupted states or start fresh.
-- **Robust Processing**: Automatically handles long contiguous strings (like logs or base64) by splitting them into digestible chunks for the embedding model.
+- **Robust Processing**: Automatically handles long contiguous strings (like logs or base64) by splitting them into digestible chunks for the embedding model, preventing API "400 Bad Request" errors.
 - **Ollama Integration**: Uses your local Ollama instance (defaulting to `nomic-embed-text`) for high-quality, private semantic embeddings.
+
+### 🧠 Under the Hood (Advanced Architecture)
+
+#### 1. Rolling Window Refinement
+For Local AI (Ollama), the plugin treats the generation field as a **Living Document**:
+- **3-Chunk Juggling**: Maintains a rolling buffer of the last ~1500 words to ensure narrative cohesion.
+- **Live Patching**: The AI background "Stitcher" pass polishes transitions in real-time. You'll see text "settle" into its final form with a subtle highlight.
+- **Hardware Optimization**: Uses **KV Cache Grafting** and a stable prefix to allow single-model hardware (16GB/32GB RAM) to switch between writing and stitching in milliseconds without VRAM swapping.
+
+#### 2. Narrative Integrity Gates
+Five layers of protection ensure the AI never breaks your story:
+- **Hash Gate**: Rejects AI edits if you've manually changed the paragraph in the meantime.
+- **User-Dirty Protection**: Once you edit a paragraph, the AI is strictly forbidden from auto-patching it.
+- **LockMap Gate**: Protects proper nouns, character names, and dates from being altered.
+- **Tuple Gate**: Prevents the introduction of contradictory facts or "hallucinated" canon.
+- **Budget Gate**: Limits the amount of change the background pass can make, preventing "runaway" edits.
+
+#### 3. 2-Pass Character Extraction
+The "Process Entire Book" feature uses a sophisticated pipeline:
+- **Pass 1 (Roster Discovery)**: Scans the manuscript to build a global list of names and resolve aliases.
+- **Pass 2 (Extraction)**: Re-scans each chapter with the roster in mind to ensure accurate, non-duplicate character notes.
+
+#### 4. Hybrid Retrieval & Diversity (MMR)
+The RAG engine uses **Reciprocal Rank Fusion (RRF)** to combine keyword (BM25) and semantic results, followed by **Maximal Marginal Relevance (MMR)** to filter out redundant context snippets.
 
 ### ✨ Key Highlights
 
@@ -80,7 +104,7 @@ The plugin provides dedicated tools for maintaining your local semantic index:
 - **Setup Wizard** - First-run wizard to create default vault structure (Book-Main.md, Story Bible, Characters folder, etc.)
 - **Hybrid retrieval (local RAG)** - Combines BM25 lexical ranking, local Ollama embeddings, and diversity selection to inject relevant context without a server
 - **File Chunking** - Manually chunk large files into 500-word segments for processing
-- **Developer Tools** - Built-in stress test for comprehensive plugin diagnostics
+- **Developer Tools** - Built-in stress test for comprehensive plugin diagnostics, including adversarial word handling and safety gate verification.
 
 ## Architecture
 

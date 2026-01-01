@@ -296,7 +296,32 @@ If enabled in settings, the plugin writes a per-run log note to `Generation logs
 - **BM25 retrieval still works** - Even if embeddings fail, the plugin uses BM25 (text-based) retrieval which works reliably.
 - **Check index status** - Go to Settings → Writing dashboard → Retrieval to see indexing status.
 - **Manual Management** - Use the **Re-index Vault** or **Clear Index** buttons in the "Semantic Index Management" section to refresh or wipe your index.
+- **Robust Processing**: Automatically handles long contiguous strings (like logs or base64) by splitting them into digestible chunks for the embedding model, preventing API "400 Bad Request" errors.
 - **Run stress test** - Use the Developer Tools stress test (Settings → Writing dashboard → Developer Tools) to get detailed diagnostics.
+
+### 🧠 Under the Hood (Advanced Architecture)
+
+#### 1. Rolling Window Refinement
+Treats the generation field as a **Living Document**:
+- **3-Chunk Juggling**: Maintains a rolling buffer of the last ~1500 words to ensure narrative cohesion.
+- **Live Patching**: The AI background "Stitcher" pass polishes transitions in real-time. You'll see text "settle" into its final form with a subtle highlight.
+- **Hardware Optimization**: Uses **KV Cache Grafting** and a stable prefix to allow single-model hardware (16GB/32GB RAM) to switch between writing and stitching in milliseconds without VRAM swapping.
+
+#### 2. Narrative Integrity Gates
+Five layers of protection ensure the AI never breaks your story:
+- **Hash Gate**: Rejects AI edits if you've manually changed the paragraph in the meantime.
+- **User-Dirty Protection**: Once you edit a paragraph, the AI is strictly forbidden from auto-patching it.
+- **LockMap Gate**: Protects proper nouns, character names, and dates from being altered.
+- **Tuple Gate**: Prevents the introduction of contradictory facts or "hallucinated" canon.
+- **Budget Gate**: Limits the amount of change the background pass can make, preventing "runaway" edits.
+
+#### 3. 2-Pass Character Extraction
+The "Process Entire Book" feature uses a sophisticated pipeline:
+- **Pass 1 (Roster Discovery)**: Scans the manuscript to build a global list of names and resolve aliases.
+- **Pass 2 (Extraction)**: Re-scans each chapter with the roster in mind to ensure accurate, non-duplicate character notes.
+
+#### 4. Hybrid Retrieval & Diversity (MMR)
+The RAG engine uses **Reciprocal Rank Fusion (RRF)** to combine keyword (BM25) and semantic results, followed by **Maximal Marginal Relevance (MMR)** to filter out redundant context snippets.
 
 ### Developer Tools
 
@@ -307,6 +332,8 @@ The plugin includes a comprehensive stress test for diagnostics:
 3. The test will:
    - Create temporary test files
    - Test indexing, retrieval (hash + BM25 + semantic), and file ops
+   - **Check adversarial word handling** (verifies long-word splitting for 400 error prevention)
+   - **Check Safety Gates** (verifies Hash Gate, User-Dirty, and Budget limits)
    - **If an API key is set, run a live generation call** (chapter-style prompt) and log a snippet
    - Clean up all temporary files automatically
 4. The log is saved as a note in your vault: `Stress Test Log - [timestamp].md`
