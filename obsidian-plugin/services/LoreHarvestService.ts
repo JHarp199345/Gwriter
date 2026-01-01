@@ -50,12 +50,19 @@ export class LoreHarvestService {
             });
 
             try {
-                const result = await this.plugin.ollamaGen.enqueue(10, (signal) => 
-                    this.plugin.ollamaGen.generateJson<{ candidates: any[] }>(prompt, this.plugin.settings.relayFastModel)
+                const result = await this.plugin.ollamaGen.enqueue(3, `${runId}__harvest__${chunk.chunkId}`, (signal) => 
+                    this.plugin.ollamaGen.generate(prompt, { 
+                        model: this.plugin.settings.relaySmartModel,
+                        temperature: 0.1,
+                        max_tokens: 1024,
+                        format: 'json'
+                    }, signal)
                 );
 
-                if (result && result.candidates) {
-                    for (const c of result.candidates) {
+                if (result && typeof result === 'string') {
+                    const parsed = JSON.parse(result);
+                    if (parsed && parsed.candidates) {
+                        for (const c of parsed.candidates) {
                         const harvestId = `harvest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
                         const proposedFact: CanonFact = {
                             id: `fact-harvest-${Date.now()}`,

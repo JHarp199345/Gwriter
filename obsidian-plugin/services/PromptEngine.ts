@@ -9,13 +9,7 @@ export interface Context {
 }
 
 export class PromptEngine {
-	buildChapterPrompt(
-		context: Context,
-		rewriteInstructions: string,
-		sceneSummary: string,
-		minWords: number,
-		maxWords: number
-	): string {
+	buildStablePrefix(context: Context): string {
 		return `SYSTEM INSTRUCTION FOR AI (1M CONTEXT):
 
 You are working on a multi-book narrative. Interpret the following file contents as directed:
@@ -40,7 +34,18 @@ STORY BIBLE — WORLD + RULESET
 -------------------------------------------------------------
 ${context.story_bible || ''}
 
-These define rules of the world, character arcs, faction details, timelines, technology, tone, themes, motifs, and relationship structure.
+These define rules of the world, character arcs, faction details, timelines, technology, tone, themes, motifs, and relationship structure.`;
+	}
+
+	buildChapterPrompt(
+		context: Context,
+		rewriteInstructions: string,
+		sceneSummary: string,
+		minWords: number,
+		maxWords: number
+	): string {
+		const prefix = this.buildStablePrefix(context);
+		return `${prefix}
 
 -------------------------------------------------------------
 SLIDING WINDOW — IMMEDIATE CONTEXT (LAST 20K WORDS)

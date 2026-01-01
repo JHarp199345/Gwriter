@@ -23,7 +23,8 @@ export class OllamaGenerationProvider {
 
     private queue: { 
         priority: number, 
-        task: () => Promise<any>, 
+        taskKey: string,
+        task: (signal?: AbortSignal) => Promise<any>, 
         abortController?: AbortController 
     }[] = [];
     private isProcessing = false;
@@ -31,18 +32,44 @@ export class OllamaGenerationProvider {
     /**
      * Enqueues a generation task with priority.
      * Priority: 10 (WRITE), 5 (AUDIT), 3 (STITCH), 1 (METADATA).
+     * taskKey is used for deduplication (latest wins).
      */
     async enqueue<T>(
         priority: number, 
+        taskKey: string,
         task: (signal?: AbortSignal) => Promise<T>, 
         abortController?: AbortController
     ): Promise<T> {
+        // 1. Task Deduplication (Latest Wins for same key)
+        if (taskKey) {
+            const existingIdx = this.queue.findIndex(item => item.taskKey === taskKey);
+            if (existingIdx !== -1) {
+                const existing = this.queue[existingIdx];
+                existing.abortController?.abort();
+                this.queue.splice(existingIdx, 1);
+            }
+        }
+
+        // 2. Backpressure: Drop lowest priority stitch tasks if queue too long
+        if (this.queue.length >= 20) {
+            const stitchIdx = this.queue.findIndex(item => item.priority === 3);
+            if (stitchIdx !== -1) {
+                const dropped = this.queue.splice(stitchIdx, 1)[0];
+                dropped.abortController?.abort();
+            }
+        }
+
         return new Promise((resolve, reject) => {
             this.queue.push({
                 priority,
-                task: async () => {
+                taskKey,
+                task: async (signal) => {
                     try {
-                        const result = await task(abortController?.signal);
+                        if (signal?.aborted) {
+                            reject(new Error('Task aborted before execution'));
+                            return;
+                        }
+                        const result = await task(signal);
                         resolve(result);
                     } catch (err) {
                         reject(err);
@@ -60,8 +87,8 @@ export class OllamaGenerationProvider {
         this.isProcessing = true;
 
         while (this.queue.length > 0) {
-            const { task } = this.queue.shift()!;
-            await task();
+            const item = this.queue.shift()!;
+            await item.task(item.abortController?.signal);
         }
 
         this.isProcessing = false;
@@ -82,7 +109,7 @@ export class OllamaGenerationProvider {
     /**
      * Generates text based on a prompt and parameters.
      */
-    async generate(prompt: string, params: GenerationParams): Promise<string> {
+    async generate(prompt: string, params: GenerationParams, signal?: AbortSignal): Promise<string> {
         console.log(`[OllamaGen] 📡 Sending request to model: ${params.model} (Temp: ${params.temperature})`);
         
         try {
@@ -102,6 +129,8 @@ export class OllamaGenerationProvider {
                     format: params.format === 'json' ? 'json' : undefined
                 })
             });
+
+            if (signal?.aborted) throw new Error('Aborted');
 
             if (response.status !== 200) {
                 throw new Error(`Ollama returned status ${response.status}: ${response.text}`);

@@ -94,7 +94,6 @@ export type DashboardSettings = {
 	setupCompleted?: boolean;
 	vaultPath?: string;
 	relaySmartModel: string;
-	relayFastModel: string;
 	relayMode?: 'local' | 'cloud';
 	relayCloudModel?: string;
 	relayMaxContextWindow?: number;
@@ -215,6 +214,14 @@ export default class WritingDashboardPlugin extends Plugin {
 
 	async loadSettings() {
 		const loaded = (await this.loadData()) || {};
+		
+		// Migration: Remove legacy relayFastModel
+		if (loaded.relayFastModel) {
+			console.log('[WritingDashboard] Migrating to single-model mode: removing legacy relayFastModel setting.');
+			delete loaded.relayFastModel;
+			await this.saveData(loaded);
+		}
+
 		this.settings = Object.assign(
 			{
 				apiKey: '',
@@ -252,7 +259,6 @@ export default class WritingDashboardPlugin extends Plugin {
 				retrievalActiveProfileId: undefined,
 				retrievalIncludedFolders: [],
 				relaySmartModel: 'llama3.1:70b',
-				relayFastModel: 'llama3.1:8b',
 				relayMode: 'local',
 				relayCloudModel: 'gpt-4o',
 				relayMaxContextWindow: 128000,

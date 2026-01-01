@@ -490,7 +490,7 @@ export interface RunManifest {
     config: {
         smartModel: string;
         smartModelDigest?: string;
-        fastModel: string;
+        fastModel?: string;
         fastModelDigest?: string;
         maxChunkWords: number;
         temperature: number;

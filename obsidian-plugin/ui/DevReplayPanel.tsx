@@ -70,7 +70,9 @@ export const DevReplayPanel: React.FC<DevReplayPanelProps> = ({ manifests, onRep
                     <div className="metadata">
                         <p><strong>Ollama Version:</strong> {selectedRun.ollamaVersion || 'Unknown'}</p>
                         <p><strong>Smart Model:</strong> {selectedRun.config.smartModel} ({selectedRun.config.smartModelDigest?.slice(0, 12)})</p>
-                        <p><strong>Fast Model:</strong> {selectedRun.config.fastModel} ({selectedRun.config.fastModelDigest?.slice(0, 12)})</p>
+                        {selectedRun.config.fastModel && (
+                            <p><strong>Legacy Fast Model:</strong> {selectedRun.config.fastModel} ({selectedRun.config.fastModelDigest?.slice(0, 12)})</p>
+                        )}
                         <p><strong>Canon Hash:</strong> {selectedRun.initialStateHash}</p>
                     </div>
 

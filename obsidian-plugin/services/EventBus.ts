@@ -5,6 +5,7 @@ import {
     ChapterState, 
     StageResult 
 } from './Schemas';
+import { PatchOp as StitchPatchOp, StitchResponse } from '../contracts/StitchContract';
 
 /**
  * Typed events for the Relay Generation system.
@@ -22,6 +23,7 @@ export type RelayEvents = {
     
     'chunk:buffer:update': { content: string };
     'chunk:committed': { runId: string, chunkId: string, content: string, metadata?: any[], path: string };
+    'chunk:patch': StitchResponse;
     
     'state:updated': { runId: string, chapterId: string, diffSummary: string };
     
@@ -33,7 +35,7 @@ export type RelayEvents = {
     'control:aborted': { runId: string };
 
     'pilot:miss': { type: string, runId: string | null };
-    'pilot:stitch_rejected': { iteration: number, changes: any };
+    'pilot:stitch_rejected': { iteration: number, reason: string, seamId: string };
 };
 
 export type RelayEventName = keyof RelayEvents;

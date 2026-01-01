@@ -38,7 +38,7 @@ export class DiagnosticsService {
             environment: {
                 relayMode,
                 pluginVersion: this.plugin.manifest.version,
-                models: [this.plugin.settings.relaySmartModel, this.plugin.settings.relayFastModel]
+                models: [this.plugin.settings.relaySmartModel]
             }
         };
 
@@ -52,8 +52,8 @@ export class DiagnosticsService {
             results.push({
                 status: 'FAIL',
                 code: 'INDEX_EMPTY',
-                message: 'Retrieval index is empty.',
-                suggestedFix: REMEDIATION_MAPPING['INDEX_EMPTY']
+                message: 'Retrieval index is empty. No files are currently being searched.',
+                suggestedFix: 'Ensure your vault is not excluded in settings, and run "Re-index Vault" from the Writing Dashboard settings tab.'
             });
         } else if (this.plugin.embeddingsIndex.getErrorSummary().total > 0) {
             results.push({
@@ -103,8 +103,9 @@ export class DiagnosticsService {
         try {
             const testPrompt = 'Respond with "pong" in JSON format: { "result": "pong" }';
             const response = await this.plugin.ollamaGen.generate(testPrompt, { 
-                model: this.plugin.settings.relayFastModel,
-                temperature: 0,
+                model: smartModel,
+                temperature: 0.1,
+                max_tokens: 128,
                 format: 'json'
             });
             const parsed = JSON.parse(response);

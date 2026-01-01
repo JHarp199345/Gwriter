@@ -5,8 +5,11 @@
 
 export type StitchReasonCode = 'CADENCE' | 'TENSE' | 'REPETITION' | 'PUNCTUATION';
 
+export type StitchSkipReason = 'HASH_MISMATCH' | 'LOCKMAP' | 'TUPLE_DIFF' | 'BUDGET' | 'BOUNDS' | 'USER_DIRTY';
+
 export interface PatchOp {
     paragraphId: string;
+    beforeHash: string; // SHA-256 of normalized text before patch
     start: number;
     end: number;
     replacementText: string;
@@ -17,9 +20,15 @@ export interface StitchReport {
     changedChars: number;
     changedPct: number;
     reasonCounts: Record<StitchReasonCode, number>;
+    skipReason?: StitchSkipReason;
+    latencyMs?: number;
 }
 
 export interface StitchResponse {
+    runId: string;
+    sessionId: string;
+    seamId: string;
+    seqNo: number;
     patchOps: PatchOp[];
     stitchReport: StitchReport;
 }
@@ -35,14 +44,19 @@ export const STITCH_CONFIG = {
 
 /**
  * Implementation Invariant: Patch Application
- * Rule: Apply in order: (paragraphId asc, start desc).
+ * Rule: Apply in order: (paragraphId asc, start desc, end desc).
+ * Applying in reverse start/end order ensures that index offsets 
+ * remain valid for subsequent patches in the same paragraph.
  */
 export function sortPatchOps(ops: PatchOp[]): PatchOp[] {
     return [...ops].sort((a, b) => {
         if (a.paragraphId !== b.paragraphId) {
             return a.paragraphId.localeCompare(b.paragraphId);
         }
-        return b.start - a.start;
+        if (a.start !== b.start) {
+            return b.start - a.start;
+        }
+        return b.end - a.end;
     });
 }
 

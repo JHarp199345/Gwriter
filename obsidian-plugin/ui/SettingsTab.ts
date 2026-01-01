@@ -275,8 +275,8 @@ export class SettingsTab extends PluginSettingTab {
 		}
 
 		new Setting(containerEl)
-			.setName('Relay Smart Model (Writer)')
-			.setDesc('Large model for high-quality prose.')
+			.setName('Relay Smart Model (Primary)')
+			.setDesc('Local AI model for writing and analysis. Single-model mode keeps Ollama warm; mechanical tasks run in strict low-token mode.')
 			.addDropdown(async (dropdown) => {
 				const installed = await this.plugin.ollamaModels.getModels().catch(() => []);
 				const catalog = this.plugin.settings.verifiedModelsCatalog || [];
@@ -300,34 +300,6 @@ export class SettingsTab extends PluginSettingTab {
 				.setTooltip('Download this model to Ollama')
 				.onClick(async () => {
 					await this.pullModelWithProgress(this.plugin.settings.relaySmartModel, btn);
-				}));
-
-		new Setting(containerEl)
-			.setName('Relay Fast Model (Planner/Auditor)')
-			.setDesc('Smaller, faster model for mechanical tasks.')
-			.addDropdown(async (dropdown) => {
-				const installed = await this.plugin.ollamaModels.getModels().catch(() => []);
-				const catalog = this.plugin.settings.verifiedModelsCatalog || [];
-				
-				const allOptions = new Set([
-					...MAJOR_OLLAMA_MODELS,
-					...installed.map(m => m.id),
-					...catalog
-				]);
-
-				allOptions.forEach(id => dropdown.addOption(id, id));
-
-				dropdown.setValue(this.plugin.settings.relayFastModel)
-					.onChange(async (value) => {
-						this.plugin.settings.relayFastModel = value;
-						await this.plugin.saveSettings();
-					});
-			})
-			.addButton(btn => btn
-				.setButtonText('Pull')
-				.setTooltip('Download this model to Ollama')
-				.onClick(async () => {
-					await this.pullModelWithProgress(this.plugin.settings.relayFastModel, btn);
 				}));
 
 		let customModelToAdd = '';

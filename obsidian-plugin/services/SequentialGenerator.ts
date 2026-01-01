@@ -45,7 +45,7 @@ import { CO_AUTHORING_POLICY } from './policy';
 import { App, Notice, TFile, TFolder } from 'obsidian';
 import { relayEventBus } from './EventBus';
 import WritingDashboardPlugin from '../main';
-import { sha256, contentHash, canonicalJsonStringify } from './ContentHash';
+import { sha256, contentHash, canonicalJsonStringify, normalizeWhitespace } from './ContentHash';
 import { showInterventionModal } from '../ui/InterventionModal';
 import { LoreHarvestService } from './LoreHarvestService';
 import { showHarvestChecklistModal } from '../ui/HarvestChecklistModal';
@@ -76,7 +76,9 @@ export class SequentialGenerator {
     private interventionCountPerChunk: Map<string, number> = new Map();
     private contextManager: ContextManager | null = null;
     private entitiesMentionedHistory: Map<string, string[]> = new Map(); // chunkId -> entityIds
-    private lastChunkParas: { id: string, text: string }[] = [];
+    private rollingWindow: { id: string, text: string, hash: string, status: 'STREAMING' | 'FINALIZED' | 'USER_DIRTY' }[][] = []; // Last 3 chunks
+    private lastAppliedSeqNo: Map<string, number> = new Map(); // seamId -> seqNo
+    private seamTaskCounters: Map<string, number> = new Map(); // seamId -> counter
     private sessionId: string = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     private heartbeatInterval: NodeJS.Timeout | null = null;
     private cloudRelay: CloudRelay | null = null;
@@ -90,6 +92,29 @@ export class SequentialGenerator {
         this.auditService = new AuditService();
         this.cloudRelay = new CloudRelay(plugin);
         this.contextPacker = new ContextPacker();
+    }
+
+    getCurrentRunId(): string | null {
+        return this.currentRunId;
+    }
+
+    getCurrentSessionId(): string {
+        return this.sessionId;
+    }
+
+    /**
+     * Returns the appropriate generation profile for a given stage.
+     * Consolidates creative vs mechanical tasks for single-model efficiency.
+     */
+    private getTaskProfile(stageType: string) {
+        const isMechanical = ['PLAN', 'RETRIEVE', 'AUDIT', 'UPDATE', 'REPAIR', 'STITCH', 'HARVEST'].includes(stageType);
+        
+        return {
+            model: this.plugin.settings.relaySmartModel,
+            temperature: isMechanical ? 0.1 : 0.7,
+            max_tokens: isMechanical ? 1024 : 4096,
+            format: isMechanical ? 'json' as const : undefined
+        };
     }
 
     /**
@@ -118,7 +143,8 @@ export class SequentialGenerator {
         await this.acquireRunLock(this.currentRunKey!);
 
         const smartModel = this.plugin.settings.relaySmartModel;
-        const fastModel = this.plugin.settings.relayFastModel;
+        const smartProfile = this.getTaskProfile('WRITE');
+        const mechanicalProfile = this.getTaskProfile('MECHANICAL');
         
         // 1. Pre-flight checks
         const ollamaVer = await this.plugin.ollamaGen.getOllamaVersion();
@@ -128,14 +154,13 @@ export class SequentialGenerator {
         }
 
         const smartDigest = await this.plugin.ollamaModels.getModelDigest(smartModel);
-        const fastDigest = await this.plugin.ollamaModels.getModelDigest(fastModel);
 
         const policyHash = await sha256(JSON.stringify(CO_AUTHORING_POLICY));
         const indexStatus = this.plugin.embeddingsIndex.getStatus();
         const corpusHash = await this.plugin.embeddingsIndex.getCorpusHash();
 
-        if (!smartDigest || !fastDigest) {
-            new Notice('Warning: One or more model digests are missing. Strict Replay will be disabled.');
+        if (!smartDigest) {
+            new Notice('Warning: Smart model digest is missing. Strict Replay will be disabled.');
         }
 
         const initialState = {
@@ -174,7 +199,7 @@ export class SequentialGenerator {
             promptTemplateHash: await sha256(JSON.stringify(this.plugin.promptEngine)), // Simplified - would hash actual templates
             scoringProfileHash: policyHash, // Simplified - would hash scoring profile
             modelBackend: 'ollama',
-            modelId: `${smartModel}/${fastModel}`,
+            modelId: smartModel,
             vaultSnapshotHash: corpusHash,
             indexVersion: indexStatus.indexedChunks,
             timestamp: Date.now()
@@ -192,8 +217,6 @@ export class SequentialGenerator {
             config: {
                 smartModel,
                 smartModelDigest: smartDigest,
-                fastModel,
-                fastModelDigest: fastDigest,
                 maxChunkWords: this.plugin.settings.maxChunkWords || 500,
                 temperature: 0.7,
                 policyHash,
@@ -233,16 +256,16 @@ export class SequentialGenerator {
 
                 // --- FAST BATCH 1: PLAN & RETRIEVE ---
                 // 1. PLAN
-                const planResult = await this.runStage('PLAN', fastModel, async () => {
+                const planResult = await this.runStage('PLAN', smartProfile.model, async () => {
                     const prompt = `Plan the next ${this.manifest!.config.maxChunkWords} words for chapter ${initialState.chapterId}.`;
-                    return await this.plugin.ollamaGen.enqueue(5, (signal) => 
-                        this.plugin.ollamaGen.generateJson(prompt, fastModel)
+                    return await this.plugin.ollamaGen.enqueue(3, `${this.currentRunId}__plan__${iteration}`, (signal) => 
+                        this.plugin.ollamaGen.generate(prompt, { ...mechanicalProfile, model: smartProfile.model }, signal)
                     );
                 }, undefined, await sha256(`Plan the next ${this.manifest!.config.maxChunkWords} words for chapter ${initialState.chapterId}.`));
                 if (!planResult) break;
 
                 // 2. RETRIEVE
-                const retrieveResult = await this.runStage('RETRIEVE', fastModel, async () => {
+                const retrieveResult = await this.runStage('RETRIEVE', smartProfile.model, async () => {
                     const query = {
                         text: planResult.data.summary || 'next scene',
                         mode: 'chapter' as const,
@@ -285,8 +308,8 @@ export class SequentialGenerator {
                 const isDegraded = restrictedDomains.length > 0;
 
                 // --- SMART BATCH 1: WRITE ---
-                // 3. WRITE (Streaming)
-                const writeResult = await this.runStage('WRITE', smartModel, async () => {
+                // 3. WRITE (WRITE)
+                const writeResult = await this.runStage('WRITE', smartProfile.model, async () => {
                     const stateCard = contextManager.renderStateCard();
                     const retrieved = retrieveResult.data.map((r: any) => r.excerpt).join('\n\n');
                     const plotMemory = contextManager.getState().plotMemory?.denseSummary || '';
@@ -310,11 +333,12 @@ export class SequentialGenerator {
                         ${isDegraded ? 'Flag missingHardIntent: true if relevant.' : ''}
                     `;
                     
-                    return await this.plugin.ollamaGen.enqueue(10, (signal) => 
+                    return await this.plugin.ollamaGen.enqueue(10, `${this.currentRunId}__write__${iteration}`, (signal) => 
                         this.plugin.ollamaGen.generateStream(
                             prompt, 
-                            { model: smartModel, temperature: rawParams.temp },
-                            (token) => relayEventBus.emit('chunk:buffer:update', { content: token })
+                            { ...smartProfile, model: smartProfile.model, temperature: rawParams.temp },
+                            (token) => relayEventBus.emit('chunk:buffer:update', { content: token }),
+                            signal
                         ),
                         this.abortController!
                     );
@@ -356,9 +380,13 @@ export class SequentialGenerator {
                 writeResult.data = chunkText;
                 writeResult.metadata = recoveredMeta;
 
-                // 5. AUDIT
-                const auditResult = await this.runStage('AUDIT', fastModel, async () => {
-                    return await this.plugin.auditService.auditChunk(chunkText, contextManager.getState());
+                // 5. AUDIT (MECHANICAL)
+                const auditResult = await this.runStage('AUDIT', smartProfile.model, async () => {
+                    const prompt = this.plugin.promptEngine.buildAuditPrompt(contextManager.getState(), chunkText, contextManager.getState());
+                    const res = await this.plugin.ollamaGen.enqueue(3, `${this.currentRunId}__audit__${iteration}`, (signal) => 
+                        this.plugin.ollamaGen.generate(prompt, { ...mechanicalProfile, model: smartProfile.model }, signal)
+                    );
+                    return JSON.parse(res) as AuditResult;
                 }, undefined, await sha256(chunkText));
                 if (!auditResult) break;
                 let auditData: AuditResult = auditResult.data;
@@ -383,7 +411,7 @@ export class SequentialGenerator {
                 }
 
                 // --- SMART BATCH 2: REPAIR & STITCH ---
-                // 6. REPAIR (if needed)
+                // 6. REPAIR (WRITE)
                 if (auditData.overallSeverity >= 4) {
                     const repairCapCheck = this.checkRepairCap();
                     if (repairCapCheck.trigger) {
@@ -398,7 +426,7 @@ export class SequentialGenerator {
                             break;
                         }
                     }
-                    const repairResult = await this.runStage('REPAIR', smartModel, async () => {
+                    const repairResult = await this.runStage('REPAIR', smartProfile.model, async () => {
                         let prompt = `Repair the following prose chunk to resolve these violations: ${JSON.stringify(auditData.violations)}\n\nChunk: ${chunkText}`;
                         
                         // Add intervention guidance if present
@@ -417,51 +445,34 @@ Constraints:
 - Must not change canon unless explicitly instructed
 - Must resolve violation safely
 - Must respect truth matrix and anchors
-
-${prompt}
 `;
                         }
-                        
-                        return await this.plugin.ollamaGen.enqueue(10, (signal) => 
-                            this.plugin.ollamaGen.generateJson<PatchOp[]>(prompt, smartModel)
+
+                        return await this.plugin.ollamaGen.enqueue(10, `${this.currentRunId}__repair__${iteration}`, (signal) => 
+                            this.plugin.ollamaGen.generateStream(
+                                prompt, 
+                                { ...smartProfile, model: smartProfile.model, temperature: 0.3 }, // Slightly lower temp for repair
+                                (token) => relayEventBus.emit('chunk:buffer:update', { content: token }),
+                                signal
+                            ),
+                            this.abortController!
                         );
-                    }, undefined, await sha256(JSON.stringify(auditData.violations)));
+                    }, undefined, await sha256(chunkText + JSON.stringify(auditData)));
                     if (repairResult) {
                         const patches: PatchOp[] = repairResult.data;
                         writeResult.data = this.applyPatches(writeResult.data, patches);
                     }
                 }
 
-                // 7. STITCH (if not first chunk)
-                if (iteration > 1 && this.lastChunkParas.length > 0) {
-                    const currentParas = writeResult.data.split('\n\n').filter((p: string) => p.trim()).map((p: string, i: number) => ({
-                        id: recoveredMeta[i]?.p_id || `chunk-${iteration}-p${i}`,
-                        text: p
-                    }));
-
-                    const stitchResult = await this.runStage('STITCH', smartModel, async () => {
-                        const response = await this.proseStitcher.stitch(
-                            this.lastChunkParas, 
-                            currentParas,
-                            contextManager.getState()
-                        );
-                        
-                        return response;
-                    }, undefined, await sha256(JSON.stringify(this.lastChunkParas)));
-                    
-                    if (stitchResult && stitchResult.data && stitchResult.data.patchOps.length > 0) {
-                        const stitchResponse = stitchResult.data;
-                        // Apply patches to current chunk text
-                        writeResult.data = this.applyStitchPatches(writeResult.data, stitchResponse.patchOps, recoveredMeta);
-                    }
-                }
+                // 7. STITCH (Asynchronous via commitChunk)
+                // Handled in commitChunk now to be non-blocking.
 
                 // 8. COMMIT (Transactional)
                 await this.commitChunk(iteration, writeResult.data, writeResult.metadata);
 
                 // --- FAST BATCH 3: UPDATE STATE ---
-                    // 9. UPDATE STATE
-                    const updateResult = await this.runStage('UPDATE', fastModel, async () => {
+                    // 9. UPDATE STATE (MECHANICAL)
+                    const updateResult = await this.runStage('UPDATE', smartProfile.model, async () => {
                         // Check for lore mutations
                         const newFacts: CanonFact[] = []; 
                         // ... mutation logic ...
@@ -661,11 +672,19 @@ ${prompt}
         if (this.commitLock) return;
         this.commitLock = true;
         try {
-            // Update lastChunkParas for next iteration's stitch
-            this.lastChunkParas = content.split('\n\n').filter(p => p.trim()).map((p, i) => ({
-                id: metadata?.[i]?.p_id || `chunk-${iteration}-p${i}`,
-                text: p
-            }));
+            // 1. Create paragraph objects with lifecycle
+            const paras = content.split('\n\n').filter(p => p.trim()).map((p, i) => {
+                const text = p.trim();
+                const id = metadata?.[i]?.p_id || `chunk-${iteration}-p${i}`;
+                const hash = fnv1a32(normalizeWhitespace(text));
+                return { id, text, hash, status: 'FINALIZED' as const };
+            });
+
+            // 2. Update rolling window (max 3 chunks)
+            this.rollingWindow.push(paras);
+            if (this.rollingWindow.length > 3) {
+                this.rollingWindow.shift();
+            }
 
             if (!this.dryRun) {
                 relayEventBus.emit('chunk:committed', { 
@@ -674,11 +693,13 @@ ${prompt}
                     content, 
                     path: this.plugin.settings.book2Path 
                 });
-            } else {
-                console.log(`[SequentialGenerator] [DRY-RUN] Would have committed chunk ${iteration} to ${this.plugin.settings.book2Path}`);
             }
 
-            // Final hash match is computed against this committed text
+            // 3. Queue Stitch Task for the new seam (iteration-1 __ iteration)
+            if (iteration > 1) {
+                await this.enqueueStitchTask(iteration - 1, iteration);
+            }
+
             this.manifest!.stages.push({
                 stageId: `commit-${iteration}`,
                 stageType: 'UPDATE',
@@ -691,6 +712,67 @@ ${prompt}
         } finally {
             this.commitLock = false;
         }
+    }
+
+    private async enqueueStitchTask(leftIdx: number, rightIdx: number) {
+        const seamId = `chunk-${leftIdx}__chunk-${rightIdx}`;
+        const seqNo = (this.seamTaskCounters.get(seamId) || 0) + 1;
+        this.seamTaskCounters.set(seamId, seqNo);
+
+        const taskKey = `${this.currentRunId}__${this.sessionId}__${seamId}`;
+        const smartModel = this.manifest!.config.smartModel;
+
+        // Find the actual chunks in rolling window
+        // Note: leftIdx and rightIdx are iteration numbers (1-based)
+        // We need to find them relative to the current tail of rollingWindow
+        const leftParas = this.rollingWindow.find(chunk => chunk[0]?.id.startsWith(`chunk-${leftIdx}`));
+        const rightParas = this.rollingWindow.find(chunk => chunk[0]?.id.startsWith(`chunk-${rightIdx}`));
+
+        if (!leftParas || !rightParas) {
+            console.warn(`[SequentialGenerator] Stitch skipped: Chunks ${leftIdx} or ${rightIdx} not in rolling window.`);
+            return;
+        }
+
+        // Filter out USER_DIRTY paragraphs
+        const cleanLeft = leftParas.filter(p => p.status === 'FINALIZED');
+        const cleanRight = rightParas.filter(p => p.status === 'FINALIZED');
+
+        if (cleanLeft.length === 0 || cleanRight.length === 0) return;
+
+        void this.plugin.ollamaGen.enqueue(3, taskKey, async (signal) => {
+            if (signal?.aborted) return;
+
+            const startTime = Date.now();
+            try {
+                // Get stable prefix for KV cache warmth
+                const state = this.contextManager!.getState();
+                const context = await this.contextPacker!.packContext(this.plugin, state);
+                const stablePrefix = this.plugin.promptEngine.buildStablePrefix(context);
+                const mechanicalProfile = this.getTaskProfile('STITCH');
+
+                const response = await this.proseStitcher.stitch(
+                    cleanLeft,
+                    cleanRight,
+                    state,
+                    { runId: this.currentRunId!, sessionId: this.sessionId, seamId, seqNo },
+                    stablePrefix,
+                    signal
+                );
+
+                if (response && response.patchOps.length > 0) {
+                    // Check if run/session still active
+                    if (this.currentRunId !== response.runId || this.sessionId !== response.sessionId) return;
+
+                    // Emit patch event
+                    relayEventBus.emit('chunk:patch', response);
+                    
+                    // Log success
+                    console.log(`[SequentialGenerator] Stitch success: ${seamId} (seq ${seqNo})`);
+                }
+            } catch (err) {
+                console.error(`[SequentialGenerator] Stitch task failed for ${seamId}:`, err);
+            }
+        });
     }
 
     /**

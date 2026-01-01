@@ -3,10 +3,12 @@ import {
     PatchOp as StitchPatchOp, 
     StitchResponse, 
     sortPatchOps,
-    StitchReasonCode
+    StitchReasonCode,
+    StitchSkipReason
 } from '../contracts/StitchContract';
 import { AttributeRegistry, ChapterState, CanonFact } from './Schemas';
 import WritingDashboardPlugin from '../main';
+import { fnv1a32, normalizeWhitespace } from './ContentHash';
 
 /**
  * ProseStitcher is responsible for eliminating "seams" between chunks.
@@ -26,7 +28,7 @@ export class ProseStitcher {
      * Normalizes a claim tuple for stable equality checking.
      */
     normalizeTuple(fact: CanonFact): string {
-        const predicate = fact.attribute.toLowerCase().trim();
+        const predicate = (fact.attribute || '').toLowerCase().trim();
         const value = typeof fact.value === 'string' ? fact.value.toLowerCase().trim() : fact.value;
         // Normalize quotes/dashes if they were strings
         const normValue = typeof value === 'string' ? value.replace(/[""']/g, '"').replace(/[–—]/g, '-') : value;
@@ -59,8 +61,9 @@ Respond ONLY with valid JSON.`;
 
         try {
             const response = await this.plugin.ollamaGen.generate(prompt, { 
-                model: this.plugin.settings.relayFastModel,
-                temperature: 0,
+                model: this.plugin.settings.relaySmartModel,
+                temperature: 0.1,
+                max_tokens: 1024,
                 format: 'json'
             });
             const parsed = JSON.parse(response);
@@ -140,16 +143,26 @@ Respond ONLY with valid JSON.`;
      * Uses anchored seam paragraphs and proper noun protection.
      */
     async stitch(
-        prevParas: { id: string, text: string }[], 
-        nextParas: { id: string, text: string }[],
-        state: ChapterState
+        prevParas: { id: string, text: string, hash: string }[], 
+        nextParas: { id: string, text: string, hash: string }[],
+        state: ChapterState,
+        routing: { runId: string, sessionId: string, seamId: string, seqNo: number },
+        stablePrefix: string,
+        signal?: AbortSignal
     ): Promise<StitchResponse | null> {
+        const startTime = Date.now();
+        
         // 1. Compute anchored seam window
         const seamTail = this.getSeamWindow(prevParas, true);
         const seamHead = this.getSeamWindow(nextParas, false);
         const boundaryText = seamTail.map(p => p.text).join('\n\n') + '\n\n' + seamHead.map(p => p.text).join('\n\n');
 
-        const prompt = `You are a prose stitcher. Smooth the transition between these two text segments.
+        const prompt = `${stablePrefix}
+
+-------------------------------------------------------------
+TASK: PROSE STITCHER
+-------------------------------------------------------------
+Smooth the transition between these two text segments.
 Allowed: Tense alignment, cadence fixes, reducing repetitive phrases, punctuation.
 FORBIDDEN: Changing facts, adding characters, changing plot beats, modifying proper nouns.
 
@@ -165,47 +178,82 @@ Respond with a JSON object containing:
 Max patches: ${STITCH_CONFIG.MAX_PATCH_OPS}
 Max churn: ${STITCH_CONFIG.MAX_CHARS_CHANGED_PCT * 100}%`;
 
-        try {
-            const response = await this.plugin.ollamaGen.generate(prompt, {
-                model: this.plugin.settings.relaySmartModel,
-                temperature: 0,
-                format: 'json'
-            });
-            const result = JSON.parse(response) as StitchResponse;
+        let retryCount = 0;
+        let response: StitchResponse | null = null;
 
-            // 2. Apply safety gates
-            const sortedOps = sortPatchOps(result.patchOps);
-            
-            // LockMap Gate (Simple string check for proper nouns in replacement text)
-            for (const op of sortedOps) {
-                const entities = state.entities.map(e => e.name);
-                const matches = op.replacementText.match(STITCH_CONFIG.PROPER_NOUN_PATTERN) || [];
-                for (const match of matches) {
-                    if (this.isTokenProtected(match, { text: op.replacementText, index: op.replacementText.indexOf(match), entities })) {
-                        // If it's a protected noun not in the original text of that paragraph, it's risky
-                        const originalPara = [...prevParas, ...nextParas].find(p => p.id === op.paragraphId);
-                        if (originalPara && !originalPara.text.includes(match)) {
-                            console.warn(`[ProseStitcher] 🛡️ Protected noun '${match}' injected in patch. Skipping stitch.`);
-                            return null;
+        const attemptStitch = async (temp: number): Promise<StitchResponse | null> => {
+            try {
+                if (signal?.aborted) throw new Error('Aborted');
+                const res = await this.plugin.ollamaGen.generate(prompt, {
+                    model: this.plugin.settings.relaySmartModel,
+                    temperature: temp,
+                    max_tokens: 1024,
+                    format: 'json'
+                }, signal);
+                const result = JSON.parse(res) as StitchResponse;
+                
+                // 2. Fast Gate: Bounds and Budget
+                if (result.patchOps.length > STITCH_CONFIG.MAX_PATCH_OPS) throw new Error('BUDGET');
+                let totalChanged = 0;
+                for (const op of result.patchOps) {
+                    if (op.start < 0 || op.end < op.start || op.replacementText.length > 1200) throw new Error('BOUNDS');
+                    totalChanged += op.replacementText.length;
+                }
+                if (totalChanged > 800) throw new Error('BUDGET');
+
+                // 3. Fast Gate: LockMap (Protected Nouns)
+                for (const op of result.patchOps) {
+                    const entities = state.entities.map(e => e.name);
+                    const matches = op.replacementText.match(STITCH_CONFIG.PROPER_NOUN_PATTERN) || [];
+                    for (const match of matches) {
+                        if (this.isTokenProtected(match, { text: op.replacementText, index: op.replacementText.indexOf(match), entities })) {
+                            const originalPara = [...prevParas, ...nextParas].find(p => p.id === op.paragraphId);
+                            if (originalPara && !originalPara.text.includes(match)) {
+                                throw new Error('LOCKMAP');
+                            }
                         }
                     }
                 }
-            }
 
-            // 3. Verify Tuple Gate
-            const stitchedBoundary = this.applyStitch(boundaryText, sortedOps, [...seamTail, ...seamHead]);
-            const integrity = await this.validateClaimIntegrity(boundaryText, stitchedBoundary, state);
-            
-            if (!integrity.valid) {
-                console.warn(`[ProseStitcher] 🛡️ Tuple integrity violation: ${integrity.reason}. Skipping stitch.`);
+                // 4. Slow Gate: Tuple Integrity
+                const sortedOps = sortPatchOps(result.patchOps);
+                const stitchedBoundary = this.applyStitch(boundaryText, sortedOps, [...seamTail, ...seamHead]);
+                const integrity = await this.validateClaimIntegrity(boundaryText, stitchedBoundary, state);
+                if (!integrity.valid) throw new Error('TUPLE_DIFF');
+
+                // 5. Final validation: beforeHash
+                result.patchOps.forEach(op => {
+                    const para = [...prevParas, ...nextParas].find(p => p.id === op.paragraphId);
+                    op.beforeHash = para?.hash || '';
+                });
+
+                return {
+                    ...result,
+                    ...routing,
+                    patchOps: sortedOps,
+                    stitchReport: {
+                        ...result.stitchReport,
+                        latencyMs: Date.now() - startTime
+                    }
+                };
+            } catch (err) {
+                console.warn(`[ProseStitcher] Attempt failed: ${err.message}`);
                 return null;
             }
+        };
 
-            return { ...result, patchOps: sortedOps };
-        } catch (e) {
-            console.error('[ProseStitcher] Stitch failed', e);
+        response = await attemptStitch(0.3);
+        if (!response) {
+            retryCount++;
+            response = await attemptStitch(0.1); // Deterministic retry
+        }
+
+        if (!response) {
+            console.log(`[ProseStitcher] All attempts failed for ${routing.seamId}. Skipping silently.`);
             return null;
         }
+
+        return response;
     }
 
     private getSeamWindow(paras: { id: string, text: string }[], isTail: boolean): { id: string, text: string }[] {
@@ -213,19 +261,17 @@ Max churn: ${STITCH_CONFIG.MAX_CHARS_CHANGED_PCT * 100}%`;
         let charCount = 0;
         const source = isTail ? [...paras].reverse() : paras;
 
-        for (const p of source) {
+        for (let i = 0; i < source.length; i++) {
+            const p = source[i];
             window.push(p);
             charCount += p.text.length;
-            if (charCount >= STITCH_CONFIG.SEAM_WINDOW_CHARS) break;
+            if (charCount >= STITCH_CONFIG.SEAM_WINDOW_CHARS || window.length >= 6) break;
         }
 
         return isTail ? window.reverse() : window;
     }
 
     private applyStitch(text: string, ops: StitchPatchOp[], paras: { id: string, text: string }[]): string {
-        // This is tricky because we need to apply patches to the combined text
-        // but patches are paragraph-local. 
-        // For validation, we'll reconstruct the paragraphs.
         const paraMap = new Map(paras.map(p => [p.id, p.text]));
         
         for (const op of ops) {

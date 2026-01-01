@@ -35,8 +35,11 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [modeState, setModeState] = useState(() => plugin.settings.modeState);
 	
 	const [generatedText, setGeneratedText] = useState<string>('');
-	const [generatedParagraphs, setGeneratedParagraphs] = useState<{ text: string, metadata?: any }[]>([]);
-	const [chunkBuffer, setChunkBuffer] = useState<string>('');
+	const [generatedParagraphs, setGeneratedParagraphs] = useState<{ id: string, text: string, hash: string, metadata?: any, status: 'STREAMING' | 'FINALIZED' | 'USER_DIRTY', lastPatched?: number }[]>([]);
+	const [lastAppliedSeqNo, setLastAppliedSeqNo] = useState<Map<string, number>>(new Map());
+	const [undoStack, setUndoStack] = useState<Map<string, { beforeHash: string, text: string }[]>>(new Map());
+	
+    const [chunkBuffer, setChunkBuffer] = useState<string>('');
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [generationStage, setGenerationStage] = useState<string>('');
 	const [pulseMessage, setPulseMessage] = useState<string | null>(null);
@@ -77,15 +80,21 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		const onBufferUpdate = (data: { content: string }) => {
 			setChunkBuffer(data.content);
 		};
-		const onCommitted = (data: { content: string, metadata?: any[], chunkId?: string }) => {
+		const onCommitted = (data: { runId: string, chunkId: string, content: string, metadata?: any[], path: string }) => {
 			// Transactional commit to note and UI
 			if (commitLock.current) return;
 			commitLock.current = true;
 			try {
-				const newParas = data.content.split('\n\n').filter(p => p.trim()).map((p, i) => ({
-					text: p,
-					metadata: data.metadata ? data.metadata[i] : undefined
-				}));
+				const newParas = data.content.split('\n\n').filter(p => p.trim()).map((p, i) => {
+					const text = p.trim();
+					return {
+						id: data.metadata?.[i]?.p_id || `${data.chunkId}-p${i}`,
+						text,
+						hash: fnv1a32(text.replace(/\s+/g, ' ').trim()),
+						metadata: data.metadata ? data.metadata[i] : undefined,
+						status: 'FINALIZED' as const
+					};
+				});
 
 				if (data.chunkId === 'edited-chapter' || data.chunkId === 'monolithic-chapter') {
 					setGeneratedParagraphs(newParas);
@@ -96,47 +105,61 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				}
 				
 				setChunkBuffer('');
-				// Update trust summary for the chunk
-				setTrustSummary({
-					grounding: 'High',
-					loreStatus: 'Stable',
-					version: 'v1.2.0',
-					replayable: true
-				});
 			} finally {
 				commitLock.current = false;
 			}
 		};
-		const onEnd = (data?: { runId: string, totalWords: number, health?: any }) => {
-			setIsGenerating(false);
-			setGenerationStage('Complete');
-			if (data?.health) {
-				setTrustSummary({
-					grounding: `${(data.health.tierARatio * 100).toFixed(0)}% Tier A`,
-					loreStatus: data.health.mutationsProposed > 0 ? 'Mutated' : 'Stable',
-					version: `v${data.health.mutationsProposed + 1}`,
-					recoveryEvents: data.health.recoveryEvents
-				});
-			}
-		};
-		const onAuditViolations = (data: { violations: any[] }) => {
-			const mutation = data.violations.find(v => v.type === 'ENTITY_ATTRIBUTE_MISMATCH');
-			if (mutation) {
-				setProposedMutation(mutation);
-			}
-		};
-		const onError = (data: { error: string, mismatchReport?: any[] }) => {
-			setError(data.error);
-			setIsGenerating(false);
-			if (data.mismatchReport) {
-				setMismatchReport(data.mismatchReport);
-			}
-		};
-		const onMiss = (data: { type: string }) => {
-			setMisses(prev => [...prev, data]);
-		};
-		const onStitchRejected = (data: { iteration: number, changes?: string[] }) => {
-			setRejections(prev => [...prev, data]);
+
+		const onPatch = (data: StitchResponse) => {
+			// 1. Route check
+			if (data.runId !== plugin.sequentialGenerator.getCurrentRunId?.()) return;
+
+			// 2. SeqNo Check
+			const lastSeq = lastAppliedSeqNo.get(data.seamId) || 0;
+			if (data.seqNo < lastSeq) return;
+
+			setGeneratedParagraphs(prev => {
+				const next = [...prev];
+				let anyChanged = false;
+
+				for (const op of data.patchOps) {
+					const idx = next.findIndex(p => p.id === op.paragraphId);
+					if (idx === -1) continue;
+
+					const para = next[idx];
+					// 3. Status Check: Skip if USER_DIRTY
+					if (para.status === 'USER_DIRTY') continue;
+
+					// 4. Hash Check: Skip if text changed
+					const currentHash = fnv1a32(para.text.replace(/\s+/g, ' ').trim());
+					if (currentHash !== op.beforeHash) {
+						console.warn(`[Dashboard] Patch rejected: Hash mismatch for ${op.paragraphId}`);
+						continue;
+					}
+
+					// 5. Store Undo
+					const stack = undoStack.get(para.id) || [];
+					stack.push({ beforeHash: para.hash, text: para.text });
+					undoStack.set(para.id, stack);
+
+					// 6. Apply Patch
+					const newText = para.text.substring(0, op.start) + op.replacementText + para.text.substring(op.end);
+					next[idx] = {
+						...para,
+						text: newText,
+						hash: fnv1a32(newText.replace(/\s+/g, ' ').trim()),
+						lastPatched: Date.now()
+					};
+					anyChanged = true;
+				}
+
+				if (anyChanged) {
+					setLastAppliedSeqNo(new Map(lastAppliedSeqNo).set(data.seamId, data.seqNo));
+					// Sync flat text
+					setGeneratedText(next.map(p => p.text).join('\n\n'));
+				}
+				return next;
+			});
 		};
 
 		relayEventBus.on('run:start', onStart);
@@ -144,6 +167,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		relayEventBus.on('stage:start', onStageStart);
 		relayEventBus.on('chunk:buffer:update', onBufferUpdate);
 		relayEventBus.on('chunk:committed', onCommitted);
+		relayEventBus.on('chunk:patch', onPatch);
 		relayEventBus.on('audit:violations', onAuditViolations);
 		relayEventBus.on('run:end', onEnd);
 		relayEventBus.on('run:error', onError);
@@ -156,6 +180,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			relayEventBus.off('stage:start', onStageStart);
 			relayEventBus.off('chunk:buffer:update', onBufferUpdate);
 			relayEventBus.off('chunk:committed', onCommitted);
+			relayEventBus.off('chunk:patch', onPatch);
 			relayEventBus.off('audit:violations', onAuditViolations);
 			relayEventBus.off('run:end', onEnd);
 			relayEventBus.off('run:error', onError);
@@ -180,9 +205,35 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		}
 	};
 
-	const updateMainInput = (value: string) => {
-		// Simplified for this spec
-		setModeState(prev => ({ ...prev, chapter: { ...prev.chapter, sceneSummary: value } }));
+	const handleUndo = (paraId: string) => {
+		const stack = undoStack.get(paraId) || [];
+		if (stack.length === 0) return;
+
+		const last = stack.pop()!;
+		setUndoStack(new Map(undoStack).set(paraId, stack));
+
+		setGeneratedParagraphs(prev => {
+			const next = prev.map(p => {
+				if (p.id === paraId) {
+					return {
+						...p,
+						text: last.text,
+						hash: last.beforeHash,
+						lastPatched: undefined // Reset highlight
+					};
+				}
+				return p;
+			});
+			setGeneratedText(next.map(p => p.text).join('\n\n'));
+			return next;
+		});
+	};
+
+	const handleGeneratedChange = (value: string) => {
+		setGeneratedText(value);
+		// Mark all paragraphs as USER_DIRTY when the user manually edits the flat text
+		// This is a defensive approach; a better one would be diffing
+		setGeneratedParagraphs(prev => prev.map(p => ({ ...p, status: 'USER_DIRTY' as const })));
 	};
 
 	return (
@@ -206,8 +257,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 								generatedText={generatedText}
 								generatedParagraphs={generatedParagraphs}
 								heatmapEnabled={heatmapEnabled}
-								onGeneratedChange={setGeneratedText}
+								onGeneratedChange={handleGeneratedChange}
 								onCopy={() => navigator.clipboard.writeText(generatedText)}
+								onUndo={handleUndo}
 								chunkBuffer={chunkBuffer}
 							/>
 						)}

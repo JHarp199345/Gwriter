@@ -10,12 +10,13 @@ export const EditorPanel: React.FC<{
 	selectedText: string;
 	onSelectionChange: (text: string) => void;
 	generatedText: string;
-	generatedParagraphs: { text: string, metadata?: any }[];
+	generatedParagraphs: { id: string, text: string, hash: string, metadata?: any, status: 'STREAMING' | 'FINALIZED' | 'USER_DIRTY', lastPatched?: number }[];
 	heatmapEnabled: boolean;
 	onGeneratedChange?: (text: string) => void;
 	onCopy: () => void;
+	onUndo?: (paraId: string) => void;
 	chunkBuffer?: string;
-}> = ({ mode, selectedText, onSelectionChange, generatedText, generatedParagraphs, heatmapEnabled, onGeneratedChange, onCopy, chunkBuffer }) => {
+}> = ({ mode, selectedText, onSelectionChange, generatedText, generatedParagraphs, heatmapEnabled, onGeneratedChange, onCopy, onUndo, chunkBuffer }) => {
 	const [hoveredPara, setHoveredPara] = useState<number | null>(null);
 	const [debugLevel, setDebugLevel] = useState<'off' | 'summary' | 'raw'>('off');
 	const [debugMode, setDebugMode] = useState<DebugMode>('off');
@@ -43,19 +44,32 @@ export const EditorPanel: React.FC<{
 			? 'Paste selected text here for character extraction...'
 			: 'Paste the draft you want checked for continuity...';
 
-	const getParaClass = (metadata: any) => {
-		if (!heatmapEnabled) return '';
-		if (!metadata) return 'para-inferred'; // Inferred (🟡)
-		if (metadata.isSpeculative) return 'para-speculative'; // Speculative (🔴)
-		return 'para-grounded'; // Grounded (🟢)
+	const getParaClass = (para: any) => {
+		const classes = [];
+		if (heatmapEnabled) {
+			if (!para.metadata) classes.push('para-inferred');
+			else if (para.metadata.isSpeculative) classes.push('para-speculative');
+			else classes.push('para-grounded');
+		}
+		if (para.lastPatched && Date.now() - para.lastPatched < 3000) {
+			classes.push('para-patched-highlight');
+		}
+		if (para.status === 'USER_DIRTY') {
+			classes.push('para-user-dirty');
+		}
+		return classes.join(' ');
 	};
 
-	const getParaIcon = (metadata: any) => {
+	const getParaIcon = (para: any) => {
 		if (!heatmapEnabled) return null;
-		if (debugMode === 'off') return null;
-		if (!metadata) return '🟡'; // Inferred icon
-		if (metadata.isSpeculative) return '🔴'; // Speculative icon
-		return '🟢'; // Grounded icon
+		if (debugMode === 'off') {
+			if (para.lastPatched && Date.now() - para.lastPatched < 3000) return '✨';
+			if (para.status === 'USER_DIRTY') return '👤';
+			return null;
+		}
+		if (!para.metadata) return '🟡'; 
+		if (para.metadata.isSpeculative) return '🔴'; 
+		return '🟢'; 
 	};
 
 	return (
@@ -120,13 +134,21 @@ export const EditorPanel: React.FC<{
 							{generatedParagraphs.map((para, idx) => (
 								<div 
 									key={idx} 
-									className={`generated-para ${getParaClass(para.metadata)}`}
+									className={`generated-para ${getParaClass(para)}`}
 									onMouseEnter={() => setHoveredPara(idx)}
 									onMouseLeave={() => setHoveredPara(null)}
 									style={{ position: 'relative' }}
 								>
-									<span className="para-icon">{getParaIcon(para.metadata)}</span>
+									<span className="para-icon">{getParaIcon(para)}</span>
 									{para.text}
+									{onUndo && para.lastPatched && (
+										<button 
+											className="btn-xs undo-patch-btn" 
+											onClick={() => onUndo(para.id)}
+											title="Undo AI Refinement"
+											style={{ marginLeft: 8, opacity: 0.6 }}
+										>↩</button>
+									)}
 									{hoveredPara === idx && debugMode !== 'off' && (
 										<div className="para-explanation" style={{ 
 											position: 'absolute', 
