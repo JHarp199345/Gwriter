@@ -28281,32 +28281,36 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
     }
     new import_obsidian10.Setting(containerEl).setName("Relay Smart Model (Writer)").setDesc("Large model for high-quality prose.").addDropdown(async (dropdown) => {
       const installed = await this.plugin.ollamaModels.getModels().catch(() => []);
-      const catalog2 = this.plugin.settings.verifiedModelsCatalog || [];
+      const catalog = this.plugin.settings.verifiedModelsCatalog || [];
       const allOptions = /* @__PURE__ */ new Set([
         ...MAJOR_OLLAMA_MODELS,
         ...installed.map((m) => m.id),
-        ...catalog2
+        ...catalog
       ]);
       allOptions.forEach((id) => dropdown.addOption(id, id));
       dropdown.setValue(this.plugin.settings.relaySmartModel).onChange(async (value) => {
         this.plugin.settings.relaySmartModel = value;
         await this.plugin.saveSettings();
       });
-    });
+    }).addButton((btn) => btn.setButtonText("Pull").setTooltip("Download this model to Ollama").onClick(async () => {
+      await this.pullModelWithProgress(this.plugin.settings.relaySmartModel, btn);
+    }));
     new import_obsidian10.Setting(containerEl).setName("Relay Fast Model (Planner/Auditor)").setDesc("Smaller, faster model for mechanical tasks.").addDropdown(async (dropdown) => {
       const installed = await this.plugin.ollamaModels.getModels().catch(() => []);
-      const catalog2 = this.plugin.settings.verifiedModelsCatalog || [];
+      const catalog = this.plugin.settings.verifiedModelsCatalog || [];
       const allOptions = /* @__PURE__ */ new Set([
         ...MAJOR_OLLAMA_MODELS,
         ...installed.map((m) => m.id),
-        ...catalog2
+        ...catalog
       ]);
       allOptions.forEach((id) => dropdown.addOption(id, id));
       dropdown.setValue(this.plugin.settings.relayFastModel).onChange(async (value) => {
         this.plugin.settings.relayFastModel = value;
         await this.plugin.saveSettings();
       });
-    });
+    }).addButton((btn) => btn.setButtonText("Pull").setTooltip("Download this model to Ollama").onClick(async () => {
+      await this.pullModelWithProgress(this.plugin.settings.relayFastModel, btn);
+    }));
     let customModelToAdd = "";
     new import_obsidian10.Setting(containerEl).setName("Add Custom Ollama Model").setDesc("Enter a model name to verify and add to your persistent catalog.").addText((text2) => text2.setPlaceholder("e.g., hermes-pro-3").onChange((v) => customModelToAdd = v)).addButton((btn) => btn.setButtonText("Verify & Add").onClick(async () => {
       if (!customModelToAdd)
@@ -28316,9 +28320,9 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
       try {
         const isInstalled = (await this.plugin.ollamaModels.getModels()).some((m) => m.id === customModelToAdd || m.id.split(":")[0] === customModelToAdd);
         if (isInstalled) {
-          const catalog2 = this.plugin.settings.verifiedModelsCatalog || [];
-          if (!catalog2.includes(customModelToAdd)) {
-            this.plugin.settings.verifiedModelsCatalog = [...catalog2, customModelToAdd];
+          const catalog = this.plugin.settings.verifiedModelsCatalog || [];
+          if (!catalog.includes(customModelToAdd)) {
+            this.plugin.settings.verifiedModelsCatalog = [...catalog, customModelToAdd];
             await this.plugin.saveSettings();
             new import_obsidian10.Notice(`\u2705 Verified and added ${customModelToAdd} to catalog.`);
             this.display();
@@ -28366,39 +28370,6 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         }
       })
     );
-    const catalog = [
-      { id: "llama3.1:70b", role: "WRITE", desc: "Creative Writing" },
-      { id: "llama3.1:8b", role: "FAST", desc: "Auditor/Planner" },
-      { id: "nomic-embed-text", role: "EMBED", desc: "Retrieval" }
-    ];
-    catalog.forEach((m) => {
-      new import_obsidian10.Setting(containerEl).setName(m.id).setDesc(`${m.desc} (${m.role})`).addButton(
-        (btn) => btn.setButtonText("Pull").onClick(async () => {
-          const isRunning = await this.plugin.ollamaGen.isAvailable();
-          if (!isRunning) {
-            new import_obsidian10.Notice("\u274C Cannot pull: Ollama Offline");
-            return;
-          }
-          btn.setDisabled(true);
-          btn.setButtonText("Pulling...");
-          try {
-            await this.plugin.ollamaModels.pullModel(m.id, (p) => {
-              if (p.status === "downloading" && p.completed) {
-                const pct = (p.completed / p.total * 100).toFixed(0);
-                btn.setButtonText(`Pulling: ${pct}%`);
-              }
-            });
-            new import_obsidian10.Notice(`\u2705 Successfully pulled ${m.id}`);
-            this.display();
-          } catch (err) {
-            new import_obsidian10.Notice(`\u274C Pull failed: ${err.message}`);
-          } finally {
-            btn.setDisabled(false);
-            btn.setButtonText("Pull");
-          }
-        })
-      );
-    });
     new import_obsidian10.Setting(containerEl).setName("Open Ollama setup wizard").setDesc("Step-by-step instructions to install Ollama, pull the model, and verify connectivity.").addButton(
       (btn) => btn.setButtonText("Open wizard").onClick(() => {
         const { OllamaSetupWizardModal: OllamaSetupWizardModal2 } = (init_OllamaSetupWizardModal(), __toCommonJS(OllamaSetupWizardModal_exports));
@@ -28797,6 +28768,32 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         button.setButtonText("Start Stress Test");
       }
     }));
+  }
+  async pullModelWithProgress(modelId, btn) {
+    const isRunning = await this.plugin.ollamaGen.isAvailable();
+    if (!isRunning) {
+      new import_obsidian10.Notice("\u274C Cannot pull: Ollama Offline");
+      return;
+    }
+    btn.setDisabled(true);
+    btn.setButtonText("Pulling...");
+    try {
+      await this.plugin.ollamaModels.pullModel(modelId, (p) => {
+        if (p.status === "downloading" && p.completed) {
+          const pct = (p.completed / (p.total || 1) * 100).toFixed(0);
+          btn.setButtonText(`Pulling: ${pct}%`);
+        } else {
+          btn.setButtonText(`Pulling: ${p.status}`);
+        }
+      });
+      new import_obsidian10.Notice(`\u2705 Successfully pulled ${modelId}`);
+      this.display();
+    } catch (err) {
+      new import_obsidian10.Notice(`\u274C Pull failed: ${err.message}`);
+    } finally {
+      btn.setDisabled(false);
+      btn.setButtonText("Pull");
+    }
   }
 };
 

@@ -281,7 +281,6 @@ export class SettingsTab extends PluginSettingTab {
 				const installed = await this.plugin.ollamaModels.getModels().catch(() => []);
 				const catalog = this.plugin.settings.verifiedModelsCatalog || [];
 				
-				// Unique set of all model IDs
 				const allOptions = new Set([
 					...MAJOR_OLLAMA_MODELS,
 					...installed.map(m => m.id),
@@ -295,7 +294,13 @@ export class SettingsTab extends PluginSettingTab {
 						this.plugin.settings.relaySmartModel = value;
 						await this.plugin.saveSettings();
 					});
-			});
+			})
+			.addButton(btn => btn
+				.setButtonText('Pull')
+				.setTooltip('Download this model to Ollama')
+				.onClick(async () => {
+					await this.pullModelWithProgress(this.plugin.settings.relaySmartModel, btn);
+				}));
 
 		new Setting(containerEl)
 			.setName('Relay Fast Model (Planner/Auditor)')
@@ -317,7 +322,13 @@ export class SettingsTab extends PluginSettingTab {
 						this.plugin.settings.relayFastModel = value;
 						await this.plugin.saveSettings();
 					});
-			});
+			})
+			.addButton(btn => btn
+				.setButtonText('Pull')
+				.setTooltip('Download this model to Ollama')
+				.onClick(async () => {
+					await this.pullModelWithProgress(this.plugin.settings.relayFastModel, btn);
+				}));
 
 		let customModelToAdd = '';
 		new Setting(containerEl)
@@ -409,48 +420,6 @@ export class SettingsTab extends PluginSettingTab {
 						}
 					})
 			);
-
-		// Catalog Section
-		const catalog = [
-			{ id: 'llama3.1:70b', role: 'WRITE', desc: 'Creative Writing' },
-			{ id: 'llama3.1:8b', role: 'FAST', desc: 'Auditor/Planner' },
-			{ id: 'nomic-embed-text', role: 'EMBED', desc: 'Retrieval' }
-		];
-
-		catalog.forEach(m => {
-			new Setting(containerEl)
-				.setName(m.id)
-				.setDesc(`${m.desc} (${m.role})`)
-				.addButton(btn => btn
-					.setButtonText('Pull')
-					.onClick(async () => {
-						const isRunning = await this.plugin.ollamaGen.isAvailable();
-						if (!isRunning) {
-							new Notice('❌ Cannot pull: Ollama Offline');
-							return;
-						}
-						
-						btn.setDisabled(true);
-						btn.setButtonText('Pulling...');
-						
-						try {
-							await this.plugin.ollamaModels.pullModel(m.id, (p) => {
-								if (p.status === 'downloading' && p.completed) {
-									const pct = (p.completed / p.total * 100).toFixed(0);
-									btn.setButtonText(`Pulling: ${pct}%`);
-								}
-							});
-							new Notice(`✅ Successfully pulled ${m.id}`);
-							this.display();
-						} catch (err) {
-							new Notice(`❌ Pull failed: ${err.message}`);
-						} finally {
-							btn.setDisabled(false);
-							btn.setButtonText('Pull');
-						}
-					})
-				);
-		});
 
 		new Setting(containerEl)
 			.setName('Open Ollama setup wizard')
@@ -1085,6 +1054,35 @@ export class SettingsTab extends PluginSettingTab {
 						button.setButtonText('Start Stress Test');
 					}
 				}));
+	}
+
+	private async pullModelWithProgress(modelId: string, btn: any) {
+		const isRunning = await this.plugin.ollamaGen.isAvailable();
+		if (!isRunning) {
+			new Notice('❌ Cannot pull: Ollama Offline');
+			return;
+		}
+		
+		btn.setDisabled(true);
+		btn.setButtonText('Pulling...');
+		
+		try {
+			await this.plugin.ollamaModels.pullModel(modelId, (p) => {
+				if (p.status === 'downloading' && p.completed) {
+					const pct = (p.completed / (p.total || 1) * 100).toFixed(0);
+					btn.setButtonText(`Pulling: ${pct}%`);
+				} else {
+					btn.setButtonText(`Pulling: ${p.status}`);
+				}
+			});
+			new Notice(`✅ Successfully pulled ${modelId}`);
+			this.display(); // Refresh to update "installed" status in dropdowns
+		} catch (err) {
+			new Notice(`❌ Pull failed: ${err.message}`);
+		} finally {
+			btn.setDisabled(false);
+			btn.setButtonText('Pull');
+		}
 	}
 }
 
