@@ -179,7 +179,8 @@ export class OllamaGenerationProvider {
     async generateStream(
         prompt: string, 
         params: GenerationParams, 
-        onToken: (token: string) => void
+        onToken: (token: string) => void,
+        signal?: AbortSignal
     ): Promise<string> {
         console.log(`[OllamaGen] 📡 Sending streaming request to model: ${params.model}`);
         
@@ -200,7 +201,8 @@ export class OllamaGenerationProvider {
                         num_predict: params.max_tokens || 2048,
                         seed: params.seed || 42
                     }
-                })
+                }),
+                signal // Use the abort signal here
             });
 
             if (!response.body) throw new Error('No response body');

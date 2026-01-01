@@ -19,6 +19,18 @@ export class ContextPacker {
     private maxTotalTokens: number = 128000;
 
     /**
+     * Legacy wrapper for packing context.
+     */
+    async packContext(plugin: any, state: ChapterState): Promise<any> {
+        // Mock retrieval hits for the stitch task prefix
+        return {
+            smart_connections: '',
+            story_bible: '',
+            plot_memory: state.plotMemory?.denseSummary || ''
+        };
+    }
+
+    /**
      * Build deterministic context pack from chapter state and retrieval hits
      */
     async buildContextPack(

@@ -45,7 +45,7 @@ import { CO_AUTHORING_POLICY } from './policy';
 import { App, Notice, TFile, TFolder } from 'obsidian';
 import { relayEventBus } from './EventBus';
 import WritingDashboardPlugin from '../main';
-import { sha256, contentHash, canonicalJsonStringify, normalizeWhitespace } from './ContentHash';
+import { sha256, contentHash, canonicalJsonStringify, normalizeWhitespace, fnv1a32 } from './ContentHash';
 import { showInterventionModal } from '../ui/InterventionModal';
 import { LoreHarvestService } from './LoreHarvestService';
 import { showHarvestChecklistModal } from '../ui/HarvestChecklistModal';
@@ -954,7 +954,7 @@ Constraints:
 
         // Generate structured plot memory
         const telescopeResult = await this.runStage('TELESCOPE', this.plugin.settings.relaySmartModel, async () => {
-            return await this.plugin.ollamaGen.enqueue(10, (signal) => 
+            return await this.plugin.ollamaGen.enqueue(10, `${this.currentRunId}__telescope__${iteration}`, (signal) => 
                 this.plugin.ollamaGen.generateJson(prompt, this.plugin.settings.relaySmartModel)
             );
         });

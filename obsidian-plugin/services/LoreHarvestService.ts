@@ -168,7 +168,8 @@ export class LoreHarvestService {
                         }
                     }
                 }
-            } catch (err) {
+            }
+        } catch (err) {
                 console.error(`[LoreHarvestService] AI extraction failed for chunk ${chunk.chunkId}:`, err);
             }
         }

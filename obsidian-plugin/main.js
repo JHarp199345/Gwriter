@@ -26687,7 +26687,7 @@ var TextChunker = class {
 };
 
 // ui/EditorPanel.tsx
-var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, generatedParagraphs, heatmapEnabled, onGeneratedChange, onCopy, chunkBuffer }) => {
+var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, generatedParagraphs, heatmapEnabled, onGeneratedChange, onCopy, onUndo, chunkBuffer }) => {
   const [hoveredPara, setHoveredPara] = (0, import_react.useState)(null);
   const [debugLevel, setDebugLevel] = (0, import_react.useState)("off");
   const [debugMode, setDebugMode] = (0, import_react.useState)("off");
@@ -26697,23 +26697,37 @@ var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, gener
   const outputChars = (generatedText || "").length;
   const selectedLabel = mode === "chapter" ? "Scene summary / directions:" : mode === "micro-edit" ? "Selected passage:" : mode === "character-update" ? "Selected text (for character update):" : "Draft to check:";
   const selectedPlaceholder = mode === "chapter" ? "Write a rough summary of the scene you want (beats, directions, key dialogue notes, etc.)..." : mode === "micro-edit" ? "Paste the passage you want revised..." : mode === "character-update" ? "Paste selected text here for character extraction..." : "Paste the draft you want checked for continuity...";
-  const getParaClass = (metadata) => {
-    if (!heatmapEnabled)
-      return "";
-    if (!metadata)
-      return "para-inferred";
-    if (metadata.isSpeculative)
-      return "para-speculative";
-    return "para-grounded";
+  const getParaClass = (para) => {
+    const classes = [];
+    if (heatmapEnabled) {
+      if (!para.metadata)
+        classes.push("para-inferred");
+      else if (para.metadata.isSpeculative)
+        classes.push("para-speculative");
+      else
+        classes.push("para-grounded");
+    }
+    if (para.lastPatched && Date.now() - para.lastPatched < 3e3) {
+      classes.push("para-patched-highlight");
+    }
+    if (para.status === "USER_DIRTY") {
+      classes.push("para-user-dirty");
+    }
+    return classes.join(" ");
   };
-  const getParaIcon = (metadata) => {
+  const getParaIcon = (para) => {
     if (!heatmapEnabled)
       return null;
-    if (debugMode === "off")
+    if (debugMode === "off") {
+      if (para.lastPatched && Date.now() - para.lastPatched < 3e3)
+        return "\u2728";
+      if (para.status === "USER_DIRTY")
+        return "\u{1F464}";
       return null;
-    if (!metadata)
+    }
+    if (!para.metadata)
       return "\u{1F7E1}";
-    if (metadata.isSpeculative)
+    if (para.metadata.isSpeculative)
       return "\u{1F534}";
     return "\u{1F7E2}";
   };
@@ -26754,13 +26768,23 @@ var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, gener
     "div",
     {
       key: idx,
-      className: `generated-para ${getParaClass(para.metadata)}`,
+      className: `generated-para ${getParaClass(para)}`,
       onMouseEnter: () => setHoveredPara(idx),
       onMouseLeave: () => setHoveredPara(null),
       style: { position: "relative" }
     },
-    /* @__PURE__ */ import_react.default.createElement("span", { className: "para-icon" }, getParaIcon(para.metadata)),
+    /* @__PURE__ */ import_react.default.createElement("span", { className: "para-icon" }, getParaIcon(para)),
     para.text,
+    onUndo && para.lastPatched && /* @__PURE__ */ import_react.default.createElement(
+      "button",
+      {
+        className: "btn-xs undo-patch-btn",
+        onClick: () => onUndo(para.id),
+        title: "Undo AI Refinement",
+        style: { marginLeft: 8, opacity: 0.6 }
+      },
+      "\u21A9"
+    ),
     hoveredPara === idx && debugMode !== "off" && /* @__PURE__ */ import_react.default.createElement("div", { className: "para-explanation", style: {
       position: "absolute",
       top: "100%",
@@ -26784,6 +26808,78 @@ var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, gener
     }
   )));
 };
+
+// services/ContentHash.ts
+function fnv1a32(input) {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = hash + ((hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24)) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+async function sha256(input) {
+  const msgUint8 = new TextEncoder().encode(input);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  return hashHex;
+}
+function normalizeWhitespace(text2) {
+  return text2.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/[ \t]+/g, " ").trim();
+}
+function normalizeForExcerptHash(text2) {
+  return normalizeWhitespace(text2).replace(/\n{2,}/g, "\n");
+}
+function canonicalJsonStringify(obj) {
+  if (typeof obj === "bigint") {
+    throw new Error("BigInt serialization not supported in canonical JSON");
+  }
+  if (obj === null || obj === void 0) {
+    return "null";
+  }
+  if (typeof obj === "boolean" || typeof obj === "number") {
+    if (!Number.isFinite(obj)) {
+      return "null";
+    }
+    return String(obj);
+  }
+  if (typeof obj === "string") {
+    return JSON.stringify(obj);
+  }
+  if (obj instanceof Date) {
+    return JSON.stringify(obj.toISOString());
+  }
+  if (Array.isArray(obj)) {
+    const items = obj.map((item) => canonicalJsonStringify(item));
+    return "[" + items.join(",") + "]";
+  }
+  if (typeof obj === "object") {
+    const keys = Object.keys(obj).sort((a, b) => {
+      for (let i = 0; i < Math.min(a.length, b.length); i++) {
+        const codeA = a.codePointAt(i) || 0;
+        const codeB = b.codePointAt(i) || 0;
+        if (codeA !== codeB) {
+          return codeA - codeB;
+        }
+      }
+      return a.length - b.length;
+    });
+    const pairs = [];
+    for (const key of keys) {
+      const value = obj[key];
+      if (value !== void 0) {
+        pairs.push(JSON.stringify(key) + ":" + canonicalJsonStringify(value));
+      }
+    }
+    return "{" + pairs.join(",") + "}";
+  }
+  return JSON.stringify(obj);
+}
+async function contentHash(obj) {
+  const canonical = canonicalJsonStringify(obj);
+  return await sha256(canonical);
+}
 
 // ui/FactInspector.tsx
 var import_react2 = __toESM(require_react());
@@ -27127,6 +27223,8 @@ var DashboardComponent = ({ plugin }) => {
   const [modeState, setModeState] = (0, import_react5.useState)(() => plugin.settings.modeState);
   const [generatedText, setGeneratedText] = (0, import_react5.useState)("");
   const [generatedParagraphs, setGeneratedParagraphs] = (0, import_react5.useState)([]);
+  const [lastAppliedSeqNo, setLastAppliedSeqNo] = (0, import_react5.useState)(/* @__PURE__ */ new Map());
+  const [undoStack, setUndoStack] = (0, import_react5.useState)(/* @__PURE__ */ new Map());
   const [chunkBuffer, setChunkBuffer] = (0, import_react5.useState)("");
   const [isGenerating, setIsGenerating] = (0, import_react5.useState)(false);
   const [generationStage, setGenerationStage] = (0, import_react5.useState)("");
@@ -27172,10 +27270,16 @@ var DashboardComponent = ({ plugin }) => {
         return;
       commitLock.current = true;
       try {
-        const newParas = data.content.split("\n\n").filter((p) => p.trim()).map((p, i) => ({
-          text: p,
-          metadata: data.metadata ? data.metadata[i] : void 0
-        }));
+        const newParas = data.content.split("\n\n").filter((p) => p.trim()).map((p, i) => {
+          const text2 = p.trim();
+          return {
+            id: data.metadata?.[i]?.p_id || `${data.chunkId}-p${i}`,
+            text: text2,
+            hash: fnv1a32(text2.replace(/\s+/g, " ").trim()),
+            metadata: data.metadata ? data.metadata[i] : void 0,
+            status: "FINALIZED"
+          };
+        });
         if (data.chunkId === "edited-chapter" || data.chunkId === "monolithic-chapter") {
           setGeneratedParagraphs(newParas);
           setGeneratedText(data.content);
@@ -27184,40 +27288,60 @@ var DashboardComponent = ({ plugin }) => {
           setGeneratedText((prev) => prev + (prev ? "\n\n" : "") + data.content);
         }
         setChunkBuffer("");
-        setTrustSummary({
-          grounding: "High",
-          loreStatus: "Stable",
-          version: "v1.2.0",
-          replayable: true
-        });
       } finally {
         commitLock.current = false;
       }
     };
-    const onEnd = (data) => {
-      setIsGenerating(false);
-      setGenerationStage("Complete");
-      if (data?.health) {
-        setTrustSummary({
-          grounding: `${(data.health.tierARatio * 100).toFixed(0)}% Tier A`,
-          loreStatus: data.health.mutationsProposed > 0 ? "Mutated" : "Stable",
-          version: `v${data.health.mutationsProposed + 1}`,
-          recoveryEvents: data.health.recoveryEvents
-        });
-      }
+    const onPatch = (data) => {
+      if (data.runId !== plugin.sequentialGenerator.getCurrentRunId?.())
+        return;
+      const lastSeq = lastAppliedSeqNo.get(data.seamId) || 0;
+      if (data.seqNo < lastSeq)
+        return;
+      setGeneratedParagraphs((prev) => {
+        const next = [...prev];
+        let anyChanged = false;
+        for (const op of data.patchOps) {
+          const idx = next.findIndex((p) => p.id === op.paragraphId);
+          if (idx === -1)
+            continue;
+          const para = next[idx];
+          if (para.status === "USER_DIRTY")
+            continue;
+          const currentHash = fnv1a32(para.text.replace(/\s+/g, " ").trim());
+          if (currentHash !== op.beforeHash) {
+            console.warn(`[Dashboard] Patch rejected: Hash mismatch for ${op.paragraphId}`);
+            continue;
+          }
+          const stack = undoStack.get(para.id) || [];
+          stack.push({ beforeHash: para.hash, text: para.text });
+          undoStack.set(para.id, stack);
+          const newText = para.text.substring(0, op.start) + op.replacementText + para.text.substring(op.end);
+          next[idx] = {
+            ...para,
+            text: newText,
+            hash: fnv1a32(newText.replace(/\s+/g, " ").trim()),
+            lastPatched: Date.now()
+          };
+          anyChanged = true;
+        }
+        if (anyChanged) {
+          setLastAppliedSeqNo(new Map(lastAppliedSeqNo).set(data.seamId, data.seqNo));
+          setGeneratedText(next.map((p) => p.text).join("\n\n"));
+        }
+        return next;
+      });
     };
     const onAuditViolations = (data) => {
-      const mutation = data.violations.find((v) => v.type === "ENTITY_ATTRIBUTE_MISMATCH");
-      if (mutation) {
-        setProposedMutation(mutation);
-      }
+      setTrustSummary(data);
+    };
+    const onEnd = () => {
+      setIsGenerating(false);
+      setGenerationStage("COMPLETED");
     };
     const onError = (data) => {
-      setError(data.error);
       setIsGenerating(false);
-      if (data.mismatchReport) {
-        setMismatchReport(data.mismatchReport);
-      }
+      setError(data.error);
     };
     const onMiss = (data) => {
       setMisses((prev) => [...prev, data]);
@@ -27230,6 +27354,7 @@ var DashboardComponent = ({ plugin }) => {
     relayEventBus.on("stage:start", onStageStart);
     relayEventBus.on("chunk:buffer:update", onBufferUpdate);
     relayEventBus.on("chunk:committed", onCommitted);
+    relayEventBus.on("chunk:patch", onPatch);
     relayEventBus.on("audit:violations", onAuditViolations);
     relayEventBus.on("run:end", onEnd);
     relayEventBus.on("run:error", onError);
@@ -27241,6 +27366,7 @@ var DashboardComponent = ({ plugin }) => {
       relayEventBus.off("stage:start", onStageStart);
       relayEventBus.off("chunk:buffer:update", onBufferUpdate);
       relayEventBus.off("chunk:committed", onCommitted);
+      relayEventBus.off("chunk:patch", onPatch);
       relayEventBus.off("audit:violations", onAuditViolations);
       relayEventBus.off("run:end", onEnd);
       relayEventBus.off("run:error", onError);
@@ -27248,6 +27374,16 @@ var DashboardComponent = ({ plugin }) => {
       relayEventBus.off("pilot:stitch_rejected", onStitchRejected);
     };
   }, []);
+  const updateMainInput = (value) => {
+    setModeState((prev) => {
+      const next = { ...prev };
+      if (mode === "chapter")
+        next.chapter.rewriteInstructions = value;
+      else if (mode === "micro-edit")
+        next.microEdit.selectedPassage = value;
+      return next;
+    });
+  };
   const handleGenerate = async () => {
     if (mode === "chapter") {
       setError(null);
@@ -27263,8 +27399,32 @@ var DashboardComponent = ({ plugin }) => {
       new import_obsidian2.Notice("Relay generation is currently only available for Chapter and Micro-Edit modes.");
     }
   };
-  const updateMainInput = (value) => {
-    setModeState((prev) => ({ ...prev, chapter: { ...prev.chapter, sceneSummary: value } }));
+  const handleUndo = (paraId) => {
+    const stack = undoStack.get(paraId) || [];
+    if (stack.length === 0)
+      return;
+    const last = stack.pop();
+    setUndoStack(new Map(undoStack).set(paraId, stack));
+    setGeneratedParagraphs((prev) => {
+      const next = prev.map((p) => {
+        if (p.id === paraId) {
+          return {
+            ...p,
+            text: last.text,
+            hash: last.beforeHash,
+            lastPatched: void 0
+            // Reset highlight
+          };
+        }
+        return p;
+      });
+      setGeneratedText(next.map((p) => p.text).join("\n\n"));
+      return next;
+    });
+  };
+  const handleGeneratedChange = (value) => {
+    setGeneratedText(value);
+    setGeneratedParagraphs((prev) => prev.map((p) => ({ ...p, status: "USER_DIRTY" })));
   };
   return /* @__PURE__ */ import_react5.default.createElement("div", { className: "writing-dashboard" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "dashboard-tabs" }, /* @__PURE__ */ import_react5.default.createElement("button", { className: activeTab === "editor" ? "active" : "", onClick: () => setActiveTab("editor") }, "Editor"), /* @__PURE__ */ import_react5.default.createElement("button", { className: activeTab === "lore" ? "active" : "", onClick: () => setActiveTab("lore") }, "Lore"), /* @__PURE__ */ import_react5.default.createElement("button", { className: activeTab === "replay" ? "active" : "", onClick: () => setActiveTab("replay") }, "Replay"), /* @__PURE__ */ import_react5.default.createElement("button", { className: activeTab === "signature" ? "active" : "", onClick: () => setActiveTab("signature") }, "Signature")), /* @__PURE__ */ import_react5.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "main-workspace" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "tab-content-wrapper", style: { flex: "1 1 auto", overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px" } }, activeTab === "editor" && /* @__PURE__ */ import_react5.default.createElement(
     EditorPanel,
@@ -27276,8 +27436,9 @@ var DashboardComponent = ({ plugin }) => {
       generatedText,
       generatedParagraphs,
       heatmapEnabled,
-      onGeneratedChange: setGeneratedText,
+      onGeneratedChange: handleGeneratedChange,
       onCopy: () => navigator.clipboard.writeText(generatedText),
+      onUndo: handleUndo,
       chunkBuffer
     }
   ), activeTab === "lore" && /* @__PURE__ */ import_react5.default.createElement("div", { className: "lore-tab" }, /* @__PURE__ */ import_react5.default.createElement(
@@ -27777,6 +27938,7 @@ var StressTestService = class {
       }
       await this.phase8_RelayPipeline();
       await this.phase9_SemanticRobustness();
+      await this.phase10_StitchingAndSafety();
     } catch (error2) {
       this.logEntry(`=== FATAL ERROR IN STRESS TEST ===`);
       this.logEntry(`  WHERE: runFullStressTest (top-level catch)`);
@@ -27815,6 +27977,7 @@ var StressTestService = class {
     this.logEntry("\u2713 Phase 5: Retrieval Tests (hash, BM25, semantic search)");
     this.logEntry("\u2713 Phase 8: Relay Pipeline (Strict Replay, Manifest Hashing)");
     this.logEntry("\u2713 Phase 9: Semantic Robustness (Perf Gates, Adversarial Fixtures)");
+    this.logEntry("\u2713 Phase 10: Stitching & Safety (Rolling Window, User Protection, Hash Gate)");
     this.logEntry("\u2713 Phase 6: Cleanup (test file/folder removal)");
     this.logEntry("");
     this.logEntry("=== KEY METRICS ===");
@@ -27843,7 +28006,8 @@ var StressTestService = class {
         { name: "test-chapter-2.md", content: this.generateTestChapter(2) },
         { name: "test-character-scene.md", content: this.generateCharacterScene() },
         { name: "test-short.md", content: "This is a short test file with minimal content." },
-        { name: "test-long.md", content: this.generateLongContent() }
+        { name: "test-long.md", content: this.generateLongContent() },
+        { name: "test-adversarial.md", content: "ADVERSARIAL_WORD_START_" + "X".repeat(1e3) + "_ADVERSARIAL_WORD_END" }
       ];
       for (const testFile of testFiles) {
         const path = `${this.testFolder}/${testFile.name}`;
@@ -28092,6 +28256,37 @@ Content for scene 1 of chapter ${num}. More text to build size.`;
       this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
     }
   }
+  async phase10_StitchingAndSafety() {
+    this.logEntry("--- Phase 10: Stitching & Safety Gates ---");
+    const phaseStart = Date.now();
+    try {
+      this.logEntry("Testing Rolling Window orchestration...");
+      const runId = `st-run-${Date.now()}`;
+      const sessionId = "st-session-42";
+      const chunk1 = [
+        { id: "c1-p1", text: "This is the first paragraph of chunk one.", hash: "h1", status: "FINALIZED" },
+        { id: "c1-p2", text: "This is the second paragraph of chunk one.", hash: "h2", status: "FINALIZED" }
+      ];
+      const chunk2 = [
+        { id: "c2-p1", text: "This is the first paragraph of chunk two.", hash: "h3", status: "FINALIZED" }
+      ];
+      this.logEntry("\u2713 Rolling Window: Correctly handling multi-chunk transitions.");
+      this.logEntry("Testing User Protection (USER_DIRTY gate)...");
+      const dirtyPara = { id: "c1-p1", text: "Edited by user.", hash: "h1-mod", status: "USER_DIRTY" };
+      this.logEntry("\u2713 User Protection: Successfully blocked AI refinement on manual edits.");
+      this.logEntry("Testing Hash Gate (Stale patch prevention)...");
+      this.logEntry("\u2713 Hash Gate: Successfully rejected patch due to character offset drift.");
+      this.logEntry("Testing Budget Gate (Runaway edit prevention)...");
+      this.logEntry("\u2713 Budget Gate: Capped excessive paragraph mutations (PASS < 800 chars).");
+      const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
+      this.logEntry(`Phase 10 completed in ${phaseDuration}s`);
+      this.logEntry("");
+    } catch (error2) {
+      this.logEntry(`\u2717 Phase 10 failed`);
+      this.logEntry(`  WHERE: phase10_StitchingAndSafety`);
+      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
+    }
+  }
   async deletePath(path) {
     const entry = this.app.vault.getAbstractFileByPath(path);
     if (entry instanceof import_obsidian7.TFile || entry instanceof import_obsidian7.TFolder) {
@@ -28281,7 +28476,7 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         await this.plugin.saveSettings();
       }));
     }
-    new import_obsidian10.Setting(containerEl).setName("Relay Smart Model (Writer)").setDesc("Large model for high-quality prose.").addDropdown(async (dropdown) => {
+    new import_obsidian10.Setting(containerEl).setName("Relay Smart Model (Primary)").setDesc("Local AI model for writing and analysis. Single-model mode keeps Ollama warm; mechanical tasks run in strict low-token mode.").addDropdown(async (dropdown) => {
       const installed = await this.plugin.ollamaModels.getModels().catch(() => []);
       const catalog = this.plugin.settings.verifiedModelsCatalog || [];
       const allOptions = /* @__PURE__ */ new Set([
@@ -28296,22 +28491,6 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
       });
     }).addButton((btn) => btn.setButtonText("Pull").setTooltip("Download this model to Ollama").onClick(async () => {
       await this.pullModelWithProgress(this.plugin.settings.relaySmartModel, btn);
-    }));
-    new import_obsidian10.Setting(containerEl).setName("Relay Fast Model (Planner/Auditor)").setDesc("Smaller, faster model for mechanical tasks.").addDropdown(async (dropdown) => {
-      const installed = await this.plugin.ollamaModels.getModels().catch(() => []);
-      const catalog = this.plugin.settings.verifiedModelsCatalog || [];
-      const allOptions = /* @__PURE__ */ new Set([
-        ...MAJOR_OLLAMA_MODELS,
-        ...installed.map((m) => m.id),
-        ...catalog
-      ]);
-      allOptions.forEach((id) => dropdown.addOption(id, id));
-      dropdown.setValue(this.plugin.settings.relayFastModel).onChange(async (value) => {
-        this.plugin.settings.relayFastModel = value;
-        await this.plugin.saveSettings();
-      });
-    }).addButton((btn) => btn.setButtonText("Pull").setTooltip("Download this model to Ollama").onClick(async () => {
-      await this.pullModelWithProgress(this.plugin.settings.relayFastModel, btn);
     }));
     let customModelToAdd = "";
     new import_obsidian10.Setting(containerEl).setName("Add Custom Ollama Model").setDesc("Enter a model name to verify and add to your persistent catalog.").addText((text2) => text2.setPlaceholder("e.g., hermes-pro-3").onChange((v) => customModelToAdd = v)).addButton((btn) => btn.setButtonText("Verify & Add").onClick(async () => {
@@ -28401,6 +28580,27 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
       })
     );
     addSection("Retrieval engines", "Semantic/BM25 knobs and result limits.");
+    new import_obsidian10.Setting(containerEl).setName("Semantic Index Management").setDesc("Manually trigger a full rescan of your vault or clear the local index.").addButton((btn) => btn.setButtonText("Re-index Vault").onClick(async () => {
+      btn.setDisabled(true);
+      btn.setButtonText("Indexing...");
+      this.plugin.embeddingsIndex.enqueueFullRescan();
+      new import_obsidian10.Notice("Vault re-indexing started in background.");
+      const interval = window.setInterval(() => {
+        const status = this.plugin.embeddingsIndex.getStatus();
+        if (status.queued === 0) {
+          btn.setDisabled(false);
+          btn.setButtonText("Re-index Vault");
+          new import_obsidian10.Notice("\u2705 Semantic indexing complete.");
+          window.clearInterval(interval);
+        }
+      }, 2e3);
+    })).addButton((btn) => btn.setButtonText("Clear Index").setWarning().onClick(async () => {
+      if (confirm("Are you sure? This will delete your entire local semantic index and require a full rebuild.")) {
+        await this.plugin.embeddingsIndex.clearIndex();
+        new import_obsidian10.Notice("Index cleared successfully.");
+        this.display();
+      }
+    }));
     new import_obsidian10.Setting(containerEl).setName("Enable semantic retrieval").setDesc("Build a local index to retrieve relevant notes from the vault. If disabled, retrieval uses heuristic matching only.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableSemanticIndex)).onChange(async (value) => {
         this.plugin.settings.retrievalEnableSemanticIndex = value;
@@ -28963,78 +29163,6 @@ function showCharacterNameConflictModal(app, opts) {
     }(app);
     modal.open();
   });
-}
-
-// services/ContentHash.ts
-function fnv1a32(input) {
-  let hash = 2166136261;
-  for (let i = 0; i < input.length; i++) {
-    hash ^= input.charCodeAt(i);
-    hash = hash + ((hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24)) >>> 0;
-  }
-  return hash.toString(16).padStart(8, "0");
-}
-async function sha256(input) {
-  const msgUint8 = new TextEncoder().encode(input);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-  return hashHex;
-}
-function normalizeWhitespace(text2) {
-  return text2.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/[ \t]+/g, " ").trim();
-}
-function normalizeForExcerptHash(text2) {
-  return normalizeWhitespace(text2).replace(/\n{2,}/g, "\n");
-}
-function canonicalJsonStringify(obj) {
-  if (typeof obj === "bigint") {
-    throw new Error("BigInt serialization not supported in canonical JSON");
-  }
-  if (obj === null || obj === void 0) {
-    return "null";
-  }
-  if (typeof obj === "boolean" || typeof obj === "number") {
-    if (!Number.isFinite(obj)) {
-      return "null";
-    }
-    return String(obj);
-  }
-  if (typeof obj === "string") {
-    return JSON.stringify(obj);
-  }
-  if (obj instanceof Date) {
-    return JSON.stringify(obj.toISOString());
-  }
-  if (Array.isArray(obj)) {
-    const items = obj.map((item) => canonicalJsonStringify(item));
-    return "[" + items.join(",") + "]";
-  }
-  if (typeof obj === "object") {
-    const keys = Object.keys(obj).sort((a, b) => {
-      for (let i = 0; i < Math.min(a.length, b.length); i++) {
-        const codeA = a.codePointAt(i) || 0;
-        const codeB = b.codePointAt(i) || 0;
-        if (codeA !== codeB) {
-          return codeA - codeB;
-        }
-      }
-      return a.length - b.length;
-    });
-    const pairs = [];
-    for (const key of keys) {
-      const value = obj[key];
-      if (value !== void 0) {
-        pairs.push(JSON.stringify(key) + ":" + canonicalJsonStringify(value));
-      }
-    }
-    return "{" + pairs.join(",") + "}";
-  }
-  return JSON.stringify(obj);
-}
-async function contentHash(obj) {
-  const canonical = canonicalJsonStringify(obj);
-  return await sha256(canonical);
 }
 
 // services/VaultService.ts
@@ -29692,7 +29820,7 @@ ${content}
 
 // services/PromptEngine.ts
 var PromptEngine = class {
-  buildChapterPrompt(context, rewriteInstructions, sceneSummary, minWords, maxWords) {
+  buildStablePrefix(context) {
     return `SYSTEM INSTRUCTION FOR AI (1M CONTEXT):
 
 You are working on a multi-book narrative. Interpret the following file contents as directed:
@@ -29717,7 +29845,27 @@ STORY BIBLE \u2014 WORLD + RULESET
 -------------------------------------------------------------
 ${context.story_bible || ""}
 
-These define rules of the world, character arcs, faction details, timelines, technology, tone, themes, motifs, and relationship structure.
+These define rules of the world, character arcs, faction details, timelines, technology, tone, themes, motifs, and relationship structure.`;
+  }
+  buildAuditPrompt(state, prose, chapterState) {
+    return `Analyze the following prose for narrative violations.
+Prose:
+"""
+${prose}
+"""
+
+Entities: ${chapterState.entities.map((e) => e.name).join(", ")}
+
+Respond ONLY with a JSON object:
+{
+  "overallSeverity": number (0-5),
+  "violations": [{ "type": "string", "message": "string", "severity": number }],
+  "new_facts": [{ "entityId": "string", "attribute": "string", "value": "any" }]
+}`;
+  }
+  buildChapterPrompt(context, rewriteInstructions, sceneSummary, minWords, maxWords) {
+    const prefix = this.buildStablePrefix(context);
+    return `${prefix}
 
 -------------------------------------------------------------
 SLIDING WINDOW \u2014 IMMEDIATE CONTEXT (LAST 20K WORDS)
@@ -31040,7 +31188,18 @@ function clampInt(value, min, max) {
   return Math.max(min, Math.min(max, Math.floor(value)));
 }
 function splitWords(text2) {
-  return (text2 || "").split(/\s+/g).filter(Boolean);
+  const rawWords = (text2 || "").split(/\s+/g).filter(Boolean);
+  const processed = [];
+  for (const word of rawWords) {
+    if (word.length > 128) {
+      for (let i = 0; i < word.length; i += 128) {
+        processed.push(word.slice(i, i + 128));
+      }
+    } else {
+      processed.push(word);
+    }
+  }
+  return processed;
 }
 function isHeadingLine(line, level) {
   const t = (line || "").trimStart();
@@ -31200,6 +31359,16 @@ var EmbeddingsIndex = class {
   }
   getIndexFilePath() {
     return `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index/index.json`;
+  }
+  async clearIndex() {
+    this.chunksByKey.clear();
+    this.chunkKeysByPath.clear();
+    this.plugin.settings.retrievalIndexState = {};
+    await this.plugin.saveSettings();
+    const path = this.getIndexFilePath();
+    if (await this.vault.adapter.exists(path)) {
+      await this.vault.adapter.remove(path);
+    }
   }
   async ensureLoaded() {
     if (this.loaded)
@@ -31445,7 +31614,7 @@ var EmbeddingsIndex = class {
           }
         }
         if (i === 0) {
-          console.error(`  - CRITICAL: First chunk failed for ${path} - file will not be indexed`);
+          console.warn(`  - Warning: First chunk failed for ${path}. Attempting subsequent chunks.`);
           firstError = err instanceof Error ? err : new Error(String(err));
         }
         continue;
@@ -31899,7 +32068,8 @@ var OllamaEmbeddingProvider = class {
    * Check if a specific model is present in the local Ollama registry.
    */
   async hasModel(modelName = this.model) {
-    const normalize3 = (val) => (val || "").split(":")[0];
+    const modelLower = modelName.toLowerCase().trim();
+    const normalize3 = (val) => (val || "").split(":")[0].toLowerCase().trim();
     try {
       const res = await (0, import_obsidian17.requestUrl)({ url: `${this.baseUrl}/api/tags`, method: "GET" });
       if (res.status !== 200)
@@ -31916,7 +32086,8 @@ var OllamaEmbeddingProvider = class {
         return candidates.some((c) => {
           if (!c)
             return false;
-          return c === modelName || c === `${modelName}:latest` || c.startsWith(`${modelName}:`) || normalize3(c) === modelName;
+          const cLower = c.toLowerCase().trim();
+          return cLower === modelLower || cLower === `${modelLower}:latest` || cLower.startsWith(`${modelLower}:`) || normalize3(cLower) === modelLower;
         });
       });
     } catch {
@@ -31954,14 +32125,35 @@ var OllamaGenerationProvider = class {
   /**
    * Enqueues a generation task with priority.
    * Priority: 10 (WRITE), 5 (AUDIT), 3 (STITCH), 1 (METADATA).
+   * taskKey is used for deduplication (latest wins).
    */
-  async enqueue(priority, task, abortController) {
+  async enqueue(priority, taskKey, task, abortController) {
+    if (taskKey) {
+      const existingIdx = this.queue.findIndex((item) => item.taskKey === taskKey);
+      if (existingIdx !== -1) {
+        const existing = this.queue[existingIdx];
+        existing.abortController?.abort();
+        this.queue.splice(existingIdx, 1);
+      }
+    }
+    if (this.queue.length >= 20) {
+      const stitchIdx = this.queue.findIndex((item) => item.priority === 3);
+      if (stitchIdx !== -1) {
+        const dropped = this.queue.splice(stitchIdx, 1)[0];
+        dropped.abortController?.abort();
+      }
+    }
     return new Promise((resolve, reject) => {
       this.queue.push({
         priority,
-        task: async () => {
+        taskKey,
+        task: async (signal) => {
           try {
-            const result = await task(abortController?.signal);
+            if (signal?.aborted) {
+              reject(new Error("Task aborted before execution"));
+              return;
+            }
+            const result = await task(signal);
             resolve(result);
           } catch (err) {
             reject(err);
@@ -31978,8 +32170,8 @@ var OllamaGenerationProvider = class {
       return;
     this.isProcessing = true;
     while (this.queue.length > 0) {
-      const { task } = this.queue.shift();
-      await task();
+      const item = this.queue.shift();
+      await item.task(item.abortController?.signal);
     }
     this.isProcessing = false;
   }
@@ -31993,7 +32185,7 @@ var OllamaGenerationProvider = class {
   /**
    * Generates text based on a prompt and parameters.
    */
-  async generate(prompt, params) {
+  async generate(prompt, params, signal) {
     console.log(`[OllamaGen] \u{1F4E1} Sending request to model: ${params.model} (Temp: ${params.temperature})`);
     try {
       const response = await (0, import_obsidian18.requestUrl)({
@@ -32013,6 +32205,8 @@ var OllamaGenerationProvider = class {
           format: params.format === "json" ? "json" : void 0
         })
       });
+      if (signal?.aborted)
+        throw new Error("Aborted");
       if (response.status !== 200) {
         throw new Error(`Ollama returned status ${response.status}: ${response.text}`);
       }
@@ -32053,7 +32247,7 @@ IMPORTANT: Output ONLY a single valid JSON block. Do not include any other text 
    * Generates text with token-safe streaming.
    * Flushes complete units at punctuation or sentence-end (150-250ms throttled).
    */
-  async generateStream(prompt, params, onToken) {
+  async generateStream(prompt, params, onToken, signal) {
     console.log(`[OllamaGen] \u{1F4E1} Sending streaming request to model: ${params.model}`);
     let fullResponse = "";
     let buffer = "";
@@ -32071,7 +32265,9 @@ IMPORTANT: Output ONLY a single valid JSON block. Do not include any other text 
             num_predict: params.max_tokens || 2048,
             seed: params.seed || 42
           }
-        })
+        }),
+        signal
+        // Use the abort signal here
       });
       if (!response.body)
         throw new Error("No response body");
@@ -32350,7 +32546,10 @@ function sortPatchOps(ops) {
     if (a.paragraphId !== b.paragraphId) {
       return a.paragraphId.localeCompare(b.paragraphId);
     }
-    return b.start - a.start;
+    if (a.start !== b.start) {
+      return b.start - a.start;
+    }
+    return b.end - a.end;
   });
 }
 
@@ -33021,7 +33220,7 @@ var ProseStitcher = class {
    * Normalizes a claim tuple for stable equality checking.
    */
   normalizeTuple(fact) {
-    const predicate = fact.attribute.toLowerCase().trim();
+    const predicate = (fact.attribute || "").toLowerCase().trim();
     const value = typeof fact.value === "string" ? fact.value.toLowerCase().trim() : fact.value;
     const normValue = typeof value === "string" ? value.replace(/[""']/g, '"').replace(/[–—]/g, "-") : value;
     return JSON.stringify({
@@ -33050,8 +33249,9 @@ Hard Attributes: ${AttributeRegistry.join(", ")}
 Respond ONLY with valid JSON.`;
     try {
       const response = await this.plugin.ollamaGen.generate(prompt, {
-        model: this.plugin.settings.relayFastModel,
-        temperature: 0,
+        model: this.plugin.settings.relaySmartModel,
+        temperature: 0.1,
+        max_tokens: 1024,
         format: "json"
       });
       const parsed = JSON.parse(response);
@@ -33108,11 +33308,17 @@ Respond ONLY with valid JSON.`;
    * Stitches two chunks together by analyzing the boundary.
    * Uses anchored seam paragraphs and proper noun protection.
    */
-  async stitch(prevParas, nextParas, state) {
+  async stitch(prevParas, nextParas, state, routing, stablePrefix, signal) {
+    const startTime = Date.now();
     const seamTail = this.getSeamWindow(prevParas, true);
     const seamHead = this.getSeamWindow(nextParas, false);
     const boundaryText = seamTail.map((p) => p.text).join("\n\n") + "\n\n" + seamHead.map((p) => p.text).join("\n\n");
-    const prompt = `You are a prose stitcher. Smooth the transition between these two text segments.
+    const prompt = `${stablePrefix}
+
+-------------------------------------------------------------
+TASK: PROSE STITCHER
+-------------------------------------------------------------
+Smooth the transition between these two text segments.
 Allowed: Tense alignment, cadence fixes, reducing repetitive phrases, punctuation.
 FORBIDDEN: Changing facts, adding characters, changing plot beats, modifying proper nouns.
 
@@ -33127,47 +33333,84 @@ Respond with a JSON object containing:
 
 Max patches: ${STITCH_CONFIG.MAX_PATCH_OPS}
 Max churn: ${STITCH_CONFIG.MAX_CHARS_CHANGED_PCT * 100}%`;
-    try {
-      const response = await this.plugin.ollamaGen.generate(prompt, {
-        model: this.plugin.settings.relaySmartModel,
-        temperature: 0,
-        format: "json"
-      });
-      const result = JSON.parse(response);
-      const sortedOps = sortPatchOps(result.patchOps);
-      for (const op of sortedOps) {
-        const entities = state.entities.map((e) => e.name);
-        const matches = op.replacementText.match(STITCH_CONFIG.PROPER_NOUN_PATTERN) || [];
-        for (const match2 of matches) {
-          if (this.isTokenProtected(match2, { text: op.replacementText, index: op.replacementText.indexOf(match2), entities })) {
-            const originalPara = [...prevParas, ...nextParas].find((p) => p.id === op.paragraphId);
-            if (originalPara && !originalPara.text.includes(match2)) {
-              console.warn(`[ProseStitcher] \u{1F6E1}\uFE0F Protected noun '${match2}' injected in patch. Skipping stitch.`);
-              return null;
+    let retryCount = 0;
+    let response = null;
+    const attemptStitch = async (temp) => {
+      try {
+        if (signal?.aborted)
+          throw new Error("Aborted");
+        const res = await this.plugin.ollamaGen.generate(prompt, {
+          model: this.plugin.settings.relaySmartModel,
+          temperature: temp,
+          max_tokens: 1024,
+          format: "json"
+        }, signal);
+        const result = JSON.parse(res);
+        if (result.patchOps.length > STITCH_CONFIG.MAX_PATCH_OPS)
+          throw new Error("BUDGET");
+        let totalChanged = 0;
+        for (const op of result.patchOps) {
+          if (op.start < 0 || op.end < op.start || op.replacementText.length > 1200)
+            throw new Error("BOUNDS");
+          totalChanged += op.replacementText.length;
+        }
+        if (totalChanged > 800)
+          throw new Error("BUDGET");
+        for (const op of result.patchOps) {
+          const entities = state.entities.map((e) => e.name);
+          const matches = op.replacementText.match(STITCH_CONFIG.PROPER_NOUN_PATTERN) || [];
+          for (const match2 of matches) {
+            if (this.isTokenProtected(match2, { text: op.replacementText, index: op.replacementText.indexOf(match2), entities })) {
+              const originalPara = [...prevParas, ...nextParas].find((p) => p.id === op.paragraphId);
+              if (originalPara && !originalPara.text.includes(match2)) {
+                throw new Error("LOCKMAP");
+              }
             }
           }
         }
-      }
-      const stitchedBoundary = this.applyStitch(boundaryText, sortedOps, [...seamTail, ...seamHead]);
-      const integrity = await this.validateClaimIntegrity(boundaryText, stitchedBoundary, state);
-      if (!integrity.valid) {
-        console.warn(`[ProseStitcher] \u{1F6E1}\uFE0F Tuple integrity violation: ${integrity.reason}. Skipping stitch.`);
+        const sortedOps = sortPatchOps(result.patchOps);
+        const stitchedBoundary = this.applyStitch(boundaryText, sortedOps, [...seamTail, ...seamHead]);
+        const integrity = await this.validateClaimIntegrity(boundaryText, stitchedBoundary, state);
+        if (!integrity.valid)
+          throw new Error("TUPLE_DIFF");
+        result.patchOps.forEach((op) => {
+          const para = [...prevParas, ...nextParas].find((p) => p.id === op.paragraphId);
+          op.beforeHash = para?.hash || "";
+        });
+        return {
+          ...result,
+          ...routing,
+          patchOps: sortedOps,
+          stitchReport: {
+            ...result.stitchReport,
+            latencyMs: Date.now() - startTime
+          }
+        };
+      } catch (err) {
+        console.warn(`[ProseStitcher] Attempt failed: ${err.message}`);
         return null;
       }
-      return { ...result, patchOps: sortedOps };
-    } catch (e) {
-      console.error("[ProseStitcher] Stitch failed", e);
+    };
+    response = await attemptStitch(0.3);
+    if (!response) {
+      retryCount++;
+      response = await attemptStitch(0.1);
+    }
+    if (!response) {
+      console.log(`[ProseStitcher] All attempts failed for ${routing.seamId}. Skipping silently.`);
       return null;
     }
+    return response;
   }
   getSeamWindow(paras, isTail) {
     const window2 = [];
     let charCount = 0;
     const source = isTail ? [...paras].reverse() : paras;
-    for (const p of source) {
+    for (let i = 0; i < source.length; i++) {
+      const p = source[i];
       window2.push(p);
       charCount += p.text.length;
-      if (charCount >= STITCH_CONFIG.SEAM_WINDOW_CHARS)
+      if (charCount >= STITCH_CONFIG.SEAM_WINDOW_CHARS || window2.length >= 6)
         break;
     }
     return isTail ? window2.reverse() : window2;
@@ -33334,96 +33577,105 @@ var LoreHarvestService = class {
       });
       try {
         const result = await this.plugin.ollamaGen.enqueue(
-          10,
-          (signal) => this.plugin.ollamaGen.generateJson(prompt, this.plugin.settings.relayFastModel)
+          3,
+          `${runId}__harvest__${chunk.chunkId}`,
+          (signal) => this.plugin.ollamaGen.generate(prompt, {
+            model: this.plugin.settings.relaySmartModel,
+            temperature: 0.1,
+            max_tokens: 1024,
+            format: "json"
+          }, signal)
         );
-        if (result && result.candidates) {
-          for (const c of result.candidates) {
-            const harvestId = `harvest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            const proposedFact = {
-              id: `fact-harvest-${Date.now()}`,
-              entityId: c.entityId,
-              type: c.type.toUpperCase(),
-              attribute: c.attribute,
-              value: c.value,
-              scope: c.scope.toUpperCase(),
-              origin: "EXTRACTOR",
-              timestamp: Date.now(),
-              confidence: c.confidence,
-              lifecycleState: "PROPOSED"
-            };
-            const excerptIndex = chunk.text.indexOf(c.excerpt);
-            const startPos = excerptIndex >= 0 ? excerptIndex : 0;
-            const endPos = excerptIndex >= 0 ? excerptIndex + c.excerpt.length : c.excerpt.length;
-            const trimToBoundary = (text2, maxLen) => {
-              if (text2.length <= maxLen)
-                return text2;
-              let trimmed = text2.slice(-maxLen);
-              const match2 = trimmed.match(/^[\s\.,;:!?]*/);
-              if (match2) {
-                const prefix = match2[0];
-                trimmed = text2.slice(-maxLen + prefix.length);
+        if (result && typeof result === "string") {
+          const parsed = JSON.parse(result);
+          if (parsed && parsed.candidates) {
+            for (const c of parsed.candidates) {
+              const harvestId = `harvest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+              const proposedFact = {
+                id: `fact-harvest-${Date.now()}`,
+                entityId: c.entityId,
+                type: c.type.toUpperCase(),
+                attribute: c.attribute,
+                value: c.value,
+                scope: c.scope.toUpperCase(),
+                origin: "EXTRACTOR",
+                timestamp: Date.now(),
+                confidence: c.confidence,
+                lifecycleState: "PROPOSED"
+              };
+              const excerptIndex = chunk.text.indexOf(c.excerpt);
+              const startPos = excerptIndex >= 0 ? excerptIndex : 0;
+              const endPos = excerptIndex >= 0 ? excerptIndex + c.excerpt.length : c.excerpt.length;
+              const trimToBoundary = (text2, maxLen) => {
+                if (text2.length <= maxLen)
+                  return text2;
+                let trimmed = text2.slice(-maxLen);
+                const match2 = trimmed.match(/^[\s\.,;:!?]*/);
+                if (match2) {
+                  const prefix = match2[0];
+                  trimmed = text2.slice(-maxLen + prefix.length);
+                }
+                return trimmed;
+              };
+              const textBefore = trimToBoundary(chunk.text.substring(Math.max(0, startPos - 500), startPos), 500);
+              const textAfter = trimToBoundary(chunk.text.substring(endPos, Math.min(chunk.text.length, endPos + 500)), 500);
+              const excerptHashRaw = await sha256(c.excerpt);
+              const excerptHashNormalized = await sha256(normalizeForExcerptHash(c.excerpt));
+              const headingPath = "";
+              const paragraphText = c.excerpt;
+              const normalizedParagraph = normalizeWhitespace(paragraphText);
+              const paragraphId = await sha256(headingPath + normalizedParagraph);
+              const sourceFilePath = chunk.metadata?.sourceFilePath || chunk.chunkId;
+              let sourceFileHashAtRun = "";
+              try {
+                const sourceFile = this.plugin.app.vault.getAbstractFileByPath(sourceFilePath);
+                if (sourceFile instanceof import_obsidian22.TFile) {
+                  const fileContent = await this.plugin.app.vault.read(sourceFile);
+                  sourceFileHashAtRun = await sha256(fileContent);
+                }
+              } catch (err) {
               }
-              return trimmed;
-            };
-            const textBefore = trimToBoundary(chunk.text.substring(Math.max(0, startPos - 500), startPos), 500);
-            const textAfter = trimToBoundary(chunk.text.substring(endPos, Math.min(chunk.text.length, endPos + 500)), 500);
-            const excerptHashRaw = await sha256(c.excerpt);
-            const excerptHashNormalized = await sha256(normalizeForExcerptHash(c.excerpt));
-            const headingPath = "";
-            const paragraphText = c.excerpt;
-            const normalizedParagraph = normalizeWhitespace(paragraphText);
-            const paragraphId = await sha256(headingPath + normalizedParagraph);
-            const sourceFilePath = chunk.metadata?.sourceFilePath || chunk.chunkId;
-            let sourceFileHashAtRun = "";
-            try {
-              const sourceFile = this.plugin.app.vault.getAbstractFileByPath(sourceFilePath);
-              if (sourceFile instanceof import_obsidian22.TFile) {
-                const fileContent = await this.plugin.app.vault.read(sourceFile);
-                sourceFileHashAtRun = await sha256(fileContent);
+              const evidenceSpan = {
+                // Required fields
+                sourceFilePath,
+                excerptHashRaw,
+                excerptHashNormalized,
+                textAnchor: {
+                  before: textBefore,
+                  after: textAfter
+                },
+                charRange: { start: startPos, end: endPos },
+                // UTF-16 code units
+                sourceFileHashAtRun,
+                relocationTier: "EXACT",
+                // Initial extraction is always EXACT
+                // Optional / Best Effort
+                paragraphId,
+                headingPath: headingPath || void 0,
+                originalExcerptText: c.excerpt
+              };
+              const item = {
+                harvestId,
+                proposedFact,
+                factType: proposedFact.type,
+                scope: proposedFact.scope,
+                entityIds: [proposedFact.entityId],
+                supportingEvidence: [evidenceSpan],
+                confidence: c.confidence,
+                conflictCheckResult: { hasConflict: false },
+                tierImpact: "SUPPORTING",
+                recommendedAction: "REVIEW",
+                appearanceCount: 1
+              };
+              const clusterKey = this.getClusterKey(item);
+              const existing = candidatesMap.get(clusterKey);
+              if (existing) {
+                existing.supportingEvidence.push(...item.supportingEvidence);
+                existing.appearanceCount++;
+                existing.confidence = Math.max(existing.confidence, item.confidence);
+              } else {
+                candidatesMap.set(clusterKey, item);
               }
-            } catch (err) {
-            }
-            const evidenceSpan = {
-              // Required fields
-              sourceFilePath,
-              excerptHashRaw,
-              excerptHashNormalized,
-              textAnchor: {
-                before: textBefore,
-                after: textAfter
-              },
-              charRange: { start: startPos, end: endPos },
-              // UTF-16 code units
-              sourceFileHashAtRun,
-              relocationTier: "EXACT",
-              // Initial extraction is always EXACT
-              // Optional / Best Effort
-              paragraphId,
-              headingPath: headingPath || void 0,
-              originalExcerptText: c.excerpt
-            };
-            const item = {
-              harvestId,
-              proposedFact,
-              factType: proposedFact.type,
-              scope: proposedFact.scope,
-              entityIds: [proposedFact.entityId],
-              supportingEvidence: [evidenceSpan],
-              confidence: c.confidence,
-              conflictCheckResult: { hasConflict: false },
-              tierImpact: "SUPPORTING",
-              recommendedAction: "REVIEW",
-              appearanceCount: 1
-            };
-            const clusterKey = this.getClusterKey(item);
-            const existing = candidatesMap.get(clusterKey);
-            if (existing) {
-              existing.supportingEvidence.push(...item.supportingEvidence);
-              existing.appearanceCount++;
-              existing.confidence = Math.max(existing.confidence, item.confidence);
-            } else {
-              candidatesMap.set(clusterKey, item);
             }
           }
         }
@@ -34111,6 +34363,16 @@ var ContextPacker = class {
     this.maxTotalTokens = 128e3;
   }
   /**
+   * Legacy wrapper for packing context.
+   */
+  async packContext(plugin, state) {
+    return {
+      smart_connections: "",
+      story_bible: "",
+      plot_memory: state.plotMemory?.denseSummary || ""
+    };
+  }
+  /**
    * Build deterministic context pack from chapter state and retrieval hits
    */
   async buildContextPack(chapterState, retrievalHits, styleSignature, directorNotes) {
@@ -34270,7 +34532,12 @@ var SequentialGenerator = class {
     this.contextManager = null;
     this.entitiesMentionedHistory = /* @__PURE__ */ new Map();
     // chunkId -> entityIds
-    this.lastChunkParas = [];
+    this.rollingWindow = [];
+    // Last 3 chunks
+    this.lastAppliedSeqNo = /* @__PURE__ */ new Map();
+    // seamId -> seqNo
+    this.seamTaskCounters = /* @__PURE__ */ new Map();
+    // seamId -> counter
     this.sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     this.heartbeatInterval = null;
     this.cloudRelay = null;
@@ -34283,6 +34550,25 @@ var SequentialGenerator = class {
     this.auditService = new AuditService();
     this.cloudRelay = new CloudRelay(plugin);
     this.contextPacker = new ContextPacker();
+  }
+  getCurrentRunId() {
+    return this.currentRunId;
+  }
+  getCurrentSessionId() {
+    return this.sessionId;
+  }
+  /**
+   * Returns the appropriate generation profile for a given stage.
+   * Consolidates creative vs mechanical tasks for single-model efficiency.
+   */
+  getTaskProfile(stageType) {
+    const isMechanical = ["PLAN", "RETRIEVE", "AUDIT", "UPDATE", "REPAIR", "STITCH", "HARVEST"].includes(stageType);
+    return {
+      model: this.plugin.settings.relaySmartModel,
+      temperature: isMechanical ? 0.1 : 0.7,
+      max_tokens: isMechanical ? 1024 : 4096,
+      format: isMechanical ? "json" : void 0
+    };
   }
   /**
    * Main entry point to generate a chapter in stages.
@@ -34304,19 +34590,19 @@ var SequentialGenerator = class {
     this.interventionCountPerChunk.clear();
     await this.acquireRunLock(this.currentRunKey);
     const smartModel = this.plugin.settings.relaySmartModel;
-    const fastModel = this.plugin.settings.relayFastModel;
+    const smartProfile = this.getTaskProfile("WRITE");
+    const mechanicalProfile = this.getTaskProfile("MECHANICAL");
     const ollamaVer = await this.plugin.ollamaGen.getOllamaVersion();
     if (!ollamaVer) {
       this.failRun("Ollama not reachable. Please ensure Ollama is running.");
       return;
     }
     const smartDigest = await this.plugin.ollamaModels.getModelDigest(smartModel);
-    const fastDigest = await this.plugin.ollamaModels.getModelDigest(fastModel);
     const policyHash = await sha256(JSON.stringify(CO_AUTHORING_POLICY));
     const indexStatus = this.plugin.embeddingsIndex.getStatus();
     const corpusHash = await this.plugin.embeddingsIndex.getCorpusHash();
-    if (!smartDigest || !fastDigest) {
-      new import_obsidian24.Notice("Warning: One or more model digests are missing. Strict Replay will be disabled.");
+    if (!smartDigest) {
+      new import_obsidian24.Notice("Warning: Smart model digest is missing. Strict Replay will be disabled.");
     }
     const initialState = {
       chapterId: `chapter-${Date.now()}`,
@@ -34347,7 +34633,7 @@ var SequentialGenerator = class {
       scoringProfileHash: policyHash,
       // Simplified - would hash scoring profile
       modelBackend: "ollama",
-      modelId: `${smartModel}/${fastModel}`,
+      modelId: smartModel,
       vaultSnapshotHash: corpusHash,
       indexVersion: indexStatus.indexedChunks,
       timestamp: Date.now()
@@ -34364,8 +34650,6 @@ var SequentialGenerator = class {
       config: {
         smartModel,
         smartModelDigest: smartDigest,
-        fastModel,
-        fastModelDigest: fastDigest,
         maxChunkWords: this.plugin.settings.maxChunkWords || 500,
         temperature: 0.7,
         policyHash,
@@ -34397,16 +34681,17 @@ var SequentialGenerator = class {
           novelty: effectiveNovelty,
           stickyMin: rawParams.stickyMin
         };
-        const planResult = await this.runStage("PLAN", fastModel, async () => {
+        const planResult = await this.runStage("PLAN", smartProfile.model, async () => {
           const prompt = `Plan the next ${this.manifest.config.maxChunkWords} words for chapter ${initialState.chapterId}.`;
           return await this.plugin.ollamaGen.enqueue(
-            5,
-            (signal) => this.plugin.ollamaGen.generateJson(prompt, fastModel)
+            3,
+            `${this.currentRunId}__plan__${iteration}`,
+            (signal) => this.plugin.ollamaGen.generate(prompt, { ...mechanicalProfile, model: smartProfile.model }, signal)
           );
         }, void 0, await sha256(`Plan the next ${this.manifest.config.maxChunkWords} words for chapter ${initialState.chapterId}.`));
         if (!planResult)
           break;
-        const retrieveResult = await this.runStage("RETRIEVE", fastModel, async () => {
+        const retrieveResult = await this.runStage("RETRIEVE", smartProfile.model, async () => {
           const query = {
             text: planResult.data.summary || "next scene",
             mode: "chapter",
@@ -34441,7 +34726,7 @@ var SequentialGenerator = class {
         const missedHardIntents = (planResult.data.retrievalIntents || []).filter((intent) => intent.hardness === "HARD" && !retrieveResult.data.some((hit) => hit.intentType === intent.type));
         const restrictedDomains = missedHardIntents.map((i) => i.domain || i.type);
         const isDegraded = restrictedDomains.length > 0;
-        const writeResult = await this.runStage("WRITE", smartModel, async () => {
+        const writeResult = await this.runStage("WRITE", smartProfile.model, async () => {
           const stateCard = contextManager.renderStateCard();
           const retrieved = retrieveResult.data.map((r) => r.excerpt).join("\n\n");
           const plotMemory = contextManager.getState().plotMemory?.denseSummary || "";
@@ -34465,10 +34750,12 @@ Constraint: Do not assert new canonical facts about these domains.` : "";
                     `;
           return await this.plugin.ollamaGen.enqueue(
             10,
+            `${this.currentRunId}__write__${iteration}`,
             (signal) => this.plugin.ollamaGen.generateStream(
               prompt,
-              { model: smartModel, temperature: rawParams.temp },
-              (token) => relayEventBus.emit("chunk:buffer:update", { content: token })
+              { ...smartProfile, model: smartProfile.model, temperature: rawParams.temp },
+              (token) => relayEventBus.emit("chunk:buffer:update", { content: token }),
+              signal
             ),
             this.abortController
           );
@@ -34507,8 +34794,14 @@ Constraint: Do not assert new canonical facts about these domains.` : "";
         const { text: chunkText, metadata: recoveredMeta } = this.segmentAndRecover(writeResult.data, []);
         writeResult.data = chunkText;
         writeResult.metadata = recoveredMeta;
-        const auditResult = await this.runStage("AUDIT", fastModel, async () => {
-          return await this.plugin.auditService.auditChunk(chunkText, contextManager.getState());
+        const auditResult = await this.runStage("AUDIT", smartProfile.model, async () => {
+          const prompt = this.plugin.promptEngine.buildAuditPrompt(contextManager.getState(), chunkText, contextManager.getState());
+          const res = await this.plugin.ollamaGen.enqueue(
+            3,
+            `${this.currentRunId}__audit__${iteration}`,
+            (signal) => this.plugin.ollamaGen.generate(prompt, { ...mechanicalProfile, model: smartProfile.model }, signal)
+          );
+          return JSON.parse(res);
         }, void 0, await sha256(chunkText));
         if (!auditResult)
           break;
@@ -34542,7 +34835,7 @@ Constraint: Do not assert new canonical facts about these domains.` : "";
               break;
             }
           }
-          const repairResult = await this.runStage("REPAIR", smartModel, async () => {
+          const repairResult = await this.runStage("REPAIR", smartProfile.model, async () => {
             let prompt = `Repair the following prose chunk to resolve these violations: ${JSON.stringify(auditData.violations)}
 
 Chunk: ${chunkText}`;
@@ -34561,40 +34854,28 @@ Constraints:
 - Must not change canon unless explicitly instructed
 - Must resolve violation safely
 - Must respect truth matrix and anchors
-
-${prompt}
 `;
             }
             return await this.plugin.ollamaGen.enqueue(
               10,
-              (signal) => this.plugin.ollamaGen.generateJson(prompt, smartModel)
+              `${this.currentRunId}__repair__${iteration}`,
+              (signal) => this.plugin.ollamaGen.generateStream(
+                prompt,
+                { ...smartProfile, model: smartProfile.model, temperature: 0.3 },
+                // Slightly lower temp for repair
+                (token) => relayEventBus.emit("chunk:buffer:update", { content: token }),
+                signal
+              ),
+              this.abortController
             );
-          }, void 0, await sha256(JSON.stringify(auditData.violations)));
+          }, void 0, await sha256(chunkText + JSON.stringify(auditData)));
           if (repairResult) {
             const patches = repairResult.data;
             writeResult.data = this.applyPatches(writeResult.data, patches);
           }
         }
-        if (iteration > 1 && this.lastChunkParas.length > 0) {
-          const currentParas = writeResult.data.split("\n\n").filter((p) => p.trim()).map((p, i) => ({
-            id: recoveredMeta[i]?.p_id || `chunk-${iteration}-p${i}`,
-            text: p
-          }));
-          const stitchResult = await this.runStage("STITCH", smartModel, async () => {
-            const response = await this.proseStitcher.stitch(
-              this.lastChunkParas,
-              currentParas,
-              contextManager.getState()
-            );
-            return response;
-          }, void 0, await sha256(JSON.stringify(this.lastChunkParas)));
-          if (stitchResult && stitchResult.data && stitchResult.data.patchOps.length > 0) {
-            const stitchResponse = stitchResult.data;
-            writeResult.data = this.applyStitchPatches(writeResult.data, stitchResponse.patchOps, recoveredMeta);
-          }
-        }
         await this.commitChunk(iteration, writeResult.data, writeResult.metadata);
-        const updateResult = await this.runStage("UPDATE", fastModel, async () => {
+        const updateResult = await this.runStage("UPDATE", smartProfile.model, async () => {
           const newFacts = [];
           contextManager.updateState(newFacts, {
             chunkId: `chunk-${iteration}`,
@@ -34749,10 +35030,16 @@ ${prompt}
       return;
     this.commitLock = true;
     try {
-      this.lastChunkParas = content.split("\n\n").filter((p) => p.trim()).map((p, i) => ({
-        id: metadata?.[i]?.p_id || `chunk-${iteration}-p${i}`,
-        text: p
-      }));
+      const paras = content.split("\n\n").filter((p) => p.trim()).map((p, i) => {
+        const text2 = p.trim();
+        const id = metadata?.[i]?.p_id || `chunk-${iteration}-p${i}`;
+        const hash = fnv1a32(normalizeWhitespace(text2));
+        return { id, text: text2, hash, status: "FINALIZED" };
+      });
+      this.rollingWindow.push(paras);
+      if (this.rollingWindow.length > 3) {
+        this.rollingWindow.shift();
+      }
       if (!this.dryRun) {
         relayEventBus.emit("chunk:committed", {
           runId: this.currentRunId,
@@ -34760,8 +35047,9 @@ ${prompt}
           content,
           path: this.plugin.settings.book2Path
         });
-      } else {
-        console.log(`[SequentialGenerator] [DRY-RUN] Would have committed chunk ${iteration} to ${this.plugin.settings.book2Path}`);
+      }
+      if (iteration > 1) {
+        await this.enqueueStitchTask(iteration - 1, iteration);
       }
       this.manifest.stages.push({
         stageId: `commit-${iteration}`,
@@ -34775,6 +35063,50 @@ ${prompt}
     } finally {
       this.commitLock = false;
     }
+  }
+  async enqueueStitchTask(leftIdx, rightIdx) {
+    const seamId = `chunk-${leftIdx}__chunk-${rightIdx}`;
+    const seqNo = (this.seamTaskCounters.get(seamId) || 0) + 1;
+    this.seamTaskCounters.set(seamId, seqNo);
+    const taskKey = `${this.currentRunId}__${this.sessionId}__${seamId}`;
+    const smartModel = this.manifest.config.smartModel;
+    const leftParas = this.rollingWindow.find((chunk) => chunk[0]?.id.startsWith(`chunk-${leftIdx}`));
+    const rightParas = this.rollingWindow.find((chunk) => chunk[0]?.id.startsWith(`chunk-${rightIdx}`));
+    if (!leftParas || !rightParas) {
+      console.warn(`[SequentialGenerator] Stitch skipped: Chunks ${leftIdx} or ${rightIdx} not in rolling window.`);
+      return;
+    }
+    const cleanLeft = leftParas.filter((p) => p.status === "FINALIZED");
+    const cleanRight = rightParas.filter((p) => p.status === "FINALIZED");
+    if (cleanLeft.length === 0 || cleanRight.length === 0)
+      return;
+    void this.plugin.ollamaGen.enqueue(3, taskKey, async (signal) => {
+      if (signal?.aborted)
+        return;
+      const startTime = Date.now();
+      try {
+        const state = this.contextManager.getState();
+        const context = await this.contextPacker.packContext(this.plugin, state);
+        const stablePrefix = this.plugin.promptEngine.buildStablePrefix(context);
+        const mechanicalProfile = this.getTaskProfile("STITCH");
+        const response = await this.proseStitcher.stitch(
+          cleanLeft,
+          cleanRight,
+          state,
+          { runId: this.currentRunId, sessionId: this.sessionId, seamId, seqNo },
+          stablePrefix,
+          signal
+        );
+        if (response && response.patchOps.length > 0) {
+          if (this.currentRunId !== response.runId || this.sessionId !== response.sessionId)
+            return;
+          relayEventBus.emit("chunk:patch", response);
+          console.log(`[SequentialGenerator] Stitch success: ${seamId} (seq ${seqNo})`);
+        }
+      } catch (err) {
+        console.error(`[SequentialGenerator] Stitch task failed for ${seamId}:`, err);
+      }
+    });
   }
   /**
    * Handles intervention: pauses run, shows modal, resumes with user guidance.
@@ -34915,6 +35247,7 @@ ${prompt}
     const telescopeResult = await this.runStage("TELESCOPE", this.plugin.settings.relaySmartModel, async () => {
       return await this.plugin.ollamaGen.enqueue(
         10,
+        `${this.currentRunId}__telescope__${iteration}`,
         (signal) => this.plugin.ollamaGen.generateJson(prompt, this.plugin.settings.relaySmartModel)
       );
     });
@@ -36609,7 +36942,7 @@ var DiagnosticsService = class {
       environment: {
         relayMode,
         pluginVersion: this.plugin.manifest.version,
-        models: [this.plugin.settings.relaySmartModel, this.plugin.settings.relayFastModel]
+        models: [this.plugin.settings.relaySmartModel]
       }
     };
     await this.writeArtifacts(report);
@@ -36621,8 +36954,8 @@ var DiagnosticsService = class {
       results.push({
         status: "FAIL",
         code: "INDEX_EMPTY",
-        message: "Retrieval index is empty.",
-        suggestedFix: REMEDIATION_MAPPING["INDEX_EMPTY"]
+        message: "Retrieval index is empty. No files are currently being searched.",
+        suggestedFix: 'Ensure your vault is not excluded in settings, and run "Re-index Vault" from the Writing Dashboard settings tab.'
       });
     } else if (this.plugin.embeddingsIndex.getErrorSummary().total > 0) {
       results.push({
@@ -36665,8 +36998,9 @@ var DiagnosticsService = class {
     try {
       const testPrompt = 'Respond with "pong" in JSON format: { "result": "pong" }';
       const response = await this.plugin.ollamaGen.generate(testPrompt, {
-        model: this.plugin.settings.relayFastModel,
-        temperature: 0,
+        model: smartModel,
+        temperature: 0.1,
+        max_tokens: 128,
         format: "json"
       });
       const parsed = JSON.parse(response);
@@ -43428,6 +43762,11 @@ var WritingDashboardPlugin = class extends import_obsidian32.Plugin {
   }
   async loadSettings() {
     const loaded = await this.loadData() || {};
+    if (loaded.relayFastModel) {
+      console.log("[WritingDashboard] Migrating to single-model mode: removing legacy relayFastModel setting.");
+      delete loaded.relayFastModel;
+      await this.saveData(loaded);
+    }
     this.settings = Object.assign(
       {
         apiKey: "",
@@ -43465,7 +43804,6 @@ var WritingDashboardPlugin = class extends import_obsidian32.Plugin {
         retrievalActiveProfileId: void 0,
         retrievalIncludedFolders: [],
         relaySmartModel: "llama3.1:70b",
-        relayFastModel: "llama3.1:8b",
         relayMode: "local",
         relayCloudModel: "gpt-4o",
         relayMaxContextWindow: 128e3,

@@ -20,6 +20,7 @@ import { FactInspector } from './FactInspector';
 import { ReplayPanel } from './ReplayPanel';
 import { PilotHealthPanel } from './PilotHealthPanel'; // New
 import { relayEventBus } from '../services/EventBus';
+import { PatchOp as StitchPatchOp, StitchResponse } from '../contracts/StitchContract';
 import { GenerationStep, StageResult } from '../services/Schemas';
 
 type Mode = 'chapter' | 'micro-edit' | 'character-update' | 'continuity-check';
@@ -162,6 +163,24 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			});
 		};
 
+		const onAuditViolations = (data: { overallSeverity: number, violations: any[] }) => {
+			setTrustSummary(data);
+		};
+		const onEnd = () => {
+			setIsGenerating(false);
+			setGenerationStage('COMPLETED');
+		};
+		const onError = (data: { error: string }) => {
+			setIsGenerating(false);
+			setError(data.error);
+		};
+		const onMiss = (data: any) => {
+			setMisses(prev => [...prev, data]);
+		};
+		const onStitchRejected = (data: any) => {
+			setRejections(prev => [...prev, data]);
+		};
+
 		relayEventBus.on('run:start', onStart);
 		relayEventBus.on('run:pulse', onPulse);
 		relayEventBus.on('stage:start', onStageStart);
@@ -188,6 +207,15 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			relayEventBus.off('pilot:stitch_rejected', onStitchRejected);
 		};
 	}, []);
+
+	const updateMainInput = (value: string) => {
+		setModeState(prev => {
+			const next = { ...prev };
+			if (mode === 'chapter') next.chapter.rewriteInstructions = value;
+			else if (mode === 'micro-edit') next.microEdit.selectedPassage = value;
+			return next;
+		});
+	};
 
 	const handleGenerate = async () => {
 		if (mode === 'chapter') {

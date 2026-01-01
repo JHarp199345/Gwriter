@@ -37,6 +37,23 @@ ${context.story_bible || ''}
 These define rules of the world, character arcs, faction details, timelines, technology, tone, themes, motifs, and relationship structure.`;
 	}
 
+	buildAuditPrompt(state: any, prose: string, chapterState: any): string {
+		return `Analyze the following prose for narrative violations.
+Prose:
+"""
+${prose}
+"""
+
+Entities: ${chapterState.entities.map((e: any) => e.name).join(', ')}
+
+Respond ONLY with a JSON object:
+{
+  "overallSeverity": number (0-5),
+  "violations": [{ "type": "string", "message": "string", "severity": number }],
+  "new_facts": [{ "entityId": "string", "attribute": "string", "value": "any" }]
+}`;
+	}
+
 	buildChapterPrompt(
 		context: Context,
 		rewriteInstructions: string,
