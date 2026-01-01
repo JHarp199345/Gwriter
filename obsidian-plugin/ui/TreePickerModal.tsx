@@ -70,27 +70,29 @@ export const TreePickerComponent: React.FC<{
 	filter?: (node: Node) => boolean;
 }> = ({ plugin, initialSelection, mode, onSubmit, onClose, filter }) => {
 	const [nodes, setNodes] = useState<Node[]>([]);
-	const [expanded, setExpanded] = useState<Set<string>>(new Set(['']));
-	const [selected, setSelected] = useState<Set<string>>(new Set());
+	const [selected, setSelected] = useState<Set<string>>(() => {
+		const init = new Set<string>();
+		const list = Array.isArray(initialSelection) ? initialSelection : initialSelection ? [initialSelection] : [];
+		for (const p of list) init.add(p.replace(/\\/g, '/'));
+		return init;
+	});
+	const [expanded, setExpanded] = useState<Set<string>>(() => {
+		const exp = new Set<string>(['']);
+		const list = Array.isArray(initialSelection) ? initialSelection : initialSelection ? [initialSelection] : [];
+		for (const p of list) {
+			const parts = p.split('/');
+			for (let i = 1; i < parts.length; i++) {
+				exp.add(parts.slice(0, i).join('/'));
+			}
+		}
+		return exp;
+	});
 
 	useEffect(() => {
 		const structure = plugin.vaultService.getVaultStructure();
 		const filtered = filter ? structure.filter(filter) : structure;
 		setNodes(filtered);
-		const init = new Set<string>();
-		const list = Array.isArray(initialSelection) ? initialSelection : initialSelection ? [initialSelection] : [];
-		for (const p of list) init.add(p.replace(/\\/g, '/'));
-		setSelected(init);
-		if (list.length) {
-			for (const p of list) {
-				const parts = p.split('/');
-				for (let i = 1; i < parts.length; i++) {
-					expanded.add(parts.slice(0, i).join('/'));
-				}
-			}
-			setExpanded(new Set(expanded));
-		}
-	}, [plugin, initialSelection, filter, expanded]);
+	}, [plugin, filter]);
 
 	const childrenOf = useMemo(() => {
 		const map = new Map<string, Node[]>();

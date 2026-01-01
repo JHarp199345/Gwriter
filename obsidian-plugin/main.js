@@ -23605,27 +23605,29 @@ var init_TreePickerModal = __esm({
     };
     TreePickerComponent = ({ plugin, initialSelection, mode, onSubmit, onClose, filter }) => {
       const [nodes, setNodes] = (0, import_react9.useState)([]);
-      const [expanded, setExpanded] = (0, import_react9.useState)(/* @__PURE__ */ new Set([""]));
-      const [selected, setSelected] = (0, import_react9.useState)(/* @__PURE__ */ new Set());
-      (0, import_react9.useEffect)(() => {
-        const structure = plugin.vaultService.getVaultStructure();
-        const filtered = filter ? structure.filter(filter) : structure;
-        setNodes(filtered);
+      const [selected, setSelected] = (0, import_react9.useState)(() => {
         const init = /* @__PURE__ */ new Set();
         const list2 = Array.isArray(initialSelection) ? initialSelection : initialSelection ? [initialSelection] : [];
         for (const p of list2)
           init.add(p.replace(/\\/g, "/"));
-        setSelected(init);
-        if (list2.length) {
-          for (const p of list2) {
-            const parts = p.split("/");
-            for (let i = 1; i < parts.length; i++) {
-              expanded.add(parts.slice(0, i).join("/"));
-            }
+        return init;
+      });
+      const [expanded, setExpanded] = (0, import_react9.useState)(() => {
+        const exp = /* @__PURE__ */ new Set([""]);
+        const list2 = Array.isArray(initialSelection) ? initialSelection : initialSelection ? [initialSelection] : [];
+        for (const p of list2) {
+          const parts = p.split("/");
+          for (let i = 1; i < parts.length; i++) {
+            exp.add(parts.slice(0, i).join("/"));
           }
-          setExpanded(new Set(expanded));
         }
-      }, [plugin, initialSelection, filter, expanded]);
+        return exp;
+      });
+      (0, import_react9.useEffect)(() => {
+        const structure = plugin.vaultService.getVaultStructure();
+        const filtered = filter ? structure.filter(filter) : structure;
+        setNodes(filtered);
+      }, [plugin, filter]);
       const childrenOf = (0, import_react9.useMemo)(() => {
         const map2 = /* @__PURE__ */ new Map();
         for (const n of nodes) {
