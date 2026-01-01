@@ -270,25 +270,45 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Relay Smart Model (Writer)')
-			.setDesc('Large model for high-quality prose (e.g., Llama 3.1 70B).')
-			.addText(text => text
-				.setPlaceholder('llama3.1:70b')
-				.setValue(this.plugin.settings.relaySmartModel)
-				.onChange(async (value) => {
-					this.plugin.settings.relaySmartModel = value;
-					await this.plugin.saveSettings();
-				}));
+			.setDesc('Large model for high-quality prose. (Fetched from your Ollama library)')
+			.addDropdown(async (dropdown) => {
+				try {
+					const models = await this.plugin.ollamaModels.getModels();
+					if (models.length === 0) {
+						dropdown.addOption(this.plugin.settings.relaySmartModel, this.plugin.settings.relaySmartModel);
+					} else {
+						models.forEach(m => dropdown.addOption(m.id, m.id));
+					}
+				} catch (e) {
+					dropdown.addOption(this.plugin.settings.relaySmartModel, this.plugin.settings.relaySmartModel);
+				}
+				dropdown.setValue(this.plugin.settings.relaySmartModel)
+					.onChange(async (value) => {
+						this.plugin.settings.relaySmartModel = value;
+						await this.plugin.saveSettings();
+					});
+			});
 
 		new Setting(containerEl)
 			.setName('Relay Fast Model (Planner/Auditor)')
-			.setDesc('Smaller, faster model for mechanical tasks (e.g., Llama 3.1 8B).')
-			.addText(text => text
-				.setPlaceholder('llama3.1:8b')
-				.setValue(this.plugin.settings.relayFastModel)
-				.onChange(async (value) => {
-					this.plugin.settings.relayFastModel = value;
-					await this.plugin.saveSettings();
-				}));
+			.setDesc('Smaller, faster model for mechanical tasks. (Fetched from your Ollama library)')
+			.addDropdown(async (dropdown) => {
+				try {
+					const models = await this.plugin.ollamaModels.getModels();
+					if (models.length === 0) {
+						dropdown.addOption(this.plugin.settings.relayFastModel, this.plugin.settings.relayFastModel);
+					} else {
+						models.forEach(m => dropdown.addOption(m.id, m.id));
+					}
+				} catch (e) {
+					dropdown.addOption(this.plugin.settings.relayFastModel, this.plugin.settings.relayFastModel);
+				}
+				dropdown.setValue(this.plugin.settings.relayFastModel)
+					.onChange(async (value) => {
+						this.plugin.settings.relayFastModel = value;
+						await this.plugin.saveSettings();
+					});
+			});
 
 		new Setting(containerEl)
 			.setName('Max words per chunk')

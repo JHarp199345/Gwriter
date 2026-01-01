@@ -28267,14 +28267,38 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         await this.plugin.saveSettings();
       }));
     }
-    new import_obsidian10.Setting(containerEl).setName("Relay Smart Model (Writer)").setDesc("Large model for high-quality prose (e.g., Llama 3.1 70B).").addText((text2) => text2.setPlaceholder("llama3.1:70b").setValue(this.plugin.settings.relaySmartModel).onChange(async (value) => {
-      this.plugin.settings.relaySmartModel = value;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian10.Setting(containerEl).setName("Relay Fast Model (Planner/Auditor)").setDesc("Smaller, faster model for mechanical tasks (e.g., Llama 3.1 8B).").addText((text2) => text2.setPlaceholder("llama3.1:8b").setValue(this.plugin.settings.relayFastModel).onChange(async (value) => {
-      this.plugin.settings.relayFastModel = value;
-      await this.plugin.saveSettings();
-    }));
+    new import_obsidian10.Setting(containerEl).setName("Relay Smart Model (Writer)").setDesc("Large model for high-quality prose. (Fetched from your Ollama library)").addDropdown(async (dropdown) => {
+      try {
+        const models = await this.plugin.ollamaModels.getModels();
+        if (models.length === 0) {
+          dropdown.addOption(this.plugin.settings.relaySmartModel, this.plugin.settings.relaySmartModel);
+        } else {
+          models.forEach((m) => dropdown.addOption(m.id, m.id));
+        }
+      } catch (e) {
+        dropdown.addOption(this.plugin.settings.relaySmartModel, this.plugin.settings.relaySmartModel);
+      }
+      dropdown.setValue(this.plugin.settings.relaySmartModel).onChange(async (value) => {
+        this.plugin.settings.relaySmartModel = value;
+        await this.plugin.saveSettings();
+      });
+    });
+    new import_obsidian10.Setting(containerEl).setName("Relay Fast Model (Planner/Auditor)").setDesc("Smaller, faster model for mechanical tasks. (Fetched from your Ollama library)").addDropdown(async (dropdown) => {
+      try {
+        const models = await this.plugin.ollamaModels.getModels();
+        if (models.length === 0) {
+          dropdown.addOption(this.plugin.settings.relayFastModel, this.plugin.settings.relayFastModel);
+        } else {
+          models.forEach((m) => dropdown.addOption(m.id, m.id));
+        }
+      } catch (e) {
+        dropdown.addOption(this.plugin.settings.relayFastModel, this.plugin.settings.relayFastModel);
+      }
+      dropdown.setValue(this.plugin.settings.relayFastModel).onChange(async (value) => {
+        this.plugin.settings.relayFastModel = value;
+        await this.plugin.saveSettings();
+      });
+    });
     new import_obsidian10.Setting(containerEl).setName("Max words per chunk").setDesc("Target word count for each relay iteration.").addText((text2) => text2.setPlaceholder("500").setValue(String(this.plugin.settings.maxChunkWords)).onChange(async (value) => {
       const parsed = parseInt(value, 10);
       if (Number.isFinite(parsed)) {
