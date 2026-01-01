@@ -97,6 +97,17 @@ export class EmbeddingsIndex {
 		return `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index/index.json`;
 	}
 
+	async clearIndex(): Promise<void> {
+		this.chunksByKey.clear();
+		this.chunkKeysByPath.clear();
+		this.plugin.settings.retrievalIndexState = {};
+		await this.plugin.saveSettings();
+		const path = this.getIndexFilePath();
+		if (await this.vault.adapter.exists(path)) {
+			await this.vault.adapter.remove(path);
+		}
+	}
+
 	async ensureLoaded(): Promise<void> {
 		if (this.loaded) return;
 		this.loaded = true;
@@ -387,7 +398,7 @@ export class EmbeddingsIndex {
 				// If ALL chunks fail for a file, the file won't be indexed
 				// This is a critical failure that should be logged
 				if (i === 0) {
-					console.error(`  - CRITICAL: First chunk failed for ${path} - file will not be indexed`);
+					console.warn(`  - Warning: First chunk failed for ${path}. Attempting subsequent chunks.`);
 					firstError = err instanceof Error ? err : new Error(String(err));
 				}
 				// Skip this chunk if embedding fails, but continue with others

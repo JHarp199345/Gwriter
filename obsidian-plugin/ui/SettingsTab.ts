@@ -460,6 +460,40 @@ export class SettingsTab extends PluginSettingTab {
 			);
 
 		addSection('Retrieval engines', 'Semantic/BM25 knobs and result limits.');
+
+		new Setting(containerEl)
+			.setName('Semantic Index Management')
+			.setDesc('Manually trigger a full rescan of your vault or clear the local index.')
+			.addButton(btn => btn
+				.setButtonText('Re-index Vault')
+				.onClick(async () => {
+					btn.setDisabled(true);
+					btn.setButtonText('Indexing...');
+					this.plugin.embeddingsIndex.enqueueFullRescan();
+					new Notice('Vault re-indexing started in background.');
+					
+					// Monitor status
+					const interval = window.setInterval(() => {
+						const status = this.plugin.embeddingsIndex.getStatus();
+						if (status.queued === 0) {
+							btn.setDisabled(false);
+							btn.setButtonText('Re-index Vault');
+							new Notice('✅ Semantic indexing complete.');
+							window.clearInterval(interval);
+						}
+					}, 2000);
+				}))
+			.addButton(btn => btn
+				.setButtonText('Clear Index')
+				.setWarning()
+				.onClick(async () => {
+					if (confirm('Are you sure? This will delete your entire local semantic index and require a full rebuild.')) {
+						await this.plugin.embeddingsIndex.clearIndex();
+						new Notice('Index cleared successfully.');
+						this.display();
+					}
+				}));
+
 		new Setting(containerEl)
 			.setName('Enable semantic retrieval')
 			.setDesc('Build a local index to retrieve relevant notes from the vault. If disabled, retrieval uses heuristic matching only.')

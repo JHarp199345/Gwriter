@@ -12,7 +12,21 @@ function clampInt(value: number, min: number, max: number): number {
 }
 
 function splitWords(text: string): string[] {
-	return (text || '').split(/\s+/g).filter(Boolean);
+	const rawWords = (text || '').split(/\s+/g).filter(Boolean);
+	const processed: string[] = [];
+	
+	for (const word of rawWords) {
+		if (word.length > 128) {
+			// Break up overly long contiguous strings (like logs/base64) 
+			// into 128-char pieces so they don't choke the embedding model.
+			for (let i = 0; i < word.length; i += 128) {
+				processed.push(word.slice(i, i + 128));
+			}
+		} else {
+			processed.push(word);
+		}
+	}
+	return processed;
 }
 
 function isHeadingLine(line: string, level: HeadingLevel): boolean {
