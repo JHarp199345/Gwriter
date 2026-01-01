@@ -1,6 +1,8 @@
 import type { ContextItem, RetrievalOptions, RetrievalProvider, RetrievalQuery } from './retrieval/types';
 import { fuseRrf } from './retrieval/Fusion';
 import { mmrSelect } from './retrieval/Mmr';
+import { CO_AUTHORING_POLICY } from './policy';
+import { RAGFailureCode } from './Schemas';
 
 function normalizeLimit(limit: number): number {
 	if (!Number.isFinite(limit)) return 20;
@@ -21,27 +23,30 @@ export class RetrievalService {
 		opts: RetrievalOptions
 	): Promise<ContextItem[]> {
 		const candidateLimit = opts.limit;
+		const timeout = CO_AUTHORING_POLICY.PERFORMANCE.MAX_TIME_PER_SMART_CALL_MS;
 
 		// Separate lexical vs semantic
 		const lexicalProviders = this.providers.filter(p => p.id === 'heuristic');
 		const semanticProviders = this.providers.filter(p => p.id === 'semantic');
 
+		const runWithTimeout = async (p: RetrievalProvider) => {
+			const searchPromise = p.search(query, { limit: candidateLimit });
+			const timeoutPromise = new Promise<ContextItem[]>((_, reject) => 
+				setTimeout(() => reject(new Error('FAIL_TIME_BUDGET')), timeout)
+			);
+
+			try {
+				return { providerId: p.id, items: await Promise.race([searchPromise, timeoutPromise]) };
+			} catch (err) {
+				console.warn(`[Retrieval] Provider ${p.id} failed or timed out:`, err);
+				return { providerId: p.id, items: [] as ContextItem[], failureCode: (err as any).message === 'FAIL_TIME_BUDGET' ? 'FAIL_TIME_BUDGET' : undefined };
+			}
+		};
+
 		// Run in parallel
 		const [lexicalBuckets, semanticBuckets] = await Promise.all([
-			Promise.all(lexicalProviders.map(async (p) => {
-				try {
-					return { providerId: p.id, items: await p.search(query, { limit: candidateLimit }) };
-				} catch {
-					return { providerId: p.id, items: [] as ContextItem[] };
-				}
-			})),
-			Promise.all(semanticProviders.map(async (p) => {
-				try {
-					return { providerId: p.id, items: await p.search(query, { limit: candidateLimit }) };
-				} catch {
-					return { providerId: p.id, items: [] as ContextItem[] };
-				}
-			}))
+			Promise.all(lexicalProviders.map(runWithTimeout)),
+			Promise.all(semanticProviders.map(runWithTimeout))
 		]);
 
 		// Flatten buckets

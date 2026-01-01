@@ -17,6 +17,15 @@ export const CO_AUTHORING_POLICY = {
         MAX_STICKY_LIFETIME: 3, // Chunks a context anchor can remain sticky
         STICKY_CONTINUITY_RATIO: 0.3, // Default 30% of chunks are sticky anchors
         NOVELTY_BIAS_THRESHOLD: 0.7, // Force rotation if novelty bias exceeds this
+        SCORING_VERSION: 1,
+        SCORING_WEIGHTS: { lex: 0.4, embed: 0.6 },
+        HARD_INTENT_THRESHOLDS: {
+            FINAL: 0.7,
+            EMBED: 0.6,
+            LEX: 0.6
+        },
+        JACCARD_SIMILARITY_THRESHOLD: 0.6, // For creative replay metrics
+        LORE_PARITY_THRESHOLD: 1.0 // For creative replay metrics
     },
 
     // SPONTANEITY & CREATIVITY
@@ -78,6 +87,8 @@ export const CO_AUTHORING_POLICY = {
         MAX_MEMORY_GROWTH_MB_PER_RUN: 50,
         STREAM_FLUSH_INTERVAL_MS: 250,
         STREAM_MAX_BUFFER_CHARS: 600,
+        MAX_TIME_PER_SMART_CALL_MS: 15000, // 15s budget per smart model call
+        MAX_REPAIR_ATTEMPTS_PER_PARA: 3,
     }
 };
 

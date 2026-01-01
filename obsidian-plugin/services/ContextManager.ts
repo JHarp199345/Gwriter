@@ -32,7 +32,8 @@ export class ContextManager {
         this.state = {
             ...initialState,
             pendingMutations: initialState.pendingMutations || [],
-            entity_redirects: initialState.entity_redirects || {}
+            entity_redirects: initialState.entity_redirects || {},
+            redirectRegistryVersion: initialState.redirectRegistryVersion || 0
         };
     }
 
@@ -102,12 +103,26 @@ export class ContextManager {
     /**
      * Promotion Contract: Only specific origins can promote directly to CANON.
      * Facts from GENERATION/EXTRACTOR require approval or non-core auto-accept.
+     * Rule: CORE facts may only enter CANON if origin in {BIBLE, USER, MUTATION} 
+     * and approvedByEventId exists for USER/MUTATION edits (BIBLE exempt).
      */
     shouldAutoPromote(fact: CanonFact): boolean {
-        if (['BIBLE', 'USER', 'MUTATION'].includes(fact.origin)) return true;
+        // Core Tiers defined in policy or attribute registry
+        const isCore = AttributeRegistry.includes(fact.attribute) || ['IDENTITY', 'RELATIONSHIP', 'TIMELINE'].includes(fact.type);
+
+        if (fact.origin === 'BIBLE') return true;
+
+        if (['USER', 'MUTATION'].includes(fact.origin)) {
+            // Must have approval event for core promotions
+            if (isCore && !fact.approvedByEventId) return false;
+            return true;
+        }
         
+        // Facts from GENERATION/EXTRACTOR can never be promoted to CANON automatically if CORE
+        if (isCore) return false;
+
         // Non-core traits/details from extractor can be auto-accepted if confidence is high
-        if (fact.origin === 'EXTRACTOR' && fact.confidence >= 0.9 && !['IDENTITY', 'RELATIONSHIP'].includes(fact.type)) {
+        if (fact.origin === 'EXTRACTOR' && fact.confidence >= 0.9) {
             return true;
         }
 
@@ -117,7 +132,7 @@ export class ContextManager {
     /**
      * Registers a merge event and updates redirects with path compression.
      */
-    mergeEntities(fromId: string, toId: string) {
+    mergeEntities(fromId: string, toId: string, eventId?: string) {
         if (fromId === toId) return;
         
         const resolvedTo = this.resolveEntityId(toId);
@@ -134,8 +149,9 @@ export class ContextManager {
             }
         });
 
+        this.state.redirectRegistryVersion = (this.state.redirectRegistryVersion || 0) + 1;
         this.state.canonVersion++;
-        console.log(`[ContextManager] 🤝 Merged ${fromId} into ${resolvedTo}. v${this.state.canonVersion}`);
+        console.log(`[ContextManager] 🤝 Merged ${fromId} into ${resolvedTo}. v${this.state.canonVersion} (Registry v${this.state.redirectRegistryVersion})`);
     }
 
     /**
@@ -375,8 +391,22 @@ export class ContextManager {
 
         proposals.forEach(prop => {
             const hasCollision = this.detectCollisions(prop.entity as any);
-            if (prop.confidence >= 0.85 && !hasCollision) {
+            const mockFact: CanonFact = {
+                id: prop.id,
+                entityId: prop.id,
+                type: 'IDENTITY',
+                attribute: 'identity',
+                value: prop.entity.name,
+                origin: 'EXTRACTOR',
+                scope: 'GLOBAL',
+                confidence: prop.confidence,
+                timestamp: Date.now(),
+                lifecycleState: 'PROPOSED'
+            };
+
+            if (prop.confidence >= 0.85 && !hasCollision && this.shouldAutoPromote(mockFact)) {
                 this.state.entities.push(prop.entity as any);
+                this.state.canonFacts.push({ ...mockFact, lifecycleState: 'CANON' });
                 console.log(`[ContextManager] ✅ Auto-accepted seeding: ${prop.entity.name}`);
             } else {
                 seedProposals.push(prop);

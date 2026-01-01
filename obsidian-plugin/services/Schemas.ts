@@ -8,6 +8,17 @@ export type FactLifecycleState = 'PROPOSED' | 'QUARANTINED' | 'ACCEPTED' | 'CANO
 export type FactScope = 'SCENE' | 'CHAPTER' | 'GLOBAL';
 export type FactOrigin = 'BIBLE' | 'USER' | 'EXTRACTOR' | 'GENERATION' | 'MUTATION';
 export type FactType = 'IDENTITY' | 'RELATIONSHIP' | 'TIMELINE' | 'TRAIT' | 'SCENE_DETAIL' | 'TONE_RULE' | 'THREAD_STATE';
+export type SpanConfidence = 'EXACT' | 'RELOCATED_UNIQUE' | 'RELOCATED_AMBIGUOUS' | 'INVALID';
+export type ApprovalType = 'PROMOTE_CORE' | 'MERGE_ENTITY' | 'RETCON' | 'FACT_EDIT';
+export type RAGFailureCode = 
+    | 'FAIL_CONFIDENCE'
+    | 'FAIL_RELEVANCE'
+    | 'FAIL_REQUIRED_ENTITIES'
+    | 'FAIL_INTENT_TYPE'
+    | 'FAIL_SCOPE_TIMERANGE'
+    | 'FAIL_MIN_HITS'
+    | 'FAIL_TIME_BUDGET'
+    | 'FAIL_DUPLICATE_HIT';
 
 export interface ParagraphMetadata {
     p_id: string;
@@ -49,10 +60,18 @@ export interface CanonFact {
     
     // Provenance Checklist
     sourceDocId?: string;
-    sourceSpan?: { start: number, end: number };
+    sourceSpan?: { 
+        start: number, 
+        end: number,
+        anchorTextBefore?: string,
+        anchorTextAfter?: string
+    };
     sourceHash?: string;
+    spanConfidence?: SpanConfidence;
     extractorPass?: 'FAST' | 'SMART';
     resolverRuleId?: string;
+    approvedByEventId?: string;
+    approvalType?: ApprovalType;
     timestamp: number;
     confidence: number;
     lifecycleState: FactLifecycleState;
@@ -122,6 +141,7 @@ export interface ChapterState {
     mutationHistory: MutationAcceptance[];
     pendingMutations: MutationAcceptance[]; // Mutations that are 'Deferred'
     entity_redirects: Record<string, string>; // old_id -> new_id for merges
+    redirectRegistryVersion: number; // New: Incremented on merge/rollback
     timeline: { chunkId: string, summary: string }[];
     openLoops: string[];
     constraints: {
