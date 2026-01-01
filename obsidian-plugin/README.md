@@ -1,33 +1,21 @@
 # Local AI Setup (Ollama)
 
-The plugin ships without any binaries. To enable semantic search, bring your own Ollama and model:
+The plugin is optimized for single-model hardware (16GB-32GB RAM). To enable semantic search and local authoring, bring your own Ollama instance:
 
-1. Install Ollama: https://ollama.com/download
-2. In a new Terminal window:
-   ```bash
-   ollama --version
-   ```
-   If it prints a version, the CLI is on PATH. If not, try:
-   ```bash
-   /Applications/Ollama.app/Contents/MacOS/Ollama --version
-   echo 'export PATH="/Applications/Ollama.app/Contents/MacOS:$PATH"' >> ~/.zshrc
-   source ~/.zshrc
-   ```
-3. Pull the embedding model:
-   ```bash
-   ollama pull nomic-embed-text
-   ```
-4. If you see errors about `~/.ollama/models` not accessible, create it:
-   ```bash
-   mkdir -p ~/.ollama/models
-   sudo chown -R "$USER":"$USER" ~/.ollama
-   chmod -R 755 ~/.ollama
-   ```
-5. In Obsidian Settings → Local AI Setup (Ollama):
-   - Click “Check Connection” to verify Ollama is running and `nomic-embed-text` is present.
-   - If OK, optionally click “Re-index” to regenerate embeddings.
+1. **Install Ollama**: https://ollama.com/download
+2. **Pull the Required Models**:
+   - **Embedding Model**: `ollama pull nomic-embed-text` (Used for semantic indexing).
+   - **Smart Model**: `ollama pull llama3.2` or your preferred model (Used for writing and analysis).
+3. **In Obsidian Settings → Local AI (Ollama)**:
+   - Select your **Relay Smart Model** (Primary).
+   - Select your **Relay Embedding Model** (Semantic).
+   - Use the **Pull** buttons to verify or download models directly from the UI.
+   - Run the **Diagnostics** tool to confirm a "PASS" for both models.
 
-Fallback: If Ollama isn’t running, the plugin still works with lexical search; semantic unlocks when Ollama is available.
+**Note**: The plugin uses a **Consolidated Single-Model Architecture**. By using the same smart model for all text tasks, we eliminate VRAM swapping latency and keep the KV cache warm for instant transitions between generation and polish passes.
+
+---
+
 # Writing Dashboard
 
 A writing dashboard plugin that integrates AI-powered chapter generation, micro-editing, and character management into your writing workflow.
@@ -299,44 +287,28 @@ If enabled in settings, the plugin writes a per-run log note to `Generation logs
 - **Robust Processing**: Automatically handles long contiguous strings (like logs or base64) by splitting them into digestible chunks for the embedding model, preventing API "400 Bad Request" errors.
 - **Run stress test** - Use the Developer Tools stress test (Settings → Writing dashboard → Developer Tools) to get detailed diagnostics.
 
-### 🧠 Under the Hood (Advanced Architecture)
+### 🧠 Under the Hood
 
-#### 1. Rolling Window Refinement
-Treats the generation field as a **Living Document**:
-- **3-Chunk Juggling**: Maintains a rolling buffer of the last ~1500 words to ensure narrative cohesion.
-- **Live Patching**: The AI background "Stitcher" pass polishes transitions in real-time. You'll see text "settle" into its final form with a subtle highlight.
-- **Hardware Optimization**: Uses **KV Cache Grafting** and a stable prefix to allow single-model hardware (16GB/32GB RAM) to switch between writing and stitching in milliseconds without VRAM swapping.
+#### 1. Consolidated Architecture
+Optimized for high performance on consumer GPUs. All mechanical tasks (Planning, Auditing, Stitching) benefit from the full intelligence of your primary **Smart Model** using strict, low-temperature JSON profiles.
 
-#### 2. Narrative Integrity Gates
-Five layers of protection ensure the AI never breaks your story:
-- **Hash Gate**: Rejects AI edits if you've manually changed the paragraph in the meantime.
-- **User-Dirty Protection**: Once you edit a paragraph, the AI is strictly forbidden from auto-patching it.
-- **LockMap Gate**: Protects proper nouns, character names, and dates from being altered.
-- **Tuple Gate**: Prevents the introduction of contradictory facts or "hallucinated" canon.
-- **Budget Gate**: Limits the amount of change the background pass can make, preventing "runaway" edits.
+#### 2. Narrative Safety
+Your manual edits are sacred. The **Hash Gate** detects even a single character change and prevents the AI from patching that paragraph. Once you touch a sentence, the AI's "Stitcher" pass is strictly forbidden from modifying it.
 
-#### 3. 2-Pass Character Extraction
-The "Process Entire Book" feature uses a sophisticated pipeline:
-- **Pass 1 (Roster Discovery)**: Scans the manuscript to build a global list of names and resolve aliases.
-- **Pass 2 (Extraction)**: Re-scans each chapter with the roster in mind to ensure accurate, non-duplicate character notes.
-
-#### 4. Hybrid Retrieval & Diversity (MMR)
-The RAG engine uses **Reciprocal Rank Fusion (RRF)** to combine keyword (BM25) and semantic results, followed by **Maximal Marginal Relevance (MMR)** to filter out redundant context snippets.
+#### 3. Hybrid RAG
+Combines BM25 lexical ranking with local semantic embeddings (Nomic/Brokenbread) and diversity selection (MMR) to provide the most relevant context without a cloud connection.
 
 ### Developer Tools
 
-The plugin includes a comprehensive stress test for diagnostics:
+The plugin includes a comprehensive diagnostic suite:
 
 1. Go to Settings → Writing dashboard → Developer Tools
 2. Click **"Start Stress Test"**
-3. The test will:
-   - Create temporary test files
-   - Test indexing, retrieval (hash + BM25 + semantic), and file ops
-   - **Check adversarial word handling** (verifies long-word splitting for 400 error prevention)
-   - **Check Safety Gates** (verifies Hash Gate, User-Dirty, and Budget limits)
-   - **If an API key is set, run a live generation call** (chapter-style prompt) and log a snippet
-   - Clean up all temporary files automatically
-4. The log is saved as a note in your vault: `Stress Test Log - [timestamp].md`
+3. The test will verify:
+   - **Adversarial Word Handling**: Long-word splitting for 400 error prevention.
+   - **Safety Gates**: Hash Gate, User-Dirty, and Budget limits.
+   - **Model Connectivity**: Heartbeat and generation tests for Smart and Embedding models.
+   - **RAG Health**: Confirmation of indexed chunks and files.
 
 ## Development
 

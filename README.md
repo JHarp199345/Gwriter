@@ -75,7 +75,8 @@ The plugin provides dedicated tools for maintaining your local semantic index:
 For Local AI (Ollama), the plugin treats the generation field as a **Living Document**:
 - **3-Chunk Juggling**: Maintains a rolling buffer of the last ~1500 words to ensure narrative cohesion.
 - **Live Patching**: The AI background "Stitcher" pass polishes transitions in real-time. You'll see text "settle" into its final form with a subtle highlight.
-- **Hardware Optimization**: Uses **KV Cache Grafting** and a stable prefix to allow single-model hardware (16GB/32GB RAM) to switch between writing and stitching in milliseconds without VRAM swapping.
+- **Consolidated Single-Model Architecture**: Optimized for 16GB-32GB RAM machines. All text tasks (Writing, Auditing, Stitching) use your primary **Smart Model** with specialized task profiles (Temp 0.7 for writing, Temp 0.1 for mechanical logic). This eliminates the 30-60 second latency penalty of VRAM swapping between different models.
+- **Hardware Optimization**: Uses **KV Cache Grafting** and a stable prefix to keep Ollama "warm" between different tasks.
 
 #### 2. Narrative Integrity Gates
 Five layers of protection ensure the AI never breaks your story:
@@ -97,6 +98,7 @@ The RAG engine uses **Reciprocal Rank Fusion (RRF)** to combine keyword (BM25) a
 
 - **Fully Self-Contained** - No Python backend required! Everything runs within Obsidian
 - **Multi-Provider Support** - Works with OpenAI, Anthropic (Claude), Google Gemini, OpenRouter, and local Ollama
+- **Local AI Optimized** - Use a single **Smart Model** (e.g., Llama 3.2) for all text tasks and a specialized **Embedding Model** (e.g., Nomic) for lightning-fast semantic indexing.
 - **Smart Context Integration** - Automatically pulls from your Story Bible, Extractions, sliding window (last 20k words), and Character notes via RAG retrieval
 - **Efficient Context Usage** - Only sends the last 20,000 words of your active manuscript to the AI, not full book files. Full continuity comes from RAG retrieval.
 - **Surrounding Context** - Micro-edit mode includes 500 words before/after selected text for better narrative continuity
