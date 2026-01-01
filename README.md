@@ -61,16 +61,24 @@ A writing dashboard plugin that integrates AI-powered chapter generation, micro-
 - Automatic path detection
 - Configurable file paths
 
+### 🛠️ Semantic Index Management
+
+The plugin provides dedicated tools for maintaining your local semantic index:
+- **Re-index Vault**: Manually trigger a full rescan and re-embedding of your vault.
+- **Clear Index**: Wipe the local vector cache to fix corrupted states or start fresh.
+- **Robust Processing**: Automatically handles long contiguous strings (like logs or base64) by splitting them into digestible chunks for the embedding model.
+- **Ollama Integration**: Uses your local Ollama instance (defaulting to `nomic-embed-text`) for high-quality, private semantic embeddings.
+
 ### ✨ Key Highlights
 
 - **Fully Self-Contained** - No Python backend required! Everything runs within Obsidian
-- **Multi-Provider Support** - Works with OpenAI, Anthropic (Claude), Google Gemini, and OpenRouter
+- **Multi-Provider Support** - Works with OpenAI, Anthropic (Claude), Google Gemini, OpenRouter, and local Ollama
 - **Smart Context Integration** - Automatically pulls from your Story Bible, Extractions, sliding window (last 20k words), and Character notes via RAG retrieval
 - **Efficient Context Usage** - Only sends the last 20,000 words of your active manuscript to the AI, not full book files. Full continuity comes from RAG retrieval.
 - **Surrounding Context** - Micro-edit mode includes 500 words before/after selected text for better narrative continuity
 - **Prompt Size Warning** - Estimates prompt size and warns if you exceed your configured context limit
 - **Setup Wizard** - First-run wizard to create default vault structure (Book-Main.md, Story Bible, Characters folder, etc.)
-- **Hybrid retrieval (local RAG)** - Combines BM25 lexical ranking, local embeddings, and diversity selection to inject relevant context without a server
+- **Hybrid retrieval (local RAG)** - Combines BM25 lexical ranking, local Ollama embeddings, and diversity selection to inject relevant context without a server
 - **File Chunking** - Manually chunk large files into 500-word segments for processing
 - **Developer Tools** - Built-in stress test for comprehensive plugin diagnostics
 
@@ -389,10 +397,11 @@ No backend server is required for this plugin.
 
 ### Embedding/Indexing Issues
 
-- **Semantic embeddings may not work** - The local embedding model (`@xenova/transformers`) may fail to load due to bundling issues. This is a known issue being worked on.
+- **Check Ollama Status** - Ensure Ollama is running (`ollama serve`) and the embedding model (e.g., `nomic-embed-text`) is pulled.
 - **BM25 retrieval still works** - Even if embeddings fail, the plugin uses BM25 (text-based) retrieval which works reliably.
 - **Check index status** - Go to Settings → Writing dashboard → Retrieval to see indexing status.
-- **Run stress test** - Use the Developer Tools stress test (Settings → Writing dashboard → Developer Tools) to get detailed diagnostics about embedding failures.
+- **Manual Management** - Use the **Re-index Vault** or **Clear Index** buttons in settings to fix corrupted states.
+- **Run stress test** - Use the Developer Tools stress test (Settings → Writing dashboard → Developer Tools) to get detailed diagnostics.
 
 ### Keyboard Not Working in Text Areas
 

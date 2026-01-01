@@ -292,10 +292,11 @@ If enabled in settings, the plugin writes a per-run log note to `Generation logs
 
 ### Embedding/Indexing Issues
 
-- **Semantic embeddings may not work** - The local embedding model (`@xenova/transformers`) may fail to load due to bundling issues. This is a known issue being worked on.
+- **Check Ollama Status** - Ensure Ollama is running (`ollama serve`) and the embedding model (e.g., `nomic-embed-text`) is pulled.
 - **BM25 retrieval still works** - Even if embeddings fail, the plugin uses BM25 (text-based) retrieval which works reliably.
 - **Check index status** - Go to Settings → Writing dashboard → Retrieval to see indexing status.
-- **Run stress test** - Use the Developer Tools stress test (Settings → Writing dashboard → Developer Tools) to get detailed diagnostics about embedding failures.
+- **Manual Management** - Use the **Re-index Vault** or **Clear Index** buttons in the "Semantic Index Management" section to refresh or wipe your index.
+- **Run stress test** - Use the Developer Tools stress test (Settings → Writing dashboard → Developer Tools) to get detailed diagnostics.
 
 ### Developer Tools
 
