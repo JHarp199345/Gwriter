@@ -81,7 +81,8 @@ const MAJOR_OLLAMA_MODELS = [
 	'qwen2',
 	'codellama',
 	'starcoder2',
-	'nomic-embed-text'
+	'nomic-embed-text',
+	'brokenbread'
 ];
 
 function getModelsForProvider(provider: string): Array<{ value: string; label: string }> {
@@ -300,6 +301,35 @@ export class SettingsTab extends PluginSettingTab {
 				.setTooltip('Download this model to Ollama')
 				.onClick(async () => {
 					await this.pullModelWithProgress(this.plugin.settings.relaySmartModel, btn);
+				}));
+
+		new Setting(containerEl)
+			.setName('Relay Embedding Model (Semantic)')
+			.setDesc('Model used for local vector indexing (e.g., nomic-embed-text).')
+			.addDropdown(async (dropdown) => {
+				const installed = await this.plugin.ollamaModels.getModels().catch(() => []);
+				const catalog = this.plugin.settings.verifiedModelsCatalog || [];
+				
+				const allOptions = new Set([
+					'nomic-embed-text',
+					...installed.map(m => m.id),
+					...catalog
+				]);
+
+				allOptions.forEach(id => dropdown.addOption(id, id));
+				
+				dropdown.setValue(this.plugin.settings.relayEmbeddingModel)
+					.onChange(async (value) => {
+						this.plugin.settings.relayEmbeddingModel = value;
+						await this.plugin.saveSettings();
+						// Re-init the provider with the new model
+						this.plugin.recreateEmbeddingProvider();
+					});
+			})
+			.addButton(btn => btn
+				.setButtonText('Pull')
+				.onClick(async () => {
+					await this.pullModelWithProgress(this.plugin.settings.relayEmbeddingModel, btn);
 				}));
 
 		let customModelToAdd = '';

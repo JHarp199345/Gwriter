@@ -28371,7 +28371,8 @@ var MAJOR_OLLAMA_MODELS = [
   "qwen2",
   "codellama",
   "starcoder2",
-  "nomic-embed-text"
+  "nomic-embed-text",
+  "brokenbread"
 ];
 function getModelsForProvider(provider) {
   switch (provider) {
@@ -28491,6 +28492,23 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
       });
     }).addButton((btn) => btn.setButtonText("Pull").setTooltip("Download this model to Ollama").onClick(async () => {
       await this.pullModelWithProgress(this.plugin.settings.relaySmartModel, btn);
+    }));
+    new import_obsidian10.Setting(containerEl).setName("Relay Embedding Model (Semantic)").setDesc("Model used for local vector indexing (e.g., nomic-embed-text).").addDropdown(async (dropdown) => {
+      const installed = await this.plugin.ollamaModels.getModels().catch(() => []);
+      const catalog = this.plugin.settings.verifiedModelsCatalog || [];
+      const allOptions = /* @__PURE__ */ new Set([
+        "nomic-embed-text",
+        ...installed.map((m) => m.id),
+        ...catalog
+      ]);
+      allOptions.forEach((id) => dropdown.addOption(id, id));
+      dropdown.setValue(this.plugin.settings.relayEmbeddingModel).onChange(async (value) => {
+        this.plugin.settings.relayEmbeddingModel = value;
+        await this.plugin.saveSettings();
+        this.plugin.recreateEmbeddingProvider();
+      });
+    }).addButton((btn) => btn.setButtonText("Pull").onClick(async () => {
+      await this.pullModelWithProgress(this.plugin.settings.relayEmbeddingModel, btn);
     }));
     let customModelToAdd = "";
     new import_obsidian10.Setting(containerEl).setName("Add Custom Ollama Model").setDesc("Enter a model name to verify and add to your persistent catalog.").addText((text2) => text2.setPlaceholder("e.g., hermes-pro-3").onChange((v) => customModelToAdd = v)).addButton((btn) => btn.setButtonText("Verify & Add").onClick(async () => {
@@ -31356,6 +31374,12 @@ var EmbeddingsIndex = class {
     this.backend = "ollama";
     this.embeddingProvider = embeddingProvider;
     this.dim = 0;
+  }
+  /**
+   * Hot-swaps the embedding provider (e.g. when user changes models).
+   */
+  updateProvider(provider) {
+    this.embeddingProvider = provider;
   }
   getIndexFilePath() {
     return `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index/index.json`;
@@ -36994,6 +37018,18 @@ var DiagnosticsService = class {
       });
     } else {
       results.push({ status: "PASS", message: `Model '${smartModel}' available.` });
+    }
+    const embedModel = this.plugin.settings.relayEmbeddingModel;
+    const embedDigest = await this.plugin.ollamaModels.getModelDigest(embedModel);
+    if (!embedDigest) {
+      results.push({
+        status: "FAIL",
+        code: "MODEL_MISSING",
+        message: `Embedding model '${embedModel}' not found in Ollama. Retrieval will be limited to BM25.`,
+        suggestedFix: `Pull '${embedModel}' using the button in the Writing Dashboard settings tab.`
+      });
+    } else {
+      results.push({ status: "PASS", message: `Embedding model '${embedModel}' available.` });
     }
     try {
       const testPrompt = 'Respond with "pong" in JSON format: { "result": "pong" }';
@@ -43702,7 +43738,7 @@ var WritingDashboardPlugin = class extends import_obsidian32.Plugin {
     this.aiClient = new AIClient();
     this.characterExtractor = new CharacterExtractor();
     this.queryBuilder = new QueryBuilder();
-    this.ollama = new OllamaEmbeddingProvider(this.app);
+    this.ollama = new OllamaEmbeddingProvider(this.app, this.settings.ollamaBaseUrl, this.settings.relayEmbeddingModel);
     this.ollamaGen = new OllamaGenerationProvider(this);
     this.ollamaModels = new OllamaModelManager(this);
     this.auditService = new AuditService();
@@ -43804,6 +43840,7 @@ var WritingDashboardPlugin = class extends import_obsidian32.Plugin {
         retrievalActiveProfileId: void 0,
         retrievalIncludedFolders: [],
         relaySmartModel: "llama3.1:70b",
+        relayEmbeddingModel: "nomic-embed-text",
         relayMode: "local",
         relayCloudModel: "gpt-4o",
         relayMaxContextWindow: 128e3,
@@ -43848,6 +43885,16 @@ var WritingDashboardPlugin = class extends import_obsidian32.Plugin {
     this.retrievalService = new RetrievalService(providers, {
       getVector: (key) => this.embeddingsIndex.getVectorForKey(key)
     });
+  }
+  recreateEmbeddingProvider() {
+    this.ollama = new OllamaEmbeddingProvider(
+      this.app,
+      this.settings.ollamaBaseUrl,
+      this.settings.relayEmbeddingModel
+    );
+    if (this.embeddingsIndex) {
+      this.embeddingsIndex.updateProvider(this.ollama);
+    }
   }
 };
 /*! Bundled license information:

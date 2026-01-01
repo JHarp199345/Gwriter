@@ -94,6 +94,7 @@ export type DashboardSettings = {
 	setupCompleted?: boolean;
 	vaultPath?: string;
 	relaySmartModel: string;
+	relayEmbeddingModel: string;
 	relayMode?: 'local' | 'cloud';
 	relayCloudModel?: string;
 	relayMaxContextWindow?: number;
@@ -144,7 +145,7 @@ export default class WritingDashboardPlugin extends Plugin {
 		this.aiClient = new AIClient();
 		this.characterExtractor = new CharacterExtractor();
 		this.queryBuilder = new QueryBuilder();
-		this.ollama = new OllamaEmbeddingProvider(this.app);
+		this.ollama = new OllamaEmbeddingProvider(this.app, this.settings.ollamaBaseUrl, this.settings.relayEmbeddingModel);
 		this.ollamaGen = new OllamaGenerationProvider(this);
 		this.ollamaModels = new OllamaModelManager(this);
 		this.auditService = new AuditService();
@@ -259,6 +260,7 @@ export default class WritingDashboardPlugin extends Plugin {
 				retrievalActiveProfileId: undefined,
 				retrievalIncludedFolders: [],
 				relaySmartModel: 'llama3.1:70b',
+				relayEmbeddingModel: 'nomic-embed-text',
 				relayMode: 'local',
 				relayCloudModel: 'gpt-4o',
 				relayMaxContextWindow: 128000,
@@ -311,6 +313,18 @@ export default class WritingDashboardPlugin extends Plugin {
 		this.retrievalService = new RetrievalService(providers, {
 			getVector: (key) => this.embeddingsIndex.getVectorForKey(key)
 		});
+	}
+
+	recreateEmbeddingProvider() {
+		this.ollama = new OllamaEmbeddingProvider(
+			this.app, 
+			this.settings.ollamaBaseUrl, 
+			this.settings.relayEmbeddingModel
+		);
+		// Also update the index since it holds a reference to the provider
+		if (this.embeddingsIndex) {
+			this.embeddingsIndex.updateProvider(this.ollama);
+		}
 	}
 }
 

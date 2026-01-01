@@ -69,7 +69,7 @@ export class EmbeddingsIndex {
 	private readonly plugin: WritingDashboardPlugin;
 	private dim: number;
 	private readonly backend: 'ollama';
-	private readonly embeddingProvider: OllamaEmbeddingProvider;
+	private embeddingProvider: OllamaEmbeddingProvider;
 
 	private loaded = false;
 	private chunksByKey = new Map<string, IndexedChunk>();
@@ -91,6 +91,13 @@ export class EmbeddingsIndex {
 		this.backend = 'ollama';
 		this.embeddingProvider = embeddingProvider;
 		this.dim = 0;
+	}
+
+	/**
+	 * Hot-swaps the embedding provider (e.g. when user changes models).
+	 */
+	updateProvider(provider: OllamaEmbeddingProvider) {
+		this.embeddingProvider = provider;
 	}
 
 	getIndexFilePath(): string {

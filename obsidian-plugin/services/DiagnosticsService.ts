@@ -99,6 +99,20 @@ export class DiagnosticsService {
             results.push({ status: 'PASS', message: `Model '${smartModel}' available.` });
         }
 
+        // Embedding Model
+        const embedModel = this.plugin.settings.relayEmbeddingModel;
+        const embedDigest = await this.plugin.ollamaModels.getModelDigest(embedModel);
+        if (!embedDigest) {
+            results.push({
+                status: 'FAIL',
+                code: 'MODEL_MISSING',
+                message: `Embedding model '${embedModel}' not found in Ollama. Retrieval will be limited to BM25.`,
+                suggestedFix: `Pull '${embedModel}' using the button in the Writing Dashboard settings tab.`
+            });
+        } else {
+            results.push({ status: 'PASS', message: `Embedding model '${embedModel}' available.` });
+        }
+
         // Minimal Generation Test
         try {
             const testPrompt = 'Respond with "pong" in JSON format: { "result": "pong" }';
