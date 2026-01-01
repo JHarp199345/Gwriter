@@ -28315,22 +28315,36 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
     new import_obsidian10.Setting(containerEl).setName("Add Custom Ollama Model").setDesc("Enter a model name to verify and add to your persistent catalog.").addText((text2) => text2.setPlaceholder("e.g., hermes-pro-3").onChange((v) => customModelToAdd = v)).addButton((btn) => btn.setButtonText("Verify & Add").onClick(async () => {
       if (!customModelToAdd)
         return;
+      const normalizedId = customModelToAdd.toLowerCase().trim();
       btn.setDisabled(true);
       btn.setButtonText("Verifying...");
       try {
-        const isInstalled = (await this.plugin.ollamaModels.getModels()).some((m) => m.id === customModelToAdd || m.id.split(":")[0] === customModelToAdd);
+        const installed = await this.plugin.ollamaModels.getModels();
+        const isInstalled = installed.some(
+          (m) => m.id.toLowerCase() === normalizedId || m.id.toLowerCase().split(":")[0] === normalizedId
+        );
         if (isInstalled) {
           const catalog = this.plugin.settings.verifiedModelsCatalog || [];
-          if (!catalog.includes(customModelToAdd)) {
-            this.plugin.settings.verifiedModelsCatalog = [...catalog, customModelToAdd];
+          if (!catalog.includes(normalizedId)) {
+            this.plugin.settings.verifiedModelsCatalog = [...catalog, normalizedId];
             await this.plugin.saveSettings();
-            new import_obsidian10.Notice(`\u2705 Verified and added ${customModelToAdd} to catalog.`);
+            new import_obsidian10.Notice(`\u2705 Verified and added ${normalizedId} to catalog.`);
             this.display();
           } else {
             new import_obsidian10.Notice("Model already in catalog.");
           }
         } else {
-          new import_obsidian10.Notice(`\u274C Model '${customModelToAdd}' not found in your Ollama library. Pull it first to verify.`);
+          if (normalizedId.length > 2) {
+            const catalog = this.plugin.settings.verifiedModelsCatalog || [];
+            if (!catalog.includes(normalizedId)) {
+              this.plugin.settings.verifiedModelsCatalog = [...catalog, normalizedId];
+              await this.plugin.saveSettings();
+              new import_obsidian10.Notice(`\u26A0\uFE0F Added '${normalizedId}' to catalog (not yet seen in your library).`);
+              this.display();
+            }
+          } else {
+            new import_obsidian10.Notice(`\u274C Invalid model name: ${normalizedId}`);
+          }
         }
       } catch (e) {
         new import_obsidian10.Notice(`\u274C Verification failed: ${e.message}`);

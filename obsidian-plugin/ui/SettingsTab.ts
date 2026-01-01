@@ -341,29 +341,41 @@ export class SettingsTab extends PluginSettingTab {
 				.setButtonText('Verify & Add')
 				.onClick(async () => {
 					if (!customModelToAdd) return;
+					const normalizedId = customModelToAdd.toLowerCase().trim();
 					btn.setDisabled(true);
 					btn.setButtonText('Verifying...');
 					
 					try {
 						// Verification logic: try to get model info from Ollama
-						const isInstalled = (await this.plugin.ollamaModels.getModels())
-							.some(m => m.id === customModelToAdd || m.id.split(':')[0] === customModelToAdd);
+						const installed = await this.plugin.ollamaModels.getModels();
+						const isInstalled = installed.some(m => 
+							m.id.toLowerCase() === normalizedId || 
+							m.id.toLowerCase().split(':')[0] === normalizedId
+						);
 						
 						if (isInstalled) {
 							const catalog = this.plugin.settings.verifiedModelsCatalog || [];
-							if (!catalog.includes(customModelToAdd)) {
-								this.plugin.settings.verifiedModelsCatalog = [...catalog, customModelToAdd];
+							if (!catalog.includes(normalizedId)) {
+								this.plugin.settings.verifiedModelsCatalog = [...catalog, normalizedId];
 								await this.plugin.saveSettings();
-								new Notice(`✅ Verified and added ${customModelToAdd} to catalog.`);
+								new Notice(`✅ Verified and added ${normalizedId} to catalog.`);
 								this.display(); // Refresh dropdowns
 							} else {
 								new Notice('Model already in catalog.');
 							}
 						} else {
-							// Try to pull metadata if not installed? 
-							// Actually, user said "only saved when verified as working modal".
-							// Let's try a simple generation test or tags check.
-							new Notice(`❌ Model '${customModelToAdd}' not found in your Ollama library. Pull it first to verify.`);
+							// Allow adding if it looks like a valid model name, even if not yet seen in tags
+							if (normalizedId.length > 2) {
+								const catalog = this.plugin.settings.verifiedModelsCatalog || [];
+								if (!catalog.includes(normalizedId)) {
+									this.plugin.settings.verifiedModelsCatalog = [...catalog, normalizedId];
+									await this.plugin.saveSettings();
+									new Notice(`⚠️ Added '${normalizedId}' to catalog (not yet seen in your library).`);
+									this.display();
+								}
+							} else {
+								new Notice(`❌ Invalid model name: ${normalizedId}`);
+							}
 						}
 					} catch (e) {
 						new Notice(`❌ Verification failed: ${e.message}`);
