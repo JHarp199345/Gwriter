@@ -4,6 +4,7 @@ import { SetupWizardModal } from './SetupWizard';
 import { TreePickerModal } from './TreePickerModal';
 import { FilePickerModal } from './FilePickerModal';
 import { StressTestService } from '../services/StressTestService';
+import { HelpDensity } from './HelpRegistry';
 
 // Model lists for each provider
 const OPENAI_MODELS = [
@@ -194,6 +195,79 @@ export class SettingsTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		// --- CO-AUTHORING RELAY (Phase 5-6) ---
+		addSection('Co-Authoring Relay', 'Advanced settings for Phases 5 and 6.');
+
+		new Setting(containerEl)
+			.setName('Generation Mode')
+			.setDesc('Local uses chunked multi-stage pipeline. Cloud uses monolithic single-call primitive.')
+			.addDropdown(dropdown => dropdown
+				.addOption('local', 'Local (Ollama)')
+				.addOption('cloud', 'Cloud (API)')
+				.setValue(this.plugin.settings.relayMode || 'local')
+				.onChange(async (value: 'local' | 'cloud') => {
+					this.plugin.settings.relayMode = value;
+					await this.plugin.saveSettings();
+					this.display();
+				}));
+
+		if (this.plugin.settings.relayMode === 'cloud') {
+			new Setting(containerEl)
+				.setName('Cloud Smart Model')
+				.setDesc('High-capability model for monolithic generation.')
+				.addText(text => text
+					.setPlaceholder('gpt-4o')
+					.setValue(this.plugin.settings.relayCloudSmartModel || '')
+					.onChange(async (value) => {
+						this.plugin.settings.relayCloudSmartModel = value;
+						await this.plugin.saveSettings();
+					}));
+
+			new Setting(containerEl)
+				.setName('Cloud Fast Model')
+				.setDesc('Faster model for auxiliary cloud tasks.')
+				.addText(text => text
+					.setPlaceholder('gpt-4o-mini')
+					.setValue(this.plugin.settings.relayCloudFastModel || '')
+					.onChange(async (value) => {
+						this.plugin.settings.relayCloudFastModel = value;
+						await this.plugin.saveSettings();
+					}));
+
+			new Setting(containerEl)
+				.setName('Max Context Window')
+				.setDesc('Maximum tokens to pack into the cloud prompt.')
+				.addText(text => text
+					.setPlaceholder('128000')
+					.setValue(String(this.plugin.settings.relayMaxContextWindow || 128000))
+					.onChange(async (value) => {
+						this.plugin.settings.relayMaxContextWindow = Number(value);
+						await this.plugin.saveSettings();
+					}));
+
+			new Setting(containerEl)
+				.setName('Hard Budget (USD)')
+				.setDesc('Max estimated cost per run before blocking.')
+				.addText(text => text
+					.setPlaceholder('1.00')
+					.setValue(String(this.plugin.settings.relayCostHardBudget || 1.00))
+					.onChange(async (value) => {
+						this.plugin.settings.relayCostHardBudget = Number(value);
+						await this.plugin.saveSettings();
+					}));
+
+			new Setting(containerEl)
+				.setName('Style Signature')
+				.setDesc('Add "Golden Paragraphs" that define your voice (one per line).')
+				.addTextArea(text => text
+					.setPlaceholder('The rain lashed against the windows like a desperate lover...')
+					.setValue((this.plugin.settings.relayStyleSignature || []).join('\n\n'))
+					.onChange(async (value) => {
+						this.plugin.settings.relayStyleSignature = value.split('\n\n').filter(p => p.trim());
+						await this.plugin.saveSettings();
+					}));
+		}
+
 		new Setting(containerEl)
 			.setName('Relay Smart Model (Writer)')
 			.setDesc('Large model for high-quality prose (e.g., Llama 3.1 70B).')
@@ -231,29 +305,35 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Check Ollama connection')
-			.setDesc('Verify that Ollama is running and required models are available.')
+			.setName('Test Now (Diagnostics)')
+			.setDesc('Run a comprehensive check of all systems based on your current settings (Local or Cloud).')
 			.addButton((btn) =>
 				btn
-					.setButtonText('Check Connection')
+					.setButtonText('Run Diagnostics')
+					.setCta()
 					.onClick(async () => {
+						btn.setDisabled(true);
+						btn.setButtonText('Testing...');
+						
 						try {
-							const isRunning = await this.plugin.ollamaGen.isAvailable();
-							if (!isRunning) {
-								new Notice('❌ Ollama not found at ' + this.plugin.settings.ollamaBaseUrl);
-								return;
-							}
+							const report = await this.plugin.diagnosticsService.runDiagnostics();
 							
-							const models = await this.plugin.ollamaModels.getModels();
-							const missing = models.filter(m => m.status === 'installable');
-							
-							if (missing.length > 0) {
-								new Notice(`⚠️ Ollama running, but missing catalog models: ${missing.map(m => m.id).join(', ')}`);
+							if (report.overallStatus === 'PASS') {
+								new Notice('✅ All systems PASS! Your configuration is healthy.');
+							} else if (report.overallStatus === 'WARN') {
+								const warnings = report.results.filter(r => r.status === 'WARN');
+								new Notice(`⚠️ Systems healthy with ${warnings.length} warnings. Check console/artifacts for details.`);
 							} else {
-								new Notice('✅ Success! Local AI is ready.');
+								const fails = report.results.filter(r => r.status === 'FAIL');
+								new Notice(`❌ ${fails.length} systems FAILED. Generation is blocked. Check console/artifacts.`);
 							}
+
+							console.log('[Diagnostics] Full Report:', report);
 						} catch (err) {
-							new Notice(`❌ Ollama check failed: ${err instanceof Error ? err.message : String(err)}`);
+							new Notice(`❌ Diagnostics failed: ${err instanceof Error ? err.message : String(err)}`);
+						} finally {
+							btn.setDisabled(false);
+							btn.setButtonText('Run Diagnostics');
 						}
 					})
 			);
@@ -762,6 +842,19 @@ export class SettingsTab extends PluginSettingTab {
 
 
 		addSection('Paths & setup', 'Setup wizard and guided demo.');
+
+		new Setting(containerEl)
+			.setName('Help Density')
+			.setDesc('Control how many tooltips and guidance elements are shown throughout the plugin.')
+			.addDropdown(dropdown => dropdown
+				.addOption('NONE', 'None (Clean UI)')
+				.addOption('LITE', 'Lite (Standard tooltips)')
+				.addOption('FULL', 'Full (Detailed guidance)')
+				.setValue(this.plugin.settings.helpDensity || 'LITE')
+				.onChange(async (value: HelpDensity) => {
+					this.plugin.settings.helpDensity = value;
+					await this.plugin.saveSettings();
+				}));
 
 		new Setting(containerEl)
 			.setName('Setup wizard')

@@ -4,6 +4,7 @@ import WritingDashboardPlugin from '../../main';
 import { buildIndexChunks } from './Chunking';
 import { fnv1a32, sha256 } from '../ContentHash';
 import { OllamaEmbeddingProvider } from './OllamaEmbeddingProvider';
+import { CO_AUTHORING_POLICY } from '../policy';
 
 export interface IndexedChunk {
 	key: string;

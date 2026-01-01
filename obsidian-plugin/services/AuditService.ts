@@ -79,6 +79,66 @@ export class AuditService {
     }
 
     /**
+     * Audit full chapter (monolithic cloud output) with parallel processing.
+     * Segments by paragraph boundaries with 1-paragraph overlap for continuity.
+     */
+    async auditFullChapter(fullProse: string, state: ChapterState): Promise<AuditResult> {
+        const violations: Violation[] = [];
+        
+        // Segment by paragraph boundaries
+        const paragraphs = fullProse.split(/\n\n+/).filter(p => p.trim());
+        const segments: Array<{ text: string; startOffset: number }> = [];
+        
+        let offset = 0;
+        for (let i = 0; i < paragraphs.length; i++) {
+            const para = paragraphs[i];
+            const segmentText = i > 0 
+                ? paragraphs[i - 1] + '\n\n' + para // 1-paragraph overlap
+                : para;
+            
+            segments.push({
+                text: segmentText,
+                startOffset: i > 0 ? offset - paragraphs[i - 1].length - 2 : offset
+            });
+            
+            offset += para.length + 2; // +2 for \n\n
+        }
+
+        // Parallel audit (max 4 workers)
+        const maxWorkers = 4;
+        const workers: Promise<Violation[]>[] = [];
+        
+        for (let i = 0; i < segments.length; i += maxWorkers) {
+            const batch = segments.slice(i, i + maxWorkers);
+            const batchPromises = batch.map(segment => 
+                this.auditChunk(segment.text, state).then(result => result.violations)
+            );
+            workers.push(...batchPromises);
+        }
+
+        const allViolations = await Promise.all(workers);
+        violations.push(...allViolations.flat());
+
+        // Deterministic ordering: sort by range start then severity
+        violations.sort((a, b) => {
+            if (a.range.start !== b.range.start) return a.range.start - b.range.start;
+            return b.severity - a.severity; // Higher severity first
+        });
+
+        const overallSeverity = violations.length > 0 
+            ? Math.max(...violations.map(v => v.severity)) 
+            : 0;
+
+        return {
+            violations,
+            overallSeverity,
+            summary: violations.length > 0 
+                ? `Found ${violations.length} violations across full chapter (Max Severity: ${overallSeverity}).`
+                : 'No violations detected in full chapter.'
+        };
+    }
+
+    /**
      * Identifies narration spans by excluding dialogue blocks.
      * Rule: Offsets are UTF-16 JavaScript string indices.
      */

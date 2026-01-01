@@ -16,6 +16,8 @@ import { parseCharacterRoster, rosterToBulletList } from '../services/CharacterR
 import { showConfirmModal } from './ConfirmModal';
 import { PromptPreviewModal } from './PromptPreviewModal';
 import { ButtonHelpModal } from './ButtonHelpModal';
+import { FactInspector } from './FactInspector';
+import { ReplayPanel } from './ReplayPanel';
 import { PilotHealthPanel } from './PilotHealthPanel'; // New
 import { relayEventBus } from '../services/EventBus';
 import { GenerationStep, StageResult } from '../services/Schemas';
@@ -37,10 +39,13 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [chunkBuffer, setChunkBuffer] = useState<string>('');
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [generationStage, setGenerationStage] = useState<string>('');
+	const [pulseMessage, setPulseMessage] = useState<string | null>(null);
+	const [pulseDetail, setPulseDetail] = useState<string | null>(null);
 	const [generationSteps, setGenerationSteps] = useState<GenerationStep[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [mismatchReport, setMismatchReport] = useState<any[] | null>(null); // New
 	const [telemetry, setTelemetry] = useState<{ tps: number, model: string, digest: string } | null>(null);
+	const [costEstimate, setCostEstimate] = useState<{ low: number, high: number } | null>(null);
 	const [showFactInspector, setShowFactInspector] = useState(false);
 	const [heatmapEnabled, setHeatmapEnabled] = useState(true);
 	const [spontaneity, setSpontaneity] = useState((plugin.settings as any).spontaneitySlider || 50);
@@ -48,7 +53,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [rejections, setRejections] = useState<any[]>([]); // New
 	const [proposedMutation, setProposedMutation] = useState<any | null>(null);
 	const [trustSummary, setTrustSummary] = useState<any | null>(null);
-	const [activeTab, setActiveTab] = useState<'editor' | 'lore' | 'replay'>('editor');
+	const [activeTab, setActiveTab] = useState<'editor' | 'lore' | 'replay' | 'signature'>('editor');
 
 	const commitLock = useRef<boolean>(false);
 
@@ -62,11 +67,17 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		};
 		const onStageStart = (data: { type: string }) => {
 			setGenerationStage(`Executing ${data.type}...`);
+			setPulseMessage(null);
+			setPulseDetail(null);
+		};
+		const onPulse = (data: { message: string, detail?: string }) => {
+			setPulseMessage(data.message);
+			if (data.detail) setPulseDetail(data.detail);
 		};
 		const onBufferUpdate = (data: { content: string }) => {
 			setChunkBuffer(data.content);
 		};
-		const onCommitted = (data: { content: string, metadata?: any[] }) => {
+		const onCommitted = (data: { content: string, metadata?: any[], chunkId?: string }) => {
 			// Transactional commit to note and UI
 			if (commitLock.current) return;
 			commitLock.current = true;
@@ -76,8 +87,14 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					metadata: data.metadata ? data.metadata[i] : undefined
 				}));
 
-				setGeneratedParagraphs((prev) => [...prev, ...newParas]);
-				setGeneratedText((prev) => prev + (prev ? '\n\n' : '') + data.content);
+				if (data.chunkId === 'edited-chapter' || data.chunkId === 'monolithic-chapter') {
+					setGeneratedParagraphs(newParas);
+					setGeneratedText(data.content);
+				} else {
+					setGeneratedParagraphs((prev) => [...prev, ...newParas]);
+					setGeneratedText((prev) => prev + (prev ? '\n\n' : '') + data.content);
+				}
+				
 				setChunkBuffer('');
 				// Update trust summary for the chunk
 				setTrustSummary({
@@ -123,6 +140,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		};
 
 		relayEventBus.on('run:start', onStart);
+		relayEventBus.on('run:pulse', onPulse);
 		relayEventBus.on('stage:start', onStageStart);
 		relayEventBus.on('chunk:buffer:update', onBufferUpdate);
 		relayEventBus.on('chunk:committed', onCommitted);
@@ -134,6 +152,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 		return () => {
 			relayEventBus.off('run:start', onStart);
+			relayEventBus.off('run:pulse', onPulse);
 			relayEventBus.off('stage:start', onStageStart);
 			relayEventBus.off('chunk:buffer:update', onBufferUpdate);
 			relayEventBus.off('chunk:committed', onCommitted);
@@ -150,8 +169,14 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			setError(null);
 			const minCfg = modeState.chapter.minWords ?? 2000;
 			await plugin.sequentialGenerator.generateChapter(minCfg);
+		} else if (mode === 'micro-edit') {
+			setError(null);
+			await plugin.sequentialGenerator.editChapter({
+				chapterText: modeState.microEdit.selectedPassage,
+				editInstructions: modeState.microEdit.grievances
+			});
 		} else {
-			new Notice('Relay generation is currently only available for Chapter mode.');
+			new Notice('Relay generation is currently only available for Chapter and Micro-Edit modes.');
 		}
 	};
 
@@ -166,6 +191,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				<button className={activeTab === 'editor' ? 'active' : ''} onClick={() => setActiveTab('editor')}>Editor</button>
 				<button className={activeTab === 'lore' ? 'active' : ''} onClick={() => setActiveTab('lore')}>Lore</button>
 				<button className={activeTab === 'replay' ? 'active' : ''} onClick={() => setActiveTab('replay')}>Replay</button>
+				<button className={activeTab === 'signature' ? 'active' : ''} onClick={() => setActiveTab('signature')}>Signature</button>
 			</div>
 
 			<div className="dashboard-layout">
@@ -187,23 +213,32 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 					{activeTab === 'lore' && (
 						<div className="lore-tab">
-							{/* FactInspector will go here */}
-							<h3>Canon Facts</h3>
-							<p>View and manage story lore.</p>
+							<FactInspector 
+								state={plugin.sequentialGenerator.getContextManager()?.getState() || plugin.settings.modeState.chapterState || {
+									chapterId: 'temp',
+									canonVersion: 1,
+									entities: [],
+									canonFacts: [],
+									mutationHistory: [],
+									pendingMutations: [],
+									entity_redirects: {},
+									redirectRegistryVersion: 0,
+									timeline: [],
+									constraints: { pov: 'third', tense: 'past', tone: [], forbidden: [] }
+								}} 
+							/>
 							<PilotHealthPanel 
 								plugin={plugin} 
 								misses={misses} 
 								rejections={rejections} 
-								quarantineCount={plugin.contextAggregator.getState().pendingMutations.length} 
+								quarantineCount={0} 
 							/>
 						</div>
 					)}
 
 					{activeTab === 'replay' && (
 						<div className="replay-tab">
-							{/* DevReplayPanel will go here */}
-							<h3>Generation Replay</h3>
-							<p>Audit and replay previous runs.</p>
+							<ReplayPanel plugin={plugin} />
 						</div>
 					)}
 
@@ -308,6 +343,19 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							</button>
 						)}
 					</div>
+
+					{isGenerating && pulseMessage && (
+						<div className="continuity-pulse-container">
+							<div className="pulse-message">
+								<span className="pulse-icon">⚛️</span>
+								<strong>{pulseMessage}</strong>
+							</div>
+							{pulseDetail && <div className="pulse-detail">{pulseDetail}</div>}
+							<div className="pulse-progress-bar">
+								<div className="pulse-progress-fill" />
+							</div>
+						</div>
+					)}
 
 					{telemetry && (
 						<div className="telemetry-bar">

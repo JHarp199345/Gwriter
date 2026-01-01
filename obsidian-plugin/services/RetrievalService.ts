@@ -50,7 +50,15 @@ export class RetrievalService {
 		]);
 
 		// Flatten buckets
-		const buckets = [...lexicalBuckets, ...semanticBuckets].filter(b => b.items.length > 0);
+		let buckets = [...lexicalBuckets, ...semanticBuckets].filter(b => b.items.length > 0);
+		
+		// Lexical Fallback: If all semantic providers failed/timed out, and we have lexical results
+		const semanticFailed = semanticProviders.length > 0 && semanticBuckets.every(b => b.items.length === 0 && b.failureCode === 'FAIL_TIME_BUDGET');
+		if (semanticFailed && lexicalBuckets.some(b => b.items.length > 0)) {
+			console.warn('[Retrieval] ⚡ Semantic providers timed out. Falling back to Lexical-only results.');
+			buckets = lexicalBuckets.filter(b => b.items.length > 0);
+		}
+
 		if (buckets.length === 0) return [];
 		
 		// RRF fusion over lexical + semantic
@@ -150,6 +158,16 @@ export class RetrievalService {
 			: 0.72;
 
 		let diverse = mmrSelect(fused, { limit, lambda, getVector: this.getVector });
+
+		// Instrumentation: Log failures
+		if (diverse.length === 0) {
+			console.warn('[Retrieval] ❌ RAG Failure: FAIL_MIN_HITS');
+		} else {
+			const topScore = diverse[0].relevance?.finalScore || 0;
+			if (topScore < T_hard) {
+				console.warn(`[Retrieval] ⚠️ RAG Warning: FAIL_CONFIDENCE (Top score ${topScore.toFixed(2)} < ${T_hard})`);
+			}
+		}
 
 		// Post-MMR: Ensure stickyMin is satisfied from fallbackSet
 		if (opts.fallbackSet && opts.stickyMin !== undefined && opts.fallbackSet.length > 0) {

@@ -14,21 +14,26 @@ export type RelayEvents = {
     'run:end': { runId: string, totalWords: number };
     'run:error': { runId: string, error: string };
     
+    'run:pulse': { runId: string, message: string, detail?: string };
+    
     'stage:start': { runId: string, stageId: string, type: string };
     'stage:progress': { runId: string, stageId: string, message: string };
     'stage:end': { runId: string, stageId: string, result: StageResult };
     
-    'chunk:buffer:update': { runId: string, chunkId: string, content: string, tokens: string[] };
-    'chunk:committed': { runId: string, chunkId: string, content: string, path: string };
+    'chunk:buffer:update': { content: string };
+    'chunk:committed': { runId: string, chunkId: string, content: string, metadata?: any[], path: string };
     
     'state:updated': { runId: string, chapterId: string, diffSummary: string };
     
     'audit:violations': { runId: string, chunkId: string, violations: Violation[], overallSeverity: number };
     'repair:applied': { runId: string, chunkId: string, patches: PatchOp[] };
     
-    'control:paused': { runId: string };
+    'control:paused': { runId: string, reason?: string };
     'control:resumed': { runId: string };
     'control:aborted': { runId: string };
+
+    'pilot:miss': { type: string, runId: string | null };
+    'pilot:stitch_rejected': { iteration: number, changes: any };
 };
 
 export type RelayEventName = keyof RelayEvents;
@@ -39,7 +44,7 @@ export type RelayEventHandler<T extends RelayEventName> = (data: RelayEvents[T])
  * Ensures typed communication between the SequentialGenerator and UI components.
  */
 export class RelayEventBus {
-    private listeners: { [K in RelayEventName]?: RelayEventHandler<K>[] } = {};
+    private listeners: any = {};
 
     /**
      * Subscribe to an event.
@@ -56,7 +61,7 @@ export class RelayEventBus {
      */
     off<T extends RelayEventName>(event: T, handler: RelayEventHandler<T>) {
         if (!this.listeners[event]) return;
-        this.listeners[event] = this.listeners[event]!.filter(h => h !== handler);
+        this.listeners[event] = this.listeners[event]!.filter((h: any) => h !== handler);
     }
 
     /**
@@ -64,7 +69,7 @@ export class RelayEventBus {
      */
     emit<T extends RelayEventName>(event: T, data: RelayEvents[T]) {
         if (!this.listeners[event]) return;
-        this.listeners[event]!.forEach(handler => handler(data));
+        this.listeners[event]!.forEach((handler: any) => handler(data));
     }
 }
 

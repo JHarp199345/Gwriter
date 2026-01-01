@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import WritingDashboardPlugin from '../main';
 import { TextChunker } from '../services/TextChunker';
 
+type DebugMode = 'off' | 'summary' | 'raw';
+
 export const EditorPanel: React.FC<{
 	plugin: WritingDashboardPlugin;
 	mode: 'chapter' | 'micro-edit' | 'character-update' | 'continuity-check';
@@ -15,6 +17,8 @@ export const EditorPanel: React.FC<{
 	chunkBuffer?: string;
 }> = ({ mode, selectedText, onSelectionChange, generatedText, generatedParagraphs, heatmapEnabled, onGeneratedChange, onCopy, chunkBuffer }) => {
 	const [hoveredPara, setHoveredPara] = useState<number | null>(null);
+	const [debugLevel, setDebugLevel] = useState<'off' | 'summary' | 'raw'>('off');
+	const [debugMode, setDebugMode] = useState<DebugMode>('off');
 
 	const selectedWords = TextChunker.getWordCount(selectedText || '');
 	const selectedChars = (selectedText || '').length;
@@ -41,16 +45,17 @@ export const EditorPanel: React.FC<{
 
 	const getParaClass = (metadata: any) => {
 		if (!heatmapEnabled) return '';
-		if (!metadata) return 'para-patterned'; // Inferred
-		if (metadata.isSpeculative) return 'para-dimmed'; // Lite/Speculative
-		return 'para-solid'; // Grounded
+		if (!metadata) return 'para-inferred'; // Inferred (🟡)
+		if (metadata.isSpeculative) return 'para-speculative'; // Speculative (🔴)
+		return 'para-grounded'; // Grounded (🟢)
 	};
 
 	const getParaIcon = (metadata: any) => {
 		if (!heatmapEnabled) return null;
-		if (!metadata) return '🔍'; // Inferred icon
-		if (metadata.isSpeculative) return '⚠️'; // Lite icon
-		return '✅'; // Grounded icon
+		if (debugMode === 'off') return null;
+		if (!metadata) return '🟡'; // Inferred icon
+		if (metadata.isSpeculative) return '🔴'; // Speculative icon
+		return '🟢'; // Grounded icon
 	};
 
 	return (
@@ -79,13 +84,32 @@ export const EditorPanel: React.FC<{
 								{outputWords.toLocaleString()} words / {outputChars.toLocaleString()} chars
 							</span>
 						</div>
-						<div style={{ display: 'flex', gap: 8 }}>
+						<div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
 							{heatmapEnabled && (
-								<div className="heatmap-legend">
-									<span title="Grounded (Full Metadata)"><span className="legend-dot solid"></span></span>
-									<span title="Inferred (Metadata Missing)"><span className="legend-dot patterned"></span></span>
-									<span title="Lite (Speculative/Fallback)"><span className="legend-dot dimmed"></span></span>
-								</div>
+								<>
+									<div className="debug-mode-selector" style={{ display: 'flex', gap: 4 }}>
+										<button 
+											className={`btn-xs ${debugMode === 'off' ? 'mod-cta' : ''}`} 
+											onClick={() => setDebugMode('off')}
+											title="Debug Off"
+										>None</button>
+										<button 
+											className={`btn-xs ${debugMode === 'summary' ? 'mod-cta' : ''}`} 
+											onClick={() => setDebugMode('summary')}
+											title="Summary Tooltips"
+										>Sum</button>
+										<button 
+											className={`btn-xs ${debugMode === 'raw' ? 'mod-cta' : ''}`} 
+											onClick={() => setDebugMode('raw')}
+											title="Raw Metadata JSON"
+										>Raw</button>
+									</div>
+									<div className="heatmap-legend" style={{ display: 'flex', gap: 8, fontSize: '0.8em' }}>
+										<span title="Grounded (Full Metadata)"><span className="legend-dot" style={{ backgroundColor: 'var(--text-success)' }}></span> 🟢</span>
+										<span title="Inferred (Metadata Missing)"><span className="legend-dot" style={{ backgroundColor: 'var(--text-warning)' }}></span> 🟡</span>
+										<span title="Speculative (Fallback)"><span className="legend-dot" style={{ backgroundColor: 'var(--text-error)' }}></span> 🔴</span>
+									</div>
+								</>
 							)}
 							<button onClick={onCopy} className="copy-button">Copy to clipboard</button>
 						</div>
@@ -99,17 +123,37 @@ export const EditorPanel: React.FC<{
 									className={`generated-para ${getParaClass(para.metadata)}`}
 									onMouseEnter={() => setHoveredPara(idx)}
 									onMouseLeave={() => setHoveredPara(null)}
+									style={{ position: 'relative' }}
 								>
 									<span className="para-icon">{getParaIcon(para.metadata)}</span>
 									{para.text}
-									{hoveredPara === idx && para.metadata && (
-										<div className="para-explanation">
-											<strong>Grounding Explanation</strong>
-											<div>Mode: {para.metadata.isSpeculative ? 'Creative/Lite' : 'Grounded'}</div>
-											<div>Facts: {para.metadata.factIds?.length || 0}</div>
-											<div>Goals: {para.metadata.goalIds?.length || 0}</div>
-											{para.metadata.sourceChunkIds && (
-												<div>Sources: {para.metadata.sourceChunkIds.join(', ')}</div>
+									{hoveredPara === idx && debugMode !== 'off' && (
+										<div className="para-explanation" style={{ 
+											position: 'absolute', 
+											top: '100%', 
+											left: '0', 
+											zIndex: 10, 
+											backgroundColor: 'var(--background-secondary)', 
+											border: '1px solid var(--background-modifier-border)',
+											padding: '8px',
+											borderRadius: '4px',
+											width: '300px',
+											boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+										}}>
+											{debugMode === 'summary' ? (
+												<>
+													<strong>Grounding Explanation</strong>
+													<div>Mode: {para.metadata?.isSpeculative ? 'Creative/Lite' : (para.metadata ? 'Grounded' : 'Inferred')}</div>
+													<div>Facts: {para.metadata?.factIds?.length || 0}</div>
+													<div>Goals: {para.metadata?.goalIds?.length || 0}</div>
+													{para.metadata?.sourceChunkIds && (
+														<div>Sources: {para.metadata.sourceChunkIds.join(', ')}</div>
+													)}
+												</>
+											) : (
+												<pre style={{ fontSize: '0.75em', margin: 0, overflowX: 'auto' }}>
+													{JSON.stringify(para.metadata || { status: 'inferred' }, null, 2)}
+												</pre>
 											)}
 										</div>
 									)}
@@ -136,4 +180,3 @@ export const EditorPanel: React.FC<{
 		</div>
 	);
 };
-

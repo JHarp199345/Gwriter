@@ -12,6 +12,7 @@ import {
 import { CO_AUTHORING_POLICY } from './policy';
 import { Vault, TFile } from 'obsidian';
 import { ContextItem } from './retrieval/types';
+import { sha256 } from './ContentHash';
 
 /**
  * ContextManager is responsible for maintaining the "Memory" of the relay drafting.
@@ -26,6 +27,7 @@ export class ContextManager {
     private pinnedFactIds: Set<string> = new Set(); // User-pinned facts (need[])
     private pinnedTtl: Record<string, number> = {}; // factId -> chunksRemaining
     private pinnedExtensions: Record<string, number> = {}; // factId -> extensionCount
+    private semanticLockMap: Map<string, { type: string, value: any, scope: string }> = new Map(); // Locked entities/relations
 
     constructor(vault: Vault, initialState: ChapterState) {
         this.vault = vault;
@@ -73,7 +75,7 @@ export class ContextManager {
      * Hierarchy: BIBLE > CANON > STATE > GENERATED > SEEDED
      */
     canOverride(srcOrigin: FactOrigin, dstOrigin: FactOrigin, factType: FactType, scope: FactScope): boolean {
-        const hierarchy: Record<FactOrigin, number> = {
+        const hierarchy: Record<string, number> = {
             'BIBLE': 5,
             'USER': 4,
             'MUTATION': 4,
@@ -251,7 +253,10 @@ export class ContextManager {
             proposedFactIds: [newFact.id],
             acceptedBy: 'user',
             chunkId,
-            baselineCanonVersion: this.state.canonVersion // Snapshot baseline
+            baselineCanonVersion: this.state.canonVersion, // Snapshot baseline
+            previousCanonVersion: this.state.canonVersion,
+            requiresReindex: false,
+            indexesImpacted: []
         };
     }
 
@@ -420,6 +425,21 @@ export class ContextManager {
     }
 
     /**
+     * Forensic Manifest: Expands the Lock Map to protect specific entity mentions or relations.
+     */
+    lockSemanticEntity(id: string, type: string, value: any, scope: string = 'GLOBAL') {
+        this.semanticLockMap.set(id, { type, value, scope });
+        console.log(`[ContextManager] 🔒 Locked semantic entity: ${id} (${type})`);
+    }
+
+    /**
+     * Checks if a semantic entity is locked.
+     */
+    isSemanticLocked(id: string): boolean {
+        return this.semanticLockMap.has(id);
+    }
+
+    /**
      * Renders a compact, human-readable "State Card" for prompt injection.
      */
     renderStateCard(): string {
@@ -535,10 +555,30 @@ export class ContextManager {
      * Rule: +0.1 for resolved entities, -0.1 for ambiguous ones.
      */
     /**
+     * Enforces the Promotion Contract for CORE tier facts.
+     * Rule: CORE facts from {USER, MUTATION} MUST have approvedByEventId to be CANON.
+     */
+    private enforcePromotionContract(fact: CanonFact): boolean {
+        const isCore = AttributeRegistry.includes(fact.attribute) || ['IDENTITY', 'RELATIONSHIP', 'TIMELINE'].includes(fact.type);
+        if (isCore && fact.lifecycleState === 'CANON') {
+            if (['USER', 'MUTATION'].includes(fact.origin) && !fact.approvedByEventId) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * Appends new facts and timeline events to the state.
      */
     updateState(newFacts: CanonFact[], timelineEvent?: { chunkId: string, summary: string }) {
         newFacts.forEach(newFact => {
+            // Enforce Promotion Contract
+            if (!this.enforcePromotionContract(newFact)) {
+                console.warn(`[ContextManager] 🛡️ Promotion Contract Violation: Fact ${newFact.id} (${newFact.attribute}) blocked from CANON. Downgrading to PROPOSED.`);
+                newFact.lifecycleState = 'PROPOSED';
+            }
+
             const index = this.state.canonFacts.findIndex(f => f.id === newFact.id);
             if (index !== -1) {
                 this.state.canonFacts[index] = newFact;

@@ -25,6 +25,7 @@ export class OllamaModelManager {
 
     constructor(plugin: WritingDashboardPlugin) {
         this.plugin = plugin;
+        this.catalog = [
             { id: 'llama3.1:70b', role: 'WRITE', sizeTier: 'large' },
             { id: 'llama3.1:8b', role: 'FAST', sizeTier: 'small' },
             { id: 'nomic-embed-text', role: 'EMBED', sizeTier: 'tiny' }
@@ -173,4 +174,5 @@ export class OllamaModelManager {
             };
         }
     }
+}
 

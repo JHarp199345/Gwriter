@@ -89,6 +89,34 @@ export const CO_AUTHORING_POLICY = {
         STREAM_MAX_BUFFER_CHARS: 600,
         MAX_TIME_PER_SMART_CALL_MS: 15000, // 15s budget per smart model call
         MAX_REPAIR_ATTEMPTS_PER_PARA: 3,
+        REBUILD_QUEUE_DEBOUNCE_MS: 1000,
+        MAX_REBUILDS_PER_BATCH: 50
+    },
+
+    // INTERVENTION POLICY (v47)
+    INTERVENTION: {
+        MAX_INTERVENTIONS_PER_RUN: 3,
+        MAX_INTERVENTIONS_PER_CHUNK: 1
+    },
+
+    // TELESCOPING POLICY (v47)
+    TELESCOPING: {
+        CHUNK_CADENCE: 5, // Every N chunks
+        CONTEXT_PRESSURE_THRESHOLD: 0.8, // Trigger if context window usage > 80%
+        HIGH_ENTITY_DENSITY_THRESHOLD: 5, // Trigger if >N new entities in last K chunks
+        ENTITY_DENSITY_WINDOW: 3, // Look at last K chunks
+        SUMMARY_WORD_COUNT: 200 // Target word count for dense plot memory
+    },
+
+    // HARVEST POLICY (v47)
+    HARVEST: {
+        STABILITY_MIN_APPEARANCES: 2, // Candidate must appear ≥N times to be "stable"
+        STABILITY_CITATION_CONFIDENCE: 0.85, // OR have explicit citation with this confidence
+        TIER_RULES: {
+            CORE_REQUIRES_REVIEW: true, // CORE-impact items always require user review
+            SCENE_ONLY_AUTO_ACCEPT: true, // SCENE-only items can be auto-accepted (run-local)
+            SCENE_ONLY_STAYS_RUN_LOCAL: true // Auto-accepted scene items don't go to story-bible.md
+        }
     }
 };
 

@@ -5,6 +5,7 @@ export interface Context {
 	character_notes?: string;
 	surrounding_before?: string;
 	surrounding_after?: string;
+	plot_memory?: string; // v47: Derived plot memory
 }
 
 export class PromptEngine {
@@ -19,7 +20,15 @@ export class PromptEngine {
 
 You are working on a multi-book narrative. Interpret the following file contents as directed:
 
+${context.plot_memory ? `-------------------------------------------------------------
+DERIVED PLOT MEMORY — RECENT TRAJECTORY
 -------------------------------------------------------------
+${context.plot_memory}
+
+Use this derived summary for high-level continuity and plot trajectory. 
+Note: This is a derived artifact and should not be used as an absolute source for new canon facts.
+
+` : ''}-------------------------------------------------------------
 RETRIEVED CONTEXT — RELEVANT NOTES (WHOLE VAULT)
 -------------------------------------------------------------
 ${context.smart_connections || ''}
@@ -434,6 +443,91 @@ ${params.delta}
 OUTPUT
 -------------------------------------------------------------
 Return the full updated story bible markdown only.`;
+	}
+
+	buildTelescopingPrompt(params: {
+		recentChunks: Array<{ chunkId: string; summary: string; text: string }>;
+		currentPlotMemory?: string;
+	}): string {
+		const chunksText = params.recentChunks.map(c => `[Chunk ${c.chunkId}]\n${c.text}`).join('\n\n---\n\n');
+		
+		return `SYSTEM INSTRUCTION FOR AI:
+
+You are creating a structured plot memory summary from recent narrative chunks.
+
+-------------------------------------------------------------
+RECENT CHUNKS
+-------------------------------------------------------------
+${chunksText}
+
+${params.currentPlotMemory ? `-------------------------------------------------------------
+CURRENT PLOT MEMORY
+-------------------------------------------------------------
+${params.currentPlotMemory}
+
+` : ''}-------------------------------------------------------------
+TASK
+-------------------------------------------------------------
+Extract structured information and generate a dense 200-word plot memory summary.
+
+OUTPUT FORMAT (JSON):
+{
+  "events": ["bullet point with entity IDs"],
+  "openThreads": ["unresolved plot threads"],
+  "resolvedThreads": ["threads that were resolved"],
+  "anchorState": {
+    "location": "current location or null",
+    "time": "temporal anchor or null",
+    "cast": ["entity ID 1", "entity ID 2"]
+  },
+  "newEntityStrings": ["names mentioned but not resolved to IDs"],
+  "uncertainEvents": ["events you're uncertain about"],
+  "denseSummary": "A dense 200-word summary of the plot trajectory"
+}
+
+The denseSummary must capture the narrative trajectory without losing key continuity anchors.`;
+	}
+
+	buildLoreHarvestPrompt(params: {
+		chunkText: string;
+		existingEntities: string[];
+	}): string {
+		return `SYSTEM INSTRUCTION FOR AI:
+
+You are extracting new lore candidates (entities, locations, facts) from a narrative passage. 
+Identify "Stable Hallucinations" — world-building details introduced in the prose that are not yet in the canon.
+
+-------------------------------------------------------------
+EXISTING ENTITY IDs
+-------------------------------------------------------------
+${params.existingEntities.join(', ') || '[None]'}
+
+-------------------------------------------------------------
+PASSAGE
+-------------------------------------------------------------
+${params.chunkText}
+
+-------------------------------------------------------------
+TASK
+-------------------------------------------------------------
+Extract new entities, locations, objects, and facts.
+Provide evidence for each extraction.
+
+OUTPUT FORMAT (JSON):
+{
+  "candidates": [
+    {
+      "entityId": "suggested-id (e.g., char-barnaby)",
+      "entityName": "Entity Name",
+      "type": "character|location|object|concept",
+      "attribute": "attribute-name (e.g., hair_color, location)",
+      "value": "extracted value",
+      "scope": "SCENE|CHAPTER|GLOBAL",
+      "excerpt": "Exact text span as evidence",
+      "confidence": 0.0-1.0
+    }
+  ]
+}`;
 	}
 }
 

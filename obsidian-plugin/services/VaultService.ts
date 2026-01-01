@@ -3,6 +3,8 @@ import WritingDashboardPlugin from '../main';
 import { TextChunker } from './TextChunker';
 import { CharacterNameResolver } from './CharacterNameResolver';
 import { showCharacterNameConflictModal } from '../ui/CharacterNameConflictModal';
+import { sha256 } from './ContentHash';
+import { SpanConfidence } from './Schemas';
 
 export class VaultService {
 	private vault: Vault;
@@ -349,6 +351,92 @@ export class VaultService {
 		return this.vault.getMarkdownFiles().filter((f) => !this.isExcludedPath(f.path));
 	}
 
+	/**
+	 * Relocation Service: 5-step search algorithm with confidence tiers.
+	 * 1. Exact path match.
+	 * 2. Base name match in the same folder.
+	 * 3. Fuzzy name match in the vault.
+	 * 4. Alias match (via Entity attributes).
+	 * 5. Content hash match.
+	 */
+	async relocateFile(
+		path: string, 
+		expectedHash?: string, 
+		aliases: string[] = []
+	): Promise<{ path: string; confidence: SpanConfidence }> {
+		const normalizedPath = path.replace(/\\/g, '/');
+		
+		// 1. Exact path match
+		const exact = this.vault.getAbstractFileByPath(normalizedPath);
+		if (exact instanceof TFile) {
+			const content = await this.vault.read(exact);
+			const actualHash = await sha256(content);
+			if (!expectedHash || actualHash === expectedHash) {
+				return { path: normalizedPath, confidence: 'EXACT' };
+			}
+		}
+
+		const fileName = normalizedPath.split('/').pop() || '';
+		const baseName = fileName.replace(/\.md$/, '');
+		const parentPath = normalizedPath.includes('/') ? normalizedPath.substring(0, normalizedPath.lastIndexOf('/')) : '';
+
+		// 2. Base name match in the same folder
+		if (parentPath) {
+			const parent = this.vault.getAbstractFileByPath(parentPath);
+			if (parent instanceof TFolder) {
+				for (const child of parent.children) {
+					if (child instanceof TFile && child.name.replace(/\.md$/, '') === baseName) {
+						return { path: child.path, confidence: 'RELOCATED_UNIQUE' };
+					}
+				}
+			}
+		}
+
+		// 3. Fuzzy name match in the vault (case-insensitive)
+		const allFiles = this.vault.getMarkdownFiles();
+		const fuzzyMatches = allFiles.filter(f => 
+			f.name.toLowerCase() === fileName.toLowerCase() || 
+			f.basename.toLowerCase() === baseName.toLowerCase()
+		);
+		if (fuzzyMatches.length === 1) {
+			return { path: fuzzyMatches[0].path, confidence: 'RELOCATED_UNIQUE' };
+		} else if (fuzzyMatches.length > 1) {
+			if (expectedHash) {
+				for (const f of fuzzyMatches) {
+					const content = await this.vault.read(f);
+					const h = await sha256(content);
+					if (h === expectedHash) {
+						return { path: f.path, confidence: 'RELOCATED_UNIQUE' };
+					}
+				}
+			}
+			return { path: fuzzyMatches[0].path, confidence: 'RELOCATED_AMBIGUOUS' };
+		}
+
+		// 4. Alias match
+		if (aliases.length > 0) {
+			const aliasMatches = allFiles.filter(f => 
+				aliases.some(a => f.basename.toLowerCase() === a.toLowerCase())
+			);
+			if (aliasMatches.length === 1) {
+				return { path: aliasMatches[0].path, confidence: 'RELOCATED_UNIQUE' };
+			}
+		}
+
+		// 5. Content hash match (Expensive fallback)
+		if (expectedHash) {
+			for (const f of allFiles) {
+				const content = await this.vault.read(f);
+				const h = await sha256(content);
+				if (h === expectedHash) {
+					return { path: f.path, confidence: 'RELOCATED_UNIQUE' };
+				}
+			}
+		}
+
+		return { path: normalizedPath, confidence: 'INVALID' };
+	}
+
 	private _traverseFolder(
 		folder: TFolder,
 		structure: Array<{ name: string; path: string; type: 'file' | 'folder' }>,
@@ -372,6 +460,110 @@ export class VaultService {
 			const path = basePath ? `${basePath}/${child.name}` : child.name;
 			folders.push(path);
 			this._collectFolders(child, folders, path);
+		}
+	}
+
+	/**
+	 * Transactionally merges harvested facts into the Story Bible.
+	 * Maintains format invariants and stores reverse patch for rollback.
+	 */
+	async mergeHarvestIntoStoryBible(
+		storyBiblePath: string,
+		harvestItems: Array<{ harvestId: string; proposedFact: any }>,
+		canonVersion: number
+	): Promise<{
+		success: boolean;
+		reversePatch?: string;
+		canonVersionAfterMerge: number;
+	}> {
+		const file = this.vault.getAbstractFileByPath(storyBiblePath);
+		if (!(file instanceof TFile)) {
+			throw new Error(`Story Bible not found: ${storyBiblePath}`);
+		}
+
+		const existingContent = await this.vault.read(file);
+		const reversePatch = existingContent; // Store original for rollback
+
+		// 1. Group items by section (based on fact type)
+		const sections: Record<string, string[]> = {
+			'Characters': [],
+			'Locations': [],
+			'Objects': [],
+			'Timeline': [],
+			'World Rules': []
+		};
+
+		harvestItems.forEach(item => {
+			const fact = item.proposedFact;
+			let section = 'World Rules';
+			if (fact.type === 'IDENTITY' || fact.type === 'TRAIT') section = 'Characters';
+			else if (fact.type === 'RELATIONSHIP') section = 'Characters';
+			else if (fact.type === 'TIMELINE') section = 'Timeline';
+			
+			// Format as a stable bullet: "- [entityId] attribute: value"
+			const valueStr = typeof fact.value === 'string' ? fact.value : JSON.stringify(fact.value);
+			sections[section].push(`- [${fact.entityId}] ${fact.attribute}: ${valueStr}`);
+		});
+
+		// 2. Parse existing content and merge
+		let updatedContent = existingContent;
+		
+		for (const [sectionName, newBullets] of Object.entries(sections)) {
+			if (newBullets.length === 0) continue;
+
+			const header = `## ${sectionName}`;
+			const headerIndex = updatedContent.indexOf(header);
+
+			if (headerIndex !== -1) {
+				// Section exists, find end of section
+				let nextHeaderIndex = updatedContent.indexOf('\n## ', headerIndex + header.length);
+				if (nextHeaderIndex === -1) nextHeaderIndex = updatedContent.length;
+
+				const sectionContent = updatedContent.substring(headerIndex, nextHeaderIndex);
+				
+				// Add new bullets, avoiding duplicates
+				const lines = sectionContent.split('\n');
+				const mergedBullets = [...newBullets];
+				
+				newBullets.forEach(nb => {
+					if (!lines.some(l => l.trim() === nb)) {
+						lines.push(nb);
+					}
+				});
+
+				// Sort bullets within section for determinism (skipping header)
+				const headerLine = lines[0];
+				const contentLines = lines.slice(1).filter(l => l.trim());
+				contentLines.sort();
+				
+				const newSectionContent = [headerLine, ...contentLines].join('\n');
+				updatedContent = updatedContent.substring(0, headerIndex) + newSectionContent + '\n' + updatedContent.substring(nextHeaderIndex);
+			} else {
+				// Section doesn't exist, append to end
+				updatedContent += `\n\n## ${sectionName}\n${newBullets.sort().join('\n')}\n`;
+			}
+		}
+
+		// 3. Write updated content
+		await this.vault.modify(file, updatedContent);
+
+		const newCanonVersion = canonVersion + 1;
+
+		return {
+			success: true,
+			reversePatch,
+			canonVersionAfterMerge: newCanonVersion
+		};
+	}
+
+	/**
+	 * Rolls back a Story Bible merge using a stored reverse patch.
+	 */
+	async rollbackStoryBible(storyBiblePath: string, reversePatch: string): Promise<void> {
+		const file = this.vault.getAbstractFileByPath(storyBiblePath);
+		if (file instanceof TFile) {
+			await this.vault.modify(file, reversePatch);
+			console.log(`[VaultService] 🔄 Rolled back Story Bible to previous state.`);
 		}
 	}
 }

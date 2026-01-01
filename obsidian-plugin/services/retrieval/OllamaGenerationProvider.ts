@@ -17,6 +17,10 @@ export interface GenerationParams {
 export class OllamaGenerationProvider {
     private plugin: WritingDashboardPlugin;
 
+    private get baseUrl() {
+        return this.plugin.settings.ollamaBaseUrl || 'http://127.0.0.1:11434';
+    }
+
     private queue: { 
         priority: number, 
         task: () => Promise<any>, 
@@ -215,6 +219,11 @@ export class OllamaGenerationProvider {
             throw err;
         }
     }
+
+    /**
+     * Checks if Ollama is running.
+     */
+    async isOllamaRunning(): Promise<boolean> {
         try {
             const response = await requestUrl({
                 url: `${this.baseUrl}/api/tags`,
@@ -224,6 +233,10 @@ export class OllamaGenerationProvider {
         } catch (e) {
             return false;
         }
+    }
+
+    async isAvailable(): Promise<boolean> {
+        return this.isOllamaRunning();
     }
 
     /**
