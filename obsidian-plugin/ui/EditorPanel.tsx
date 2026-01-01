@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import WritingDashboardPlugin from '../main';
 import { TextChunker } from '../services/TextChunker';
 
@@ -8,9 +8,14 @@ export const EditorPanel: React.FC<{
 	selectedText: string;
 	onSelectionChange: (text: string) => void;
 	generatedText: string;
+	generatedParagraphs: { text: string, metadata?: any }[];
+	heatmapEnabled: boolean;
 	onGeneratedChange?: (text: string) => void;
 	onCopy: () => void;
-}> = ({ mode, selectedText, onSelectionChange, generatedText, onGeneratedChange, onCopy }) => {
+	chunkBuffer?: string;
+}> = ({ mode, selectedText, onSelectionChange, generatedText, generatedParagraphs, heatmapEnabled, onGeneratedChange, onCopy, chunkBuffer }) => {
+	const [hoveredPara, setHoveredPara] = useState<number | null>(null);
+
 	const selectedWords = TextChunker.getWordCount(selectedText || '');
 	const selectedChars = (selectedText || '').length;
 	const outputWords = TextChunker.getWordCount(generatedText || '');
@@ -34,6 +39,20 @@ export const EditorPanel: React.FC<{
 			? 'Paste selected text here for character extraction...'
 			: 'Paste the draft you want checked for continuity...';
 
+	const getParaClass = (metadata: any) => {
+		if (!heatmapEnabled) return '';
+		if (!metadata) return 'para-patterned'; // Inferred
+		if (metadata.isSpeculative) return 'para-dimmed'; // Lite/Speculative
+		return 'para-solid'; // Grounded
+	};
+
+	const getParaIcon = (metadata: any) => {
+		if (!heatmapEnabled) return null;
+		if (!metadata) return '🔍'; // Inferred icon
+		if (metadata.isSpeculative) return '⚠️'; // Lite icon
+		return '✅'; // Grounded icon
+	};
+
 	return (
 		<div className="editor-panel">
 			<div className="editor-section">
@@ -51,7 +70,7 @@ export const EditorPanel: React.FC<{
 					className="editor-textarea"
 				/>
 			</div>
-			{generatedText && (
+			{(generatedText || chunkBuffer) && (
 				<div className="editor-section">
 					<div className="generated-header">
 						<div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -60,15 +79,58 @@ export const EditorPanel: React.FC<{
 								{outputWords.toLocaleString()} words / {outputChars.toLocaleString()} chars
 							</span>
 						</div>
-						<button onClick={onCopy} className="copy-button">Copy to clipboard</button>
+						<div style={{ display: 'flex', gap: 8 }}>
+							{heatmapEnabled && (
+								<div className="heatmap-legend">
+									<span title="Grounded (Full Metadata)"><span className="legend-dot solid"></span></span>
+									<span title="Inferred (Metadata Missing)"><span className="legend-dot patterned"></span></span>
+									<span title="Lite (Speculative/Fallback)"><span className="legend-dot dimmed"></span></span>
+								</div>
+							)}
+							<button onClick={onCopy} className="copy-button">Copy to clipboard</button>
+						</div>
 					</div>
-					<textarea
-						value={generatedText}
-						readOnly={!onGeneratedChange}
-						onChange={onGeneratedChange ? (e) => onGeneratedChange(e.target.value) : undefined}
-						rows={12}
-						className="generated-textarea"
-					/>
+					
+					{heatmapEnabled ? (
+						<div className="generated-display heatmap-view">
+							{generatedParagraphs.map((para, idx) => (
+								<div 
+									key={idx} 
+									className={`generated-para ${getParaClass(para.metadata)}`}
+									onMouseEnter={() => setHoveredPara(idx)}
+									onMouseLeave={() => setHoveredPara(null)}
+								>
+									<span className="para-icon">{getParaIcon(para.metadata)}</span>
+									{para.text}
+									{hoveredPara === idx && para.metadata && (
+										<div className="para-explanation">
+											<strong>Grounding Explanation</strong>
+											<div>Mode: {para.metadata.isSpeculative ? 'Creative/Lite' : 'Grounded'}</div>
+											<div>Facts: {para.metadata.factIds?.length || 0}</div>
+											<div>Goals: {para.metadata.goalIds?.length || 0}</div>
+											{para.metadata.sourceChunkIds && (
+												<div>Sources: {para.metadata.sourceChunkIds.join(', ')}</div>
+											)}
+										</div>
+									)}
+								</div>
+							))}
+							{chunkBuffer && (
+								<div className="generated-para streaming">
+									<span className="para-icon">⏳</span>
+									{chunkBuffer}
+								</div>
+							)}
+						</div>
+					) : (
+						<textarea
+							value={generatedText + (chunkBuffer ? '\n\n' + chunkBuffer : '')}
+							readOnly={!onGeneratedChange}
+							onChange={onGeneratedChange ? (e) => onGeneratedChange(e.target.value) : undefined}
+							rows={12}
+							className="generated-textarea"
+						/>
+					)}
 				</div>
 			)}
 		</div>

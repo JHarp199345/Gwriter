@@ -1,11 +1,46 @@
-import { ChapterState, AuditResult, Violation, CanonFact } from './Schemas';
+import { ChapterState, AuditResult, Violation, CanonFact, FactType } from './Schemas';
+
+/**
+ * AnchorSet defines the core properties that must remain stable during a scene.
+ */
+export interface AnchorSet {
+    locationId: string;
+    sceneTime: string;
+    castIds: string[];
+    threadIds: string[];
+}
 
 /**
  * AuditService performs a two-pass validation on generated prose chunks.
  * Pass 1: Heuristic (Non-LLM) checks for POV and Tense shifts.
  * Pass 2: LLM-based comparison against the CanonFactsList.
+ * 
+ * INVARIANT: This service's validation rules and schema are mathematically 
+ * invariant to the spontaneity dial to ensure lore integrity.
  */
 export class AuditService {
+    /**
+     * Validates AnchorSet transitions.
+     * Anchors cannot change unless sidecar records explicit anchorTransition.
+     */
+    validateAnchorTransition(current: AnchorSet, metadata: any): { valid: boolean, reason?: string } {
+        const transition = metadata.anchorTransition;
+        if (!transition) {
+            // Check for silent drops
+            if (metadata.locationId && metadata.locationId !== current.locationId) {
+                return { valid: false, reason: `Silent location drop: ${current.locationId} -> ${metadata.locationId}` };
+            }
+            return { valid: true };
+        }
+
+        // If transition exists, verify it
+        if (transition.from !== current.locationId) {
+            return { valid: false, reason: `Invalid transition 'from' state: expected ${current.locationId}, got ${transition.from}` };
+        }
+
+        return { valid: true };
+    }
+
     /**
      * Main entry point for auditing a chunk.
      */

@@ -53,7 +53,8 @@ export class LocalEmbeddingsProvider implements RetrievalProvider {
 				excerpt: chunk.excerpt,
 				score: Math.max(0, Math.min(1, (score + 1) / 2)),
 				source: this.id,
-				reasonTags: ['semantic']
+				reasonTags: ['semantic'],
+				isStale: this.index.isStale(chunk.path)
 			});
 		}
 

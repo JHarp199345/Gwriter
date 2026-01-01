@@ -153,7 +153,8 @@ export class HeuristicProvider implements RetrievalProvider {
 				excerpt,
 				score,
 				source: this.id,
-				reasonTags
+				reasonTags,
+				isStale: false
 			});
 		}
 

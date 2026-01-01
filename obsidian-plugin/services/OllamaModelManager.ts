@@ -109,19 +109,68 @@ export class OllamaModelManager {
     }
 
     /**
-     * Auto-selects the best models for Smart and Fast roles.
+     * Pulls a model from the Ollama library.
+     * Uses the /api/pull endpoint and emits progress events.
      */
-    async autoSelectModels(): Promise<{ smart: string, fast: string }> {
-        const models = await this.getModels();
-        const ready = models.filter(m => m.status === 'ready');
-
-        const smart = ready.find(m => m.role === 'WRITE' || m.sizeTier === 'large')?.id 
-                   || ready[0]?.id || 'llama3.1:8b';
+    async pullModel(modelId: string, onProgress: (data: any) => void): Promise<void> {
+        console.log(`[ModelManager] 📥 Pulling model: ${modelId}`);
         
-        const fast = ready.find(m => m.role === 'FAST' || m.sizeTier === 'small')?.id 
-                  || ready[0]?.id || 'llama3.1:8b';
+        try {
+            const response = await fetch(`${this.baseUrl}/api/pull`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: modelId, stream: true })
+            });
 
-        return { smart, fast };
+            if (!response.body) throw new Error('No response body');
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n');
+
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    try {
+                        const json = JSON.parse(line);
+                        onProgress(json);
+                    } catch {
+                        // ignore partial lines
+                    }
+                }
+            }
+            console.log(`[ModelManager] ✅ Pull complete: ${modelId}`);
+        } catch (err) {
+            console.error('[ModelManager] ❌ Pull failed:', err);
+            throw err;
+        }
     }
-}
+
+    /**
+     * Performs a tiny warmup generation to catch initialization errors.
+     */
+    async warmup(modelId: string): Promise<{ success: boolean, latency: number, error?: string }> {
+        const start = Date.now();
+        try {
+            const prompt = '{"test": true}';
+            const result = await this.plugin.ollamaGen.generateJson<{ test: boolean }>(
+                'Output a JSON object: {"test": true}', 
+                modelId
+            );
+            return {
+                success: result?.test === true,
+                latency: Date.now() - start
+            };
+        } catch (err) {
+            return {
+                success: false,
+                latency: Date.now() - start,
+                error: err.message
+            };
+        }
+    }
 

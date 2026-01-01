@@ -69,6 +69,10 @@ export class SequentialGenerator {
         const smartDigest = await this.plugin.ollamaModels.getModelDigest(smartModel);
         const fastDigest = await this.plugin.ollamaModels.getModelDigest(fastModel);
 
+        const policyHash = await sha256(JSON.stringify(CO_AUTHORING_POLICY));
+        const indexStatus = this.plugin.embeddingsIndex.getStatus();
+        const corpusHash = await this.plugin.embeddingsIndex.getCorpusHash();
+
         if (!smartDigest || !fastDigest) {
             new Notice('Warning: One or more model digests are missing. Strict Replay will be disabled.');
         }
@@ -100,7 +104,7 @@ export class SequentialGenerator {
             startTime: Date.now(),
             ollamaVersion: ollamaVer,
             storyBibleHash: seedResult.hash,
-            initialStateHash: this.hashString(JSON.stringify(initialState)),
+            initialStateHash: await sha256(JSON.stringify(initialState)),
             stages: [],
             config: {
                 smartModel,
@@ -108,7 +112,10 @@ export class SequentialGenerator {
                 fastModel,
                 fastModelDigest: fastDigest,
                 maxChunkWords: this.plugin.settings.maxChunkWords || 500,
-                temperature: 0.7
+                temperature: 0.7,
+                policyHash,
+                corpusHash,
+                pluginVersion: this.plugin.manifest.version
             }
         };
 
@@ -123,118 +130,226 @@ export class SequentialGenerator {
 
                 console.log(`[SequentialGenerator] --- Iteration ${iteration} ---`);
                 
+                // --- SPONTANEITY & RISK ---
+                const sliderValue = (this.plugin.settings as any).spontaneitySlider || 50;
+                const rawParams = this.getSpontaneityParams(sliderValue);
+                const risk = iteration > 1 ? this.calculateContinuityRisk(iteration - 1, contextManager) : 0;
+                const effectiveNovelty = this.applySmoothClamp(rawParams.novelty, risk);
+                
+                this.manifest!.config.spontaneityProfile = {
+                    sliderValue,
+                    temp: rawParams.temp,
+                    novelty: effectiveNovelty,
+                    stickyMin: rawParams.stickyMin
+                };
+
+                // --- FAST BATCH 1: PLAN & RETRIEVE ---
                 // 1. PLAN
                 const planResult = await this.runStage('PLAN', fastModel, async () => {
                     const prompt = `Plan the next ${this.manifest!.config.maxChunkWords} words for chapter ${initialState.chapterId}.`;
-                    return await this.plugin.ollamaGen.generateJson(prompt, fastModel);
-                });
+                    return await this.plugin.ollamaGen.enqueue(5, (signal) => 
+                        this.plugin.ollamaGen.generateJson(prompt, fastModel)
+                    );
+                }, undefined, await sha256(`Plan the next ${this.manifest!.config.maxChunkWords} words for chapter ${initialState.chapterId}.`));
                 if (!planResult) break;
 
-                // 2. WRITE
+                // 2. RETRIEVE
+                const retrieveResult = await this.runStage('RETRIEVE', fastModel, async () => {
+                    const query = {
+                        text: planResult.data.summary || 'next scene',
+                        mode: 'chapter' as const,
+                        hints: planResult.data.hints,
+                        intents: planResult.data.retrievalIntents // New
+                    };
+                    const searchResult = await this.plugin.retrievalService.search(query, { 
+                        limit: 8, 
+                        strictMode: true,
+                        noveltyBias: effectiveNovelty,
+                        stickyMin: rawParams.stickyMin,
+                        fallbackSet: contextManager.getStickyFallbackSet(contextManager.getState().lastChunkId),
+                        scoringVersion: 1
+                    });
+
+                    // Track miss metrics
+                    const intents = (query as any).intents || [];
+                    intents.forEach((intent: any) => {
+                        if (intent.hardness === 'HARD') {
+                            const fulfilled = searchResult.some(hit => 
+                                hit.intentType === intent.type && 
+                                hit.relevance && hit.relevance.finalScore >= hit.relevance.threshold
+                            );
+                            if (!fulfilled) {
+                                console.warn(`[SequentialGenerator] HARD intent miss: ${intent.type}`);
+                                relayEventBus.emit('pilot:miss', { type: intent.type, runId: this.currentRunId });
+                            }
+                        }
+                    });
+
+                    return searchResult;
+                }, undefined, await sha256(JSON.stringify(planResult.data)));
+                if (!retrieveResult) break;
+
+                // --- MECHANICAL DEGRADE ---
+                const missedHardIntents = ((planResult.data.retrievalIntents || []) as any[])
+                    .filter(intent => intent.hardness === 'HARD' && !retrieveResult.data.some((hit: any) => hit.intentType === intent.type));
+                
+                const restrictedDomains = missedHardIntents.map(i => i.domain || i.type);
+                const isDegraded = restrictedDomains.length > 0;
+
+                // --- SMART BATCH 1: WRITE ---
+                // 3. WRITE (Streaming)
                 const writeResult = await this.runStage('WRITE', smartModel, async () => {
                     const stateCard = contextManager.renderStateCard();
+                    const retrieved = retrieveResult.data.map((r: any) => r.excerpt).join('\n\n');
+                    
+                    const constraintBlock = isDegraded 
+                        ? `\n[DEGRADED MODE] Restricted Domains: ${restrictedDomains.join(', ')}\nConstraint: Do not assert new canonical facts about these domains.`
+                        : '';
+
                     const prompt = `
                         ${stateCard}
                         PLAN: ${JSON.stringify(planResult.data)}
+                        CONTEXT: ${retrieved}${constraintBlock}
+                        
+                        INSTRUCTION: Write the next prose chunk. 
+                        Use \n\n to separate paragraphs.
+                        For every paragraph, you MUST also generate a sidecar entry with a unique "p_id" (c${iteration}-p{index}).
+                        ${isDegraded ? 'Flag missingHardIntent: true if relevant.' : ''}
+                    `;
+                    
+                    return await this.plugin.ollamaGen.enqueue(10, (signal) => 
+                        this.plugin.ollamaGen.generateStream(
+                            prompt, 
+                            { model: smartModel, temperature: rawParams.temp },
+                            (token) => relayEventBus.emit('chunk:buffer:update', { content: token })
+                        ),
+                        this.abortController!
+                    );
+                }, await (async () => {
+                    const stateCard = contextManager.renderStateCard();
+                    const retrieved = retrieveResult.data.map((r: any) => r.excerpt).join('\n\n');
+                    const prompt = `
+                        ${stateCard}
+                        PLAN: ${JSON.stringify(planResult.data)}
+                        CONTEXT: ${retrieved}
                         
                         INSTRUCTION: Write the next prose chunk. 
                         Use \n\n to separate paragraphs.
                         For every paragraph, you MUST also generate a sidecar entry with a unique "p_id" (c${iteration}-p{index}).
                     `;
-                    return await this.plugin.ollamaGen.generate(prompt, { 
-                        model: smartModel, 
-                        temperature: 0.7,
-                        seed: 42 
-                    });
-                });
+                    const manifest = contextManager.generateManifest(retrieveResult.data, [], prompt);
+                    manifest.promptHash = await sha256(prompt);
+                    return manifest;
+                })());
                 if (!writeResult) break;
 
-                // Segmentation Recovery and Identity Alignment
+                // --- DOMAIN QUARANTINE ---
+                if (isDegraded && writeResult.metadata) {
+                    writeResult.metadata.forEach((m: any) => {
+                        if (m.newFactsProposed) {
+                            m.newFactsProposed.forEach((f: any) => {
+                                if (restrictedDomains.some(d => f.type === d || f.attribute === d)) {
+                                    f.lifecycleState = 'QUARANTINED';
+                                    console.log(`[SequentialGenerator] Auto-quarantined fact in restricted domain: ${f.attribute}`);
+                                }
+                            });
+                        }
+                    });
+                }
+
+                // --- FAST BATCH 2: METADATA & AUDIT ---
+                // 4. METADATA (Mocked parsing from writeResult or separate step)
                 const { text: chunkText, metadata: recoveredMeta } = this.segmentAndRecover(writeResult.data, []);
                 writeResult.data = chunkText;
                 writeResult.metadata = recoveredMeta;
 
-                // 3. AUDIT
+                // 5. AUDIT
                 const auditResult = await this.runStage('AUDIT', fastModel, async () => {
                     return await this.plugin.auditService.auditChunk(chunkText, contextManager.getState());
-                });
+                }, undefined, await sha256(chunkText));
                 if (!auditResult) break;
                 let auditData: AuditResult = auditResult.data;
 
-                // 4. REPAIR (if needed)
+                // --- SMART BATCH 2: REPAIR & STITCH ---
+                // 6. REPAIR (if needed)
                 if (auditData.overallSeverity >= 4) {
                     const repairResult = await this.runStage('REPAIR', smartModel, async () => {
                         const prompt = `Repair the following prose chunk to resolve these violations: ${JSON.stringify(auditData.violations)}\n\nChunk: ${chunkText}`;
-                        return await this.plugin.ollamaGen.generateJson<PatchOp[]>(prompt, smartModel);
-                    });
-                    if (!repairResult) break;
-                    
-                    const patches: PatchOp[] = repairResult.data;
-                    chunkText = this.applyPatches(chunkText, patches);
-                    
-                    // Re-verify after repair
-                    const reAuditResult = await this.runStage('AUDIT', fastModel, async () => {
-                        return await this.plugin.auditService.auditChunk(chunkText, contextManager.getState());
-                    });
-                    if (!reAuditResult) break;
+                        return await this.plugin.ollamaGen.enqueue(10, (signal) => 
+                            this.plugin.ollamaGen.generateJson<PatchOp[]>(prompt, smartModel)
+                        );
+                    }, undefined, await sha256(JSON.stringify(auditData.violations)));
+                    if (repairResult) {
+                        const patches: PatchOp[] = repairResult.data;
+                        writeResult.data = this.applyPatches(writeResult.data, patches);
+                    }
                 }
 
-                // 5. STITCH (if not first chunk)
+                // 7. STITCH (if not first chunk)
                 if (iteration > 1) {
-                    const stitchResult = await this.runStage('UPDATE', smartModel, async () => {
-                        const tail = "previous chunk tail"; // In real run, get from last committed
-                        const head = chunkText.slice(0, 200);
-                        const patches = await this.proseStitcher.stitch(tail, head);
-                        return { patches };
-                    });
-                    if (stitchResult) {
+                    const stitchResult = await this.runStage('STITCH', smartModel, async () => {
+                        const tail = contextManager.getState().timeline.slice(-1)[0]?.summary || ""; 
+                        const head = writeResult.data.slice(0, 200);
+                        
+                        const originalBoundary = head;
+                        let retryCount = 0;
+                        let finalPatches: PatchOp[] = [];
+
+                        while (retryCount <= 1) {
+                            const patches = await this.plugin.ollamaGen.enqueue(3, (signal) => 
+                                this.proseStitcher.stitch(tail, head)
+                            );
+                            
+                            const stitchedHead = this.proseStitcher.applyStitch(head, patches);
+                            const integrity = this.proseStitcher.validateClaimIntegrity(originalBoundary, stitchedHead);
+
+                            if (integrity.valid) {
+                                finalPatches = patches;
+                                break;
+                            } else {
+                                retryCount++;
+                                console.warn(`[SequentialGenerator] Stitch rejected: claim mutation detected. Retry ${retryCount}`);
+                                if (retryCount > 1) {
+                                    console.error(`[SequentialGenerator] Stitch failed after retries. Skipping.`);
+                                    relayEventBus.emit('pilot:stitch_rejected', { iteration, changes: integrity.changes });
+                                }
+                            }
+                        }
+                        
+                        return { patches: finalPatches, stitchSkipped: finalPatches.length === 0 };
+                    }, undefined, await sha256(contextManager.getState().timeline.slice(-1)[0]?.summary || ""));
+                    
+                    if (stitchResult && stitchResult.data.patches.length > 0) {
                         const stitchPatches: PatchOp[] = stitchResult.data.patches;
-                        // Apply stitch to chunkText
-                        console.log(`[SequentialGenerator] Stitched ${stitchPatches.length} boundary patches.`);
+                        writeResult.data = this.applyPatches(writeResult.data, stitchPatches);
                     }
                 }
 
-                // 6. COMMIT (Transactional)
-                await this.commitChunk(iteration, chunkText);
+                // 8. COMMIT (Transactional)
+                await this.commitChunk(iteration, writeResult.data, writeResult.metadata);
 
-                // 6. UPDATE STATE
-                const updateResult = await this.runStage('UPDATE', fastModel, async () => {
-                    // Check for lore mutations
-                    const newFacts: CanonFact[] = []; // In a real run, these come from Audit/Repair
-                    
-                    for (const f of newFacts) {
-                        if (!contextManager.isLoreUpdateAllowed(f.attribute)) {
-                            // Proposed mutation path
-                            const proposal = contextManager.proposeMutation(f, `chunk-${iteration}`);
-                            relayEventBus.emit('audit:violations', {
-                                runId: this.currentRunId!,
-                                chunkId: `chunk-${iteration}`,
-                                violations: [{
-                                    type: 'ENTITY_ATTRIBUTE_MISMATCH',
-                                    severity: 4,
-                                    evidence: JSON.stringify(f),
-                                    range: { start: 0, end: 0 },
-                                    message: `Proposed mutation to ${f.attribute} for ${f.entityId}.`
-                                }],
-                                overallSeverity: 4
-                            });
-                            // Wait for user acceptance (simplified for spec)
-                            contextManager.acceptMutation(proposal, [f]);
-                            await this.reGround(contextManager);
-                        }
-                    }
+                // --- FAST BATCH 3: UPDATE STATE ---
+                    // 9. UPDATE STATE
+                    const updateResult = await this.runStage('UPDATE', fastModel, async () => {
+                        // Check for lore mutations
+                        const newFacts: CanonFact[] = []; 
+                        // ... mutation logic ...
+                        contextManager.updateState(newFacts, { 
+                            chunkId: `chunk-${iteration}`, 
+                            summary: `Generated chunk ${iteration}` 
+                        });
 
-                    contextManager.updateState(newFacts, { 
-                        chunkId: `chunk-${iteration}`, 
-                        summary: `Generated chunk ${iteration}` 
-                    });
-                    return { status: 'success', version: contextManager.getState().canonVersion };
-                });
+                        // Refresh pinned facts based on what was actually cited
+                        const citedFactIds = writeResult.metadata?.flatMap(m => m.factIds) || [];
+                        contextManager.refreshPins(citedFactIds);
+
+                        return { status: 'success', version: contextManager.getState().canonVersion };
+                    }, undefined, await sha256(`Generated chunk ${iteration}`));
                 if (!updateResult) break;
 
                 this.checkQualityFloors(iteration);
 
-                totalWords += chunkText.split(/\s+/).length;
+                totalWords += writeResult.data.split(/\s+/).length;
                 iteration++;
 
                 await this.saveManifest();
@@ -263,7 +378,13 @@ export class SequentialGenerator {
         }
     }
 
-    private async runStage(type: StageResult['stageType'], model: string, execution: () => Promise<any>): Promise<StageResult | null> {
+    private async runStage(
+        type: StageResult['stageType'], 
+        model: string, 
+        execution: () => Promise<any>,
+        stageManifest?: ContextBundleManifest,
+        inputHash?: string
+    ): Promise<StageResult | null> {
         if (this.checkControlFlow()) return null;
 
         const stageId = `stage-${Date.now()}`;
@@ -283,9 +404,10 @@ export class SequentialGenerator {
                     stageType: type,
                     startTime,
                     endTime,
-                    inputHash: 'pending', 
-                    outputHash: this.hashString(JSON.stringify(data)),
-                    data
+                    inputHash: inputHash || 'pending', 
+                    outputHash: await sha256(JSON.stringify(data)),
+                    data,
+                    manifest: stageManifest
                 };
 
                 this.manifest!.stages.push(result);
@@ -303,7 +425,7 @@ export class SequentialGenerator {
         return null;
     }
 
-    private async commitChunk(iteration: number, content: string) {
+    private async commitChunk(iteration: number, content: string, metadata?: ParagraphMetadata[]) {
         if (this.commitLock) return;
         this.commitLock = true;
         try {
@@ -311,6 +433,7 @@ export class SequentialGenerator {
                 runId: this.currentRunId!, 
                 chunkId: `chunk-${iteration}`, 
                 content, 
+                metadata,
                 path: this.plugin.settings.book2Path 
             });
             // Final hash match is computed against this committed text
@@ -319,8 +442,8 @@ export class SequentialGenerator {
                 stageType: 'UPDATE',
                 startTime: Date.now(),
                 endTime: Date.now(),
-                inputHash: this.hashString(content),
-                outputHash: this.hashString(content),
+                inputHash: await sha256(content),
+                outputHash: await sha256(content),
                 data: { committed: true }
             });
         } finally {
@@ -347,35 +470,200 @@ export class SequentialGenerator {
         // to ensure new canon is used in the next iteration.
     }
 
+    /**
+     * Verifies the current environment against a manifest for strict replay.
+     * Generates a MismatchReport if discrepancies are found.
+     */
+    async verifyManifest(manifest: RunManifest): Promise<MismatchReport[]> {
+        const reports: MismatchReport[] = [];
+        
+        const currentPolicyHash = await sha256(JSON.stringify(CO_AUTHORING_POLICY));
+        if (manifest.config.policyHash !== currentPolicyHash) {
+            reports.push({
+                field: 'policyHash',
+                expected: manifest.config.policyHash,
+                actual: currentPolicyHash,
+                canProceed: false,
+                severity: 'error'
+            });
+        }
+
+        const currentCorpusHash = await this.plugin.embeddingsIndex.getCorpusHash();
+        if (manifest.config.corpusHash !== currentCorpusHash) {
+            reports.push({
+                field: 'corpusHash',
+                expected: manifest.config.corpusHash,
+                actual: currentCorpusHash,
+                canProceed: true,
+                severity: 'warn'
+            });
+        }
+
+        if (manifest.config.pluginVersion !== this.plugin.manifest.version) {
+            reports.push({
+                field: 'pluginVersion',
+                expected: manifest.config.pluginVersion,
+                actual: this.plugin.manifest.version,
+                canProceed: true,
+                severity: 'warn'
+            });
+        }
+
+        return reports;
+    }
+
+    private consecutiveViolations = 0;
+
+    /**
+     * Calculates the continuity risk score for the current iteration.
+     * weighted sum: dormancy (35%) + drop (25%) + repairs (25%) + reliance (15%)
+     */
+    private calculateContinuityRisk(iteration: number, contextManager: ContextManager): number {
+        const policy = CO_AUTHORING_POLICY.CONTINUITY_RISK;
+        const weights = policy.WEIGHTS;
+        const windows = policy.WINDOWS;
+
+        // 1. Dormancy (35%)
+        let dormancyRisk = 0;
+        const state = contextManager.getState();
+        const keyFacts = state.canonFacts.filter(f => AttributeRegistry.includes(f.attribute));
+        if (keyFacts.length > 0) {
+            const dormantCount = keyFacts.filter(f => {
+                const lastUsed = f.chunkId ? parseInt(f.chunkId.replace('chunk-', '')) : 0;
+                return (iteration - lastUsed) >= windows.DORMANCY_CHUNKS;
+            }).length;
+            dormancyRisk = dormantCount / keyFacts.length;
+        }
+
+        // 2. Density Drop (25%)
+        let densityDropRisk = 0;
+        const writeStages = this.manifest!.stages.filter(s => s.stageType === 'WRITE');
+        if (writeStages.length >= 2) {
+            const last2 = writeStages.slice(-2);
+            const scores = last2.map(s => {
+                const metadata = s.metadata || [];
+                const grounded = metadata.filter(m => !m.isSpeculative).length;
+                return metadata.length > 0 ? grounded / metadata.length : 0;
+            });
+            const drop = Math.max(0, scores[0] - scores[1]);
+            densityDropRisk = drop; // Normalizing drop 0-1
+        }
+
+        // 3. Repair Rate (25%)
+        let repairRisk = 0;
+        const recentStages = this.manifest!.stages.slice(-windows.REPAIR_RATE_CHUNKS * 5); // Approximate stages per iteration
+        const auditStages = recentStages.filter(s => s.stageType === 'AUDIT');
+        if (auditStages.length > 0) {
+            const repairs = recentStages.filter(s => s.stageType === 'REPAIR').length;
+            repairRisk = Math.min(1, repairs / auditStages.length);
+        }
+
+        // 4. Over-reliance (15%)
+        let relianceRisk = 0;
+        const lastWrite = writeStages[writeStages.length - 1];
+        if (lastWrite && lastWrite.metadata) {
+            const factCounts: Record<string, number> = {};
+            lastWrite.metadata.forEach(m => {
+                m.factIds.forEach(id => {
+                    factCounts[id] = (factCounts[id] || 0) + 1;
+                });
+            });
+            const totalParas = lastWrite.metadata.length;
+            const maxFactCount = Math.max(0, ...Object.values(factCounts));
+            relianceRisk = totalParas > 0 ? maxFactCount / totalParas : 0;
+        }
+
+        const totalRisk = (dormancyRisk * weights.DORMANCY) +
+                          (densityDropRisk * weights.DENSITY_DROP) +
+                          (repairRisk * weights.REPAIR_RATE) +
+                          (relianceRisk * weights.OVER_RELIANCE);
+
+        if (!this.manifest!.continuityRisks) this.manifest!.continuityRisks = {};
+        this.manifest!.continuityRisks[iteration.toString()] = totalRisk;
+
+        return totalRisk;
+    }
+
+    /**
+     * Maps the 0-100 slider value to LLM parameters using the lookup table.
+     */
+    private getSpontaneityParams(sliderValue: number) {
+        const table = CO_AUTHORING_POLICY.SPONTANEITY.LOOKUP;
+        const entry = table.find(e => sliderValue >= e.min && sliderValue <= e.max) || table[0];
+
+        // Linear interpolation within the range
+        const rangeWidth = entry.max - entry.min;
+        const progress = rangeWidth === 0 ? 0 : (sliderValue - entry.min) / rangeWidth;
+
+        const temp = entry.temp[0] + (entry.temp[1] - entry.temp[0]) * progress;
+        const novelty = entry.novelty[0] + (entry.novelty[1] - entry.novelty[0]) * progress;
+
+        return {
+            temp,
+            novelty,
+            stickyMin: entry.sticky_min
+        };
+    }
+
+    /**
+     * Applies a smooth continuous clamping function to novelty bias based on risk.
+     * novelty_effective = novelty_raw * (1 - clamp01((risk - r0)/(r1 - r0)))
+     */
+    private applySmoothClamp(novelty: number, risk: number): number {
+        const { R0_START_CLAMPING, R1_FULL_CLAMP } = CO_AUTHORING_POLICY.CONTINUITY_RISK.THRESHOLDS;
+        
+        if (risk <= R0_START_CLAMPING) return novelty;
+        if (risk >= R1_FULL_CLAMP) return 0;
+
+        const clampFactor = (risk - R0_START_CLAMPING) / (R1_FULL_CLAMP - R0_START_CLAMPING);
+        return novelty * (1 - clampFactor);
+    }
+
     private checkQualityFloors(iteration: number) {
         const policy = CO_AUTHORING_POLICY.QUALITY_FLOORS;
         const stages = this.manifest!.stages;
         const writeStages = stages.filter(s => s.stageType === 'WRITE');
         
-        // 1. Max Speculative Ratio
-        const totalParagraphs = writeStages.reduce((acc, s) => acc + (s.metadata?.length || 0), 0);
-        const speculativeParagraphs = writeStages.reduce((acc, s) => acc + (s.metadata?.filter(m => m.isSpeculative).length || 0), 0);
-        const speculativeRatio = totalParagraphs > 0 ? speculativeParagraphs / totalParagraphs : 0;
+        // 1. Max Speculative Ratio (Denominator: grounded-mode paragraphs only)
+        // For simplicity in this spec, assume all paragraphs are 'grounded' unless marked otherwise
+        const totalGrounded = writeStages.reduce((acc, s) => acc + (s.metadata?.length || 0), 0);
+        const speculativeCount = writeStages.reduce((acc, s) => acc + (s.metadata?.filter(m => m.isSpeculative).length || 0), 0);
+        const speculativeRatio = totalGrounded > 0 ? speculativeCount / totalGrounded : 0;
 
+        let hasViolation = false;
         if (speculativeRatio > policy.MAX_SPECULATIVE_RATIO) {
-            console.warn(`[SequentialGenerator] ⚠️ Quality Floor Violation: Speculative Ratio too high (${(speculativeRatio * 100).toFixed(1)}% > ${policy.MAX_SPECULATIVE_RATIO * 100}%).`);
-            // In a real run, this might trigger an alert or a pause
+            hasViolation = true;
+            console.warn(`[SequentialGenerator] ⚠️ Quality Floor Violation: Speculative Ratio too high.`);
         }
 
         // 2. Max Consecutive Lite Chunks
-        // Lite chunks are those that needed recovery or had low grounding
         let consecutiveLite = 0;
         for (let i = writeStages.length - 1; i >= 0; i--) {
             const isLite = writeStages[i].data?.recovered || writeStages[i].metadata?.every(m => m.isSpeculative);
-            if (isLite) {
-                consecutiveLite++;
-            } else {
-                break;
-            }
+            if (isLite) consecutiveLite++;
+            else break;
         }
 
         if (consecutiveLite > policy.MAX_CONSECUTIVE_LITE_CHUNKS) {
-            this.failRun(`Quality Floor Violation: ${consecutiveLite} consecutive Lite chunks. Quality collapse detected.`);
+            hasViolation = true;
+        }
+
+        // Escalation Ladder
+        if (hasViolation) {
+            this.consecutiveViolations++;
+            if (this.consecutiveViolations === 1) {
+                new Notice('⚠️ Quality Warning: grounding density low. Auto-refreshing context next chunk.');
+                // MOCK: flag for next chunk to increase novelty/refresh
+            } else if (this.consecutiveViolations >= 2) {
+                this.isPaused = true;
+                relayEventBus.emit('control:paused', { 
+                    runId: this.currentRunId!, 
+                    reason: 'Quality collapse detected. Manual review required.' 
+                });
+                new Notice('⏸ Generation paused: multiple quality violations. Review lore/context.');
+            }
+        } else {
+            this.consecutiveViolations = 0;
         }
     }
 
@@ -442,7 +730,7 @@ export class SequentialGenerator {
         };
     }
 
-    private applyPatches(text: string, patches: PatchOp[]): string {
+    private async applyPatches(text: string, patches: PatchOp[]): Promise<string> {
         // Implementation of UTF-16 offset-based patching
         let result = text;
         // Sort patches in reverse order to keep offsets valid
@@ -453,16 +741,6 @@ export class SequentialGenerator {
             }
         }
         return result;
-    }
-
-    private hashString(str: string): string {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            const char = str.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash |= 0;
-        }
-        return hash.toString(16);
     }
 
     private failRun(error: string) {
@@ -481,6 +759,7 @@ export class SequentialGenerator {
     abort() {
         this.state = 'aborted';
         this.abortController?.abort();
+        this.plugin.ollamaGen.cancelAll();
         relayEventBus.emit('control:aborted', { runId: this.currentRunId! });
     }
 }

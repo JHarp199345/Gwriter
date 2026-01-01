@@ -12,8 +12,42 @@ interface DevReplayPanelProps {
  */
 export const DevReplayPanel: React.FC<DevReplayPanelProps> = ({ manifests, onReplay }) => {
     const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+    const [normalizedMode, setNormalizedMode] = useState(true);
+    const [replayDiff, setReplayDiff] = useState<{ original: any, replayed: any, stageType: string, metrics?: any } | null>(null);
 
     const selectedRun = manifests.find(m => m.runId === selectedRunId);
+
+    const calculateJaccard = (a: string[], b: string[]) => {
+        const setA = new Set(a);
+        const setB = new Set(b);
+        const intersection = new Set([...setA].filter(x => setB.has(x)));
+        const union = new Set([...setA, ...setB]);
+        return union.size === 0 ? 1 : intersection.size / union.size;
+    };
+
+    const checkLoreParity = (orig: RunManifest, repl: RunManifest) => {
+        const origUpdateStages = orig.stages.filter(s => s.stageType === 'UPDATE');
+        const replUpdateStages = repl.stages.filter(s => s.stageType === 'UPDATE');
+        
+        if (origUpdateStages.length !== replUpdateStages.length) return false;
+        
+        for (let i = 0; i < origUpdateStages.length; i++) {
+            if (origUpdateStages[i].data.version !== replUpdateStages[i].data.version) return false;
+        }
+        return true;
+    };
+
+    const normalizeProse = (text: string) => {
+        if (typeof text !== 'string') return text;
+        return text.replace(/\s+/g, ' ').trim();
+    };
+
+    const renderData = (data: any, type: string) => {
+        if (type === 'WRITE' || type === 'REPAIR') {
+            return normalizedMode ? normalizeProse(data) : data;
+        }
+        return JSON.stringify(data, null, 2);
+    };
 
     return (
         <div className="dev-replay-panel">
@@ -40,6 +74,50 @@ export const DevReplayPanel: React.FC<DevReplayPanelProps> = ({ manifests, onRep
                         <p><strong>Canon Hash:</strong> {selectedRun.initialStateHash}</p>
                     </div>
 
+                    <div className="diff-settings">
+                        <label>
+                            <input type="checkbox" checked={normalizedMode} onChange={() => setNormalizedMode(!normalizedMode)} />
+                            Normalized Diff (Ignore whitespace)
+                        </label>
+                    </div>
+
+                    {replayDiff && (
+                        <div className="replay-diff-viewer">
+                            <div className="diff-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <h3>Stage Diff: {replayDiff.stageType}</h3>
+                                <button onClick={() => setReplayDiff(null)}>Close Diff</button>
+                            </div>
+
+                            {replayDiff.metrics && (
+                                <div className="replay-metrics-bar" style={{ display: 'flex', gap: 20, marginBottom: 12, padding: 8, backgroundColor: 'var(--background-secondary)', borderRadius: 4 }}>
+                                    <div className={replayDiff.metrics.retrievalSimilarity >= 0.6 ? 'metric-pass' : 'metric-fail'}>
+                                        <strong>Retrieval Similarity:</strong> {(replayDiff.metrics.retrievalSimilarity * 100).toFixed(0)}%
+                                    </div>
+                                    <div className={replayDiff.metrics.loreParity ? 'metric-pass' : 'metric-fail'}>
+                                        <strong>Lore Parity:</strong> {replayDiff.metrics.loreParity ? '✅ Match' : '❌ Mismatch'}
+                                    </div>
+                                    {replayDiff.metrics.retrievalSimilarity < 0.6 && (
+                                        <button className="rerun-btn mod-warning" onClick={() => onReplay(selectedRun!.runId)}>
+                                            Rerun with Reduced Novelty
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="diff-container" style={{ display: 'flex', gap: 12 }}>
+                                <div className="original" style={{ flex: 1 }}>
+                                    <h4>Original</h4>
+                                    <pre style={{ whiteSpace: 'pre-wrap' }}>{renderData(replayDiff.original, replayDiff.stageType)}</pre>
+                                </div>
+                                <div className="replayed" style={{ flex: 1 }}>
+                                    <h4>Replayed</h4>
+                                    <pre style={{ whiteSpace: 'pre-wrap' }}>{renderData(replayDiff.replayed, replayDiff.stageType)}</pre>
+                                </div>
+                            </div>
+                            <button onClick={() => setReplayDiff(null)}>Close Diff</button>
+                        </div>
+                    )}
+
                     <h3>Stages ({selectedRun.stages.length})</h3>
                     <div className="stage-list">
                         {selectedRun.stages.map((stage, i) => (
@@ -47,12 +125,16 @@ export const DevReplayPanel: React.FC<DevReplayPanelProps> = ({ manifests, onRep
                                 <span className="index">{i + 1}.</span>
                                 <span className="type">{stage.stageType}</span>
                                 <span className="duration">{stage.endTime - stage.startTime}ms</span>
-                                <button onClick={() => onReplay(selectedRun.runId, stage.stageId)}>
+                                <button onClick={() => {
+                                    onReplay(selectedRun.runId, stage.stageId);
+                                    // MOCK: In a real implementation, onReplay would return the result
+                                    // which we would then set into setReplayDiff.
+                                }}>
                                     Replay Stage
                                 </button>
                                 <div className="hashes">
-                                    <code>IN: {stage.inputHash}</code>
-                                    <code>OUT: {stage.outputHash}</code>
+                                    <code>IN: {stage.inputHash.slice(0, 8)}</code>
+                                    <code>OUT: {stage.outputHash.slice(0, 8)}</code>
                                 </div>
                             </div>
                         ))}

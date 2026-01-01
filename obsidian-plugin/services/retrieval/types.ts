@@ -20,6 +20,23 @@ export interface RetrievalQuery {
 	};
 }
 
+export interface RetrievalOptions {
+	limit: number;
+	strictMode?: boolean;
+	noveltyBias?: number;
+	stickyMin?: number;
+	fallbackSet?: string[];
+	scoringVersion?: number;
+}
+
+export interface HitRelevance {
+	lexScore: number;
+	embedScore: number;
+	finalScore: number;
+	threshold: number;
+	weights: { lex: number, embed: number };
+}
+
 export interface ContextItem {
 	/**
 	 * Stable identity for dedupe (path + optional anchor).
@@ -41,10 +58,18 @@ export interface ContextItem {
 	 * Optional small list of tags explaining why this item ranked (useful for debugging/UI).
 	 */
 	reasonTags?: string[];
-}
+	/**
+	 * Flag indicating the chunk is derived from stale index data.
+	 */
+	isStale?: boolean;
+	/**
+	 * Diagnostic flag showing that a stale penalty was applied to this item.
+	 */
+	stalePenaltyApplied?: boolean;
 
-export interface RetrievalOptions {
-	limit: number;
+	// Phase 2: Versioned RAG
+	relevance?: HitRelevance;
+	intentType?: string;
 }
 
 export interface RetrievalProvider {

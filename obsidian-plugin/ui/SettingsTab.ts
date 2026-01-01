@@ -232,28 +232,73 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Check Ollama connection')
-			.setDesc('Verify that Ollama is running and the model nomic-embed-text is available.')
+			.setDesc('Verify that Ollama is running and required models are available.')
 			.addButton((btn) =>
 				btn
 					.setButtonText('Check Connection')
 					.onClick(async () => {
 						try {
-							const isRunning = await (this.plugin as any).ollama?.isAvailable?.();
+							const isRunning = await this.plugin.ollamaGen.isAvailable();
 							if (!isRunning) {
-								new Notice('❌ Ollama not found at http://127.0.0.1:11434');
+								new Notice('❌ Ollama not found at ' + this.plugin.settings.ollamaBaseUrl);
 								return;
 							}
-							const hasModel = await (this.plugin as any).ollama?.hasModel?.('nomic-embed-text');
-							if (!hasModel) {
-								new Notice('⚠️ Ollama is running, but \"nomic-embed-text\" is missing. Run \"ollama pull nomic-embed-text\" in terminal.');
-								return;
+							
+							const models = await this.plugin.ollamaModels.getModels();
+							const missing = models.filter(m => m.status === 'installable');
+							
+							if (missing.length > 0) {
+								new Notice(`⚠️ Ollama running, but missing catalog models: ${missing.map(m => m.id).join(', ')}`);
+							} else {
+								new Notice('✅ Success! Local AI is ready.');
 							}
-							new Notice('✅ Success! Local AI is ready.');
 						} catch (err) {
 							new Notice(`❌ Ollama check failed: ${err instanceof Error ? err.message : String(err)}`);
 						}
 					})
 			);
+
+		// Catalog Section
+		const catalog = [
+			{ id: 'llama3.1:70b', role: 'WRITE', desc: 'Creative Writing' },
+			{ id: 'llama3.1:8b', role: 'FAST', desc: 'Auditor/Planner' },
+			{ id: 'nomic-embed-text', role: 'EMBED', desc: 'Retrieval' }
+		];
+
+		catalog.forEach(m => {
+			new Setting(containerEl)
+				.setName(m.id)
+				.setDesc(`${m.desc} (${m.role})`)
+				.addButton(btn => btn
+					.setButtonText('Pull')
+					.onClick(async () => {
+						const isRunning = await this.plugin.ollamaGen.isAvailable();
+						if (!isRunning) {
+							new Notice('❌ Cannot pull: Ollama Offline');
+							return;
+						}
+						
+						btn.setDisabled(true);
+						btn.setButtonText('Pulling...');
+						
+						try {
+							await this.plugin.ollamaModels.pullModel(m.id, (p) => {
+								if (p.status === 'downloading' && p.completed) {
+									const pct = (p.completed / p.total * 100).toFixed(0);
+									btn.setButtonText(`Pulling: ${pct}%`);
+								}
+							});
+							new Notice(`✅ Successfully pulled ${m.id}`);
+							this.display();
+						} catch (err) {
+							new Notice(`❌ Pull failed: ${err.message}`);
+						} finally {
+							btn.setDisabled(false);
+							btn.setButtonText('Pull');
+						}
+					})
+				);
+		});
 
 		new Setting(containerEl)
 			.setName('Open Ollama setup wizard')

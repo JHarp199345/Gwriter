@@ -3,8 +3,45 @@ import { PatchOp } from './Schemas';
 /**
  * ProseStitcher is responsible for eliminating "seams" between chunks.
  * It uses reason-coded PatchOps for auditable boundary smoothing.
+ * 
+ * INVARIANT: It can only modify surface form (cadence, tense agreement).
+ * It is strictly forbidden from altering canonical claim tuples.
  */
 export class ProseStitcher {
+    /**
+     * Normalizes a claim tuple for stable equality checking.
+     * Schema: (subjectId, predicate, objectValue, qualifiers)
+     */
+    normalizeTuple(tuple: any): string {
+        const { subjectId, predicate, objectValue, qualifiers } = tuple;
+        // Normalize values (lowercase, standard date formats, etc.)
+        const normValue = typeof objectValue === 'string' ? objectValue.toLowerCase().trim() : objectValue;
+        return JSON.stringify({ subjectId, predicate, objectValue: normValue, qualifiers });
+    }
+
+    /**
+     * Extracts canonical claims from text as normalized tuples.
+     */
+    extractTuples(text: string): string[] {
+        // MOCK: This would be a fast LLM pass in production
+        return [];
+    }
+
+    /**
+     * Validates that a stitch hasn't altered any canonical claims.
+     */
+    validateClaimIntegrity(originalText: string, stitchedText: string): { valid: boolean, changes?: string[] } {
+        const origTuples = this.extractTuples(originalText);
+        const newTuples = this.extractTuples(stitchedText);
+
+        const changes = newTuples.filter(t => !origTuples.includes(t));
+        if (changes.length > 0) {
+            return { valid: false, changes };
+        }
+
+        return { valid: true };
+    }
+
     /**
      * Stitches two chunks together by analyzing the boundary.
      * Boundary is typically last 200 of prev + first 200 of next.

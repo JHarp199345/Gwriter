@@ -15,8 +15,40 @@ export const CO_AUTHORING_POLICY = {
     // RETRIEVAL & DECAY
     RETRIEVAL: {
         MAX_STICKY_LIFETIME: 3, // Chunks a context anchor can remain sticky
-        STICKY_CONTINUITY_RATIO: 0.3, // 30% of chunks are sticky anchors
+        STICKY_CONTINUITY_RATIO: 0.3, // Default 30% of chunks are sticky anchors
         NOVELTY_BIAS_THRESHOLD: 0.7, // Force rotation if novelty bias exceeds this
+    },
+
+    // SPONTANEITY & CREATIVITY
+    SPONTANEITY: {
+        LOOKUP: [
+            { min: 0, max: 60, temp: [0.0, 0.4], novelty: [0.0, 0.2], sticky_min: 0.3 },
+            { min: 60, max: 90, temp: [0.4, 0.8], novelty: [0.2, 0.5], sticky_min: 0.2 },
+            { min: 90, max: 100, temp: [0.8, 1.2], novelty: [0.5, 0.7], sticky_min: 0.1 }
+        ],
+        CURVE_EPSILON: 0.01,
+        PIN_TTL_CHUNKS: 3,
+        MAX_PIN_EXTENSIONS: 3,
+    },
+
+    // CONTINUITY RISK POLICY
+    CONTINUITY_RISK: {
+        WEIGHTS: {
+            DORMANCY: 0.35,
+            DENSITY_DROP: 0.25,
+            REPAIR_RATE: 0.25,
+            OVER_RELIANCE: 0.15
+        },
+        WINDOWS: {
+            DORMANCY_CHUNKS: 3,
+            DENSITY_DROP_CHUNKS: 2,
+            REPAIR_RATE_CHUNKS: 3,
+            OVER_RELIANCE_PARAS: 10
+        },
+        THRESHOLDS: {
+            R0_START_CLAMPING: 0.3,
+            R1_FULL_CLAMP: 0.7
+        }
     },
 
     // PENALTIES
@@ -43,6 +75,9 @@ export const CO_AUTHORING_POLICY = {
     PERFORMANCE: {
         MAX_HOVER_LATENCY_MS: 150,
         MAX_UI_EVENT_RATE_PER_SEC: 60,
+        MAX_MEMORY_GROWTH_MB_PER_RUN: 50,
+        STREAM_FLUSH_INTERVAL_MS: 250,
+        STREAM_MAX_BUFFER_CHARS: 600,
     }
 };
 

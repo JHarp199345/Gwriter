@@ -17,8 +17,58 @@ export interface GenerationParams {
 export class OllamaGenerationProvider {
     private plugin: WritingDashboardPlugin;
 
-    private get baseUrl() {
-        return this.plugin.settings.ollamaBaseUrl || 'http://127.0.0.1:11434';
+    private queue: { 
+        priority: number, 
+        task: () => Promise<any>, 
+        abortController?: AbortController 
+    }[] = [];
+    private isProcessing = false;
+
+    /**
+     * Enqueues a generation task with priority.
+     * Priority: 10 (WRITE), 5 (AUDIT), 3 (STITCH), 1 (METADATA).
+     */
+    async enqueue<T>(
+        priority: number, 
+        task: (signal?: AbortSignal) => Promise<T>, 
+        abortController?: AbortController
+    ): Promise<T> {
+        return new Promise((resolve, reject) => {
+            this.queue.push({
+                priority,
+                task: async () => {
+                    try {
+                        const result = await task(abortController?.signal);
+                        resolve(result);
+                    } catch (err) {
+                        reject(err);
+                    }
+                },
+                abortController
+            });
+            this.queue.sort((a, b) => b.priority - a.priority);
+            this.processQueue();
+        });
+    }
+
+    private async processQueue() {
+        if (this.isProcessing || this.queue.length === 0) return;
+        this.isProcessing = true;
+
+        while (this.queue.length > 0) {
+            const { task } = this.queue.shift()!;
+            await task();
+        }
+
+        this.isProcessing = false;
+    }
+
+    /**
+     * Cancels all pending tasks in the queue.
+     */
+    cancelAll() {
+        this.queue.forEach(item => item.abortController?.abort());
+        this.queue = [];
     }
 
     constructor(plugin: WritingDashboardPlugin) {
@@ -90,9 +140,81 @@ export class OllamaGenerationProvider {
     }
 
     /**
-     * Checks if the Ollama server is available.
+     * Generates text with token-safe streaming.
+     * Flushes complete units at punctuation or sentence-end (150-250ms throttled).
      */
-    async isAvailable(): Promise<boolean> {
+    async generateStream(
+        prompt: string, 
+        params: GenerationParams, 
+        onToken: (token: string) => void
+    ): Promise<string> {
+        console.log(`[OllamaGen] 📡 Sending streaming request to model: ${params.model}`);
+        
+        let fullResponse = '';
+        let buffer = '';
+        let lastFlush = Date.now();
+
+        try {
+            const response = await fetch(`${this.baseUrl}/api/generate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: params.model,
+                    prompt: prompt,
+                    stream: true,
+                    options: {
+                        temperature: params.temperature,
+                        num_predict: params.max_tokens || 2048,
+                        seed: params.seed || 42
+                    }
+                })
+            });
+
+            if (!response.body) throw new Error('No response body');
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n');
+
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    try {
+                        const json = JSON.parse(line);
+                        const token = json.response || '';
+                        fullResponse += token;
+                        buffer += token;
+
+                        const now = Date.now();
+                        const timeSinceFlush = now - lastFlush;
+
+                        // Token-safe flush: complete units at punctuation or throttled sentence-end
+                        if (
+                            /[.!?\n]/.test(token) || 
+                            (timeSinceFlush > 200 && buffer.length > 50) ||
+                            buffer.length > 400
+                        ) {
+                            onToken(buffer);
+                            buffer = '';
+                            lastFlush = now;
+                        }
+                    } catch {
+                        // Partial JSON line, continue
+                    }
+                }
+            }
+
+            if (buffer) onToken(buffer); // Final flush
+            return fullResponse;
+        } catch (err) {
+            console.error('[OllamaGen] ❌ Streaming failed:', err);
+            throw err;
+        }
+    }
         try {
             const response = await requestUrl({
                 url: `${this.baseUrl}/api/tags`,

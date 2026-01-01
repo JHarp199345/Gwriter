@@ -4,12 +4,18 @@
  * between the Planner, Writer, Auditor, and SequentialGenerator.
  */
 
+export type FactLifecycleState = 'PROPOSED' | 'QUARANTINED' | 'ACCEPTED' | 'CANON';
+export type FactScope = 'SCENE' | 'CHAPTER' | 'GLOBAL';
+export type FactOrigin = 'BIBLE' | 'USER' | 'EXTRACTOR' | 'GENERATION' | 'MUTATION';
+export type FactType = 'IDENTITY' | 'RELATIONSHIP' | 'TIMELINE' | 'TRAIT' | 'SCENE_DETAIL' | 'TONE_RULE' | 'THREAD_STATE';
+
 export interface ParagraphMetadata {
     p_id: string;
     goalIds: string[];
     factIds: string[];
     sourceChunkIds: string[];
     isSpeculative: boolean; // True if referencing 0 facts and 0 goals
+    citations?: { intentId: string, snippetId: string, sourceDocId: string, span: { start: number, end: number }, relevanceScore: number }[];
 }
 
 export interface MutationAcceptance {
@@ -20,15 +26,42 @@ export interface MutationAcceptance {
     reason?: string;
     chunkId: string;
     baselineCanonVersion?: number; // Snapshot baseline for conflict evaluation
+    previousCanonVersion: number;
+    forwardPatch?: any;
+    reversePatch?: any;
+    requiresReindex: boolean;
+    indexesImpacted: string[];
 }
 
 export interface CanonFact {
     id: string; // Unique ID for the fact (e.g., 'fact-001')
     entityId: string; // ID of the entity this fact involves (e.g., 'char-john')
+    type: FactType; // New: Categorical type of the fact
     attribute: string; // The specific attribute (e.g., 'location', 'eye_color', 'alive_status')
     value: any; // The value of the attribute
     chunkId?: string; // The ID of the chunk that introduced or confirmed this fact
     source?: string; // Optional reference to a specific document or note
+    
+    // Phase 1: Executable Truth & Scoped Facts
+    scope: FactScope;
+    validity?: { fromSceneId?: string, toSceneId?: string };
+    origin: FactOrigin;
+    
+    // Provenance Checklist
+    sourceDocId?: string;
+    sourceSpan?: { start: number, end: number };
+    sourceHash?: string;
+    extractorPass?: 'FAST' | 'SMART';
+    resolverRuleId?: string;
+    timestamp: number;
+    confidence: number;
+    lifecycleState: FactLifecycleState;
+
+    // Relationship Model
+    relationType?: string; 
+    directionality?: 'directed' | 'undirected';
+    isSymmetric?: boolean;
+    cardinality?: 'one-to-one' | 'one-to-many' | 'many-to-many';
 }
 
 export interface Entity {
@@ -83,10 +116,12 @@ export interface PatchOp {
 export interface ChapterState {
     chapterId: string;
     canonVersion: number; // Incremented on every MutationAcceptance
+    schemaVersion: number; // For forward-compat and migrations
     entities: Entity[];
     canonFacts: CanonFact[];
     mutationHistory: MutationAcceptance[];
     pendingMutations: MutationAcceptance[]; // Mutations that are 'Deferred'
+    entity_redirects: Record<string, string>; // old_id -> new_id for merges
     timeline: { chunkId: string, summary: string }[];
     openLoops: string[];
     constraints: {
@@ -95,6 +130,7 @@ export interface ChapterState {
         tone: string[];
         forbidden: string[];
     };
+    indexVersion?: string; // New: Version of retrieval index for strict replay
     lastChunkId?: string;
 }
 
@@ -102,9 +138,12 @@ export interface ContextBundleManifest {
     chunkIds: string[];
     chunkHashes: Record<string, string>; // ID -> Content Hash for strict replay
     factIds: string[];
+    staleFlags: Record<string, boolean>; // ID -> isStale
+    penaltiesApplied: Record<string, boolean>; // ID -> stalePenaltyApplied
     tokenEstimate: number;
     promptHash: string;
     timestamp: number;
+    candidatePools?: { lexical: number, semantic: number };
 }
 
 export interface StageResult {
@@ -117,6 +156,14 @@ export interface StageResult {
     manifest?: ContextBundleManifest;
     metadata?: ParagraphMetadata[]; // Sidecar for WRITE stages
     data: any; // Stage-specific payload (e.g., AuditResult, PatchOp[])
+}
+
+export interface MismatchReport {
+    field: string;
+    expected: string;
+    actual: string;
+    canProceed: boolean;
+    severity: 'warn' | 'error';
 }
 
 export interface RunManifest {
@@ -135,7 +182,17 @@ export interface RunManifest {
         fastModelDigest?: string;
         maxChunkWords: number;
         temperature: number;
+        policyHash: string;
+        corpusHash: string;
+        pluginVersion: string;
+        spontaneityProfile?: {
+            sliderValue: number;
+            temp: number;
+            novelty: number;
+            stickyMin: number;
+        };
     };
+    continuityRisks?: Record<string, number>; // iteration -> risk score
 }
 
 /**

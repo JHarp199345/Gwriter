@@ -2,7 +2,7 @@ import type { Vault } from 'obsidian';
 import { TFile } from 'obsidian';
 import WritingDashboardPlugin from '../../main';
 import { buildIndexChunks } from './Chunking';
-import { fnv1a32 } from '../ContentHash';
+import { fnv1a32, sha256 } from '../ContentHash';
 import { OllamaEmbeddingProvider } from './OllamaEmbeddingProvider';
 
 export interface IndexedChunk {
@@ -11,9 +11,20 @@ export interface IndexedChunk {
 	chunkIndex: number;
 	startWord: number;
 	endWord: number;
-	textHash: string;
+	textHash: string; // SHA-256
 	vector: number[];
 	excerpt: string;
+}
+
+/**
+ * Stable normalization for bit-perfect hash continuity.
+ */
+export function normalizeChunkText(text: string): string {
+	return text
+		.trim()
+		.replace(/\r\n/g, '\n') // Normalize newlines
+		.replace(/\r/g, '\n')
+		.replace(/[ \t]+/g, ' '); // Normalize spaces/tabs
 }
 
 interface PersistedIndexV1 {
@@ -65,6 +76,7 @@ export class EmbeddingsIndex {
 
 	private readonly queue = new Set<string>();
 	private workerRunning = false;
+	private rebuildTimer: number | null = null;
 	private persistTimer: number | null = null;
 	private settingsSaveTimer: number | null = null;
 
@@ -184,7 +196,16 @@ export class EmbeddingsIndex {
 	queueUpdateFile(path: string): void {
 		if (!path) return;
 		this.queue.add(path);
-		this._kickWorker();
+		this._scheduleRebuild();
+	}
+
+	private _scheduleRebuild(): void {
+		const policy = CO_AUTHORING_POLICY.PERFORMANCE;
+		if (this.rebuildTimer) window.clearTimeout(this.rebuildTimer);
+		this.rebuildTimer = window.setTimeout(() => {
+			this.rebuildTimer = null;
+			this._kickWorker();
+		}, policy.REBUILD_QUEUE_DEBOUNCE_MS);
 	}
 
 	queueRemoveFile(path: string): void {
@@ -212,13 +233,14 @@ export class EmbeddingsIndex {
 			return;
 		}
 
+		const policy = CO_AUTHORING_POLICY.PERFORMANCE;
 		let processedCount = 0;
 		let skippedExcluded = 0;
 		let skippedNotMarkdown = 0;
 		let skippedHashMatch = 0;
 		let indexedCount = 0;
 		
-		while (this.queue.size > 0) {
+		while (this.queue.size > 0 && indexedCount < policy.MAX_REBUILDS_PER_BATCH) {
 			if (this.plugin.settings.retrievalIndexPaused) break;
 			const next = this.queue.values().next().value as string;
 			this.queue.delete(next);
@@ -245,7 +267,8 @@ export class EmbeddingsIndex {
 
 			try {
 				const content = await this.vault.read(file);
-				const fileHash = fnv1a32(content);
+				const normalizedContent = normalizeChunkText(content);
+				const fileHash = await sha256(normalizedContent);
 				const prev = this.plugin.settings.retrievalIndexState?.[next];
 				const isCurrentlyIndexed = this.chunkKeysByPath.has(next);
 				
@@ -328,13 +351,14 @@ export class EmbeddingsIndex {
 		let firstError: Error | null = null;
 		for (let i = 0; i < chunks.length; i++) {
 			const ch = chunks[i];
-			const textHash = fnv1a32(ch.text);
+			const normalizedText = normalizeChunkText(ch.text);
+			const textHash = await sha256(normalizedText);
 			const key = `chunk:${path}:${i}`;
 			let vector: number[];
 			try {
 				console.log(`  - Generating embedding for chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words)...`);
 				const embedStart = Date.now();
-				vector = await this.embeddingProvider.getEmbedding(ch.text);
+				vector = await this.embeddingProvider.getEmbedding(normalizedText);
 				if (!Array.isArray(vector) || vector.length === 0) {
 					throw new Error('Empty embedding returned from Ollama');
 				}
@@ -423,8 +447,39 @@ export class EmbeddingsIndex {
 		return Array.from(this.chunksByKey.values());
 	}
 
+	/**
+	 * Computes a bit-perfect corpus hash for strict replay.
+	 * sha256(join(sort(chunk_id + ":" + content_hash), "\n"))
+	 */
+	async getCorpusHash(): Promise<string> {
+		const chunks = this.getAllChunks();
+		const lines = chunks.map(c => `${c.key}:${c.textHash}`);
+		lines.sort();
+		const joined = lines.join('\n');
+		return await sha256(joined);
+	}
+
 	getIndexedPaths(): string[] {
 		return Array.from(this.chunkKeysByPath.keys());
+	}
+
+	/**
+	 * Checks if a path is currently marked as stale in the index state.
+	 */
+	isStale(path: string): boolean {
+		const state = this.plugin.settings.retrievalIndexState?.[path];
+		if (!state) return false;
+		
+		const file = this.vault.getAbstractFileByPath(path);
+		if (!(file instanceof TFile)) return true; // Missing file is effectively stale
+		
+		// If updatedAt is not set, we can't be sure, assume not stale for now
+		if (!state.updatedAt) return false;
+		
+		const fileMtime = file.stat.mtime;
+		const indexTime = new Date(state.updatedAt).getTime();
+		
+		return fileMtime > indexTime;
 	}
 
 	/**

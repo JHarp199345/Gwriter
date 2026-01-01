@@ -16,6 +16,7 @@ import { parseCharacterRoster, rosterToBulletList } from '../services/CharacterR
 import { showConfirmModal } from './ConfirmModal';
 import { PromptPreviewModal } from './PromptPreviewModal';
 import { ButtonHelpModal } from './ButtonHelpModal';
+import { PilotHealthPanel } from './PilotHealthPanel'; // New
 import { relayEventBus } from '../services/EventBus';
 import { GenerationStep, StageResult } from '../services/Schemas';
 
@@ -32,14 +33,19 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [modeState, setModeState] = useState(() => plugin.settings.modeState);
 	
 	const [generatedText, setGeneratedText] = useState<string>('');
+	const [generatedParagraphs, setGeneratedParagraphs] = useState<{ text: string, metadata?: any }[]>([]);
 	const [chunkBuffer, setChunkBuffer] = useState<string>('');
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [generationStage, setGenerationStage] = useState<string>('');
 	const [generationSteps, setGenerationSteps] = useState<GenerationStep[]>([]);
 	const [error, setError] = useState<string | null>(null);
+	const [mismatchReport, setMismatchReport] = useState<any[] | null>(null); // New
 	const [telemetry, setTelemetry] = useState<{ tps: number, model: string, digest: string } | null>(null);
 	const [showFactInspector, setShowFactInspector] = useState(false);
 	const [heatmapEnabled, setHeatmapEnabled] = useState(true);
+	const [spontaneity, setSpontaneity] = useState((plugin.settings as any).spontaneitySlider || 50);
+	const [misses, setMisses] = useState<any[]>([]); // New
+	const [rejections, setRejections] = useState<any[]>([]); // New
 	const [proposedMutation, setProposedMutation] = useState<any | null>(null);
 	const [trustSummary, setTrustSummary] = useState<any | null>(null);
 	const [activeTab, setActiveTab] = useState<'editor' | 'lore' | 'replay'>('editor');
@@ -51,6 +57,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			setGenerationSteps([]);
 			setChunkBuffer('');
 			setGeneratedText('');
+			setGeneratedParagraphs([]);
 			setIsGenerating(true);
 		};
 		const onStageStart = (data: { type: string }) => {
@@ -59,11 +66,17 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		const onBufferUpdate = (data: { content: string }) => {
 			setChunkBuffer(data.content);
 		};
-		const onCommitted = (data: { content: string }) => {
+		const onCommitted = (data: { content: string, metadata?: any[] }) => {
 			// Transactional commit to note and UI
 			if (commitLock.current) return;
 			commitLock.current = true;
 			try {
+				const newParas = data.content.split('\n\n').filter(p => p.trim()).map((p, i) => ({
+					text: p,
+					metadata: data.metadata ? data.metadata[i] : undefined
+				}));
+
+				setGeneratedParagraphs((prev) => [...prev, ...newParas]);
 				setGeneratedText((prev) => prev + (prev ? '\n\n' : '') + data.content);
 				setChunkBuffer('');
 				// Update trust summary for the chunk
@@ -95,9 +108,18 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				setProposedMutation(mutation);
 			}
 		};
-		const onError = (data: { error: string }) => {
+		const onError = (data: { error: string, mismatchReport?: any[] }) => {
 			setError(data.error);
 			setIsGenerating(false);
+			if (data.mismatchReport) {
+				setMismatchReport(data.mismatchReport);
+			}
+		};
+		const onMiss = (data: { type: string }) => {
+			setMisses(prev => [...prev, data]);
+		};
+		const onStitchRejected = (data: { iteration: number, changes?: string[] }) => {
+			setRejections(prev => [...prev, data]);
 		};
 
 		relayEventBus.on('run:start', onStart);
@@ -107,6 +129,8 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		relayEventBus.on('audit:violations', onAuditViolations);
 		relayEventBus.on('run:end', onEnd);
 		relayEventBus.on('run:error', onError);
+		relayEventBus.on('pilot:miss', onMiss);
+		relayEventBus.on('pilot:stitch_rejected', onStitchRejected);
 
 		return () => {
 			relayEventBus.off('run:start', onStart);
@@ -116,6 +140,8 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			relayEventBus.off('audit:violations', onAuditViolations);
 			relayEventBus.off('run:end', onEnd);
 			relayEventBus.off('run:error', onError);
+			relayEventBus.off('pilot:miss', onMiss);
+			relayEventBus.off('pilot:stitch_rejected', onStitchRejected);
 		};
 	}, []);
 
@@ -151,6 +177,8 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							selectedText={modeState.chapter.sceneSummary}
 							onSelectionChange={updateMainInput}
 							generatedText={generatedText}
+							generatedParagraphs={generatedParagraphs}
+							heatmapEnabled={heatmapEnabled}
 							onGeneratedChange={setGeneratedText}
 							onCopy={() => navigator.clipboard.writeText(generatedText)}
 							chunkBuffer={chunkBuffer}
@@ -162,6 +190,12 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							{/* FactInspector will go here */}
 							<h3>Canon Facts</h3>
 							<p>View and manage story lore.</p>
+							<PilotHealthPanel 
+								plugin={plugin} 
+								misses={misses} 
+								rejections={rejections} 
+								quarantineCount={plugin.contextAggregator.getState().pendingMutations.length} 
+							/>
 						</div>
 					)}
 
@@ -213,7 +247,46 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 						</div>
 					)}
 
+					{mismatchReport && (
+						<div className="mismatch-report-banner">
+							<h3>⚠️ Strict Replay Mismatch</h3>
+							{mismatchReport.map((m, i) => (
+								<p key={i}><strong>{m.field}:</strong> Expected "{m.expected.slice(0, 8)}", Got "{m.actual.slice(0, 8)}" ({m.severity})</p>
+							))}
+							<div className="actions">
+								<button onClick={() => setMismatchReport(null)}>Cancel Replay</button>
+								<button className="mod-cta" onClick={() => {
+									// Proceed logic
+									setMismatchReport(null);
+									new Notice('Proceeding in Best-Effort mode...');
+								}}>Proceed Creative (Best-Effort)</button>
+							</div>
+						</div>
+					)}
+
 					<div className="controls">
+						<div className="spontaneity-control" style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+							<div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8em' }}>
+								<span>Faithful</span>
+								<span>Spontaneity: {spontaneity}</span>
+								<span>Wild</span>
+							</div>
+							<input 
+								type="range" 
+								min="0" 
+								max="100" 
+								value={spontaneity} 
+								onChange={(e) => {
+									const val = parseInt(e.target.value);
+									setSpontaneity(val);
+									(plugin.settings as any).spontaneitySlider = val;
+									plugin.saveSettings();
+								}}
+								className="spontaneity-slider"
+								title="Adjusts LLM temperature and novelty bias."
+							/>
+						</div>
+
 						<button 
 							onClick={handleGenerate} 
 							disabled={isGenerating}
