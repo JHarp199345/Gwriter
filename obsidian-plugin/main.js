@@ -28633,6 +28633,17 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
+    new import_obsidian10.Setting(containerEl).setName("Embedding Storage Mode").setDesc("Isolated: Private index. Auto: Share with StoryBoard. Manual: Use custom path.").addDropdown((dropdown) => dropdown.addOption("isolated", "Isolated (Private)").addOption("auto", "Auto (Shared Brain)").addOption("manual", "Manual").setValue(this.plugin.settings.embeddingStorageMode || "isolated").onChange(async (value) => {
+      this.plugin.settings.embeddingStorageMode = value;
+      await this.plugin.saveSettings();
+      this.display();
+    }));
+    if (this.plugin.settings.embeddingStorageMode === "manual") {
+      new import_obsidian10.Setting(containerEl).setName("Manual Shared Path").setDesc("Vault-relative path to the shared index directory.").addText((text2) => text2.setPlaceholder("Embeddings/shared-index").setValue(this.plugin.settings.manualSharedPath || "").onChange(async (value) => {
+        this.plugin.settings.manualSharedPath = value;
+        await this.plugin.saveSettings();
+      }));
+    }
     new import_obsidian10.Setting(containerEl).setName("Enable reranking (experimental)").setDesc("Use a local CPU reranker to improve the ordering of retrieved snippets. Experimental feature - may fail if model files cannot be downloaded. If disabled, retrieval will work without reranking.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableReranker)).onChange(async (value) => {
         this.plugin.settings.retrievalEnableReranker = value;
@@ -31369,6 +31380,14 @@ var EmbeddingsIndex = class {
     // Error tracking
     this.errorLog = [];
     this.maxStoredErrors = 100;
+    // Circuit breaker for AI embedding failures
+    this.aiErrorStreak = 0;
+    this.AI_ERROR_STREAK_THRESHOLD = 3;
+    this.AI_PAUSE_DURATION_MS = 15e3;
+    // Shared Brain state
+    this.isReadOnly = false;
+    this.heartbeatTimer = null;
+    this.currentStorageMode = null;
     this.vault = vault;
     this.plugin = plugin;
     this.backend = "ollama";
@@ -31381,15 +31400,160 @@ var EmbeddingsIndex = class {
   updateProvider(provider) {
     this.embeddingProvider = provider;
   }
-  getIndexFilePath() {
-    return `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index/index.json`;
+  async onunload() {
+    this.stopHeartbeat();
+    const dir = await this.resolveIndexDir();
+    const lockPath = `${dir}/index.lock`;
+    try {
+      if (await this.vault.adapter.exists(lockPath)) {
+        const raw = await this.vault.adapter.read(lockPath);
+        if (raw.startsWith("writing-dashboard:")) {
+          await this.vault.adapter.remove(lockPath);
+        }
+      }
+    } catch {
+    }
+  }
+  /**
+   * Returns the canonical embedding profile (single source of truth).
+   * Used for handshake files, manifest validation, and profile matching.
+   */
+  getEmbeddingProfile() {
+    return {
+      provider: "ollama",
+      modelId: this.plugin.settings.relayEmbeddingModel,
+      dimensions: this.dim || 768,
+      normalize: true,
+      chunkingVersion: 2,
+      schemaVersion: 2
+    };
+  }
+  async resolveIndexDir() {
+    const mode = this.currentStorageMode || this.plugin.settings.embeddingStorageMode || "isolated";
+    if (mode === "isolated") {
+      return `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index`;
+    }
+    if (mode === "manual") {
+      const manualPath = this.plugin.settings.manualSharedPath;
+      if (manualPath)
+        return manualPath;
+      return `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index`;
+    }
+    const storyboardHandshakePath = `${this.vault.configDir}/embeddings/handshake/storyboard.json`;
+    if (await this.vault.adapter.exists(storyboardHandshakePath)) {
+      try {
+        const raw = await this.vault.adapter.read(storyboardHandshakePath);
+        const storyboard = JSON.parse(raw);
+        if (this.profilesMatch(storyboard.embeddingProfile)) {
+          return "Embeddings/shared-index";
+        } else {
+          console.warn("[EmbeddingsIndex] Shared index disabled: embedding profiles do not match storyboard");
+        }
+      } catch (err) {
+        console.error("[EmbeddingsIndex] Failed to read storyboard handshake:", err);
+      }
+    }
+    return `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index`;
+  }
+  profilesMatch(other) {
+    const mine = this.getEmbeddingProfile();
+    return mine.provider === other.provider && mine.modelId === other.modelId && mine.dimensions === other.dimensions && mine.normalize === other.normalize && mine.chunkingVersion === other.chunkingVersion && mine.schemaVersion === other.schemaVersion;
+  }
+  async validateManifest(dir) {
+    const manifestPath = `${dir}/index.manifest.json`;
+    if (!await this.vault.adapter.exists(manifestPath))
+      return true;
+    try {
+      const raw = await this.vault.adapter.read(manifestPath);
+      const manifest = JSON.parse(raw);
+      return this.profilesMatch(manifest.embeddingProfile);
+    } catch {
+      return false;
+    }
+  }
+  async acquireLock(dir) {
+    const lockPath = `${dir}/index.lock`;
+    const myId = "writing-dashboard";
+    try {
+      if (await this.vault.adapter.exists(lockPath)) {
+        const raw = await this.vault.adapter.read(lockPath);
+        const [ownerId, tsStr] = raw.split(":");
+        const ts = parseInt(tsStr);
+        const now = Date.now();
+        if (ownerId !== myId && now - ts < 6e4) {
+          this.isReadOnly = true;
+          return false;
+        }
+      }
+      await this.vault.adapter.write(lockPath, `${myId}:${Date.now()}`);
+      this.isReadOnly = false;
+      this.startHeartbeat(lockPath);
+      return true;
+    } catch {
+      this.isReadOnly = true;
+      return false;
+    }
+  }
+  startHeartbeat(lockPath) {
+    this.stopHeartbeat();
+    this.heartbeatTimer = window.setInterval(async () => {
+      try {
+        await this.vault.adapter.write(lockPath, `writing-dashboard:${Date.now()}`);
+      } catch {
+        this.stopHeartbeat();
+      }
+    }, 3e4);
+  }
+  stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+  async seedSharedIndex(sourceDir, targetDir) {
+    const manifestPath = `${targetDir}/index.manifest.json`;
+    const indexPath = `${targetDir}/index.json`;
+    const isEmpty2 = !await this.vault.adapter.exists(manifestPath) || !await this.vault.adapter.exists(indexPath);
+    if (!isEmpty2)
+      return;
+    const sourceIndex = `${sourceDir}/index.json`;
+    if (await this.vault.adapter.exists(sourceIndex)) {
+      try {
+        if (!await this.vault.adapter.exists(targetDir)) {
+          const parts = targetDir.split("/");
+          let current = "";
+          for (const part of parts) {
+            if (!part)
+              continue;
+            current += (current ? "/" : "") + part;
+            if (!await this.vault.adapter.exists(current)) {
+              await this.vault.adapter.mkdir(current);
+            }
+          }
+        }
+        const content = await this.vault.adapter.read(sourceIndex);
+        await this.vault.adapter.write(indexPath, content);
+        const manifest = {
+          schemaVersion: 2,
+          embeddingProfile: this.getEmbeddingProfile(),
+          engine: "json"
+        };
+        await this.vault.adapter.write(manifestPath, JSON.stringify(manifest, null, 2));
+      } catch (err) {
+        console.error("[EmbeddingsIndex] Seeding failed:", err);
+      }
+    }
+  }
+  async getIndexFilePath() {
+    const dir = await this.resolveIndexDir();
+    return `${dir}/index.json`;
   }
   async clearIndex() {
     this.chunksByKey.clear();
     this.chunkKeysByPath.clear();
     this.plugin.settings.retrievalIndexState = {};
     await this.plugin.saveSettings();
-    const path = this.getIndexFilePath();
+    const path = await this.getIndexFilePath();
     if (await this.vault.adapter.exists(path)) {
       await this.vault.adapter.remove(path);
     }
@@ -31399,7 +31563,22 @@ var EmbeddingsIndex = class {
       return;
     this.loaded = true;
     try {
-      const path = this.getIndexFilePath();
+      const dir = await this.resolveIndexDir();
+      const path = await this.getIndexFilePath();
+      if (!await this.validateManifest(dir)) {
+        console.warn("[EmbeddingsIndex] Manifest mismatch; falling back to isolated mode");
+        this.currentStorageMode = "isolated";
+        const newDir = await this.resolveIndexDir();
+        if (!await this.vault.adapter.exists(newDir)) {
+          await this.vault.adapter.mkdir(newDir);
+        }
+      }
+      const mode = this.plugin.settings.embeddingStorageMode || "isolated";
+      if (mode !== "isolated") {
+        const sourceDir = `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index`;
+        await this.seedSharedIndex(sourceDir, dir);
+        await this.acquireLock(dir);
+      }
       if (!await this.vault.adapter.exists(path))
         return;
       const raw = await this.vault.adapter.read(path);
@@ -31509,6 +31688,11 @@ var EmbeddingsIndex = class {
   }
   async _runWorker() {
     await this.ensureLoaded();
+    if (this.isReadOnly) {
+      console.log("[EmbeddingsIndex] Shared index locked; operating read-only.");
+      this.workerRunning = false;
+      return;
+    }
     if (!await this.embeddingProvider.isAvailable()) {
       console.warn("[EmbeddingsIndex] Ollama not available; skipping semantic indexing");
       this.workerRunning = false;
@@ -31571,6 +31755,7 @@ var EmbeddingsIndex = class {
     if (processedCount > 0) {
       console.log(`[EmbeddingsIndex] Processed ${processedCount} files: ${indexedCount} indexed, ${skippedExcluded} excluded, ${skippedNotMarkdown} not markdown, ${skippedHashMatch} hash match (already indexed)`);
     }
+    this.stopHeartbeat();
     this.workerRunning = false;
   }
   async _reindexFile(path, content) {
@@ -31614,6 +31799,7 @@ var EmbeddingsIndex = class {
         console.log(`  - Generating embedding for chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words)...`);
         const embedStart = Date.now();
         vector = await this.embeddingProvider.getEmbedding(normalizedText);
+        this.aiErrorStreak = 0;
         if (!Array.isArray(vector) || vector.length === 0) {
           throw new Error("Empty embedding returned from Ollama");
         }
@@ -31623,11 +31809,19 @@ var EmbeddingsIndex = class {
         const embedDuration = Date.now() - embedStart;
         console.log(`  - \u2713 Ollama embedding generated in ${embedDuration}ms: ${vector.length} dimensions`);
       } catch (err) {
+        this.aiErrorStreak++;
         const errorMsg = err instanceof Error ? err.message : String(err);
         const errorStack = err instanceof Error ? err.stack : void 0;
         const context = `File: ${path}, Chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words, ${ch.text.length} chars)`;
         this.logError("_reindexFile.embedChunk", context, err);
         console.error(`  - \u2717 Embedding generation failed for chunk ${i + 1}/${chunks.length}:`, errorMsg);
+        if (this.aiErrorStreak >= 3) {
+          console.warn("[EmbeddingsIndex] Embedding breaker triggered: paused 15s and cleared queue after 3 consecutive failures.");
+          this.queue.clear();
+          this.aiErrorStreak = 0;
+          await new Promise((r) => setTimeout(r, 15e3));
+          throw new Error("Embedding breaker triggered; batch aborted.");
+        }
         if (errorStack) {
           console.error(`    Stack: ${errorStack.split("\n").slice(0, 3).join("\n    ")}`);
         }
@@ -31756,10 +31950,23 @@ var EmbeddingsIndex = class {
     }, 1e3);
   }
   async _persistNow() {
-    const dir = `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index`;
+    if (this.isReadOnly) {
+      console.log("[EmbeddingsIndex] Skipping persistence: Read-Only mode");
+      return;
+    }
+    const dir = await this.resolveIndexDir();
     try {
       if (!await this.vault.adapter.exists(dir)) {
-        await this.vault.adapter.mkdir(dir);
+        const parts = dir.split("/");
+        let current = "";
+        for (const part of parts) {
+          if (!part)
+            continue;
+          current += (current ? "/" : "") + part;
+          if (!await this.vault.adapter.exists(current)) {
+            await this.vault.adapter.mkdir(current);
+          }
+        }
       }
     } catch {
     }
@@ -31770,7 +31977,16 @@ var EmbeddingsIndex = class {
       chunking: chunkingKey(this.plugin),
       chunks: this.getAllChunks()
     };
-    await this.vault.adapter.write(this.getIndexFilePath(), JSON.stringify(payload));
+    await this.vault.adapter.write(await this.getIndexFilePath(), JSON.stringify(payload));
+    const manifestPath = `${dir}/index.manifest.json`;
+    if (!await this.vault.adapter.exists(manifestPath)) {
+      const manifest = {
+        schemaVersion: 2,
+        embeddingProfile: this.getEmbeddingProfile(),
+        engine: "json"
+      };
+      await this.vault.adapter.write(manifestPath, JSON.stringify(manifest, null, 2));
+    }
   }
   _scheduleSettingsSave() {
     if (this.settingsSaveTimer)
@@ -32119,15 +32335,91 @@ var OllamaEmbeddingProvider = class {
     }
   }
   async getEmbedding(text2) {
-    const res = await (0, import_obsidian17.requestUrl)({
-      url: `${this.baseUrl}/api/embed`,
-      method: "POST",
-      body: JSON.stringify({
-        model: this.model,
-        input: text2
-      })
+    const { text: defanged, count: defangCount } = this.defang(text2, 100);
+    const sandwiched = this.sandwich(defanged);
+    try {
+      return await this._executeEmbed(sandwiched, {
+        originalLength: text2.length,
+        finalLength: sandwiched.length,
+        defangCount,
+        hadRetry: false
+      });
+    } catch (err) {
+      if (err?.status === 400 || String(err).includes("400")) {
+        const { text: defanged2, count: defangCount2 } = this.defang(text2, 60);
+        const sandwiched2 = this.sandwich(defanged2);
+        return await this._executeEmbed(sandwiched2, {
+          originalLength: text2.length,
+          finalLength: sandwiched2.length,
+          defangCount: defangCount2,
+          hadRetry: true
+        });
+      }
+      throw err;
+    }
+  }
+  defang(text2, cap) {
+    let count = 0;
+    const tokens = text2.split(/(\s+)/);
+    const processed = tokens.map((token) => {
+      if (token.trim().length > cap) {
+        count++;
+        const len = token.length;
+        return token.slice(0, 30) + `\u2026<snip:len=${len}>\u2026` + token.slice(-30);
+      }
+      return token;
     });
-    const vec = res.json?.embeddings?.[0];
+    return { text: processed.join(""), count };
+  }
+  sandwich(text2) {
+    if (text2.length <= 6e3)
+      return text2;
+    const start = text2.slice(0, 2e3);
+    const end = text2.slice(-2e3);
+    const middleStart = Math.max(0, Math.floor(text2.length / 2) - 1e3);
+    const middle = text2.slice(middleStart, middleStart + 2e3);
+    return `${start}
+
+[...snip...]
+
+${middle}
+
+[...snip...]
+
+${end}`;
+  }
+  async _executeEmbed(text2, meta) {
+    let res;
+    try {
+      res = await (0, import_obsidian17.requestUrl)({
+        url: `${this.baseUrl}/api/embed`,
+        method: "POST",
+        body: JSON.stringify({
+          model: this.model,
+          input: text2
+        })
+      });
+    } catch (err) {
+      if (err?.status === 404) {
+        res = await (0, import_obsidian17.requestUrl)({
+          url: `${this.baseUrl}/api/embeddings`,
+          method: "POST",
+          body: JSON.stringify({
+            model: this.model,
+            prompt: text2
+          })
+        });
+      } else {
+        throw err;
+      }
+    }
+    console.log(`[Ollama] Embed call: original=${meta.originalLength}, final=${meta.finalLength}, defangs=${meta.defangCount}, retry=${meta.hadRetry}, status=${res.status}`);
+    if (res.status !== 200) {
+      const err = new Error(`[Ollama] Embed failed with status ${res.status}`);
+      err.status = res.status;
+      throw err;
+    }
+    const vec = res.json?.embeddings?.[0] || res.json?.embedding;
     if (!Array.isArray(vec) || vec.length === 0) {
       throw new Error("[Ollama] Invalid embedding response");
     }
@@ -43758,6 +44050,7 @@ var WritingDashboardPlugin = class extends import_obsidian32.Plugin {
     this.cpuReranker = new CpuReranker();
     this.diagnosticsService = new DiagnosticsService(this);
     this.generationLogService = new GenerationLogService(this.app, this);
+    await this.writeHandshake();
     const providers = [
       new HeuristicProvider(this.app.vault, this.vaultService),
       new LocalEmbeddingsProvider(
@@ -43794,7 +44087,37 @@ var WritingDashboardPlugin = class extends import_obsidian32.Plugin {
     this.registerView(VIEW_TYPE_DASHBOARD, (leaf) => new DashboardView(leaf, this));
     this.app.workspace.onLayoutReady(() => this.activateView());
   }
+  async writeHandshake() {
+    if (!this.embeddingsIndex)
+      return;
+    const profile = this.embeddingsIndex.getEmbeddingProfile();
+    const handshakeDir = `${this.app.vault.configDir}/embeddings/handshake`;
+    const handshakePath = `${handshakeDir}/writing-dashboard.json`;
+    try {
+      if (!await this.app.vault.adapter.exists(handshakeDir)) {
+        const parts = handshakeDir.split("/");
+        let current = "";
+        for (const part of parts) {
+          current += (current ? "/" : "") + part;
+          if (!await this.app.vault.adapter.exists(current)) {
+            await this.app.vault.adapter.mkdir(current);
+          }
+        }
+      }
+      const payload = {
+        pluginId: "writing-dashboard",
+        updatedAt: Date.now(),
+        embeddingProfile: profile
+      };
+      await this.app.vault.adapter.write(handshakePath, JSON.stringify(payload, null, 2));
+    } catch (err) {
+      console.error("[WritingDashboard] Failed to write handshake:", err);
+    }
+  }
   onunload() {
+    if (this.embeddingsIndex) {
+      this.embeddingsIndex.onunload();
+    }
     this.app.workspace.getLeavesOfType(VIEW_TYPE_DASHBOARD).forEach((leaf) => leaf.detach());
   }
   async activateView() {
@@ -43861,7 +44184,9 @@ var WritingDashboardPlugin = class extends import_obsidian32.Plugin {
         maxRepairAttempts: 1,
         retrievalTokenBudget: 3e3,
         helpDensity: "LITE",
-        verifiedModelsCatalog: []
+        verifiedModelsCatalog: [],
+        embeddingStorageMode: "isolated",
+        manualSharedPath: ""
       },
       loaded
     );

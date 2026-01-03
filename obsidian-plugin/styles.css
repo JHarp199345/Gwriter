@@ -697,3 +697,13 @@
     display: none; /* Only show in modals or expanded views */
 }
 
+/* StoryBoard Canvas Navigation Support (v4.1) */
+.storyboard-bg-node,
+.storyboard-bg-node * {
+	pointer-events: none !important;
+}
+
+.storyboard-session {
+	overflow: auto;
+}
+

@@ -84,6 +84,16 @@ export class EmbeddingsIndex {
 	// Error tracking
 	private readonly errorLog: ErrorLogEntry[] = [];
 	private readonly maxStoredErrors = 100;
+	
+	// Circuit breaker for AI embedding failures
+	private aiErrorStreak = 0;
+	private readonly AI_ERROR_STREAK_THRESHOLD = 3;
+	private readonly AI_PAUSE_DURATION_MS = 15000;
+
+	// Shared Brain state
+	private isReadOnly = false;
+	private heartbeatTimer: number | null = null;
+	private currentStorageMode: 'isolated' | 'auto' | 'manual' | null = null;
 
 	constructor(vault: Vault, plugin: WritingDashboardPlugin, embeddingProvider: OllamaEmbeddingProvider) {
 		this.vault = vault;
@@ -100,8 +110,181 @@ export class EmbeddingsIndex {
 		this.embeddingProvider = provider;
 	}
 
-	getIndexFilePath(): string {
-		return `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index/index.json`;
+	async onunload() {
+		this.stopHeartbeat();
+		// Optionally remove lock if we own it
+		const dir = await this.resolveIndexDir();
+		const lockPath = `${dir}/index.lock`;
+		try {
+			if (await this.vault.adapter.exists(lockPath)) {
+				const raw = await this.vault.adapter.read(lockPath);
+				if (raw.startsWith('writing-dashboard:')) {
+					await this.vault.adapter.remove(lockPath);
+				}
+			}
+		} catch {
+			// ignore
+		}
+	}
+
+	/**
+	 * Returns the canonical embedding profile (single source of truth).
+	 * Used for handshake files, manifest validation, and profile matching.
+	 */
+	getEmbeddingProfile() {
+		return {
+			provider: 'ollama' as const,
+			modelId: this.plugin.settings.relayEmbeddingModel,
+			dimensions: this.dim || 768,
+			normalize: true,
+			chunkingVersion: 2,
+			schemaVersion: 2
+		};
+	}
+
+	async resolveIndexDir(): Promise<string> {
+		const mode = this.currentStorageMode || this.plugin.settings.embeddingStorageMode || 'isolated';
+
+		if (mode === 'isolated') {
+			return `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index`;
+		}
+
+		if (mode === 'manual') {
+			const manualPath = this.plugin.settings.manualSharedPath;
+			if (manualPath) return manualPath;
+			return `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index`;
+		}
+
+		// auto mode
+		const storyboardHandshakePath = `${this.vault.configDir}/embeddings/handshake/storyboard.json`;
+		if (await this.vault.adapter.exists(storyboardHandshakePath)) {
+			try {
+				const raw = await this.vault.adapter.read(storyboardHandshakePath);
+				const storyboard = JSON.parse(raw);
+				if (this.profilesMatch(storyboard.embeddingProfile)) {
+					return 'Embeddings/shared-index';
+				} else {
+					console.warn('[EmbeddingsIndex] Shared index disabled: embedding profiles do not match storyboard');
+				}
+			} catch (err) {
+				console.error('[EmbeddingsIndex] Failed to read storyboard handshake:', err);
+			}
+		}
+
+		return `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index`;
+	}
+
+	private profilesMatch(other: any): boolean {
+		const mine = this.getEmbeddingProfile();
+		return (
+			mine.provider === other.provider &&
+			mine.modelId === other.modelId &&
+			mine.dimensions === other.dimensions &&
+			mine.normalize === other.normalize &&
+			mine.chunkingVersion === other.chunkingVersion &&
+			mine.schemaVersion === other.schemaVersion
+		);
+	}
+
+	async validateManifest(dir: string): Promise<boolean> {
+		const manifestPath = `${dir}/index.manifest.json`;
+		if (!(await this.vault.adapter.exists(manifestPath))) return true; // No manifest yet
+
+		try {
+			const raw = await this.vault.adapter.read(manifestPath);
+			const manifest = JSON.parse(raw);
+			return this.profilesMatch(manifest.embeddingProfile);
+		} catch {
+			return false;
+		}
+	}
+
+	async acquireLock(dir: string): Promise<boolean> {
+		const lockPath = `${dir}/index.lock`;
+		const myId = 'writing-dashboard';
+
+		try {
+			if (await this.vault.adapter.exists(lockPath)) {
+				const raw = await this.vault.adapter.read(lockPath);
+				const [ownerId, tsStr] = raw.split(':');
+				const ts = parseInt(tsStr);
+				const now = Date.now();
+
+				if (ownerId !== myId && (now - ts) < 60000) {
+					this.isReadOnly = true;
+					return false;
+				}
+			}
+
+			// Acquire or refresh lock
+			await this.vault.adapter.write(lockPath, `${myId}:${Date.now()}`);
+			this.isReadOnly = false;
+			this.startHeartbeat(lockPath);
+			return true;
+		} catch {
+			this.isReadOnly = true;
+			return false;
+		}
+	}
+
+	private startHeartbeat(lockPath: string) {
+		this.stopHeartbeat();
+		this.heartbeatTimer = window.setInterval(async () => {
+			try {
+				await this.vault.adapter.write(lockPath, `writing-dashboard:${Date.now()}`);
+			} catch {
+				this.stopHeartbeat();
+			}
+		}, 30000);
+	}
+
+	private stopHeartbeat() {
+		if (this.heartbeatTimer) {
+			clearInterval(this.heartbeatTimer);
+			this.heartbeatTimer = null;
+		}
+	}
+
+	async seedSharedIndex(sourceDir: string, targetDir: string): Promise<void> {
+		const manifestPath = `${targetDir}/index.manifest.json`;
+		const indexPath = `${targetDir}/index.json`;
+
+		const isEmpty = !(await this.vault.adapter.exists(manifestPath)) || !(await this.vault.adapter.exists(indexPath));
+		if (!isEmpty) return;
+
+		const sourceIndex = `${sourceDir}/index.json`;
+		if (await this.vault.adapter.exists(sourceIndex)) {
+			try {
+				if (!(await this.vault.adapter.exists(targetDir))) {
+					// Recursive mkdir
+					const parts = targetDir.split('/');
+					let current = '';
+					for (const part of parts) {
+						if (!part) continue;
+						current += (current ? '/' : '') + part;
+						if (!(await this.vault.adapter.exists(current))) {
+							await this.vault.adapter.mkdir(current);
+						}
+					}
+				}
+				const content = await this.vault.adapter.read(sourceIndex);
+				await this.vault.adapter.write(indexPath, content);
+
+				const manifest = {
+					schemaVersion: 2,
+					embeddingProfile: this.getEmbeddingProfile(),
+					engine: 'json'
+				};
+				await this.vault.adapter.write(manifestPath, JSON.stringify(manifest, null, 2));
+			} catch (err) {
+				console.error('[EmbeddingsIndex] Seeding failed:', err);
+			}
+		}
+	}
+
+	async getIndexFilePath(): Promise<string> {
+		const dir = await this.resolveIndexDir();
+		return `${dir}/index.json`;
 	}
 
 	async clearIndex(): Promise<void> {
@@ -109,7 +292,7 @@ export class EmbeddingsIndex {
 		this.chunkKeysByPath.clear();
 		this.plugin.settings.retrievalIndexState = {};
 		await this.plugin.saveSettings();
-		const path = this.getIndexFilePath();
+		const path = await this.getIndexFilePath();
 		if (await this.vault.adapter.exists(path)) {
 			await this.vault.adapter.remove(path);
 		}
@@ -120,7 +303,27 @@ export class EmbeddingsIndex {
 		this.loaded = true;
 
 		try {
-			const path = this.getIndexFilePath();
+			const dir = await this.resolveIndexDir();
+			const path = await this.getIndexFilePath();
+
+			if (!(await this.validateManifest(dir))) {
+				console.warn('[EmbeddingsIndex] Manifest mismatch; falling back to isolated mode');
+				this.currentStorageMode = 'isolated'; // Internal override for this session
+				// Re-resolve path after fallback
+				const newDir = await this.resolveIndexDir();
+				if (!(await this.vault.adapter.exists(newDir))) {
+					await this.vault.adapter.mkdir(newDir);
+				}
+			}
+
+			// In auto/manual, we need to handle read-only state
+			const mode = this.plugin.settings.embeddingStorageMode || 'isolated';
+			if (mode !== 'isolated') {
+				const sourceDir = `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index`;
+				await this.seedSharedIndex(sourceDir, dir);
+				await this.acquireLock(dir);
+			}
+
 			if (!(await this.vault.adapter.exists(path))) return;
 			const raw = await this.vault.adapter.read(path);
 			const parsed = JSON.parse(raw) as PersistedIndexV1;
@@ -245,6 +448,13 @@ export class EmbeddingsIndex {
 
 	private async _runWorker(): Promise<void> {
 		await this.ensureLoaded();
+
+		if (this.isReadOnly) {
+			console.log('[EmbeddingsIndex] Shared index locked; operating read-only.');
+			this.workerRunning = false;
+			return;
+		}
+
 		// If Ollama is not available, skip semantic indexing to avoid failures.
 		if (!(await this.embeddingProvider.isAvailable())) {
 			console.warn('[EmbeddingsIndex] Ollama not available; skipping semantic indexing');
@@ -324,6 +534,7 @@ export class EmbeddingsIndex {
 			console.log(`[EmbeddingsIndex] Processed ${processedCount} files: ${indexedCount} indexed, ${skippedExcluded} excluded, ${skippedNotMarkdown} not markdown, ${skippedHashMatch} hash match (already indexed)`);
 		}
 
+		this.stopHeartbeat();
 		this.workerRunning = false;
 	}
 
@@ -378,6 +589,7 @@ export class EmbeddingsIndex {
 				console.log(`  - Generating embedding for chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words)...`);
 				const embedStart = Date.now();
 				vector = await this.embeddingProvider.getEmbedding(normalizedText);
+				this.aiErrorStreak = 0; // Success: reset streak
 				if (!Array.isArray(vector) || vector.length === 0) {
 					throw new Error('Empty embedding returned from Ollama');
 				}
@@ -387,12 +599,23 @@ export class EmbeddingsIndex {
 				const embedDuration = Date.now() - embedStart;
 				console.log(`  - ✓ Ollama embedding generated in ${embedDuration}ms: ${vector.length} dimensions`);
 			} catch (err) {
+				this.aiErrorStreak++;
 				const errorMsg = err instanceof Error ? err.message : String(err);
 				const errorStack = err instanceof Error ? err.stack : undefined;
 				const context = `File: ${path}, Chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words, ${ch.text.length} chars)`;
 				this.logError('_reindexFile.embedChunk', context, err);
 				
 				console.error(`  - ✗ Embedding generation failed for chunk ${i + 1}/${chunks.length}:`, errorMsg);
+				
+				if (this.aiErrorStreak >= 3) {
+					console.warn('[EmbeddingsIndex] Embedding breaker triggered: paused 15s and cleared queue after 3 consecutive failures.');
+					this.queue.clear();
+					this.aiErrorStreak = 0;
+					// Yield and wait 15s
+					await new Promise(r => setTimeout(r, 15000));
+					throw new Error('Embedding breaker triggered; batch aborted.');
+				}
+
 				if (errorStack) {
 					console.error(`    Stack: ${errorStack.split('\n').slice(0, 3).join('\n    ')}`);
 				}
@@ -538,10 +761,24 @@ export class EmbeddingsIndex {
 	}
 
 	private async _persistNow(): Promise<void> {
-		const dir = `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index`;
+		if (this.isReadOnly) {
+			console.log('[EmbeddingsIndex] Skipping persistence: Read-Only mode');
+			return;
+		}
+
+		const dir = await this.resolveIndexDir();
 		try {
 			if (!(await this.vault.adapter.exists(dir))) {
-				await this.vault.adapter.mkdir(dir);
+				// Recursive mkdir
+				const parts = dir.split('/');
+				let current = '';
+				for (const part of parts) {
+					if (!part) continue;
+					current += (current ? '/' : '') + part;
+					if (!(await this.vault.adapter.exists(current))) {
+						await this.vault.adapter.mkdir(current);
+					}
+				}
 			}
 		} catch {
 			// ignore mkdir failures
@@ -554,7 +791,18 @@ export class EmbeddingsIndex {
 			chunking: chunkingKey(this.plugin),
 			chunks: this.getAllChunks()
 		};
-		await this.vault.adapter.write(this.getIndexFilePath(), JSON.stringify(payload));
+		await this.vault.adapter.write(await this.getIndexFilePath(), JSON.stringify(payload));
+
+		// Ensure manifest exists in the index directory
+		const manifestPath = `${dir}/index.manifest.json`;
+		if (!(await this.vault.adapter.exists(manifestPath))) {
+			const manifest = {
+				schemaVersion: 2,
+				embeddingProfile: this.getEmbeddingProfile(),
+				engine: 'json'
+			};
+			await this.vault.adapter.write(manifestPath, JSON.stringify(manifest, null, 2));
+		}
 	}
 
 	private _scheduleSettingsSave(): void {

@@ -519,6 +519,33 @@ export class SettingsTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
+			.setName('Embedding Storage Mode')
+			.setDesc('Isolated: Private index. Auto: Share with StoryBoard. Manual: Use custom path.')
+			.addDropdown(dropdown => dropdown
+				.addOption('isolated', 'Isolated (Private)')
+				.addOption('auto', 'Auto (Shared Brain)')
+				.addOption('manual', 'Manual')
+				.setValue(this.plugin.settings.embeddingStorageMode || 'isolated')
+				.onChange(async (value: 'isolated' | 'auto' | 'manual') => {
+					this.plugin.settings.embeddingStorageMode = value;
+					await this.plugin.saveSettings();
+					this.display();
+				}));
+
+		if (this.plugin.settings.embeddingStorageMode === 'manual') {
+			new Setting(containerEl)
+				.setName('Manual Shared Path')
+				.setDesc('Vault-relative path to the shared index directory.')
+				.addText(text => text
+					.setPlaceholder('Embeddings/shared-index')
+					.setValue(this.plugin.settings.manualSharedPath || '')
+					.onChange(async (value) => {
+						this.plugin.settings.manualSharedPath = value;
+						await this.plugin.saveSettings();
+					}));
+		}
+
+		new Setting(containerEl)
 			.setName('Enable reranking (experimental)')
 			.setDesc('Use a local CPU reranker to improve the ordering of retrieved snippets. Experimental feature - may fail if model files cannot be downloaded. If disabled, retrieval will work without reranking.')
 			.addToggle((toggle) =>

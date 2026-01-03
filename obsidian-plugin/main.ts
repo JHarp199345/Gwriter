@@ -106,6 +106,8 @@ export type DashboardSettings = {
 	retrievalTokenBudget: number;
 	helpDensity?: HelpDensity;
 	verifiedModelsCatalog?: string[];
+	embeddingStorageMode?: 'isolated' | 'auto' | 'manual';
+	manualSharedPath?: string;
 	[key: string]: any;
 };
 
@@ -156,6 +158,9 @@ export default class WritingDashboardPlugin extends Plugin {
 		this.diagnosticsService = new DiagnosticsService(this);
 		this.generationLogService = new GenerationLogService(this.app, this);
 
+		// Write handshake for shared brain
+		await this.writeHandshake();
+
 		// Retrieval providers (hash/BM25 + optional local embeddings)
 		const providers: Array<import('./services/retrieval/types').RetrievalProvider> = [
 			new HeuristicProvider(this.app.vault, this.vaultService),
@@ -199,7 +204,39 @@ export default class WritingDashboardPlugin extends Plugin {
 		this.app.workspace.onLayoutReady(() => this.activateView());
 	}
 
+	async writeHandshake() {
+		if (!this.embeddingsIndex) return;
+		const profile = this.embeddingsIndex.getEmbeddingProfile();
+		const handshakeDir = `${this.app.vault.configDir}/embeddings/handshake`;
+		const handshakePath = `${handshakeDir}/writing-dashboard.json`;
+
+		try {
+			if (!(await this.app.vault.adapter.exists(handshakeDir))) {
+				// Recursive mkdir is not supported by adapter.mkdir, but we can try
+				const parts = handshakeDir.split('/');
+				let current = '';
+				for (const part of parts) {
+					current += (current ? '/' : '') + part;
+					if (!(await this.app.vault.adapter.exists(current))) {
+						await this.app.vault.adapter.mkdir(current);
+					}
+				}
+			}
+			const payload = {
+				pluginId: 'writing-dashboard',
+				updatedAt: Date.now(),
+				embeddingProfile: profile
+			};
+			await this.app.vault.adapter.write(handshakePath, JSON.stringify(payload, null, 2));
+		} catch (err) {
+			console.error('[WritingDashboard] Failed to write handshake:', err);
+		}
+	}
+
 	onunload() {
+		if (this.embeddingsIndex) {
+			this.embeddingsIndex.onunload();
+		}
 		this.app.workspace.getLeavesOfType(VIEW_TYPE_DASHBOARD).forEach((leaf) => leaf.detach());
 	}
 
@@ -270,7 +307,9 @@ export default class WritingDashboardPlugin extends Plugin {
 				maxRepairAttempts: 1,
 				retrievalTokenBudget: 3000,
 				helpDensity: 'LITE',
-				verifiedModelsCatalog: []
+				verifiedModelsCatalog: [],
+				embeddingStorageMode: 'isolated',
+				manualSharedPath: ''
 			},
 			loaded
 		);
