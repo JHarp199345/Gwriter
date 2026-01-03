@@ -31368,6 +31368,7 @@ function excerptOf(text2, maxChars) {
   return `${trimmed.slice(0, maxChars)}\u2026`;
 }
 var EmbeddingsIndex = class {
+  // Preserve for heartbeat
   constructor(vault, plugin, embeddingProvider) {
     this.loaded = false;
     this.chunksByKey = /* @__PURE__ */ new Map();
@@ -31388,6 +31389,7 @@ var EmbeddingsIndex = class {
     this.isReadOnly = false;
     this.heartbeatTimer = null;
     this.currentStorageMode = null;
+    this.lockAcquiredAt = null;
     this.vault = vault;
     this.plugin = plugin;
     this.backend = "ollama";
@@ -31407,8 +31409,12 @@ var EmbeddingsIndex = class {
     try {
       if (await this.vault.adapter.exists(lockPath)) {
         const raw = await this.vault.adapter.read(lockPath);
-        if (raw.startsWith("writing-dashboard:")) {
-          await this.vault.adapter.remove(lockPath);
+        try {
+          const lock = JSON.parse(raw);
+          if (lock.holder === "writing-dashboard") {
+            await this.vault.adapter.remove(lockPath);
+          }
+        } catch {
         }
       }
     } catch {
@@ -31474,18 +31480,38 @@ var EmbeddingsIndex = class {
   async acquireLock(dir) {
     const lockPath = `${dir}/index.lock`;
     const myId = "writing-dashboard";
+    const now = Date.now();
     try {
+      let existingLock = null;
       if (await this.vault.adapter.exists(lockPath)) {
         const raw = await this.vault.adapter.read(lockPath);
-        const [ownerId, tsStr] = raw.split(":");
-        const ts = parseInt(tsStr);
-        const now = Date.now();
-        if (ownerId !== myId && now - ts < 6e4) {
+        try {
+          existingLock = JSON.parse(raw);
+        } catch {
+          existingLock = null;
+        }
+      }
+      if (existingLock) {
+        const isStale = now - existingLock.updatedAt > 6e4;
+        const isSelf = existingLock.holder === myId;
+        if (!isStale && !isSelf) {
           this.isReadOnly = true;
           return false;
         }
+        if (isSelf) {
+          this.lockAcquiredAt = existingLock.acquiredAt;
+        } else {
+          this.lockAcquiredAt = now;
+        }
+      } else {
+        this.lockAcquiredAt = now;
       }
-      await this.vault.adapter.write(lockPath, `${myId}:${Date.now()}`);
+      const lockData = {
+        holder: myId,
+        acquiredAt: this.lockAcquiredAt,
+        updatedAt: now
+      };
+      await this.vault.adapter.write(lockPath, JSON.stringify(lockData));
       this.isReadOnly = false;
       this.startHeartbeat(lockPath);
       return true;
@@ -31498,7 +31524,12 @@ var EmbeddingsIndex = class {
     this.stopHeartbeat();
     this.heartbeatTimer = window.setInterval(async () => {
       try {
-        await this.vault.adapter.write(lockPath, `writing-dashboard:${Date.now()}`);
+        const lockData = {
+          holder: "writing-dashboard",
+          acquiredAt: this.lockAcquiredAt,
+          updatedAt: Date.now()
+        };
+        await this.vault.adapter.write(lockPath, JSON.stringify(lockData));
       } catch {
         this.stopHeartbeat();
       }
@@ -31544,6 +31575,82 @@ var EmbeddingsIndex = class {
       }
     }
   }
+  /**
+   * Atomic migration from legacy .obsidian/embeddings/shared-index/ to overt Embeddings/shared-index/
+   * Returns true if migration succeeded or was not needed, false if failed.
+   */
+  async migrateFromLegacy() {
+    const overtDir = "Embeddings/shared-index";
+    const legacyDir = `${this.vault.configDir}/embeddings/shared-index`;
+    const overtIndex = `${overtDir}/index.json`;
+    const legacyIndex = `${legacyDir}/index.json`;
+    const migrationMarker = `${overtDir}/.migrated-from-legacy`;
+    try {
+      const overtExists = await this.vault.adapter.exists(overtIndex);
+      const legacyExists = await this.vault.adapter.exists(legacyIndex);
+      if (overtExists || !legacyExists) {
+        return true;
+      }
+      if (await this.vault.adapter.exists(migrationMarker)) {
+        return true;
+      }
+      console.log("[EmbeddingsIndex] Starting atomic migration from legacy to overt folder...");
+      if (!await this.vault.adapter.exists(overtDir)) {
+        const parts = overtDir.split("/");
+        let current = "";
+        for (const part of parts) {
+          if (!part)
+            continue;
+          current += (current ? "/" : "") + part;
+          if (!await this.vault.adapter.exists(current)) {
+            await this.vault.adapter.mkdir(current);
+          }
+        }
+      }
+      const hasLock = await this.acquireLock(overtDir);
+      if (!hasLock) {
+        console.warn("[EmbeddingsIndex] Legacy migration aborted: could not acquire lock (read-only mode).");
+        return false;
+      }
+      const legacyContent = await this.vault.adapter.read(legacyIndex);
+      await this.vault.adapter.write(`${overtIndex}.tmp`, legacyContent);
+      const legacyManifest = `${legacyDir}/index.manifest.json`;
+      const overtManifest = `${overtDir}/index.manifest.json`;
+      let hasManifest = false;
+      if (await this.vault.adapter.exists(legacyManifest)) {
+        const manifestContent = await this.vault.adapter.read(legacyManifest);
+        await this.vault.adapter.write(`${overtManifest}.tmp`, manifestContent);
+        hasManifest = true;
+      }
+      await this.vault.adapter.rename(`${overtIndex}.tmp`, overtIndex);
+      if (hasManifest) {
+        await this.vault.adapter.rename(`${overtManifest}.tmp`, overtManifest);
+      }
+      const markerContent = JSON.stringify({
+        migratedAt: Date.now(),
+        from: legacyDir
+      }, null, 2);
+      await this.vault.adapter.write(migrationMarker, markerContent);
+      await this.vault.adapter.rename(legacyIndex, `${legacyIndex}.migrated`);
+      if (await this.vault.adapter.exists(legacyManifest)) {
+        await this.vault.adapter.rename(legacyManifest, `${legacyManifest}.migrated`);
+      }
+      console.log("[EmbeddingsIndex] \u2713 Atomic migration completed successfully.");
+      return true;
+    } catch (err) {
+      console.warn("[EmbeddingsIndex] Legacy migration failed; falling back to isolated.", err);
+      try {
+        if (await this.vault.adapter.exists(`${overtIndex}.tmp`)) {
+          await this.vault.adapter.remove(`${overtIndex}.tmp`);
+        }
+        if (await this.vault.adapter.exists(`${overtDir}/index.manifest.json.tmp`)) {
+          await this.vault.adapter.remove(`${overtDir}/index.manifest.json.tmp`);
+        }
+      } catch {
+      }
+      return false;
+    }
+  }
   async getIndexFilePath() {
     const dir = await this.resolveIndexDir();
     return `${dir}/index.json`;
@@ -31563,6 +31670,14 @@ var EmbeddingsIndex = class {
       return;
     this.loaded = true;
     try {
+      const mode = this.plugin.settings.embeddingStorageMode || "isolated";
+      if (mode === "auto") {
+        const migrationSuccess = await this.migrateFromLegacy();
+        if (!migrationSuccess) {
+          this.currentStorageMode = "isolated";
+          console.warn("[EmbeddingsIndex] Auto mode: migration failed, using isolated mode.");
+        }
+      }
       const dir = await this.resolveIndexDir();
       const path = await this.getIndexFilePath();
       if (!await this.validateManifest(dir)) {
@@ -31573,8 +31688,8 @@ var EmbeddingsIndex = class {
           await this.vault.adapter.mkdir(newDir);
         }
       }
-      const mode = this.plugin.settings.embeddingStorageMode || "isolated";
-      if (mode !== "isolated") {
+      const resolvedMode = this.currentStorageMode || mode;
+      if (resolvedMode !== "isolated") {
         const sourceDir = `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index`;
         await this.seedSharedIndex(sourceDir, dir);
         await this.acquireLock(dir);
@@ -44107,7 +44222,8 @@ var WritingDashboardPlugin = class extends import_obsidian32.Plugin {
       const payload = {
         pluginId: "writing-dashboard",
         updatedAt: Date.now(),
-        embeddingProfile: profile
+        embeddingProfile: profile,
+        preferredSharedIndexPath: "Embeddings/shared-index/"
       };
       await this.app.vault.adapter.write(handshakePath, JSON.stringify(payload, null, 2));
     } catch (err) {

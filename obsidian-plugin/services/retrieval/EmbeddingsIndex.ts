@@ -94,6 +94,7 @@ export class EmbeddingsIndex {
 	private isReadOnly = false;
 	private heartbeatTimer: number | null = null;
 	private currentStorageMode: 'isolated' | 'auto' | 'manual' | null = null;
+	private lockAcquiredAt: number | null = null; // Preserve for heartbeat
 
 	constructor(vault: Vault, plugin: WritingDashboardPlugin, embeddingProvider: OllamaEmbeddingProvider) {
 		this.vault = vault;
@@ -112,18 +113,23 @@ export class EmbeddingsIndex {
 
 	async onunload() {
 		this.stopHeartbeat();
-		// Optionally remove lock if we own it
+		// Remove lock only if we own it (JSON format check)
 		const dir = await this.resolveIndexDir();
 		const lockPath = `${dir}/index.lock`;
 		try {
 			if (await this.vault.adapter.exists(lockPath)) {
 				const raw = await this.vault.adapter.read(lockPath);
-				if (raw.startsWith('writing-dashboard:')) {
-					await this.vault.adapter.remove(lockPath);
+				try {
+					const lock = JSON.parse(raw);
+					if (lock.holder === 'writing-dashboard') {
+						await this.vault.adapter.remove(lockPath);
+					}
+				} catch {
+					// JSON parse failed - do not delete (could be another plugin's lock)
 				}
 			}
 		} catch {
-			// ignore
+			// ignore filesystem errors
 		}
 	}
 
@@ -202,22 +208,50 @@ export class EmbeddingsIndex {
 	async acquireLock(dir: string): Promise<boolean> {
 		const lockPath = `${dir}/index.lock`;
 		const myId = 'writing-dashboard';
+		const now = Date.now();
 
 		try {
+			let existingLock: { holder: string; acquiredAt: number; updatedAt: number } | null = null;
+
 			if (await this.vault.adapter.exists(lockPath)) {
 				const raw = await this.vault.adapter.read(lockPath);
-				const [ownerId, tsStr] = raw.split(':');
-				const ts = parseInt(tsStr);
-				const now = Date.now();
-
-				if (ownerId !== myId && (now - ts) < 60000) {
-					this.isReadOnly = true;
-					return false;
+				try {
+					existingLock = JSON.parse(raw);
+				} catch {
+					// Invalid JSON (legacy string format) - treat as stale
+					existingLock = null;
 				}
 			}
 
-			// Acquire or refresh lock
-			await this.vault.adapter.write(lockPath, `${myId}:${Date.now()}`);
+			if (existingLock) {
+				const isStale = (now - existingLock.updatedAt) > 60000;
+				const isSelf = existingLock.holder === myId;
+
+				if (!isStale && !isSelf) {
+					// Valid lock held by another plugin
+					this.isReadOnly = true;
+					return false;
+				}
+
+				if (isSelf) {
+					// Refresh: preserve acquiredAt, update updatedAt
+					this.lockAcquiredAt = existingLock.acquiredAt;
+				} else {
+					// Stale takeover: reset both timestamps
+					this.lockAcquiredAt = now;
+				}
+			} else {
+				// New lock
+				this.lockAcquiredAt = now;
+			}
+
+			// Write lock JSON
+			const lockData = {
+				holder: myId,
+				acquiredAt: this.lockAcquiredAt,
+				updatedAt: now
+			};
+			await this.vault.adapter.write(lockPath, JSON.stringify(lockData));
 			this.isReadOnly = false;
 			this.startHeartbeat(lockPath);
 			return true;
@@ -231,7 +265,12 @@ export class EmbeddingsIndex {
 		this.stopHeartbeat();
 		this.heartbeatTimer = window.setInterval(async () => {
 			try {
-				await this.vault.adapter.write(lockPath, `writing-dashboard:${Date.now()}`);
+				const lockData = {
+					holder: 'writing-dashboard',
+					acquiredAt: this.lockAcquiredAt,
+					updatedAt: Date.now()
+				};
+				await this.vault.adapter.write(lockPath, JSON.stringify(lockData));
 			} catch {
 				this.stopHeartbeat();
 			}
@@ -282,6 +321,107 @@ export class EmbeddingsIndex {
 		}
 	}
 
+	/**
+	 * Atomic migration from legacy .obsidian/embeddings/shared-index/ to overt Embeddings/shared-index/
+	 * Returns true if migration succeeded or was not needed, false if failed.
+	 */
+	async migrateFromLegacy(): Promise<boolean> {
+		const overtDir = 'Embeddings/shared-index';
+		const legacyDir = `${this.vault.configDir}/embeddings/shared-index`;
+		const overtIndex = `${overtDir}/index.json`;
+		const legacyIndex = `${legacyDir}/index.json`;
+		const migrationMarker = `${overtDir}/.migrated-from-legacy`;
+
+		try {
+			// Check if migration is needed
+			const overtExists = await this.vault.adapter.exists(overtIndex);
+			const legacyExists = await this.vault.adapter.exists(legacyIndex);
+
+			// If overt already exists or legacy doesn't exist, no migration needed
+			if (overtExists || !legacyExists) {
+				return true;
+			}
+
+			// Check if already migrated
+			if (await this.vault.adapter.exists(migrationMarker)) {
+				return true;
+			}
+
+			console.log('[EmbeddingsIndex] Starting atomic migration from legacy to overt folder...');
+
+			// Ensure overt folder exists
+			if (!(await this.vault.adapter.exists(overtDir))) {
+				const parts = overtDir.split('/');
+				let current = '';
+				for (const part of parts) {
+					if (!part) continue;
+					current += (current ? '/' : '') + part;
+					if (!(await this.vault.adapter.exists(current))) {
+						await this.vault.adapter.mkdir(current);
+					}
+				}
+			}
+
+			// Acquire writer lock on overt folder
+			const hasLock = await this.acquireLock(overtDir);
+			if (!hasLock) {
+				console.warn('[EmbeddingsIndex] Legacy migration aborted: could not acquire lock (read-only mode).');
+				return false;
+			}
+
+			// Step 1: Copy legacy files to .tmp versions
+			const legacyContent = await this.vault.adapter.read(legacyIndex);
+			await this.vault.adapter.write(`${overtIndex}.tmp`, legacyContent);
+
+			const legacyManifest = `${legacyDir}/index.manifest.json`;
+			const overtManifest = `${overtDir}/index.manifest.json`;
+			let hasManifest = false;
+			if (await this.vault.adapter.exists(legacyManifest)) {
+				const manifestContent = await this.vault.adapter.read(legacyManifest);
+				await this.vault.adapter.write(`${overtManifest}.tmp`, manifestContent);
+				hasManifest = true;
+			}
+
+			// Step 2: Rename .tmp to canonical (atomic commit)
+			await this.vault.adapter.rename(`${overtIndex}.tmp`, overtIndex);
+			if (hasManifest) {
+				await this.vault.adapter.rename(`${overtManifest}.tmp`, overtManifest);
+			}
+
+			// Step 3: Write migration marker
+			const markerContent = JSON.stringify({
+				migratedAt: Date.now(),
+				from: legacyDir
+			}, null, 2);
+			await this.vault.adapter.write(migrationMarker, markerContent);
+
+			// Step 4: Disable legacy by renaming
+			await this.vault.adapter.rename(legacyIndex, `${legacyIndex}.migrated`);
+			if (await this.vault.adapter.exists(legacyManifest)) {
+				await this.vault.adapter.rename(legacyManifest, `${legacyManifest}.migrated`);
+			}
+
+			console.log('[EmbeddingsIndex] ✓ Atomic migration completed successfully.');
+			return true;
+		} catch (err) {
+			console.warn('[EmbeddingsIndex] Legacy migration failed; falling back to isolated.', err);
+
+			// Cleanup temp files best-effort
+			try {
+				if (await this.vault.adapter.exists(`${overtIndex}.tmp`)) {
+					await this.vault.adapter.remove(`${overtIndex}.tmp`);
+				}
+				if (await this.vault.adapter.exists(`${overtDir}/index.manifest.json.tmp`)) {
+					await this.vault.adapter.remove(`${overtDir}/index.manifest.json.tmp`);
+				}
+			} catch {
+				// ignore cleanup errors
+			}
+
+			return false;
+		}
+	}
+
 	async getIndexFilePath(): Promise<string> {
 		const dir = await this.resolveIndexDir();
 		return `${dir}/index.json`;
@@ -303,9 +443,23 @@ export class EmbeddingsIndex {
 		this.loaded = true;
 
 		try {
+			// Step 1: Determine mode and attempt migration in auto mode
+			const mode = this.plugin.settings.embeddingStorageMode || 'isolated';
+			if (mode === 'auto') {
+				// Attempt legacy migration BEFORE resolving final dir
+				const migrationSuccess = await this.migrateFromLegacy();
+				if (!migrationSuccess) {
+					// Migration failed (locked by other plugin or error) - fall back to isolated
+					this.currentStorageMode = 'isolated';
+					console.warn('[EmbeddingsIndex] Auto mode: migration failed, using isolated mode.');
+				}
+			}
+
+			// Step 2: Resolve index directory
 			const dir = await this.resolveIndexDir();
 			const path = await this.getIndexFilePath();
 
+			// Step 3: Validate manifest
 			if (!(await this.validateManifest(dir))) {
 				console.warn('[EmbeddingsIndex] Manifest mismatch; falling back to isolated mode');
 				this.currentStorageMode = 'isolated'; // Internal override for this session
@@ -316,9 +470,9 @@ export class EmbeddingsIndex {
 				}
 			}
 
-			// In auto/manual, we need to handle read-only state
-			const mode = this.plugin.settings.embeddingStorageMode || 'isolated';
-			if (mode !== 'isolated') {
+			// Step 4: In auto/manual, acquire lock and seed if needed
+			const resolvedMode = this.currentStorageMode || mode;
+			if (resolvedMode !== 'isolated') {
 				const sourceDir = `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index`;
 				await this.seedSharedIndex(sourceDir, dir);
 				await this.acquireLock(dir);

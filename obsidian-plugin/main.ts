@@ -225,7 +225,8 @@ export default class WritingDashboardPlugin extends Plugin {
 			const payload = {
 				pluginId: 'writing-dashboard',
 				updatedAt: Date.now(),
-				embeddingProfile: profile
+				embeddingProfile: profile,
+				preferredSharedIndexPath: 'Embeddings/shared-index/'
 			};
 			await this.app.vault.adapter.write(handshakePath, JSON.stringify(payload, null, 2));
 		} catch (err) {
