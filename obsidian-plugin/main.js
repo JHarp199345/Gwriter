@@ -28519,9 +28519,12 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
       btn.setButtonText("Verifying...");
       try {
         const installed = await this.plugin.ollamaModels.getModels();
-        const isInstalled = installed.some(
-          (m) => m.id.toLowerCase() === normalizedId || m.id.toLowerCase().split(":")[0] === normalizedId
-        );
+        const isInstalled = installed.some((m) => {
+          const installedId = m.id.toLowerCase();
+          const normalizedBase = normalizedId.split(":")[0];
+          const installedBase = installedId.split(":")[0];
+          return installedId === normalizedId || installedId.startsWith(normalizedId + ":") || normalizedId.startsWith(installedId + ":") || installedBase === normalizedBase;
+        });
         if (isInstalled) {
           const catalog = this.plugin.settings.verifiedModelsCatalog || [];
           if (!catalog.includes(normalizedId)) {
