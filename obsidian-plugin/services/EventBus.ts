@@ -36,6 +36,11 @@ export type RelayEvents = {
 
     'pilot:miss': { type: string, runId: string | null };
     'pilot:stitch_rejected': { iteration: number, reason: string, seamId: string };
+    
+    // Indexing events
+    'index:start': { totalFiles: number };
+    'index:progress': { processed: number, total: number, currentFile?: string };
+    'index:complete': { indexed: number, chunks: number, duration: number; skipped: number };
 };
 
 export type RelayEventName = keyof RelayEvents;

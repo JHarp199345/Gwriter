@@ -1,10 +1,11 @@
 import type { Vault } from 'obsidian';
-import { TFile } from 'obsidian';
+import { TFile, Notice } from 'obsidian';
 import WritingDashboardPlugin from '../../main';
 import { buildIndexChunks } from './Chunking';
 import { fnv1a32, sha256 } from '../ContentHash';
 import { OllamaEmbeddingProvider } from './OllamaEmbeddingProvider';
 import { CO_AUTHORING_POLICY } from '../policy';
+import { relayEventBus } from '../EventBus';
 
 export interface IndexedChunk {
 	key: string;
@@ -612,22 +613,37 @@ export class EmbeddingsIndex {
 		// If Ollama is not available, skip semantic indexing to avoid failures.
 		if (!(await this.embeddingProvider.isAvailable())) {
 			console.warn('[EmbeddingsIndex] Ollama not available; skipping semantic indexing');
+			new Notice('⚠️ Ollama not available - indexing skipped');
 			this.workerRunning = false;
 			return;
 		}
 
 		const policy = CO_AUTHORING_POLICY.PERFORMANCE;
+		const startTime = Date.now();
+		const totalFiles = this.queue.size;
 		let processedCount = 0;
 		let skippedExcluded = 0;
 		let skippedNotMarkdown = 0;
 		let skippedHashMatch = 0;
 		let indexedCount = 0;
+
+		// Emit start event and notification
+		if (totalFiles > 0) {
+			new Notice(`🔍 Starting index scan (${totalFiles} files)...`);
+			relayEventBus.emit('index:start', { totalFiles });
+		}
 		
 		while (this.queue.size > 0 && indexedCount < policy.MAX_REBUILDS_PER_BATCH) {
 			if (this.plugin.settings.retrievalIndexPaused) break;
 			const next = this.queue.values().next().value as string;
 			this.queue.delete(next);
 			processedCount++;
+
+			// Emit progress every 10 files
+			if (processedCount % 10 === 0) {
+				new Notice(`Indexing... ${processedCount}/${totalFiles} files`);
+				relayEventBus.emit('index:progress', { processed: processedCount, total: totalFiles, currentFile: next });
+			}
 
 			// Exclusions can change at any time; honor them during processing.
 			if (this.plugin.vaultService.isExcludedPath(next)) {
@@ -683,9 +699,20 @@ export class EmbeddingsIndex {
 			await new Promise((r) => setTimeout(r, 10));
 		}
 
+		// Calculate duration and emit completion
+		const duration = (Date.now() - startTime) / 1000;
+		const totalSkipped = skippedExcluded + skippedNotMarkdown + skippedHashMatch;
+
 		// Log indexing stats for debugging
 		if (processedCount > 0) {
 			console.log(`[EmbeddingsIndex] Processed ${processedCount} files: ${indexedCount} indexed, ${skippedExcluded} excluded, ${skippedNotMarkdown} not markdown, ${skippedHashMatch} hash match (already indexed)`);
+			new Notice(`✅ Indexed ${indexedCount} files in ${duration.toFixed(1)}s (${this.chunksByKey.size} chunks total)`);
+			relayEventBus.emit('index:complete', { 
+				indexed: indexedCount, 
+				chunks: this.chunksByKey.size, 
+				duration,
+				skipped: totalSkipped
+			});
 		}
 
 		this.stopHeartbeat();

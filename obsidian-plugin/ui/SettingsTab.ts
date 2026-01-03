@@ -5,6 +5,7 @@ import { TreePickerModal } from './TreePickerModal';
 import { FilePickerModal } from './FilePickerModal';
 import { StressTestService } from '../services/StressTestService';
 import { HelpDensity } from './HelpRegistry';
+import { relayEventBus } from '../services/EventBus';
 
 // Model lists for each provider
 const OPENAI_MODELS = [
@@ -470,28 +471,50 @@ export class SettingsTab extends PluginSettingTab {
 
 		addSection('Retrieval engines', 'Semantic/BM25 knobs and result limits.');
 
+		// Add status line first
+		const status = this.plugin.embeddingsIndex.getStatus();
+		const statusEl = containerEl.createEl('div', { 
+			cls: 'setting-item-description',
+			text: `📊 Index Status: ${status.indexedChunks} chunks across ${status.indexedFiles} files${status.queued > 0 ? ` | Queued: ${status.queued}` : ''}`
+		});
+		statusEl.style.marginBottom = '10px';
+		statusEl.style.padding = '8px';
+		statusEl.style.backgroundColor = 'var(--background-secondary)';
+		statusEl.style.borderRadius = '4px';
+
 		new Setting(containerEl)
 			.setName('Semantic Index Management')
 			.setDesc('Manually trigger a full rescan of your vault or clear the local index.')
-			.addButton(btn => btn
-				.setButtonText('Re-index Vault')
-				.onClick(async () => {
-					btn.setDisabled(true);
-					btn.setButtonText('Indexing...');
+			.addButton(btn => {
+				let reindexBtn = btn;
+				reindexBtn.setButtonText('Re-index Vault');
+				
+				// Subscribe to indexing events for dynamic button updates
+				const onStart = (data: { totalFiles: number }) => {
+					reindexBtn.setDisabled(true);
+					reindexBtn.setButtonText(`Indexing (0/${data.totalFiles})...`);
+				};
+				const onProgress = (data: { processed: number; total: number }) => {
+					reindexBtn.setButtonText(`Indexing (${data.processed}/${data.total})...`);
+				};
+				const onComplete = () => {
+					reindexBtn.setDisabled(false);
+					reindexBtn.setButtonText('Re-index Vault');
+					// Refresh status display
+					const newStatus = this.plugin.embeddingsIndex.getStatus();
+					statusEl.textContent = `📊 Index Status: ${newStatus.indexedChunks} chunks across ${newStatus.indexedFiles} files`;
+				};
+
+				relayEventBus.on('index:start', onStart);
+				relayEventBus.on('index:progress', onProgress);
+				relayEventBus.on('index:complete', onComplete);
+
+				reindexBtn.onClick(async () => {
+					reindexBtn.setDisabled(true);
+					reindexBtn.setButtonText('Starting...');
 					this.plugin.embeddingsIndex.enqueueFullRescan();
-					new Notice('Vault re-indexing started in background.');
-					
-					// Monitor status
-					const interval = window.setInterval(() => {
-						const status = this.plugin.embeddingsIndex.getStatus();
-						if (status.queued === 0) {
-							btn.setDisabled(false);
-							btn.setButtonText('Re-index Vault');
-							new Notice('✅ Semantic indexing complete.');
-							window.clearInterval(interval);
-						}
-					}, 2000);
-				}))
+				});
+			})
 			.addButton(btn => btn
 				.setButtonText('Clear Index')
 				.setWarning()

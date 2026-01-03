@@ -28601,21 +28601,40 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
       })
     );
     addSection("Retrieval engines", "Semantic/BM25 knobs and result limits.");
-    new import_obsidian10.Setting(containerEl).setName("Semantic Index Management").setDesc("Manually trigger a full rescan of your vault or clear the local index.").addButton((btn) => btn.setButtonText("Re-index Vault").onClick(async () => {
-      btn.setDisabled(true);
-      btn.setButtonText("Indexing...");
-      this.plugin.embeddingsIndex.enqueueFullRescan();
-      new import_obsidian10.Notice("Vault re-indexing started in background.");
-      const interval = window.setInterval(() => {
-        const status = this.plugin.embeddingsIndex.getStatus();
-        if (status.queued === 0) {
-          btn.setDisabled(false);
-          btn.setButtonText("Re-index Vault");
-          new import_obsidian10.Notice("\u2705 Semantic indexing complete.");
-          window.clearInterval(interval);
-        }
-      }, 2e3);
-    })).addButton((btn) => btn.setButtonText("Clear Index").setWarning().onClick(async () => {
+    const status = this.plugin.embeddingsIndex.getStatus();
+    const statusEl = containerEl.createEl("div", {
+      cls: "setting-item-description",
+      text: `\u{1F4CA} Index Status: ${status.indexedChunks} chunks across ${status.indexedFiles} files${status.queued > 0 ? ` | Queued: ${status.queued}` : ""}`
+    });
+    statusEl.style.marginBottom = "10px";
+    statusEl.style.padding = "8px";
+    statusEl.style.backgroundColor = "var(--background-secondary)";
+    statusEl.style.borderRadius = "4px";
+    new import_obsidian10.Setting(containerEl).setName("Semantic Index Management").setDesc("Manually trigger a full rescan of your vault or clear the local index.").addButton((btn) => {
+      let reindexBtn = btn;
+      reindexBtn.setButtonText("Re-index Vault");
+      const onStart = (data) => {
+        reindexBtn.setDisabled(true);
+        reindexBtn.setButtonText(`Indexing (0/${data.totalFiles})...`);
+      };
+      const onProgress = (data) => {
+        reindexBtn.setButtonText(`Indexing (${data.processed}/${data.total})...`);
+      };
+      const onComplete = () => {
+        reindexBtn.setDisabled(false);
+        reindexBtn.setButtonText("Re-index Vault");
+        const newStatus = this.plugin.embeddingsIndex.getStatus();
+        statusEl.textContent = `\u{1F4CA} Index Status: ${newStatus.indexedChunks} chunks across ${newStatus.indexedFiles} files`;
+      };
+      relayEventBus.on("index:start", onStart);
+      relayEventBus.on("index:progress", onProgress);
+      relayEventBus.on("index:complete", onComplete);
+      reindexBtn.onClick(async () => {
+        reindexBtn.setDisabled(true);
+        reindexBtn.setButtonText("Starting...");
+        this.plugin.embeddingsIndex.enqueueFullRescan();
+      });
+    }).addButton((btn) => btn.setButtonText("Clear Index").setWarning().onClick(async () => {
       if (confirm("Are you sure? This will delete your entire local semantic index and require a full rebuild.")) {
         await this.plugin.embeddingsIndex.clearIndex();
         new import_obsidian10.Notice("Index cleared successfully.");
@@ -31813,21 +31832,32 @@ var EmbeddingsIndex = class {
     }
     if (!await this.embeddingProvider.isAvailable()) {
       console.warn("[EmbeddingsIndex] Ollama not available; skipping semantic indexing");
+      new import_obsidian16.Notice("\u26A0\uFE0F Ollama not available - indexing skipped");
       this.workerRunning = false;
       return;
     }
     const policy = CO_AUTHORING_POLICY.PERFORMANCE;
+    const startTime = Date.now();
+    const totalFiles = this.queue.size;
     let processedCount = 0;
     let skippedExcluded = 0;
     let skippedNotMarkdown = 0;
     let skippedHashMatch = 0;
     let indexedCount = 0;
+    if (totalFiles > 0) {
+      new import_obsidian16.Notice(`\u{1F50D} Starting index scan (${totalFiles} files)...`);
+      relayEventBus.emit("index:start", { totalFiles });
+    }
     while (this.queue.size > 0 && indexedCount < policy.MAX_REBUILDS_PER_BATCH) {
       if (this.plugin.settings.retrievalIndexPaused)
         break;
       const next = this.queue.values().next().value;
       this.queue.delete(next);
       processedCount++;
+      if (processedCount % 10 === 0) {
+        new import_obsidian16.Notice(`Indexing... ${processedCount}/${totalFiles} files`);
+        relayEventBus.emit("index:progress", { processed: processedCount, total: totalFiles, currentFile: next });
+      }
       if (this.plugin.vaultService.isExcludedPath(next)) {
         skippedExcluded++;
         this._removePath(next);
@@ -31870,8 +31900,17 @@ var EmbeddingsIndex = class {
       }
       await new Promise((r) => setTimeout(r, 10));
     }
+    const duration = (Date.now() - startTime) / 1e3;
+    const totalSkipped = skippedExcluded + skippedNotMarkdown + skippedHashMatch;
     if (processedCount > 0) {
       console.log(`[EmbeddingsIndex] Processed ${processedCount} files: ${indexedCount} indexed, ${skippedExcluded} excluded, ${skippedNotMarkdown} not markdown, ${skippedHashMatch} hash match (already indexed)`);
+      new import_obsidian16.Notice(`\u2705 Indexed ${indexedCount} files in ${duration.toFixed(1)}s (${this.chunksByKey.size} chunks total)`);
+      relayEventBus.emit("index:complete", {
+        indexed: indexedCount,
+        chunks: this.chunksByKey.size,
+        duration,
+        skipped: totalSkipped
+      });
     }
     this.stopHeartbeat();
     this.workerRunning = false;
