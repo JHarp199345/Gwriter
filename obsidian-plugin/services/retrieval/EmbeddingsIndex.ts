@@ -163,7 +163,7 @@ export class EmbeddingsIndex {
 		}
 
 		// auto mode
-		const storyboardHandshakePath = `${this.vault.configDir}/embeddings/handshake/storyboard.json`;
+		const storyboardHandshakePath = `${this.vault.configDir}/embeddings/handshake/story-canvas-observer.json`;
 		if (await this.vault.adapter.exists(storyboardHandshakePath)) {
 			try {
 				const raw = await this.vault.adapter.read(storyboardHandshakePath);

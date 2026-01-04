@@ -31745,7 +31745,7 @@ var EmbeddingsIndex = class {
         return manualPath;
       return `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index`;
     }
-    const storyboardHandshakePath = `${this.vault.configDir}/embeddings/handshake/storyboard.json`;
+    const storyboardHandshakePath = `${this.vault.configDir}/embeddings/handshake/story-canvas-observer.json`;
     if (await this.vault.adapter.exists(storyboardHandshakePath)) {
       try {
         const raw = await this.vault.adapter.read(storyboardHandshakePath);
