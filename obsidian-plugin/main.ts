@@ -6,6 +6,7 @@ import { ContextAggregator } from './services/ContextAggregator';
 import { PromptEngine } from './services/PromptEngine';
 import { AIClient } from './services/AIClient';
 import { CharacterExtractor } from './services/CharacterExtractor';
+import { CharacterUpdateService } from './services/CharacterUpdateService';
 import { RetrievalService } from './services/RetrievalService';
 import { QueryBuilder } from './services/QueryBuilder';
 import { EmbeddingsIndex } from './services/retrieval/EmbeddingsIndex';
@@ -89,6 +90,10 @@ export type DashboardSettings = {
 	retrievalExcludedFolders?: string[];
 	retrievalIndexPaused?: boolean;
 	characterExtractionSourcePath?: string;
+	characterExtractionChunkSize?: number;
+	defaultCharacterExtractionInstructions?: string;
+	characterExtractionBackend?: 'ollama' | 'cloud';
+	worldFolder?: string;
 	guidedDemoDismissed?: boolean;
 	guidedDemoShownOnce?: boolean;
 	setupCompleted?: boolean;
@@ -122,6 +127,7 @@ export default class WritingDashboardPlugin extends Plugin {
 	promptEngine: PromptEngine;
 	aiClient: AIClient;
 	characterExtractor: CharacterExtractor;
+	characterUpdateService: CharacterUpdateService;
 	queryBuilder: QueryBuilder;
 	retrievalService: RetrievalService;
 	embeddingsIndex: EmbeddingsIndex;
@@ -146,6 +152,12 @@ export default class WritingDashboardPlugin extends Plugin {
 		this.promptEngine = new PromptEngine();
 		this.aiClient = new AIClient();
 		this.characterExtractor = new CharacterExtractor();
+		this.characterUpdateService = new CharacterUpdateService(
+			this,
+			this.promptEngine,
+			this.characterExtractor,
+			this.vaultService
+		);
 		this.queryBuilder = new QueryBuilder();
 		this.ollama = new OllamaEmbeddingProvider(this.app, this.settings.ollamaBaseUrl, this.settings.relayEmbeddingModel);
 		this.ollamaGen = new OllamaGenerationProvider(this);
@@ -226,7 +238,14 @@ export default class WritingDashboardPlugin extends Plugin {
 				pluginId: 'writing-dashboard',
 				updatedAt: Date.now(),
 				embeddingProfile: profile,
-				preferredSharedIndexPath: 'Embeddings/shared-index/'
+				preferredSharedIndexPath: 'Embeddings/shared-index/',
+				// Source folders for StoryBoard discovery
+				sources: {
+					characterFolder: this.settings.characterFolder || 'Characters',
+					worldFolder: this.settings.worldFolder || 'World',
+					storyBiblePath: this.settings.storyBiblePath || 'Book - Story Bible.md',
+					bookMainPath: this.settings.book2Path || 'Book-Main.md'
+				}
 			};
 			await this.app.vault.adapter.write(handshakePath, JSON.stringify(payload, null, 2));
 		} catch (err) {
@@ -291,6 +310,10 @@ export default class WritingDashboardPlugin extends Plugin {
 				retrievalExcludedFolders: [],
 				retrievalIndexPaused: false,
 				characterExtractionSourcePath: undefined,
+				characterExtractionChunkSize: 2500,
+				defaultCharacterExtractionInstructions: '',
+				characterExtractionBackend: 'ollama',
+				worldFolder: 'World',
 				guidedDemoDismissed: false,
 				guidedDemoShownOnce: false,
 				setupCompleted: false,

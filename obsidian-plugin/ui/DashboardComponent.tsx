@@ -59,6 +59,13 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [trustSummary, setTrustSummary] = useState<any | null>(null);
 	const [activeTab, setActiveTab] = useState<'editor' | 'lore' | 'replay' | 'signature'>('editor');
 
+	// Character Update mode state
+	const [characterSourceFile, setCharacterSourceFile] = useState<string>(
+		plugin.settings.characterExtractionSourcePath || plugin.settings.book2Path
+	);
+	const [isExtractingCharacters, setIsExtractingCharacters] = useState(false);
+	const [extractionProgress, setExtractionProgress] = useState<string>('');
+
 	const commitLock = useRef<boolean>(false);
 
 	useEffect(() => {
@@ -257,6 +264,77 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		});
 	};
 
+	// Character Update mode handlers
+	const handleCharacterUpdate = async () => {
+		const text = modeState.chapter.sceneSummary?.trim();
+		if (!text) {
+			new Notice('Please paste text to extract characters from.');
+			return;
+		}
+
+		setIsExtractingCharacters(true);
+		setExtractionProgress('Extracting characters...');
+
+		try {
+			const updates = await plugin.characterUpdateService.extractFromText(text);
+			if (updates.length === 0) {
+				new Notice('No character information found in the text.');
+			} else {
+				await plugin.characterUpdateService.commitUpdates(updates);
+				new Notice(`Updated ${updates.length} character note(s).`);
+			}
+		} catch (err: any) {
+			new Notice(`Character extraction failed: ${err.message || err}`);
+			console.error('[CharacterUpdate] Error:', err);
+		} finally {
+			setIsExtractingCharacters(false);
+			setExtractionProgress('');
+		}
+	};
+
+	const handleProcessEntireBook = async () => {
+		if (!characterSourceFile) {
+			new Notice('Please select a source file first.');
+			return;
+		}
+
+		setIsExtractingCharacters(true);
+
+		try {
+			const result = await plugin.characterUpdateService.processEntireBook(
+				characterSourceFile,
+				(msg) => setExtractionProgress(msg)
+			);
+
+			await plugin.characterUpdateService.commitUpdates(result.updates);
+			new Notice(`Processed ${result.chaptersProcessed} chapters. Updated ${result.updates.length} character(s).`);
+		} catch (err: any) {
+			new Notice(`Bulk processing failed: ${err.message || err}`);
+			console.error('[CharacterUpdate] Bulk error:', err);
+		} finally {
+			setIsExtractingCharacters(false);
+			setExtractionProgress('');
+		}
+	};
+
+	const handleSelectCharacterFile = () => {
+		new FileTreePickerModal(plugin, {
+			title: 'Select source file for character extraction',
+			currentPath: characterSourceFile,
+			onPick: async (path) => {
+				setCharacterSourceFile(path);
+				plugin.settings.characterExtractionSourcePath = path;
+				await plugin.saveSettings();
+			}
+		}).open();
+	};
+
+	const handleResetToBookMain = async () => {
+		setCharacterSourceFile(plugin.settings.book2Path);
+		plugin.settings.characterExtractionSourcePath = plugin.settings.book2Path;
+		await plugin.saveSettings();
+	};
+
 	const handleGeneratedChange = (value: string) => {
 		setGeneratedText(value);
 		// Mark all paragraphs as USER_DIRTY when the user manually edits the flat text
@@ -426,6 +504,38 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							<button onClick={() => plugin.sequentialGenerator.abort()} className="abort-button">
 								Abort
 							</button>
+						)}
+
+						{mode === 'character-update' && (
+							<div className="character-update-controls">
+								<button 
+									onClick={handleCharacterUpdate}
+									disabled={isExtractingCharacters || !modeState.chapter.sceneSummary?.trim()}
+									className="generate-button mod-cta"
+								>
+									{isExtractingCharacters ? 'Extracting...' : 'Update Characters'}
+								</button>
+								
+								<div className="file-selection-row">
+									<span className="file-label">
+										Source: {characterSourceFile?.split('/').pop() || 'None'}
+									</span>
+									<button onClick={handleSelectCharacterFile} disabled={isExtractingCharacters}>
+										Select file
+									</button>
+									<button onClick={handleResetToBookMain} disabled={isExtractingCharacters}>
+										Use book main
+									</button>
+								</div>
+								
+								<button 
+									onClick={handleProcessEntireBook}
+									disabled={isExtractingCharacters || !characterSourceFile}
+									className="generate-button"
+								>
+									{isExtractingCharacters ? extractionProgress : 'Process Entire Book'}
+								</button>
+							</div>
 						)}
 					</div>
 

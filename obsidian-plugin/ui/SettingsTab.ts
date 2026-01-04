@@ -1081,6 +1081,19 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		addSection('Character extraction & safeguards', 'Defaults for character processing and prompt-size warnings.');
+		
+		new Setting(containerEl)
+			.setName('Character extraction AI backend')
+			.setDesc('Use Ollama (local) or Cloud API for character extraction.')
+			.addDropdown(dropdown => dropdown
+				.addOption('ollama', 'Ollama (local)')
+				.addOption('cloud', 'Cloud API')
+				.setValue(this.plugin.settings.characterExtractionBackend || 'ollama')
+				.onChange(async value => {
+					this.plugin.settings.characterExtractionBackend = value as 'ollama' | 'cloud';
+					await this.plugin.saveSettings();
+				}));
+
 		new Setting(containerEl)
 			.setName('Character extraction chunk size (words)')
 			.setDesc('Used by "process entire book" to batch character extraction. Larger chunks (e.g., 2000–3000) tend to improve character context.')

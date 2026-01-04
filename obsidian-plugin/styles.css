@@ -707,3 +707,38 @@
 	overflow: auto;
 }
 
+/* Character Update Mode Controls */
+.character-update-controls {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 10px 0;
+	border-top: 1px solid var(--background-modifier-border);
+	margin-top: 10px;
+}
+
+.file-selection-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.file-selection-row .file-label {
+	flex: 1;
+	font-size: 0.9em;
+	color: var(--text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.file-selection-row button {
+	flex-shrink: 0;
+	padding: 4px 8px;
+	font-size: 0.85em;
+}
+
+.character-update-controls .generate-button {
+	width: 100%;
+}
+
