@@ -27357,6 +27357,7 @@ var DashboardComponent = ({ plugin }) => {
   );
   const [isExtractingCharacters, setIsExtractingCharacters] = (0, import_react6.useState)(false);
   const [extractionProgress, setExtractionProgress] = (0, import_react6.useState)("");
+  const [characterInputText, setCharacterInputText] = (0, import_react6.useState)("");
   const commitLock = (0, import_react6.useRef)(false);
   (0, import_react6.useEffect)(() => {
     const onStart = () => {
@@ -27539,7 +27540,7 @@ var DashboardComponent = ({ plugin }) => {
     });
   };
   const handleCharacterUpdate = async () => {
-    const text2 = modeState.chapter.sceneSummary?.trim();
+    const text2 = characterInputText.trim();
     if (!text2) {
       new import_obsidian3.Notice("Please paste text to extract characters from.");
       return;
@@ -27603,7 +27604,7 @@ var DashboardComponent = ({ plugin }) => {
     setGeneratedText(value);
     setGeneratedParagraphs((prev) => prev.map((p) => ({ ...p, status: "USER_DIRTY" })));
   };
-  return /* @__PURE__ */ import_react6.default.createElement("div", { className: "writing-dashboard" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "dashboard-tabs" }, /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "editor" ? "active" : "", onClick: () => setActiveTab("editor") }, "Editor"), /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "lore" ? "active" : "", onClick: () => setActiveTab("lore") }, "Lore"), /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "replay" ? "active" : "", onClick: () => setActiveTab("replay") }, "Replay"), /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "signature" ? "active" : "", onClick: () => setActiveTab("signature") }, "Signature")), /* @__PURE__ */ import_react6.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "main-workspace" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "tab-content-wrapper", style: { flex: "1 1 auto", overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px" } }, activeTab === "editor" && /* @__PURE__ */ import_react6.default.createElement(
+  return /* @__PURE__ */ import_react6.default.createElement("div", { className: "writing-dashboard" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "dashboard-tabs" }, /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "editor" ? "active" : "", onClick: () => setActiveTab("editor") }, "Editor"), /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "lore" ? "active" : "", onClick: () => setActiveTab("lore") }, "Lore"), /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "replay" ? "active" : "", onClick: () => setActiveTab("replay") }, "Replay"), /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "signature" ? "active" : "", onClick: () => setActiveTab("signature") }, "Signature"), /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "characters" ? "active" : "", onClick: () => setActiveTab("characters") }, "Characters")), /* @__PURE__ */ import_react6.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "main-workspace" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "tab-content-wrapper", style: { flex: "1 1 auto", overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px" } }, activeTab === "editor" && /* @__PURE__ */ import_react6.default.createElement(
     EditorPanel,
     {
       plugin,
@@ -27645,7 +27646,32 @@ var DashboardComponent = ({ plugin }) => {
       rejections,
       quarantineCount: 0
     }
-  )), activeTab === "replay" && /* @__PURE__ */ import_react6.default.createElement("div", { className: "replay-tab" }, /* @__PURE__ */ import_react6.default.createElement(ReplayPanel, { plugin }))), isGenerating && /* @__PURE__ */ import_react6.default.createElement("div", { className: "generation-status-overlay" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "loader" }, "\u23F3"), /* @__PURE__ */ import_react6.default.createElement("div", { className: "stage" }, generationStage), chunkBuffer && /* @__PURE__ */ import_react6.default.createElement("div", { className: `buffer-preview ${heatmapEnabled ? "heatmap" : ""}` }, chunkBuffer.split("\n").map((p, i) => {
+  )), activeTab === "replay" && /* @__PURE__ */ import_react6.default.createElement("div", { className: "replay-tab" }, /* @__PURE__ */ import_react6.default.createElement(ReplayPanel, { plugin })), activeTab === "characters" && /* @__PURE__ */ import_react6.default.createElement("div", { className: "characters-tab" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "editor-section" }, /* @__PURE__ */ import_react6.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 } }, /* @__PURE__ */ import_react6.default.createElement("label", null, "Paste narrative text for character extraction:"), /* @__PURE__ */ import_react6.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, TextChunker.getWordCount(characterInputText).toLocaleString(), " words / ", characterInputText.length.toLocaleString(), " chars")), /* @__PURE__ */ import_react6.default.createElement(
+    "textarea",
+    {
+      value: characterInputText,
+      onChange: (e) => setCharacterInputText(e.target.value),
+      placeholder: "Paste a scene, chapter, or any narrative text containing character dialogue and descriptions...",
+      rows: 12,
+      className: "editor-textarea"
+    }
+  )), /* @__PURE__ */ import_react6.default.createElement("div", { className: "character-update-controls" }, /* @__PURE__ */ import_react6.default.createElement(
+    "button",
+    {
+      onClick: handleCharacterUpdate,
+      disabled: isExtractingCharacters || !characterInputText.trim(),
+      className: "generate-button mod-cta"
+    },
+    isExtractingCharacters ? "Extracting..." : "Update Characters"
+  ), /* @__PURE__ */ import_react6.default.createElement("div", { className: "file-selection-row" }, /* @__PURE__ */ import_react6.default.createElement("span", { className: "file-label" }, "Source file: ", characterSourceFile?.split("/").pop() || "None selected"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: handleSelectCharacterFile, disabled: isExtractingCharacters }, "Select file"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: handleResetToBookMain, disabled: isExtractingCharacters }, "Use book main")), /* @__PURE__ */ import_react6.default.createElement(
+    "button",
+    {
+      onClick: handleProcessEntireBook,
+      disabled: isExtractingCharacters || !characterSourceFile,
+      className: "generate-button"
+    },
+    isExtractingCharacters ? extractionProgress : "Process Entire Book"
+  )), /* @__PURE__ */ import_react6.default.createElement("div", { className: "character-help-text" }, /* @__PURE__ */ import_react6.default.createElement("p", null, /* @__PURE__ */ import_react6.default.createElement("strong", null, "Update Characters:"), " Extracts character info from the text above and updates notes in your Characters folder."), /* @__PURE__ */ import_react6.default.createElement("p", null, /* @__PURE__ */ import_react6.default.createElement("strong", null, "Process Entire Book:"), " 2-pass extraction (roster + per-chapter) from the selected file.")))), isGenerating && /* @__PURE__ */ import_react6.default.createElement("div", { className: "generation-status-overlay" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "loader" }, "\u23F3"), /* @__PURE__ */ import_react6.default.createElement("div", { className: "stage" }, generationStage), chunkBuffer && /* @__PURE__ */ import_react6.default.createElement("div", { className: `buffer-preview ${heatmapEnabled ? "heatmap" : ""}` }, chunkBuffer.split("\n").map((p, i) => {
     const isSpeculative = p.length % 2 === 0;
     return /* @__PURE__ */ import_react6.default.createElement("p", { key: i, className: isSpeculative ? "speculative" : "grounded" }, p);
   }))), proposedMutation && /* @__PURE__ */ import_react6.default.createElement("div", { className: "mutation-modal" }, /* @__PURE__ */ import_react6.default.createElement("h3", null, "Lore Mutation Proposal"), /* @__PURE__ */ import_react6.default.createElement("p", null, proposedMutation.message), /* @__PURE__ */ import_react6.default.createElement("div", { className: "actions" }, /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => setProposedMutation(null) }, "Reject"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => setProposedMutation(null) }, "Defer"), /* @__PURE__ */ import_react6.default.createElement("button", { className: "mod-cta", onClick: () => setProposedMutation(null) }, "Accept & Version Canon"))), trustSummary && /* @__PURE__ */ import_react6.default.createElement("div", { className: "trust-summary-banner" }, /* @__PURE__ */ import_react6.default.createElement("span", null, "Grounding: ", /* @__PURE__ */ import_react6.default.createElement("strong", null, trustSummary.grounding)), /* @__PURE__ */ import_react6.default.createElement("span", null, "Lore: ", /* @__PURE__ */ import_react6.default.createElement("strong", null, trustSummary.loreStatus)), /* @__PURE__ */ import_react6.default.createElement("span", null, "Canon Version: ", /* @__PURE__ */ import_react6.default.createElement("strong", null, trustSummary.version)), trustSummary.replayable && /* @__PURE__ */ import_react6.default.createElement("span", { className: "verified" }, "\u2713 Replayable")), mismatchReport && /* @__PURE__ */ import_react6.default.createElement("div", { className: "mismatch-report-banner" }, /* @__PURE__ */ import_react6.default.createElement("h3", null, "\u26A0\uFE0F Strict Replay Mismatch"), mismatchReport.map((m, i) => /* @__PURE__ */ import_react6.default.createElement("p", { key: i }, /* @__PURE__ */ import_react6.default.createElement("strong", null, m.field, ":"), ' Expected "', m.expected.slice(0, 8), '", Got "', m.actual.slice(0, 8), '" (', m.severity, ")")), /* @__PURE__ */ import_react6.default.createElement("div", { className: "actions" }, /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => setMismatchReport(null) }, "Cancel Replay"), /* @__PURE__ */ import_react6.default.createElement("button", { className: "mod-cta", onClick: () => {
@@ -27682,23 +27708,7 @@ var DashboardComponent = ({ plugin }) => {
       className: `heatmap-toggle ${heatmapEnabled ? "active" : ""}`
     },
     heatmapEnabled ? "Hide Heatmap" : "Show Heatmap"
-  ), isGenerating && /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => plugin.sequentialGenerator.abort(), className: "abort-button" }, "Abort"), mode === "character-update" && /* @__PURE__ */ import_react6.default.createElement("div", { className: "character-update-controls" }, /* @__PURE__ */ import_react6.default.createElement(
-    "button",
-    {
-      onClick: handleCharacterUpdate,
-      disabled: isExtractingCharacters || !modeState.chapter.sceneSummary?.trim(),
-      className: "generate-button mod-cta"
-    },
-    isExtractingCharacters ? "Extracting..." : "Update Characters"
-  ), /* @__PURE__ */ import_react6.default.createElement("div", { className: "file-selection-row" }, /* @__PURE__ */ import_react6.default.createElement("span", { className: "file-label" }, "Source: ", characterSourceFile?.split("/").pop() || "None"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: handleSelectCharacterFile, disabled: isExtractingCharacters }, "Select file"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: handleResetToBookMain, disabled: isExtractingCharacters }, "Use book main")), /* @__PURE__ */ import_react6.default.createElement(
-    "button",
-    {
-      onClick: handleProcessEntireBook,
-      disabled: isExtractingCharacters || !characterSourceFile,
-      className: "generate-button"
-    },
-    isExtractingCharacters ? extractionProgress : "Process Entire Book"
-  ))), isGenerating && pulseMessage && /* @__PURE__ */ import_react6.default.createElement("div", { className: "continuity-pulse-container" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-message" }, /* @__PURE__ */ import_react6.default.createElement("span", { className: "pulse-icon" }, "\u269B\uFE0F"), /* @__PURE__ */ import_react6.default.createElement("strong", null, pulseMessage)), pulseDetail && /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-detail" }, pulseDetail), /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-progress-bar" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-progress-fill" }))), telemetry && /* @__PURE__ */ import_react6.default.createElement("div", { className: "telemetry-bar" }, /* @__PURE__ */ import_react6.default.createElement("span", null, "TPS: ", telemetry.tps), /* @__PURE__ */ import_react6.default.createElement("span", null, "Model: ", telemetry.model), /* @__PURE__ */ import_react6.default.createElement("span", null, "Digest: ", telemetry.digest.slice(0, 8))))));
+  ), isGenerating && /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => plugin.sequentialGenerator.abort(), className: "abort-button" }, "Abort")), isGenerating && pulseMessage && /* @__PURE__ */ import_react6.default.createElement("div", { className: "continuity-pulse-container" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-message" }, /* @__PURE__ */ import_react6.default.createElement("span", { className: "pulse-icon" }, "\u269B\uFE0F"), /* @__PURE__ */ import_react6.default.createElement("strong", null, pulseMessage)), pulseDetail && /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-detail" }, pulseDetail), /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-progress-bar" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-progress-fill" }))), telemetry && /* @__PURE__ */ import_react6.default.createElement("div", { className: "telemetry-bar" }, /* @__PURE__ */ import_react6.default.createElement("span", null, "TPS: ", telemetry.tps), /* @__PURE__ */ import_react6.default.createElement("span", null, "Model: ", telemetry.model), /* @__PURE__ */ import_react6.default.createElement("span", null, "Digest: ", telemetry.digest.slice(0, 8))))));
 };
 
 // ui/DashboardView.ts

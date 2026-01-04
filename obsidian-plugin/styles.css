@@ -742,3 +742,23 @@
 	width: 100%;
 }
 
+/* Characters Tab */
+.characters-tab {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 10px;
+}
+
+.character-help-text {
+	font-size: 0.85em;
+	color: var(--text-muted);
+	padding: 10px;
+	background: var(--background-secondary);
+	border-radius: 4px;
+}
+
+.character-help-text p {
+	margin: 4px 0;
+}
+

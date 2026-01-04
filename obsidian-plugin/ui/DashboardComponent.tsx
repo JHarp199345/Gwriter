@@ -57,7 +57,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [rejections, setRejections] = useState<any[]>([]); // New
 	const [proposedMutation, setProposedMutation] = useState<any | null>(null);
 	const [trustSummary, setTrustSummary] = useState<any | null>(null);
-	const [activeTab, setActiveTab] = useState<'editor' | 'lore' | 'replay' | 'signature'>('editor');
+	const [activeTab, setActiveTab] = useState<'editor' | 'lore' | 'replay' | 'signature' | 'characters'>('editor');
 
 	// Character Update mode state
 	const [characterSourceFile, setCharacterSourceFile] = useState<string>(
@@ -65,6 +65,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	);
 	const [isExtractingCharacters, setIsExtractingCharacters] = useState(false);
 	const [extractionProgress, setExtractionProgress] = useState<string>('');
+	const [characterInputText, setCharacterInputText] = useState<string>('');
 
 	const commitLock = useRef<boolean>(false);
 
@@ -267,7 +268,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 	// Character Update mode handlers
 	const handleCharacterUpdate = async () => {
-		const text = modeState.chapter.sceneSummary?.trim();
+		const text = characterInputText.trim();
 		if (!text) {
 			new Notice('Please paste text to extract characters from.');
 			return;
@@ -350,6 +351,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				<button className={activeTab === 'lore' ? 'active' : ''} onClick={() => setActiveTab('lore')}>Lore</button>
 				<button className={activeTab === 'replay' ? 'active' : ''} onClick={() => setActiveTab('replay')}>Replay</button>
 				<button className={activeTab === 'signature' ? 'active' : ''} onClick={() => setActiveTab('signature')}>Signature</button>
+				<button className={activeTab === 'characters' ? 'active' : ''} onClick={() => setActiveTab('characters')}>Characters</button>
 			</div>
 
 			<div className="dashboard-layout">
@@ -402,6 +404,61 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 						{activeTab === 'replay' && (
 							<div className="replay-tab">
 								<ReplayPanel plugin={plugin} />
+							</div>
+						)}
+
+						{activeTab === 'characters' && (
+							<div className="characters-tab">
+								<div className="editor-section">
+									<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
+										<label>Paste narrative text for character extraction:</label>
+										<span className="generation-status" style={{ margin: 0 }}>
+											{TextChunker.getWordCount(characterInputText).toLocaleString()} words / {characterInputText.length.toLocaleString()} chars
+										</span>
+									</div>
+									<textarea
+										value={characterInputText}
+										onChange={(e) => setCharacterInputText(e.target.value)}
+										placeholder="Paste a scene, chapter, or any narrative text containing character dialogue and descriptions..."
+										rows={12}
+										className="editor-textarea"
+									/>
+								</div>
+
+								<div className="character-update-controls">
+									<button 
+										onClick={handleCharacterUpdate}
+										disabled={isExtractingCharacters || !characterInputText.trim()}
+										className="generate-button mod-cta"
+									>
+										{isExtractingCharacters ? 'Extracting...' : 'Update Characters'}
+									</button>
+									
+									<div className="file-selection-row">
+										<span className="file-label">
+											Source file: {characterSourceFile?.split('/').pop() || 'None selected'}
+										</span>
+										<button onClick={handleSelectCharacterFile} disabled={isExtractingCharacters}>
+											Select file
+										</button>
+										<button onClick={handleResetToBookMain} disabled={isExtractingCharacters}>
+											Use book main
+										</button>
+									</div>
+									
+									<button 
+										onClick={handleProcessEntireBook}
+										disabled={isExtractingCharacters || !characterSourceFile}
+										className="generate-button"
+									>
+										{isExtractingCharacters ? extractionProgress : 'Process Entire Book'}
+									</button>
+								</div>
+
+								<div className="character-help-text">
+									<p><strong>Update Characters:</strong> Extracts character info from the text above and updates notes in your Characters folder.</p>
+									<p><strong>Process Entire Book:</strong> 2-pass extraction (roster + per-chapter) from the selected file.</p>
+								</div>
 							</div>
 						)}
 					</div>
@@ -505,38 +562,6 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							<button onClick={() => plugin.sequentialGenerator.abort()} className="abort-button">
 								Abort
 							</button>
-						)}
-
-						{mode === 'character-update' && (
-							<div className="character-update-controls">
-								<button 
-									onClick={handleCharacterUpdate}
-									disabled={isExtractingCharacters || !modeState.chapter.sceneSummary?.trim()}
-									className="generate-button mod-cta"
-								>
-									{isExtractingCharacters ? 'Extracting...' : 'Update Characters'}
-								</button>
-								
-								<div className="file-selection-row">
-									<span className="file-label">
-										Source: {characterSourceFile?.split('/').pop() || 'None'}
-									</span>
-									<button onClick={handleSelectCharacterFile} disabled={isExtractingCharacters}>
-										Select file
-									</button>
-									<button onClick={handleResetToBookMain} disabled={isExtractingCharacters}>
-										Use book main
-									</button>
-								</div>
-								
-								<button 
-									onClick={handleProcessEntireBook}
-									disabled={isExtractingCharacters || !characterSourceFile}
-									className="generate-button"
-								>
-									{isExtractingCharacters ? extractionProgress : 'Process Entire Book'}
-								</button>
-							</div>
 						)}
 					</div>
 
