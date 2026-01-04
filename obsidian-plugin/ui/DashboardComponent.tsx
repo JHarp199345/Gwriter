@@ -218,8 +218,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const updateMainInput = (value: string) => {
 		setModeState(prev => {
 			const next = { ...prev };
-			if (mode === 'chapter') next.chapter.rewriteInstructions = value;
+			if (mode === 'chapter') next.chapter.sceneSummary = value;
 			else if (mode === 'micro-edit') next.microEdit.selectedPassage = value;
+			else if (mode === 'character-update') next.chapter.sceneSummary = value;
 			return next;
 		});
 	};
