@@ -40,11 +40,13 @@ A writing dashboard plugin that integrates AI-powered chapter generation, micro-
    - **Surrounding context** - Automatically includes 500 words before and after for seamless narrative flow
    - Single refined alternative output
 
-3. **Character Update** - Extract and update character notes:
-   - Manual extraction from selected text
-   - Timestamped updates
+3. **Character Update** - Extract and update character notes (dedicated "Characters" tab):
+   - **Own Tab**: Character Update has its own dedicated tab in the dashboard for easy access
+   - Manual extraction from pasted narrative text
+   - Timestamped updates with word/character counts
    - Voice evidence, traits, relationships, arc progression
    - Automatic character folder management
+   - **AI Backend Choice**: Use Ollama (local) or Cloud API for character extraction
    - Bulk backfill (**Process Entire Book**) with improved recall:
      - Pick which file to process (Book 1 / Book 2 / any note)
      - Splits by H1 chapter headings (`# `)
@@ -66,19 +68,33 @@ A writing dashboard plugin that integrates AI-powered chapter generation, micro-
 The plugin provides dedicated tools for maintaining your local semantic index:
 - **Re-index Vault**: Manually trigger a full rescan and re-embedding of your vault.
 - **Clear Index**: Wipe the local vector cache to fix corrupted states or start fresh.
+- **Live Progress**: The Re-index button shows dynamic progress ("Indexing 12/39...") and is disabled during indexing.
+- **Persistent Status**: Settings display "📊 Index Status: X chunks across Y files" so you always know your index health.
+- **Circuit Breaker**: If embedding repeatedly fails, the plugin pauses for 15 seconds to prevent infinite spinning.
 - **Robust Processing**: Automatically handles long contiguous strings (like logs or base64) by splitting them into digestible chunks for the embedding model, preventing API "400 Bad Request" errors.
 - **Ollama Integration**: Uses your local Ollama instance (defaulting to `nomic-embed-text`) for high-quality, private semantic embeddings.
+- **Bidirectional Model Matching**: Recognizes models whether you use `nomic-embed-text` or `nomic-embed-text:latest`.
 
 ### 🧠 Under the Hood (Advanced Architecture)
 
-#### 1. Rolling Window Refinement
+#### 1. RAM-Aware Context Control
+The plugin automatically prevents system freezes by deriving safe context limits from your hardware:
+- **First-Run Setup**: On first install, a modal asks "How much RAM does this machine have?" (8/16/24/32/64/128 GB)
+- **Safety Tables**: Conservative limits for each RAM + Model size combination. A 70B model is blocked on 16GB RAM; a 7B model gets generous context.
+- **Risk Profiles**: Choose between Safe (conservative), Moderate (balanced), or Aggressive (maximum performance, higher freeze risk)
+- **Dynamic Derivation**: `derivedCap = min(BASE × MULTIPLIER, PROFILE_CAP, model's actual num_ctx)`
+- **Slider Control**: Settings include a context window slider within your safe range
+- **Model Verification**: Query Ollama to get the model's actual context limit
+
+#### 2. Rolling Window Refinement
 For Local AI (Ollama), the plugin treats the generation field as a **Living Document**:
 - **3-Chunk Juggling**: Maintains a rolling buffer of the last ~1500 words to ensure narrative cohesion.
 - **Live Patching**: The AI background "Stitcher" pass polishes transitions in real-time. You'll see text "settle" into its final form with a subtle highlight.
 - **Consolidated Single-Model Architecture**: Optimized for 16GB-32GB RAM machines. All text tasks (Writing, Auditing, Stitching) use your primary **Smart Model** with specialized task profiles (Temp 0.7 for writing, Temp 0.1 for mechanical logic). This eliminates the 30-60 second latency penalty of VRAM swapping between different models.
 - **Hardware Optimization**: Uses **KV Cache Grafting** and a stable prefix to keep Ollama "warm" between different tasks.
+- **Multi-Segment Generation**: Fixed 700-token output reserve per segment allows more context per call. A 16k context window can effectively access 100k+ tokens through RAG-refreshed multi-segment generation.
 
-#### 2. Narrative Integrity Gates
+#### 3. Narrative Integrity Gates
 Five layers of protection ensure the AI never breaks your story:
 - **Hash Gate**: Rejects AI edits if you've manually changed the paragraph in the meantime.
 - **User-Dirty Protection**: Once you edit a paragraph, the AI is strictly forbidden from auto-patching it.
@@ -86,25 +102,36 @@ Five layers of protection ensure the AI never breaks your story:
 - **Tuple Gate**: Prevents the introduction of contradictory facts or "hallucinated" canon.
 - **Budget Gate**: Limits the amount of change the background pass can make, preventing "runaway" edits.
 
-#### 3. 2-Pass Character Extraction
+#### 4. 2-Pass Character Extraction
 The "Process Entire Book" feature uses a sophisticated pipeline:
 - **Pass 1 (Roster Discovery)**: Scans the manuscript to build a global list of names and resolve aliases.
 - **Pass 2 (Extraction)**: Re-scans each chapter with the roster in mind to ensure accurate, non-duplicate character notes.
 
-#### 4. Hybrid Retrieval & Diversity (MMR)
+#### 5. Hybrid Retrieval & Diversity (MMR)
 The RAG engine uses **Reciprocal Rank Fusion (RRF)** to combine keyword (BM25) and semantic results, followed by **Maximal Marginal Relevance (MMR)** to filter out redundant context snippets.
+
+#### 6. Shared Brain (Inter-Plugin Communication)
+GWriter can share its embedding index with the StoryBoard plugin:
+- **Handshake Protocol**: Plugins exchange compatibility info via `.obsidian/embeddings/handshake/`
+- **Shared Index**: When compatible, both plugins read/write to `/Embeddings/shared-index/`
+- **Locking**: Prevents simultaneous writes with heartbeat-based lock system
+- **Auto-Discovery**: In "Auto" mode, GWriter detects StoryBoard's presence and shares automatically
+- **Storage Modes**: Isolated (private), Auto (shared if compatible), or Manual (user-specified path)
 
 ### ✨ Key Highlights
 
 - **Fully Self-Contained** - No Python backend required! Everything runs within Obsidian
 - **Multi-Provider Support** - Works with OpenAI, Anthropic (Claude), Google Gemini, OpenRouter, and local Ollama
+- **RAM-Aware Safety** - Automatically derives safe context limits based on your hardware (8GB-128GB+), preventing system freezes
 - **Local AI Optimized** - Use a single **Smart Model** (e.g., Llama 3.2) for all text tasks and a specialized **Embedding Model** (e.g., Nomic) for lightning-fast semantic indexing.
 - **Smart Context Integration** - Automatically pulls from your Story Bible, Extractions, sliding window (last 20k words), and Character notes via RAG retrieval
 - **Efficient Context Usage** - Only sends the last 20,000 words of your active manuscript to the AI, not full book files. Full continuity comes from RAG retrieval.
+- **Multi-Segment Generation** - Even with a 16k context window, GWriter can produce 10,000+ word chapters through RAG-refreshed multi-segment generation
 - **Surrounding Context** - Micro-edit mode includes 500 words before/after selected text for better narrative continuity
 - **Prompt Size Warning** - Estimates prompt size and warns if you exceed your configured context limit
 - **Setup Wizard** - First-run wizard to create default vault structure (Book-Main.md, Story Bible, Characters folder, etc.)
 - **Hybrid retrieval (local RAG)** - Combines BM25 lexical ranking, local Ollama embeddings, and diversity selection to inject relevant context without a server
+- **Shared Brain** - Share embedding index with StoryBoard plugin for cross-plugin context awareness
 - **File Chunking** - Manually chunk large files into 500-word segments for processing
 - **Developer Tools** - Built-in stress test for comprehensive plugin diagnostics, including adversarial word handling and safety gate verification.
 
@@ -181,6 +208,17 @@ The wizard lets you:
    - **Book main file**: Use the file tree picker to select your active manuscript (supports files at root or in folders)
    - **Story Bible Path**: Use the file tree picker to select your story bible file
    - **Generation Logs Folder**: Optional folder for logging generation runs (excluded from retrieval)
+   
+   **Memory & Performance** (for local AI):
+   - **RAM Tier**: Select your machine's RAM (8/16/24/32/64/128 GB) - asked on first run
+   - **Risk Profile**: Safe (conservative) / Moderate / Aggressive
+   - **Context Window**: Slider within your safe range
+   - **Verify Model**: Query Ollama for actual model context limit
+   
+   **Embedding Storage Mode**:
+   - **Isolated**: Private index (default)
+   - **Auto**: Share with StoryBoard if installed and compatible
+   - **Manual**: Specify custom path
    
    Note: The sliding window is automatically extracted from your book main file (last 20,000 words), so no separate sliding window path is needed.
 
@@ -428,6 +466,15 @@ No backend server is required for this plugin.
 - **Check index status** - Go to Settings → Writing dashboard → Retrieval to see indexing status.
 - **Manual Management** - Use the **Re-index Vault** or **Clear Index** buttons in settings to fix corrupted states.
 - **Run stress test** - Use the Developer Tools stress test (Settings → Writing dashboard → Developer Tools) to get detailed diagnostics.
+
+### System Freezes / Performance Issues
+
+- **Check RAM Tier** - Ensure your RAM tier is set correctly in Settings → Memory & Performance.
+- **Model Too Large** - If generation causes freezes, the model may be too large for your RAM. The plugin blocks known-dangerous combinations (e.g., 70B on 16GB RAM).
+- **Use Safe Profile** - Switch from Aggressive to Safe risk profile for more conservative context limits.
+- **Lower Context Slider** - Move the context window slider lower (toward 50% of max) for more headroom.
+- **Verify Model Context** - Click "Verify" in Memory & Performance to query the model's actual limit from Ollama.
+- **Close Other Apps** - Large language models need RAM for both weights and KV cache. Close memory-heavy applications.
 
 ### Keyboard Not Working in Text Areas
 
