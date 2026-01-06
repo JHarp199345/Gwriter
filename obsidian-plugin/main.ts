@@ -25,6 +25,8 @@ import { DiagnosticsService } from './services/DiagnosticsService';
 import { SetupWizardModal } from './ui/SetupWizard';
 import { BookMainSelectorModal } from './ui/BookMainSelectorModal';
 import { PublishWizardModal } from './ui/PublishWizardModal';
+import { RamTierModal } from './ui/RamTierModal';
+import { runInvariantChecks } from './services/ContextSafety';
 
 import { HelpDensity } from './ui/HelpRegistry';
 
@@ -113,6 +115,11 @@ export type DashboardSettings = {
 	verifiedModelsCatalog?: string[];
 	embeddingStorageMode?: 'isolated' | 'auto' | 'manual';
 	manualSharedPath?: string;
+	// RAM-Aware Context Control
+	ramTier?: 8 | 16 | 24 | 32 | 64 | 128;
+	riskProfile?: 'safe' | 'moderate' | 'aggressive';
+	contextSliderValue?: number;
+	verifiedModelContextLimit?: number;
 	[key: string]: any;
 };
 
@@ -145,6 +152,23 @@ export default class WritingDashboardPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+
+		// Dev-only: Run context safety invariant checks
+		if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
+			try {
+				runInvariantChecks();
+			} catch (e) {
+				console.error('[WritingDashboard] Context safety invariant failed:', e);
+			}
+		}
+
+		// First-run: Show RAM tier selection if not set
+		if (this.settings.ramTier === undefined) {
+			// Defer to after layout is ready so the modal appears cleanly
+			this.app.workspace.onLayoutReady(() => {
+				new RamTierModal(this.app, this).open();
+			});
+		}
 
 		// Core services
 		this.vaultService = new VaultService(this.app.vault, this);
@@ -333,7 +357,12 @@ export default class WritingDashboardPlugin extends Plugin {
 				helpDensity: 'LITE',
 				verifiedModelsCatalog: [],
 				embeddingStorageMode: 'isolated',
-				manualSharedPath: ''
+				manualSharedPath: '',
+				// RAM-Aware Context Control - defaults
+				ramTier: undefined,  // Triggers first-run modal
+				riskProfile: 'safe',
+				contextSliderValue: undefined,  // Uses derived max
+				verifiedModelContextLimit: undefined
 			},
 			loaded
 		);

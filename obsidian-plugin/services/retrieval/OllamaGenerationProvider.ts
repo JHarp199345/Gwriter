@@ -5,6 +5,7 @@ export interface GenerationParams {
     model: string;
     temperature: number;
     max_tokens?: number;
+    num_ctx?: number;  // Context window size (RAM-aware)
     stop?: string[];
     format?: 'json';
     seed?: number;
@@ -110,9 +111,22 @@ export class OllamaGenerationProvider {
      * Generates text based on a prompt and parameters.
      */
     async generate(prompt: string, params: GenerationParams, signal?: AbortSignal): Promise<string> {
-        console.log(`[OllamaGen] 📡 Sending request to model: ${params.model} (Temp: ${params.temperature})`);
+        console.log(`[OllamaGen] 📡 Sending request to model: ${params.model} (Temp: ${params.temperature}, num_ctx: ${params.num_ctx || 'default'})`);
         
         try {
+            // Build options object, only include num_ctx if provided
+            const options: Record<string, any> = {
+                temperature: params.temperature,
+                num_predict: params.max_tokens || 2048,
+                stop: params.stop || [],
+                seed: params.seed || 42 // Deterministic seed
+            };
+            
+            // Wire RAM-aware context window if provided
+            if (params.num_ctx && params.num_ctx > 0) {
+                options.num_ctx = params.num_ctx;
+            }
+            
             const response = await requestUrl({
                 url: `${this.baseUrl}/api/generate`,
                 method: 'POST',
@@ -120,12 +134,7 @@ export class OllamaGenerationProvider {
                     model: params.model,
                     prompt: prompt,
                     stream: false,
-                    options: {
-                        temperature: params.temperature,
-                        num_predict: params.max_tokens || 2048,
-                        stop: params.stop || [],
-                        seed: params.seed || 42 // Deterministic seed
-                    },
+                    options,
                     format: params.format === 'json' ? 'json' : undefined
                 })
             });
@@ -182,11 +191,23 @@ export class OllamaGenerationProvider {
         onToken: (token: string) => void,
         signal?: AbortSignal
     ): Promise<string> {
-        console.log(`[OllamaGen] 📡 Sending streaming request to model: ${params.model}`);
+        console.log(`[OllamaGen] 📡 Sending streaming request to model: ${params.model} (num_ctx: ${params.num_ctx || 'default'})`);
         
         let fullResponse = '';
         let buffer = '';
         let lastFlush = Date.now();
+
+        // Build options object, only include num_ctx if provided
+        const options: Record<string, any> = {
+            temperature: params.temperature,
+            num_predict: params.max_tokens || 2048,
+            seed: params.seed || 42
+        };
+        
+        // Wire RAM-aware context window if provided
+        if (params.num_ctx && params.num_ctx > 0) {
+            options.num_ctx = params.num_ctx;
+        }
 
         try {
             const response = await fetch(`${this.baseUrl}/api/generate`, {
@@ -196,11 +217,7 @@ export class OllamaGenerationProvider {
                     model: params.model,
                     prompt: prompt,
                     stream: true,
-                    options: {
-                        temperature: params.temperature,
-                        num_predict: params.max_tokens || 2048,
-                        seed: params.seed || 42
-                    }
+                    options
                 }),
                 signal // Use the abort signal here
             });

@@ -110,6 +110,58 @@ export class OllamaModelManager {
     }
 
     /**
+     * Gets the model's actual context limit from Ollama /api/show.
+     * Returns null if model is not loaded or Ollama is unreachable.
+     */
+    async getModelContextLimit(modelName: string): Promise<number | null> {
+        try {
+            const response = await requestUrl({
+                url: `${this.baseUrl}/api/show`,
+                method: 'POST',
+                body: JSON.stringify({ name: modelName })
+            });
+
+            if (response.status !== 200) {
+                console.warn(`[ModelManager] /api/show returned ${response.status} for ${modelName}`);
+                return null;
+            }
+
+            const info = response.json;
+            
+            // Ollama returns context in different locations depending on version
+            // Try multiple paths to find num_ctx
+            const numCtx = 
+                info?.model_info?.['context_length'] ||
+                info?.model_info?.['llama.context_length'] ||
+                info?.parameters?.num_ctx ||
+                info?.details?.context_length ||
+                null;
+
+            if (numCtx && typeof numCtx === 'number') {
+                console.log(`[ModelManager] Model ${modelName} context limit: ${numCtx}`);
+                return numCtx;
+            }
+
+            // Try parsing from modelfile template if present
+            if (info?.template || info?.modelfile) {
+                const templateStr = info.template || info.modelfile || '';
+                const ctxMatch = templateStr.match(/num_ctx\s+(\d+)/i);
+                if (ctxMatch) {
+                    const parsed = parseInt(ctxMatch[1], 10);
+                    console.log(`[ModelManager] Model ${modelName} context limit (from template): ${parsed}`);
+                    return parsed;
+                }
+            }
+
+            console.warn(`[ModelManager] Could not determine context limit for ${modelName}`);
+            return null;
+        } catch (e) {
+            console.warn(`[ModelManager] Failed to get context limit for ${modelName}:`, e);
+            return null;
+        }
+    }
+
+    /**
      * Returns the current version of the Ollama server.
      */
     async getOllamaVersion(): Promise<string | undefined> {

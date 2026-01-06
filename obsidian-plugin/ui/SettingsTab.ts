@@ -6,6 +6,16 @@ import { FilePickerModal } from './FilePickerModal';
 import { StressTestService } from '../services/StressTestService';
 import { HelpDensity } from './HelpRegistry';
 import { relayEventBus } from '../services/EventBus';
+import { 
+	RamTier, 
+	RiskProfile, 
+	RAM_TIERS, 
+	RISK_PROFILES,
+	getSafeContextLimit,
+	getSliderBounds,
+	getUsageWarning,
+	detectModelTier
+} from '../services/ContextSafety';
 
 // Model lists for each provider
 const OPENAI_MODELS = [
@@ -213,6 +223,9 @@ export class SettingsTab extends PluginSettingTab {
 					this.plugin.settings.ollamaBaseUrl = value;
 					await this.plugin.saveSettings();
 				}));
+
+		// --- MEMORY & PERFORMANCE ---
+		this.renderMemorySection(containerEl, addSection);
 
 		// --- CO-AUTHORING RELAY (Phase 5-6) ---
 		addSection('Co-Authoring Relay', 'Advanced settings for Phases 5 and 6.');
@@ -1170,6 +1183,156 @@ export class SettingsTab extends PluginSettingTab {
 					} finally {
 						button.setDisabled(false);
 						button.setButtonText('Start Stress Test');
+					}
+				}));
+	}
+
+	/**
+	 * Render the Memory & Performance section for RAM-aware context control.
+	 */
+	private renderMemorySection(
+		containerEl: HTMLElement, 
+		addSection: (title: string, description: string) => void
+	): void {
+		addSection('Memory & Performance', 'RAM-aware context window management to prevent system freezes.');
+
+		const settings = this.plugin.settings;
+		const ramTier = (settings.ramTier ?? 32) as RamTier;
+		const riskProfile = (settings.riskProfile ?? 'safe') as RiskProfile;
+		const modelName = settings.relaySmartModel || 'llama3.1:8b';
+
+		// Get the derived safe limit for display
+		const safetyResult = getSafeContextLimit(
+			ramTier,
+			modelName,
+			riskProfile,
+			settings.verifiedModelContextLimit ?? null,
+			settings.contextSliderValue
+		);
+
+		// RAM Tier dropdown
+		new Setting(containerEl)
+			.setName('RAM Tier')
+			.setDesc('How much RAM does this machine have? This determines safe context limits.')
+			.addDropdown(dropdown => {
+				const tierLabels: Record<RamTier, string> = {
+					8: '8 GB',
+					16: '16 GB',
+					24: '24 GB',
+					32: '32 GB',
+					64: '64 GB',
+					128: '128 GB+'
+				};
+
+				for (const tier of RAM_TIERS) {
+					dropdown.addOption(String(tier), tierLabels[tier]);
+				}
+
+				dropdown.setValue(String(ramTier))
+					.onChange(async (value) => {
+						this.plugin.settings.ramTier = parseInt(value) as RamTier;
+						// Reset slider when RAM tier changes
+						this.plugin.settings.contextSliderValue = undefined;
+						await this.plugin.saveSettings();
+						this.display();
+					});
+			});
+
+		// Risk Profile dropdown
+		new Setting(containerEl)
+			.setName('Risk Profile')
+			.setDesc('Safe = conservative, Moderate = balanced, Aggressive = maximum performance (higher freeze risk).')
+			.addDropdown(dropdown => {
+				const profileLabels: Record<RiskProfile, string> = {
+					safe: 'Safe (recommended)',
+					moderate: 'Moderate',
+					aggressive: 'Aggressive'
+				};
+
+				for (const profile of RISK_PROFILES) {
+					dropdown.addOption(profile, profileLabels[profile]);
+				}
+
+				dropdown.setValue(riskProfile)
+					.onChange(async (value) => {
+						this.plugin.settings.riskProfile = value as RiskProfile;
+						// Reset slider when profile changes
+						this.plugin.settings.contextSliderValue = undefined;
+						await this.plugin.saveSettings();
+						this.display();
+					});
+			});
+
+		// Context Window Slider (only if not blocked)
+		if (!safetyResult.isBlocked) {
+			const bounds = getSliderBounds(safetyResult.cap);
+			const currentValue = settings.contextSliderValue ?? safetyResult.cap;
+			const warning = getUsageWarning(currentValue, safetyResult.cap);
+
+			const sliderSetting = new Setting(containerEl)
+				.setName('Context Window')
+				.setDesc(`Range: ${(bounds.min / 1024).toFixed(0)}k - ${(bounds.max / 1024).toFixed(0)}k tokens`);
+
+			// Add the slider
+			sliderSetting.addSlider(slider => {
+				slider
+					.setLimits(bounds.min, bounds.max, 1024)
+					.setValue(currentValue)
+					.setDynamicTooltip()
+					.onChange(async (value) => {
+						this.plugin.settings.contextSliderValue = value;
+						await this.plugin.saveSettings();
+						// Update display without full refresh
+						const newWarning = getUsageWarning(value, safetyResult.cap);
+						if (statusEl) {
+							statusEl.textContent = `${(value / 1024).toFixed(0)}k tokens`;
+							statusEl.className = `context-status context-${newWarning}`;
+						}
+					});
+			});
+
+			// Add status display
+			const statusEl = sliderSetting.controlEl.createEl('span', {
+				cls: `context-status context-${warning}`,
+				text: `${(currentValue / 1024).toFixed(0)}k tokens`
+			});
+		}
+
+		// Status display
+		const statusText = safetyResult.isBlocked 
+			? `⛔ Model blocked for ${ramTier}GB RAM`
+			: safetyResult.isVerified
+				? `✅ Safe limit: ${(safetyResult.cap / 1024).toFixed(0)}k tokens (model verified)`
+				: `⚠️ Safe limit: ${(safetyResult.cap / 1024).toFixed(0)}k tokens (model unverified)`;
+
+		new Setting(containerEl)
+			.setName('Status')
+			.setDesc(statusText);
+
+		// Verify Model button (to query actual context limit)
+		new Setting(containerEl)
+			.setName('Verify Model Context')
+			.setDesc('Query Ollama to get the model\'s actual context limit.')
+			.addButton(btn => btn
+				.setButtonText(settings.verifiedModelContextLimit ? 'Re-verify' : 'Verify')
+				.onClick(async () => {
+					btn.setDisabled(true);
+					btn.setButtonText('Querying...');
+					try {
+						const limit = await this.plugin.ollamaModels.getModelContextLimit(modelName);
+						if (limit !== null) {
+							this.plugin.settings.verifiedModelContextLimit = limit;
+							await this.plugin.saveSettings();
+							new Notice(`✅ Model context limit: ${(limit / 1024).toFixed(0)}k tokens`);
+						} else {
+							new Notice('⚠️ Could not determine model context limit');
+						}
+					} catch (e) {
+						new Notice('❌ Failed to query model');
+					} finally {
+						btn.setDisabled(false);
+						btn.setButtonText('Verify');
+						this.display();
 					}
 				}));
 	}

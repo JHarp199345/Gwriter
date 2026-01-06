@@ -26572,7 +26572,7 @@ __export(main_exports, {
   default: () => WritingDashboardPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian32 = require("obsidian");
+var import_obsidian33 = require("obsidian");
 
 // ui/DashboardView.ts
 var import_obsidian4 = require("obsidian");
@@ -28392,6 +28392,171 @@ Content for scene 1 of chapter ${num}. More text to build size.`;
   }
 };
 
+// services/ContextSafety.ts
+var RAM_TIERS = [8, 16, 24, 32, 64, 128];
+var MODEL_TIERS = ["7b", "13b", "20b", "30b", "40b", "50b", "60b", "70b"];
+var RISK_PROFILES = ["safe", "moderate", "aggressive"];
+var BASE_TABLE = {
+  //         7B      13B     20B     30B     40B     50B     60B     70B
+  8: { "7b": 4096, "13b": 0, "20b": 0, "30b": 0, "40b": 0, "50b": 0, "60b": 0, "70b": 0 },
+  16: { "7b": 8192, "13b": 0, "20b": 0, "30b": 0, "40b": 0, "50b": 0, "60b": 0, "70b": 0 },
+  24: { "7b": 16384, "13b": 12288, "20b": 4096, "30b": 0, "40b": 0, "50b": 0, "60b": 0, "70b": 0 },
+  32: { "7b": 24576, "13b": 20480, "20b": 16384, "30b": 12288, "40b": 4096, "50b": 2048, "60b": 2048, "70b": 0 },
+  64: { "7b": 49152, "13b": 40960, "20b": 32768, "30b": 16384, "40b": 8192, "50b": 4096, "60b": 4096, "70b": 4096 },
+  128: { "7b": 65536, "13b": 65536, "20b": 65536, "30b": 32768, "40b": 16384, "50b": 8192, "60b": 8192, "70b": 65536 }
+};
+var PROFILE_MULTIPLIER = {
+  safe: 1,
+  // Use base value as-is
+  moderate: 1.5,
+  // 50% more headroom
+  aggressive: 2
+  // Double (risky)
+};
+var PROFILE_CONTEXT_CAP = {
+  //        Safe      Moderate   Aggressive
+  8: { safe: 2048, moderate: 4096, aggressive: 6144 },
+  16: { safe: 4096, moderate: 8192, aggressive: 12288 },
+  24: { safe: 6144, moderate: 12288, aggressive: 16384 },
+  32: { safe: 8192, moderate: 12288, aggressive: 16384 },
+  64: { safe: 16384, moderate: 20480, aggressive: 32768 },
+  128: { safe: 32768, moderate: 49152, aggressive: 65536 }
+};
+function quantize(n) {
+  return Math.max(0, Math.floor(n / 1024) * 1024);
+}
+function detectModelTier(modelName) {
+  const lower = modelName.toLowerCase();
+  if (lower.includes("70b") || lower.includes("72b"))
+    return "70b";
+  if (lower.includes("65b") || lower.includes("60b"))
+    return "60b";
+  if (lower.includes("50b") || lower.includes("52b"))
+    return "50b";
+  if (lower.includes("40b") || lower.includes("42b") || lower.includes("45b"))
+    return "40b";
+  if (lower.includes("30b") || lower.includes("32b") || lower.includes("34b") || lower.includes("35b"))
+    return "30b";
+  if (lower.includes("20b") || lower.includes("22b") || lower.includes("21b"))
+    return "20b";
+  if (lower.includes("13b") || lower.includes("14b") || lower.includes("12b"))
+    return "13b";
+  if (lower.includes("7b") || lower.includes("8b") || lower.includes("9b"))
+    return "7b";
+  if (lower.includes("3b") || lower.includes("1b") || lower.includes("0.5b"))
+    return "7b";
+  return "7b";
+}
+function getUsageWarning(sliderValue, derivedCap) {
+  if (derivedCap <= 0)
+    return "danger";
+  const ratio = sliderValue / derivedCap;
+  if (ratio >= 0.95)
+    return "danger";
+  if (ratio >= 0.8)
+    return "caution";
+  return "safe";
+}
+function getSliderBounds(maxCap) {
+  const minCap = quantize(maxCap / 2);
+  return {
+    min: Math.max(minCap, 1024),
+    max: maxCap
+  };
+}
+function deriveCap(ramTier, modelTier, profile, modelContextLimit, sliderValue) {
+  const base2 = BASE_TABLE[ramTier][modelTier];
+  if (base2 <= 0) {
+    return {
+      cap: 0,
+      isBlocked: true,
+      isVerified: modelContextLimit !== null,
+      ramCap: 0,
+      modelLimit: modelContextLimit,
+      warning: "danger"
+    };
+  }
+  const scaled = base2 * PROFILE_MULTIPLIER[profile];
+  const profileCap = PROFILE_CONTEXT_CAP[ramTier][profile];
+  const ramCap = quantize(Math.min(scaled, profileCap));
+  const isVerified = modelContextLimit !== null;
+  const capBeforeSlider = isVerified ? quantize(Math.min(ramCap, modelContextLimit)) : ramCap;
+  const finalCap = sliderValue !== void 0 && sliderValue > 0 ? quantize(Math.min(capBeforeSlider, sliderValue)) : capBeforeSlider;
+  const warning = sliderValue !== void 0 ? getUsageWarning(sliderValue, capBeforeSlider) : "safe";
+  return {
+    cap: finalCap,
+    isBlocked: false,
+    isVerified,
+    ramCap,
+    modelLimit: modelContextLimit,
+    warning
+  };
+}
+function getSafeContextLimit(ramTier, modelName, profile, modelContextLimit, sliderValue) {
+  const modelTier = detectModelTier(modelName);
+  return deriveCap(ramTier, modelTier, profile, modelContextLimit, sliderValue);
+}
+function isModelBlocked(ramTier, modelName) {
+  const modelTier = detectModelTier(modelName);
+  return BASE_TABLE[ramTier][modelTier] <= 0;
+}
+function getBlockedModelError(ramTier, modelName) {
+  const modelTier = detectModelTier(modelName);
+  let minRam = null;
+  for (const rt of RAM_TIERS) {
+    if (BASE_TABLE[rt][modelTier] > 0) {
+      minRam = rt;
+      break;
+    }
+  }
+  if (minRam) {
+    return `Model "${modelName}" (${modelTier}) cannot run on ${ramTier}GB RAM. Requires at least ${minRam}GB.`;
+  } else {
+    return `Model "${modelName}" (${modelTier}) is not supported in the current safety tables.`;
+  }
+}
+function assertRamMonotonicity(profile) {
+  for (const tier of MODEL_TIERS) {
+    let prevCap = -1;
+    for (const ram of RAM_TIERS) {
+      const base2 = BASE_TABLE[ram][tier];
+      const scaled = base2 * PROFILE_MULTIPLIER[profile];
+      const profileCap = PROFILE_CONTEXT_CAP[ram][profile];
+      const cap = Math.min(scaled, profileCap);
+      if (cap > 0 && prevCap > 0 && cap < prevCap) {
+        throw new Error(
+          `RAM monotonicity violation [${profile}]: ${tier} @ ${ram}GB (${cap}) < previous (${prevCap})`
+        );
+      }
+      if (cap > 0)
+        prevCap = cap;
+    }
+  }
+}
+function assertProfileOrdering() {
+  for (const ram of RAM_TIERS) {
+    for (const tier of MODEL_TIERS) {
+      const s = deriveCap(ram, tier, "safe", null).cap;
+      const m = deriveCap(ram, tier, "moderate", null).cap;
+      const a = deriveCap(ram, tier, "aggressive", null).cap;
+      if (s === 0 && m === 0 && a === 0)
+        continue;
+      if (s > m || m > a) {
+        throw new Error(
+          `Profile ordering violation: ${tier} @ ${ram}GB: safe=${s} > moderate=${m} or moderate=${m} > aggressive=${a}`
+        );
+      }
+    }
+  }
+}
+function runInvariantChecks() {
+  assertRamMonotonicity("safe");
+  assertRamMonotonicity("moderate");
+  assertRamMonotonicity("aggressive");
+  assertProfileOrdering();
+  console.log("[ContextSafety] All invariants passed");
+}
+
 // ui/SettingsTab.ts
 var OPENAI_MODELS = [
   { value: "gpt-5.2-pro", label: "GPT-5.2 Pro" },
@@ -28545,6 +28710,7 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
       this.plugin.settings.ollamaBaseUrl = value;
       await this.plugin.saveSettings();
     }));
+    this.renderMemorySection(containerEl, addSection);
     addSection("Co-Authoring Relay", "Advanced settings for Phases 5 and 6.");
     new import_obsidian10.Setting(containerEl).setName("Generation Mode").setDesc("Local uses chunked multi-stage pipeline. Cloud uses monolithic single-call primitive.").addDropdown((dropdown) => dropdown.addOption("local", "Local (Ollama)").addOption("cloud", "Cloud (API)").setValue(this.plugin.settings.relayMode || "local").onChange(async (value) => {
       this.plugin.settings.relayMode = value;
@@ -29129,6 +29295,101 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
       } finally {
         button.setDisabled(false);
         button.setButtonText("Start Stress Test");
+      }
+    }));
+  }
+  /**
+   * Render the Memory & Performance section for RAM-aware context control.
+   */
+  renderMemorySection(containerEl, addSection) {
+    addSection("Memory & Performance", "RAM-aware context window management to prevent system freezes.");
+    const settings = this.plugin.settings;
+    const ramTier = settings.ramTier ?? 32;
+    const riskProfile = settings.riskProfile ?? "safe";
+    const modelName = settings.relaySmartModel || "llama3.1:8b";
+    const safetyResult = getSafeContextLimit(
+      ramTier,
+      modelName,
+      riskProfile,
+      settings.verifiedModelContextLimit ?? null,
+      settings.contextSliderValue
+    );
+    new import_obsidian10.Setting(containerEl).setName("RAM Tier").setDesc("How much RAM does this machine have? This determines safe context limits.").addDropdown((dropdown) => {
+      const tierLabels = {
+        8: "8 GB",
+        16: "16 GB",
+        24: "24 GB",
+        32: "32 GB",
+        64: "64 GB",
+        128: "128 GB+"
+      };
+      for (const tier of RAM_TIERS) {
+        dropdown.addOption(String(tier), tierLabels[tier]);
+      }
+      dropdown.setValue(String(ramTier)).onChange(async (value) => {
+        this.plugin.settings.ramTier = parseInt(value);
+        this.plugin.settings.contextSliderValue = void 0;
+        await this.plugin.saveSettings();
+        this.display();
+      });
+    });
+    new import_obsidian10.Setting(containerEl).setName("Risk Profile").setDesc("Safe = conservative, Moderate = balanced, Aggressive = maximum performance (higher freeze risk).").addDropdown((dropdown) => {
+      const profileLabels = {
+        safe: "Safe (recommended)",
+        moderate: "Moderate",
+        aggressive: "Aggressive"
+      };
+      for (const profile of RISK_PROFILES) {
+        dropdown.addOption(profile, profileLabels[profile]);
+      }
+      dropdown.setValue(riskProfile).onChange(async (value) => {
+        this.plugin.settings.riskProfile = value;
+        this.plugin.settings.contextSliderValue = void 0;
+        await this.plugin.saveSettings();
+        this.display();
+      });
+    });
+    if (!safetyResult.isBlocked) {
+      const bounds = getSliderBounds(safetyResult.cap);
+      const currentValue = settings.contextSliderValue ?? safetyResult.cap;
+      const warning = getUsageWarning(currentValue, safetyResult.cap);
+      const sliderSetting = new import_obsidian10.Setting(containerEl).setName("Context Window").setDesc(`Range: ${(bounds.min / 1024).toFixed(0)}k - ${(bounds.max / 1024).toFixed(0)}k tokens`);
+      sliderSetting.addSlider((slider) => {
+        slider.setLimits(bounds.min, bounds.max, 1024).setValue(currentValue).setDynamicTooltip().onChange(async (value) => {
+          this.plugin.settings.contextSliderValue = value;
+          await this.plugin.saveSettings();
+          const newWarning = getUsageWarning(value, safetyResult.cap);
+          if (statusEl) {
+            statusEl.textContent = `${(value / 1024).toFixed(0)}k tokens`;
+            statusEl.className = `context-status context-${newWarning}`;
+          }
+        });
+      });
+      const statusEl = sliderSetting.controlEl.createEl("span", {
+        cls: `context-status context-${warning}`,
+        text: `${(currentValue / 1024).toFixed(0)}k tokens`
+      });
+    }
+    const statusText = safetyResult.isBlocked ? `\u26D4 Model blocked for ${ramTier}GB RAM` : safetyResult.isVerified ? `\u2705 Safe limit: ${(safetyResult.cap / 1024).toFixed(0)}k tokens (model verified)` : `\u26A0\uFE0F Safe limit: ${(safetyResult.cap / 1024).toFixed(0)}k tokens (model unverified)`;
+    new import_obsidian10.Setting(containerEl).setName("Status").setDesc(statusText);
+    new import_obsidian10.Setting(containerEl).setName("Verify Model Context").setDesc("Query Ollama to get the model's actual context limit.").addButton((btn) => btn.setButtonText(settings.verifiedModelContextLimit ? "Re-verify" : "Verify").onClick(async () => {
+      btn.setDisabled(true);
+      btn.setButtonText("Querying...");
+      try {
+        const limit = await this.plugin.ollamaModels.getModelContextLimit(modelName);
+        if (limit !== null) {
+          this.plugin.settings.verifiedModelContextLimit = limit;
+          await this.plugin.saveSettings();
+          new import_obsidian10.Notice(`\u2705 Model context limit: ${(limit / 1024).toFixed(0)}k tokens`);
+        } else {
+          new import_obsidian10.Notice("\u26A0\uFE0F Could not determine model context limit");
+        }
+      } catch (e) {
+        new import_obsidian10.Notice("\u274C Failed to query model");
+      } finally {
+        btn.setDisabled(false);
+        btn.setButtonText("Verify");
+        this.display();
       }
     }));
   }
@@ -29793,11 +30054,39 @@ var ContextAggregator = class {
 
 ` + trimmed;
   }
+  /**
+   * Compute context budget using RAM-aware safety limits.
+   * Falls back to legacy contextTokenLimit if ramTier is not set.
+   */
   computeContextBudgetTokens() {
-    const limit = this.plugin.settings.contextTokenLimit ?? 128e3;
+    const settings = this.plugin.settings;
+    if (settings.ramTier !== void 0) {
+      const modelName = settings.relaySmartModel || "llama3.1:8b";
+      const ramTier = settings.ramTier;
+      const riskProfile = settings.riskProfile || "safe";
+      if (isModelBlocked(ramTier, modelName)) {
+        console.warn(`[ContextAggregator] Model blocked: ${getBlockedModelError(ramTier, modelName)}`);
+        return { limit: 0, reserveForOutput: 0, reserveForNonContext: 0, isBlocked: true };
+      }
+      const safetyResult = getSafeContextLimit(
+        ramTier,
+        modelName,
+        riskProfile,
+        settings.verifiedModelContextLimit ?? null,
+        settings.contextSliderValue
+      );
+      if (safetyResult.isBlocked) {
+        return { limit: 0, reserveForOutput: 0, reserveForNonContext: 0, isBlocked: true };
+      }
+      const limit2 = safetyResult.cap;
+      const reserveForOutput2 = 700;
+      const reserveForNonContext2 = 800;
+      return { limit: limit2, reserveForOutput: reserveForOutput2, reserveForNonContext: reserveForNonContext2, isBlocked: false };
+    }
+    const limit = settings.contextTokenLimit ?? 128e3;
     const reserveForOutput = Math.min(2e4, Math.max(6e3, Math.floor(limit * 0.02)));
     const reserveForNonContext = Math.min(2e4, Math.max(4e3, Math.floor(limit * 0.02)));
-    return { limit, reserveForOutput, reserveForNonContext };
+    return { limit, reserveForOutput, reserveForNonContext, isBlocked: false };
   }
   constructor(vault, plugin, vaultService) {
     this.vault = vault;
@@ -29807,8 +30096,13 @@ var ContextAggregator = class {
   async getChapterContext(retrievalQuery) {
     const settings = this.plugin.settings;
     const scTemplatePaths = [];
-    const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
-    const contextBudget = Math.max(1e3, limit - reserveForOutput - reserveForNonContext);
+    const budget = this.computeContextBudgetTokens();
+    if (budget.isBlocked) {
+      throw new Error(
+        `Model "${settings.relaySmartModel}" cannot run on ${settings.ramTier}GB RAM. Please select a smaller model or increase your RAM tier in Settings.`
+      );
+    }
+    const contextBudget = Math.max(0, budget.limit - budget.reserveForOutput - budget.reserveForNonContext);
     const retrievedLimit = Math.min(200, Math.max(24, Math.floor(contextBudget / 12e3)));
     const retrievedContext = await this.getRetrievedContext(retrievalQuery, retrievedLimit, scTemplatePaths);
     const book2Full = await this.readFile(settings.book2Path);
@@ -29828,8 +30122,13 @@ var ContextAggregator = class {
     const settings = this.plugin.settings;
     const surrounding = await this.getSurroundingContext(selectedText, 500, 500);
     const scTemplatePaths = [];
-    const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
-    const contextBudget = Math.max(1e3, limit - reserveForOutput - reserveForNonContext);
+    const budget = this.computeContextBudgetTokens();
+    if (budget.isBlocked) {
+      throw new Error(
+        `Model "${settings.relaySmartModel}" cannot run on ${settings.ramTier}GB RAM. Please select a smaller model or increase your RAM tier in Settings.`
+      );
+    }
+    const contextBudget = Math.max(0, budget.limit - budget.reserveForOutput - budget.reserveForNonContext);
     const book2Full = await this.readFile(settings.book2Path);
     const slidingWindow = this.extractWordsFromEnd(book2Full, 2e4);
     const storyBible = await this.readFile(settings.storyBiblePath);
@@ -32937,8 +33236,18 @@ var OllamaGenerationProvider = class {
    * Generates text based on a prompt and parameters.
    */
   async generate(prompt, params, signal) {
-    console.log(`[OllamaGen] \u{1F4E1} Sending request to model: ${params.model} (Temp: ${params.temperature})`);
+    console.log(`[OllamaGen] \u{1F4E1} Sending request to model: ${params.model} (Temp: ${params.temperature}, num_ctx: ${params.num_ctx || "default"})`);
     try {
+      const options = {
+        temperature: params.temperature,
+        num_predict: params.max_tokens || 2048,
+        stop: params.stop || [],
+        seed: params.seed || 42
+        // Deterministic seed
+      };
+      if (params.num_ctx && params.num_ctx > 0) {
+        options.num_ctx = params.num_ctx;
+      }
       const response = await (0, import_obsidian18.requestUrl)({
         url: `${this.baseUrl}/api/generate`,
         method: "POST",
@@ -32946,13 +33255,7 @@ var OllamaGenerationProvider = class {
           model: params.model,
           prompt,
           stream: false,
-          options: {
-            temperature: params.temperature,
-            num_predict: params.max_tokens || 2048,
-            stop: params.stop || [],
-            seed: params.seed || 42
-            // Deterministic seed
-          },
+          options,
           format: params.format === "json" ? "json" : void 0
         })
       });
@@ -32999,10 +33302,18 @@ IMPORTANT: Output ONLY a single valid JSON block. Do not include any other text 
    * Flushes complete units at punctuation or sentence-end (150-250ms throttled).
    */
   async generateStream(prompt, params, onToken, signal) {
-    console.log(`[OllamaGen] \u{1F4E1} Sending streaming request to model: ${params.model}`);
+    console.log(`[OllamaGen] \u{1F4E1} Sending streaming request to model: ${params.model} (num_ctx: ${params.num_ctx || "default"})`);
     let fullResponse = "";
     let buffer = "";
     let lastFlush = Date.now();
+    const options = {
+      temperature: params.temperature,
+      num_predict: params.max_tokens || 2048,
+      seed: params.seed || 42
+    };
+    if (params.num_ctx && params.num_ctx > 0) {
+      options.num_ctx = params.num_ctx;
+    }
     try {
       const response = await fetch(`${this.baseUrl}/api/generate`, {
         method: "POST",
@@ -33011,11 +33322,7 @@ IMPORTANT: Output ONLY a single valid JSON block. Do not include any other text 
           model: params.model,
           prompt,
           stream: true,
-          options: {
-            temperature: params.temperature,
-            num_predict: params.max_tokens || 2048,
-            seed: params.seed || 42
-          }
+          options
         }),
         signal
         // Use the abort signal here
@@ -33167,6 +33474,43 @@ var OllamaModelManager = class {
       return idLower === `${searchLower}:latest` || idLower.split(":")[0] === searchBase;
     });
     return baseMatch?.digest;
+  }
+  /**
+   * Gets the model's actual context limit from Ollama /api/show.
+   * Returns null if model is not loaded or Ollama is unreachable.
+   */
+  async getModelContextLimit(modelName) {
+    try {
+      const response = await (0, import_obsidian19.requestUrl)({
+        url: `${this.baseUrl}/api/show`,
+        method: "POST",
+        body: JSON.stringify({ name: modelName })
+      });
+      if (response.status !== 200) {
+        console.warn(`[ModelManager] /api/show returned ${response.status} for ${modelName}`);
+        return null;
+      }
+      const info = response.json;
+      const numCtx = info?.model_info?.["context_length"] || info?.model_info?.["llama.context_length"] || info?.parameters?.num_ctx || info?.details?.context_length || null;
+      if (numCtx && typeof numCtx === "number") {
+        console.log(`[ModelManager] Model ${modelName} context limit: ${numCtx}`);
+        return numCtx;
+      }
+      if (info?.template || info?.modelfile) {
+        const templateStr = info.template || info.modelfile || "";
+        const ctxMatch = templateStr.match(/num_ctx\s+(\d+)/i);
+        if (ctxMatch) {
+          const parsed = parseInt(ctxMatch[1], 10);
+          console.log(`[ModelManager] Model ${modelName} context limit (from template): ${parsed}`);
+          return parsed;
+        }
+      }
+      console.warn(`[ModelManager] Could not determine context limit for ${modelName}`);
+      return null;
+    } catch (e) {
+      console.warn(`[ModelManager] Failed to get context limit for ${modelName}:`, e);
+      return null;
+    }
   }
   /**
    * Returns the current version of the Ollama server.
@@ -35353,6 +35697,13 @@ var SequentialGenerator = class {
     const smartModel = this.plugin.settings.relaySmartModel;
     const smartProfile = this.getTaskProfile("WRITE");
     const mechanicalProfile = this.getTaskProfile("MECHANICAL");
+    const ramTier = this.plugin.settings.ramTier;
+    if (ramTier !== void 0 && isModelBlocked(ramTier, smartModel)) {
+      const errorMsg = getBlockedModelError(ramTier, smartModel);
+      this.failRun(errorMsg);
+      new import_obsidian24.Notice(`\u274C ${errorMsg}`, 8e3);
+      return;
+    }
     const ollamaVer = await this.plugin.ollamaGen.getOllamaVersion();
     if (!ollamaVer) {
       this.failRun("Ollama not reachable. Please ensure Ollama is running.");
@@ -44434,6 +44785,77 @@ ${markdownToPlainText(c.markdown || "")}
   )), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Copyright year"), /* @__PURE__ */ import_react11.default.createElement("input", { value: copyrightYear, onChange: (e) => setCopyrightYear(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Copyright holder"), /* @__PURE__ */ import_react11.default.createElement("input", { value: copyrightHolder, onChange: (e) => setCopyrightHolder(e.target.value), disabled: isExporting }))), step === 4 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Typography"), /* @__PURE__ */ import_react11.default.createElement("p", null, "Default styling uses Literata if available on the reader device. You can embed your own font files to guarantee the look."), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("label", null, /* @__PURE__ */ import_react11.default.createElement("input", { type: "checkbox", checked: embedFonts, onChange: (e) => setEmbedFonts(e.target.checked), disabled: isExporting }), "Embed custom fonts")), embedFonts && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Regular (required)"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontRegular, onChange: (e) => setFontRegular(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontRegular(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Bold"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontBold, onChange: (e) => setFontBold(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBold(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Italic"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontItalic, onChange: (e) => setFontItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontItalic(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Bold italic"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontBoldItalic, onChange: (e) => setFontBoldItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBoldItalic(f.path)), disabled: isExporting }, "Browse"))))), step === 5 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Output"), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Format"), /* @__PURE__ */ import_react11.default.createElement("select", { value: outputFormat, onChange: (e) => setOutputFormat(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react11.default.createElement("option", { value: "epub" }, "Epub"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "docx" }, "Docx"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "rtf" }, "Rtf"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "copy" }, "Plain text"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Export subset"), /* @__PURE__ */ import_react11.default.createElement("select", { value: subsetMode, onChange: (e) => setSubsetMode(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react11.default.createElement("option", { value: "all" }, "All chapters"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "first-chapters" }, "First N chapters"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "first-words" }, "First N words"))), subsetMode === "first-chapters" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Chapters"), /* @__PURE__ */ import_react11.default.createElement("input", { value: subsetChaptersCount, onChange: (e) => setSubsetChaptersCount(e.target.value), disabled: isExporting })), subsetMode === "first-words" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Words"), /* @__PURE__ */ import_react11.default.createElement("input", { value: subsetWordsCount, onChange: (e) => setSubsetWordsCount(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Folder"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: outputFolder, onChange: (e) => setOutputFolder(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFolder((f) => setOutputFolder(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "File name"), /* @__PURE__ */ import_react11.default.createElement("input", { value: outputFileName, onChange: (e) => setOutputFileName(e.target.value), disabled: isExporting }))), step === 6 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Export"), /* @__PURE__ */ import_react11.default.createElement("p", null, "When you click Export, the plugin will compile your notes and write the output into your vault."), progress && /* @__PURE__ */ import_react11.default.createElement("div", { className: "generation-status" }, progress), error2 && /* @__PURE__ */ import_react11.default.createElement("div", { className: "error-message" }, "\u274C ", error2)), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 16 } }, /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("button", { onClick: onClose, className: "mod-secondary", disabled: isExporting }, "Close")), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ import_react11.default.createElement("button", { onClick: goBack, disabled: isExporting || step === 1 }, "Back"), step < 6 && /* @__PURE__ */ import_react11.default.createElement("button", { onClick: goNext, disabled: isExporting || !canNext, className: "mod-cta" }, "Next"), step === 6 && /* @__PURE__ */ import_react11.default.createElement("button", { onClick: doExport, disabled: isExporting, className: "mod-cta" }, "Export"))));
 };
 
+// ui/RamTierModal.ts
+var import_obsidian32 = require("obsidian");
+var RamTierModal = class extends import_obsidian32.Modal {
+  constructor(app, plugin, onComplete) {
+    super(app);
+    this.selectedTier = 32;
+    this.plugin = plugin;
+    this.onComplete = onComplete;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("ram-tier-modal");
+    contentEl.createEl("h2", { text: "Welcome to GWriter" });
+    const desc = contentEl.createDiv({ cls: "ram-tier-description" });
+    desc.createEl("p", {
+      text: "To prevent system freezes, GWriter needs to know how much RAM your machine has."
+    });
+    desc.createEl("p", {
+      text: "This helps us set safe context limits for AI generation. You can change this later in Settings.",
+      cls: "setting-item-description"
+    });
+    new import_obsidian32.Setting(contentEl).setName("How much RAM does this machine have?").setDesc("Select the closest option. When in doubt, choose lower.").addDropdown((dropdown) => {
+      const tierLabels = {
+        8: "8 GB (entry-level)",
+        16: "16 GB (standard)",
+        24: "24 GB (power user)",
+        32: "32 GB (workstation)",
+        64: "64 GB (high-end)",
+        128: "128 GB+ (professional)"
+      };
+      for (const tier of RAM_TIERS) {
+        dropdown.addOption(String(tier), tierLabels[tier]);
+      }
+      dropdown.setValue(String(this.selectedTier));
+      dropdown.onChange((value) => {
+        this.selectedTier = parseInt(value);
+      });
+    });
+    const infoBox = contentEl.createDiv({ cls: "ram-tier-info" });
+    infoBox.createEl("strong", { text: "Why does this matter?" });
+    infoBox.createEl("p", {
+      text: 'Large language models need RAM for both their weights and their "working memory" (context window). A 70B model at 128k context needs 100GB+ RAM. If we try to use more than your machine has, it will freeze.',
+      cls: "setting-item-description"
+    });
+    const buttonContainer = contentEl.createDiv({ cls: "ram-tier-buttons" });
+    const confirmBtn = buttonContainer.createEl("button", {
+      text: "Continue",
+      cls: "mod-cta"
+    });
+    confirmBtn.addEventListener("click", async () => {
+      await this.saveAndClose();
+    });
+  }
+  async saveAndClose() {
+    this.plugin.settings.ramTier = this.selectedTier;
+    if (!this.plugin.settings.riskProfile) {
+      this.plugin.settings.riskProfile = "safe";
+    }
+    await this.plugin.saveSettings();
+    if (this.onComplete) {
+      this.onComplete(this.selectedTier);
+    }
+    this.close();
+  }
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+};
+
 // main.ts
 var DEFAULT_MODE_STATE = {
   chapter: {
@@ -44461,7 +44883,7 @@ var DEFAULT_MODE_STATE = {
     }
   }
 };
-var WritingDashboardPlugin = class extends import_obsidian32.Plugin {
+var WritingDashboardPlugin = class extends import_obsidian33.Plugin {
   constructor() {
     super(...arguments);
     this.guidedDemoStartRequested = false;
@@ -44469,6 +44891,18 @@ var WritingDashboardPlugin = class extends import_obsidian32.Plugin {
   }
   async onload() {
     await this.loadSettings();
+    if (typeof process !== "undefined" && true) {
+      try {
+        runInvariantChecks();
+      } catch (e) {
+        console.error("[WritingDashboard] Context safety invariant failed:", e);
+      }
+    }
+    if (this.settings.ramTier === void 0) {
+      this.app.workspace.onLayoutReady(() => {
+        new RamTierModal(this.app, this).open();
+      });
+    }
     this.vaultService = new VaultService(this.app.vault, this);
     this.contextAggregator = new ContextAggregator(this.app.vault, this, this.vaultService);
     this.promptEngine = new PromptEngine();
@@ -44639,7 +45073,14 @@ var WritingDashboardPlugin = class extends import_obsidian32.Plugin {
         helpDensity: "LITE",
         verifiedModelsCatalog: [],
         embeddingStorageMode: "isolated",
-        manualSharedPath: ""
+        manualSharedPath: "",
+        // RAM-Aware Context Control - defaults
+        ramTier: void 0,
+        // Triggers first-run modal
+        riskProfile: "safe",
+        contextSliderValue: void 0,
+        // Uses derived max
+        verifiedModelContextLimit: void 0
       },
       loaded
     );

@@ -53,6 +53,7 @@ import { RunPaths } from './RunPaths';
 import { CloudRelay, WriteChapterInput, EditChapterInput } from './CloudRelay';
 import { ContextPacker } from './ContextPacker';
 import { estimateTokens } from './TokenEstimate';
+import { isModelBlocked, getBlockedModelError, RamTier } from './ContextSafety';
 
 /**
  * SequentialGenerator is the "Brain" of the relay drafting race.
@@ -145,6 +146,15 @@ export class SequentialGenerator {
         const smartModel = this.plugin.settings.relaySmartModel;
         const smartProfile = this.getTaskProfile('WRITE');
         const mechanicalProfile = this.getTaskProfile('MECHANICAL');
+        
+        // 0. RAM-aware safety check: Block generation if model cannot run on this RAM tier
+        const ramTier = this.plugin.settings.ramTier as RamTier | undefined;
+        if (ramTier !== undefined && isModelBlocked(ramTier, smartModel)) {
+            const errorMsg = getBlockedModelError(ramTier, smartModel);
+            this.failRun(errorMsg);
+            new Notice(`❌ ${errorMsg}`, 8000);
+            return;
+        }
         
         // 1. Pre-flight checks
         const ollamaVer = await this.plugin.ollamaGen.getOllamaVersion();

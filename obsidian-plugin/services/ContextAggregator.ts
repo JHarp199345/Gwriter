@@ -3,6 +3,7 @@ import WritingDashboardPlugin from '../main';
 import { Context } from './PromptEngine';
 import type { ContextItem, RetrievalQuery } from './retrieval/types';
 import { VaultService } from './VaultService';
+import { getSafeContextLimit, isModelBlocked, getBlockedModelError, RamTier } from './ContextSafety';
 
 export class ContextAggregator {
 	private vault: Vault;
@@ -36,13 +37,55 @@ export class ContextAggregator {
 		);
 	}
 
-	private computeContextBudgetTokens(): { limit: number; reserveForOutput: number; reserveForNonContext: number } {
-		const limit = this.plugin.settings.contextTokenLimit ?? 128000;
-		// Reserve space for: prompt scaffolding + user inputs + output.
-		// Keep output reservation large enough to avoid Gemini "MAX_TOKENS with empty text" cases.
+	/**
+	 * Compute context budget using RAM-aware safety limits.
+	 * Falls back to legacy contextTokenLimit if ramTier is not set.
+	 */
+	private computeContextBudgetTokens(): { limit: number; reserveForOutput: number; reserveForNonContext: number; isBlocked: boolean } {
+		const settings = this.plugin.settings;
+		
+		// If RAM tier is set, use the RAM-aware safety system
+		if (settings.ramTier !== undefined) {
+			const modelName = settings.relaySmartModel || 'llama3.1:8b';
+			const ramTier = settings.ramTier as RamTier;
+			const riskProfile = settings.riskProfile || 'safe';
+			
+			// Check if model is blocked for this RAM tier
+			if (isModelBlocked(ramTier, modelName)) {
+				console.warn(`[ContextAggregator] Model blocked: ${getBlockedModelError(ramTier, modelName)}`);
+				return { limit: 0, reserveForOutput: 0, reserveForNonContext: 0, isBlocked: true };
+			}
+			
+			// Get safe context limit from the safety system
+			const safetyResult = getSafeContextLimit(
+				ramTier,
+				modelName,
+				riskProfile,
+				settings.verifiedModelContextLimit ?? null,
+				settings.contextSliderValue
+			);
+			
+			if (safetyResult.isBlocked) {
+				return { limit: 0, reserveForOutput: 0, reserveForNonContext: 0, isBlocked: true };
+			}
+			
+			const limit = safetyResult.cap;
+			
+			// Fixed reserves for multi-segment generation:
+			// - 700 tokens for ~500 word output per segment
+			// - 500 tokens for pinned context (style guide, lock map)
+			// - 300 tokens for buffer/overhead
+			const reserveForOutput = 700;
+			const reserveForNonContext = 800; // pinned + buffer
+			
+			return { limit, reserveForOutput, reserveForNonContext, isBlocked: false };
+		}
+		
+		// Legacy fallback: use hardcoded contextTokenLimit
+		const limit = settings.contextTokenLimit ?? 128000;
 		const reserveForOutput = Math.min(20000, Math.max(6000, Math.floor(limit * 0.02)));
 		const reserveForNonContext = Math.min(20000, Math.max(4000, Math.floor(limit * 0.02)));
-		return { limit, reserveForOutput, reserveForNonContext };
+		return { limit, reserveForOutput, reserveForNonContext, isBlocked: false };
 	}
 
 	constructor(vault: Vault, plugin: WritingDashboardPlugin, vaultService: VaultService) {
@@ -57,9 +100,19 @@ export class ContextAggregator {
 		// Smart Connections integration is disabled. Leaving empty avoids any SC prompts or captures.
 		const scTemplatePaths: string[] = [];
 		
-		// Budget context dynamically based on the configured contextTokenLimit.
-		const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
-		const contextBudget = Math.max(1000, limit - reserveForOutput - reserveForNonContext);
+		// Budget context dynamically based on RAM-aware safety limits.
+		const budget = this.computeContextBudgetTokens();
+		
+		// Check if model is blocked for this RAM tier
+		if (budget.isBlocked) {
+			throw new Error(
+				`Model "${settings.relaySmartModel}" cannot run on ${settings.ramTier}GB RAM. ` +
+				`Please select a smaller model or increase your RAM tier in Settings.`
+			);
+		}
+		
+		// Defensive clamping: ensure budget is never negative
+		const contextBudget = Math.max(0, budget.limit - budget.reserveForOutput - budget.reserveForNonContext);
 
 		// More available tokens => more retrieved chunks to include.
 		const retrievedLimit = Math.min(200, Math.max(24, Math.floor(contextBudget / 12000)));
@@ -93,9 +146,19 @@ export class ContextAggregator {
 		// Smart Connections template integration is disabled by default.
 		const scTemplatePaths: string[] = [];
 		
-		// Budget context dynamically based on the configured contextTokenLimit.
-		const { limit, reserveForOutput, reserveForNonContext } = this.computeContextBudgetTokens();
-		const contextBudget = Math.max(1000, limit - reserveForOutput - reserveForNonContext);
+		// Budget context dynamically based on RAM-aware safety limits.
+		const budget = this.computeContextBudgetTokens();
+		
+		// Check if model is blocked for this RAM tier
+		if (budget.isBlocked) {
+			throw new Error(
+				`Model "${settings.relaySmartModel}" cannot run on ${settings.ramTier}GB RAM. ` +
+				`Please select a smaller model or increase your RAM tier in Settings.`
+			);
+		}
+		
+		// Defensive clamping: ensure budget is never negative
+		const contextBudget = Math.max(0, budget.limit - budget.reserveForOutput - budget.reserveForNonContext);
 
 		// Read book file only to extract sliding window (last 20k words), not full context
 		// Sliding window is automatically extracted from book2Path by the plugin
