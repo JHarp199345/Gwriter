@@ -11,17 +11,29 @@ export const DirectorNotes: React.FC<{
 }> = ({ value, onChange, mode, onResetToDefault }) => {
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	
-	const placeholder = mode === 'chapter' 
-		? 'Enter your rewrite instructions...'
-		: mode === 'micro-edit'
-		? `[Example: Character 1 has no knowledge of Event 1 yet, so they should not reference it here. Edit accordingly.]\n\n` +
-		  `More examples:\n` +
-		  `- Fix continuity (injury, timeline, locations)\n` +
-		  `- Fix POV leaks\n` +
-		  `- Match tone/voice to the surrounding context\n` +
-		  `- Tighten pacing / remove repetition\n` +
-		  `- Preserve canon; do not add new facts`
-		: 'Enter extraction instructions (optional). If empty, the default in settings is used.';
+	let placeholder: string;
+	if (mode === 'chapter') {
+		placeholder = 'Enter your rewrite instructions...';
+	} else if (mode === 'micro-edit') {
+		placeholder =
+			`[Example: Character 1 has no knowledge of Event 1 yet, so they should not reference it here. Edit accordingly.]\n\n` +
+			`More examples:\n` +
+			`- Fix continuity (injury, timeline, locations)\n` +
+			`- Fix POV leaks\n` +
+			`- Match tone/voice to the surrounding context\n` +
+			`- Tighten pacing / remove repetition\n` +
+			`- Preserve canon; do not add new facts`;
+	} else {
+		placeholder = 'Enter extraction instructions (optional). If empty, the default in settings is used.';
+	}
+	let directivesLabel: string;
+	if (mode === 'chapter') {
+		directivesLabel = 'Rewrite instructions:';
+	} else if (mode === 'micro-edit') {
+		directivesLabel = 'Grievances and directives:';
+	} else {
+		directivesLabel = 'Extraction instructions:';
+	}
 
 	const wordCount = TextChunker.getWordCount(value || '');
 	const charCount = (value || '').length;
@@ -29,13 +41,7 @@ export const DirectorNotes: React.FC<{
 	return (
 		<div className="director-notes">
 			<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-				<label>
-					{mode === 'chapter'
-						? 'Rewrite instructions:'
-						: mode === 'micro-edit'
-						? 'Grievances and directives:'
-						: 'Extraction instructions:'}
-				</label>
+				<label>{directivesLabel}</label>
 				<div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
 					<span className="generation-status" style={{ margin: 0 }}>
 						{wordCount.toLocaleString()} words / {charCount.toLocaleString()} chars

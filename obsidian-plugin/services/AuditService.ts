@@ -144,7 +144,7 @@ export class AuditService {
      */
     private getNarrationSpans(text: string): { text: string, start: number }[] {
         const spans: { text: string, start: number }[] = [];
-        const dialogueRegex = /["“].*?["”]|['‘].*?['’]|—.*$/gm;
+        const dialogueRegex = /["“].*?["”]|['‘].*?['’]|(?:—.*$)/gm;
         
         let lastIndex = 0;
         let match;

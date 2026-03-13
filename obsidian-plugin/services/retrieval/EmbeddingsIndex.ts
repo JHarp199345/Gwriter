@@ -863,7 +863,7 @@ export class EmbeddingsIndex {
 	async getCorpusHash(): Promise<string> {
 		const chunks = this.getAllChunks();
 		const lines = chunks.map(c => `${c.key}:${c.textHash}`);
-		lines.sort();
+		lines.sort((a, b) => a.localeCompare(b));
 		const joined = lines.join('\n');
 		return await sha256(joined);
 	}

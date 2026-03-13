@@ -278,8 +278,8 @@ export class CpuReranker {
 			}
 
 			// Merge rerank score into final ordering; keep original score as secondary signal.
-			const out = scored
-				.sort((a, b) => b.score - a.score || b.item.score - a.item.score)
+			scored.sort((a, b) => b.score - a.score || b.item.score - a.item.score);
+		const out = scored
 				.slice(0, limit)
 				.map((s) => ({
 					...s.item,

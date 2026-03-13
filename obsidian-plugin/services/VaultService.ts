@@ -175,15 +175,13 @@ export class VaultService {
 					const wasCreated = await this.createFileIfNotExists(chunkFilePath, chunks[i]);
 					if (wasCreated) created++;
 				}
-			} else {
-				// Create chunk file only if it doesn't already exist
-				if (existing instanceof TFile) {
-					skipped++;
-				} else {
-					const wasCreated = await this.createFileIfNotExists(chunkFilePath, chunks[i]);
-					if (wasCreated) created++;
-				}
-			}
+		} else if (existing instanceof TFile) {
+			// Chunk file already exists
+			skipped++;
+		} else {
+			const wasCreated = await this.createFileIfNotExists(chunkFilePath, chunks[i]);
+			if (wasCreated) created++;
+		}
 			filePaths.push(chunkFilePath);
 		}
 
@@ -538,7 +536,8 @@ export class VaultService {
 				updatedContent = updatedContent.substring(0, headerIndex) + newSectionContent + '\n' + updatedContent.substring(nextHeaderIndex);
 			} else {
 				// Section doesn't exist, append to end
-				updatedContent += `\n\n## ${sectionName}\n${newBullets.sort().join('\n')}\n`;
+				const sortedBullets = [...newBullets].sort((a, b) => a.localeCompare(b));
+			updatedContent += `\n\n## ${sectionName}\n${sortedBullets.join('\n')}\n`;
 			}
 		}
 

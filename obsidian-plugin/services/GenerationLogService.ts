@@ -84,7 +84,7 @@ export class GenerationLogService {
 		const path = `${folder}/${fileName}`.replace(/\/+/g, '/');
 
 		const inputsLines = Object.entries(params.userInputs)
-			.map(([k, v]) => `- ${k}: ${v ? `${v.length} chars` : '0 chars'}`)
+			.map(([k, v]) => `- ${k}: ${v ? v.length + ' chars' : '0 chars'}`)
 			.join('\n');
 
 		const body =

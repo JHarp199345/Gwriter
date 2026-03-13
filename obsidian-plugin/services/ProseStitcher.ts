@@ -31,7 +31,7 @@ export class ProseStitcher {
         const predicate = (fact.attribute || '').toLowerCase().trim();
         const value = typeof fact.value === 'string' ? fact.value.toLowerCase().trim() : fact.value;
         // Normalize quotes/dashes if they were strings
-        const normValue = typeof value === 'string' ? value.replace(/[""']/g, '"').replace(/[–—]/g, '-') : value;
+        const normValue = typeof value === 'string' ? value.replace(/["']/g, '"').replace(/[–—]/g, '-') : value;
         
         return JSON.stringify({ 
             entityId: fact.entityId, 

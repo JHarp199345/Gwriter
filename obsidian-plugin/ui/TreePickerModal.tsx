@@ -70,15 +70,20 @@ export const TreePickerComponent: React.FC<{
 	filter?: (node: Node) => boolean;
 }> = ({ plugin, initialSelection, mode, onSubmit, onClose, filter }) => {
 	const [nodes, setNodes] = useState<Node[]>([]);
+	const normalizeSelection = (sel: string | string[] | undefined): string[] => {
+		if (Array.isArray(sel)) return sel;
+		if (sel) return [sel];
+		return [];
+	};
 	const [selected, setSelected] = useState<Set<string>>(() => {
 		const init = new Set<string>();
-		const list = Array.isArray(initialSelection) ? initialSelection : initialSelection ? [initialSelection] : [];
+		const list = normalizeSelection(initialSelection);
 		for (const p of list) init.add(p.replace(/\\/g, '/'));
 		return init;
 	});
 	const [expanded, setExpanded] = useState<Set<string>>(() => {
 		const exp = new Set<string>(['']);
-		const list = Array.isArray(initialSelection) ? initialSelection : initialSelection ? [initialSelection] : [];
+		const list = normalizeSelection(initialSelection);
 		for (const p of list) {
 			const parts = p.split('/');
 			for (let i = 1; i < parts.length; i++) {
@@ -172,7 +177,7 @@ export const TreePickerComponent: React.FC<{
 
 	const handleSubmit = () => {
 		const value = mode === 'single' ? Array.from(selected)[0] || '' : Array.from(selected);
-		void onSubmit(value);
+		onSubmit(value);
 		onClose();
 	};
 

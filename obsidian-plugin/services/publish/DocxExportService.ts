@@ -31,10 +31,7 @@ function ensureDocxExt(name: string): string {
 function wPara(text: string, opts?: { heading?: boolean; center?: boolean }): string {
 	const runs = escapeXml(text || '')
 		.split(/\r?\n/)
-		.map((line) => {
-			const t = line || '';
-			return `<w:r><w:t xml:space="preserve">${escapeXml(t)}</w:t></w:r>`;
-		})
+		.map((line = '') => `<w:r><w:t xml:space="preserve">${escapeXml(line)}</w:t></w:r>`)
 		.join('');
 
 	const pPr: string[] = [];

@@ -24,20 +24,24 @@ export class TextChunker {
 				// Try to find a sentence boundary (period, exclamation, question mark)
 				// Look ahead up to 50 words to find a good break point
 				let foundBreak = false;
+				let breakAt = -1;
 				for (let j = i + 1; j < Math.min(i + 50, words.length); j++) {
 					// Check if previous word ended with sentence punctuation
 					if (j > 0 && /[.!?]$/.test(words[j - 1])) {
-						// Found a sentence boundary, break here
-						const chunkText = currentChunk.join(' ');
-						if (chunkText.trim()) {
-							chunks.push(chunkText.trim());
-						}
-						currentChunk = [];
-						currentWordCount = 0;
-						foundBreak = true;
-						i = j - 1; // Adjust i to account for words we've already processed
+						breakAt = j - 1;
 						break;
 					}
+				}
+				if (breakAt >= 0) {
+					// Found a sentence boundary, break here
+					const chunkText = currentChunk.join(' ');
+					if (chunkText.trim()) {
+						chunks.push(chunkText.trim());
+					}
+					currentChunk = [];
+					currentWordCount = 0;
+					foundBreak = true;
+					i = breakAt; // Advance to the boundary position
 				}
 				
 				// If no sentence boundary found, break at current position

@@ -527,7 +527,7 @@ export class ContextManager {
         // Filter out items that have exceeded their sticky lifetime
         const candidates = results.filter(r => (this.stickyCount[r.id] || 0) < policy.MAX_STICKY_LIFETIME);
 
-        const rotated = candidates
+        const rotated = [...candidates]
             .sort((a, b) => {
                 if (b.score !== a.score) return b.score - a.score;
                 return a.id.localeCompare(b.id);

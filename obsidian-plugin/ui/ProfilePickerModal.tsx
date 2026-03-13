@@ -24,7 +24,10 @@ export class ProfilePickerModal extends Modal {
 				initialSelection: this.plugin.settings.retrievalIncludedFolders || [],
 				mode: 'multi',
 				onSubmit: async (value: string | string[]) => {
-					const list = Array.isArray(value) ? value : value ? [value] : [];
+					let list: string[];
+				if (Array.isArray(value)) list = value;
+				else if (value) list = [value];
+				else list = [];
 					this.plugin.settings.retrievalIncludedFolders = list;
 					this.plugin.settings.retrievalActiveProfileId = undefined;
 					await this.plugin.saveSettings();

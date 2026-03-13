@@ -148,7 +148,7 @@ export class OllamaGenerationProvider {
             }
 
             const result = response.json;
-            if (!result || !result.response) {
+            if (!result?.response) {
                 throw new Error('Invalid response format from Ollama.');
             }
 

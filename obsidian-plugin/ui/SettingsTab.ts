@@ -386,20 +386,17 @@ export class SettingsTab extends PluginSettingTab {
 							} else {
 								new Notice('Model already in catalog.');
 							}
-						} else {
-							// Allow adding if it looks like a valid model name, even if not yet seen in tags
-							if (normalizedId.length > 2) {
-								const catalog = this.plugin.settings.verifiedModelsCatalog || [];
-								if (!catalog.includes(normalizedId)) {
-									this.plugin.settings.verifiedModelsCatalog = [...catalog, normalizedId];
-									await this.plugin.saveSettings();
-									new Notice(`⚠️ Added '${normalizedId}' to catalog (not yet seen in your library).`);
-									this.display();
-								}
-							} else {
-								new Notice(`❌ Invalid model name: ${normalizedId}`);
+					} else if (normalizedId.length > 2) {
+							const catalog = this.plugin.settings.verifiedModelsCatalog || [];
+							if (!catalog.includes(normalizedId)) {
+								this.plugin.settings.verifiedModelsCatalog = [...catalog, normalizedId];
+								await this.plugin.saveSettings();
+								new Notice(`⚠️ Added '${normalizedId}' to catalog (not yet seen in your library).`);
+								this.display();
 							}
-						}
+					} else {
+						new Notice(`❌ Invalid model name: ${normalizedId}`);
+					}
 				} catch (e) {
 					new Notice(`❌ Verification failed: ${e instanceof Error ? e.message : String(e)}`);
 					} finally {
@@ -488,7 +485,7 @@ export class SettingsTab extends PluginSettingTab {
 		const status = this.plugin.embeddingsIndex.getStatus();
 		const statusEl = containerEl.createEl('div', { 
 			cls: 'setting-item-description',
-			text: `📊 Index Status: ${status.indexedChunks} chunks across ${status.indexedFiles} files${status.queued > 0 ? ` | Queued: ${status.queued}` : ''}`
+			text: `📊 Index Status: ${status.indexedChunks} chunks across ${status.indexedFiles} files` + (status.queued > 0 ? ` | Queued: ${status.queued}` : '')
 		});
 		statusEl.style.marginBottom = '10px';
 		statusEl.style.padding = '8px';
@@ -672,8 +669,11 @@ export class SettingsTab extends PluginSettingTab {
 					});
 				});
 
-			const provider = this.plugin.settings.externalEmbeddingProvider ?? 'openai';
-			const defaultModel = provider === 'openai' ? 'text-embedding-3-small' : provider === 'cohere' ? 'embed-english-v3.0' : provider === 'google' ? 'gemini-embedding-001' : '';
+		const provider = this.plugin.settings.externalEmbeddingProvider ?? 'openai';
+		let defaultModel = '';
+		if (provider === 'openai') defaultModel = 'text-embedding-3-small';
+		else if (provider === 'cohere') defaultModel = 'embed-english-v3.0';
+		else if (provider === 'google') defaultModel = 'gemini-embedding-001';
 
 			new Setting(containerEl)
 				.setName('External embedding model')
@@ -725,31 +725,24 @@ export class SettingsTab extends PluginSettingTab {
 						try {
 							// Simple test: try to get an embedding for a test query
 							const testQuery = 'test';
-							const response = await fetch(
-								provider === 'openai'
-									? 'https://api.openai.com/v1/embeddings'
-									: provider === 'cohere'
-									? 'https://api.cohere.ai/v1/embed'
-									: provider === 'google'
-									? `https://generativelanguage.googleapis.com/v1beta/models/${this.plugin.settings.externalEmbeddingModel || 'gemini-embedding-001'}:embedContent?key=${this.plugin.settings.externalEmbeddingApiKey}`
-									: this.plugin.settings.externalEmbeddingApiUrl || '',
-								{
-									method: 'POST',
-									headers: {
-										'Content-Type': 'application/json',
-										...(provider !== 'google' && provider !== 'custom' ? { Authorization: `Bearer ${this.plugin.settings.externalEmbeddingApiKey}` } : {})
-									},
-									body: JSON.stringify(
-										provider === 'openai'
-											? { model: this.plugin.settings.externalEmbeddingModel || 'text-embedding-3-small', input: testQuery }
-											: provider === 'cohere'
-											? { model: this.plugin.settings.externalEmbeddingModel || 'embed-english-v3.0', texts: [testQuery] }
-											: provider === 'google'
-											? { content: { parts: [{ text: testQuery }] } }
-											: { text: testQuery }
-									)
-								}
-							);
+							let testUrl: string;
+							if (provider === 'openai') testUrl = 'https://api.openai.com/v1/embeddings';
+							else if (provider === 'cohere') testUrl = 'https://api.cohere.ai/v1/embed';
+							else if (provider === 'google') testUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.plugin.settings.externalEmbeddingModel || 'gemini-embedding-001'}:embedContent?key=${this.plugin.settings.externalEmbeddingApiKey}`;
+							else testUrl = this.plugin.settings.externalEmbeddingApiUrl || '';
+							let testBody: object;
+							if (provider === 'openai') testBody = { model: this.plugin.settings.externalEmbeddingModel || 'text-embedding-3-small', input: testQuery };
+							else if (provider === 'cohere') testBody = { model: this.plugin.settings.externalEmbeddingModel || 'embed-english-v3.0', texts: [testQuery] };
+							else if (provider === 'google') testBody = { content: { parts: [{ text: testQuery }] } };
+							else testBody = { text: testQuery };
+							const response = await fetch(testUrl, {
+								method: 'POST',
+								headers: {
+									'Content-Type': 'application/json',
+									...(provider !== 'google' && provider !== 'custom' ? { Authorization: `Bearer ${this.plugin.settings.externalEmbeddingApiKey}` } : {})
+								},
+								body: JSON.stringify(testBody)
+							});
 							if (response.ok) {
 								new Notice('External embedding API connection successful!', 3000);
 							} else {
@@ -1299,11 +1292,14 @@ export class SettingsTab extends PluginSettingTab {
 		}
 
 		// Status display
-		const statusText = safetyResult.isBlocked 
-			? `⛔ Model blocked for ${ramTier}GB RAM`
-			: safetyResult.isVerified
-				? `✅ Safe limit: ${(safetyResult.cap / 1024).toFixed(0)}k tokens (model verified)`
-				: `⚠️ Safe limit: ${(safetyResult.cap / 1024).toFixed(0)}k tokens (model unverified)`;
+		let statusText: string;
+		if (safetyResult.isBlocked) {
+			statusText = `⛔ Model blocked for ${ramTier}GB RAM`;
+		} else if (safetyResult.isVerified) {
+			statusText = `✅ Safe limit: ${(safetyResult.cap / 1024).toFixed(0)}k tokens (model verified)`;
+		} else {
+			statusText = `⚠️ Safe limit: ${(safetyResult.cap / 1024).toFixed(0)}k tokens (model unverified)`;
+		}
 
 		new Setting(containerEl)
 			.setName('Status')

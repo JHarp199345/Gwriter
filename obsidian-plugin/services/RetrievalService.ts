@@ -187,7 +187,8 @@ export class RetrievalService {
 			}
 		}
 
-		return diverse.sort((a, b) => b.score - a.score).slice(0, limit);
+		diverse.sort((a, b) => b.score - a.score);
+		return diverse.slice(0, limit);
 	}
 }
 

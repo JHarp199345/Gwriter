@@ -61,7 +61,7 @@ export class LoreHarvestService {
 
                 if (result && typeof result === 'string') {
                     const parsed = JSON.parse(result);
-                    if (parsed && parsed.candidates) {
+                    if (parsed?.candidates) {
                         for (const c of parsed.candidates) {
                         const harvestId = `harvest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
                         const proposedFact: CanonFact = {
@@ -87,7 +87,7 @@ export class LoreHarvestService {
                             if (text.length <= maxLen) return text;
                             let trimmed = text.slice(-maxLen);
                             // Expand backward to nearest whitespace/punctuation
-                            const match = trimmed.match(/^[\s\.,;:!?]*/);
+                            const match = trimmed.match(/^[\s.,;:!?]*/);
                             if (match) {
                                 const prefix = match[0];
                                 trimmed = text.slice(-maxLen + prefix.length);

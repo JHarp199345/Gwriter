@@ -25,23 +25,17 @@ export const EditorPanel: React.FC<{
 	const outputWords = TextChunker.getWordCount(generatedText || '');
 	const outputChars = (generatedText || '').length;
 
-	const selectedLabel =
-		mode === 'chapter'
-			? 'Scene summary / directions:'
-			: mode === 'micro-edit'
-			? 'Selected passage:'
-			: mode === 'character-update'
-			? 'Selected text (for character update):'
-			: 'Draft to check:';
+	let selectedLabel: string;
+	if (mode === 'chapter') selectedLabel = 'Scene summary / directions:';
+	else if (mode === 'micro-edit') selectedLabel = 'Selected passage:';
+	else if (mode === 'character-update') selectedLabel = 'Selected text (for character update):';
+	else selectedLabel = 'Draft to check:';
 
-	const selectedPlaceholder =
-		mode === 'chapter'
-			? 'Write a rough summary of the scene you want (beats, directions, key dialogue notes, etc.)...'
-			: mode === 'micro-edit'
-			? 'Paste the passage you want revised...'
-			: mode === 'character-update'
-			? 'Paste selected text here for character extraction...'
-			: 'Paste the draft you want checked for continuity...';
+	let selectedPlaceholder: string;
+	if (mode === 'chapter') selectedPlaceholder = 'Write a rough summary of the scene you want (beats, directions, key dialogue notes, etc.)...';
+	else if (mode === 'micro-edit') selectedPlaceholder = 'Paste the passage you want revised...';
+	else if (mode === 'character-update') selectedPlaceholder = 'Paste selected text here for character extraction...';
+	else selectedPlaceholder = 'Paste the draft you want checked for continuity...';
 
 	const getParaClass = (para: any) => {
 		const classes = [];
@@ -57,6 +51,12 @@ export const EditorPanel: React.FC<{
 			classes.push('para-user-dirty');
 		}
 		return classes.join(' ');
+	};
+
+	const getGroundingMode = (para: any): string => {
+		if (para.metadata?.isSpeculative) return 'Creative/Lite';
+		if (para.metadata) return 'Grounded';
+		return 'Inferred';
 	};
 
 	const getParaIcon = (para: any) => {
@@ -161,10 +161,10 @@ export const EditorPanel: React.FC<{
 											width: '300px',
 											boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
 										}}>
-											{debugMode === 'summary' ? (
-												<>
-													<strong>Grounding Explanation</strong>
-													<div>Mode: {para.metadata?.isSpeculative ? 'Creative/Lite' : (para.metadata ? 'Grounded' : 'Inferred')}</div>
+								{debugMode === 'summary' ? (
+										<>
+											<strong>Grounding Explanation</strong>
+											<div>Mode: {getGroundingMode(para)}</div>
 													<div>Facts: {para.metadata?.factIds?.length || 0}</div>
 													<div>Goals: {para.metadata?.goalIds?.length || 0}</div>
 													{para.metadata?.sourceChunkIds && (

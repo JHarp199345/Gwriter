@@ -27,7 +27,8 @@ export function fuseRrf(batches: ProviderBatch[], opts?: { k?: number; limit?: n
 		const sorted = (batch.items || []).slice().sort((a, b) => b.score - a.score);
 		for (let i = 0; i < sorted.length; i++) {
 			const it = sorted[i];
-			const key = it.key || `${it.path}${it.anchor ? `#${it.anchor}` : ''}`;
+			const anchorSuffix = it.anchor ? '#' + it.anchor : '';
+		const key = it.key || `${it.path}${anchorSuffix}`;
 			const add = 1 / (k + (i + 1));
 			const existing = acc.get(key);
 			if (!existing) {

@@ -108,6 +108,7 @@ export interface ContextPack {
         relevanceScore: number;
         intentHardness?: 'HARD' | 'SOFT';
     }>;
+    droppedItems?: Array<{ id: string; reason: string; score: number }>;
     tokenEstimate: {
         lockMap: number;
         state: number;

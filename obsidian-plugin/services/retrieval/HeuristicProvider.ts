@@ -158,7 +158,8 @@ export class HeuristicProvider implements RetrievalProvider {
 			});
 		}
 
-		const finalResults = results.sort((a, b) => b.score - a.score).slice(0, opts.limit);
+		results.sort((a, b) => b.score - a.score);
+		const finalResults = results.slice(0, opts.limit);
 		this.cache.set(cacheKey, { at: Date.now(), results: finalResults });
 		return finalResults;
 	}

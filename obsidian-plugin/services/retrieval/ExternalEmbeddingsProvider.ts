@@ -164,14 +164,15 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 			// Check for 429 specifically
 			if (response.status === 429) {
 				const retryAfter = response.headers['retry-after'] || response.headers['Retry-After'];
-				throw new Error(`OpenAI rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : 'Please wait before retrying.'}`);
+				throw new Error(`OpenAI rate limit (429). ${retryAfter ? retryAfter + ' seconds.' : 'Please wait before retrying.'}`);
 			}
 			throw new Error(`OpenAI embedding API error: ${response.status} ${errorText}`);
 		}
 
 		const data: EmbeddingApiResponse = typeof response.json === 'object' ? response.json : JSON.parse(response.text);
-		if (data.data && data.data[0] && data.data[0].embedding) {
-			return data.data[0].embedding;
+		const embedding = data.data?.[0]?.embedding;
+		if (embedding) {
+			return embedding;
 		}
 		throw new Error('Invalid OpenAI embedding response format');
 	}
@@ -195,13 +196,13 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 			// Check for 429 specifically
 			if (response.status === 429) {
 				const retryAfter = response.headers['retry-after'] || response.headers['Retry-After'];
-				throw new Error(`Cohere rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : 'Please wait before retrying.'}`);
+				throw new Error(`Cohere rate limit (429). ${retryAfter ? retryAfter + ' seconds.' : 'Please wait before retrying.'}`);
 			}
 			throw new Error(`Cohere embedding API error: ${response.status} ${errorText}`);
 		}
 
 		const data: EmbeddingApiResponse = typeof response.json === 'object' ? response.json : JSON.parse(response.text);
-		if (data.embeddings && data.embeddings[0]) {
+		if (data.embeddings?.[0]) {
 			return data.embeddings[0];
 		}
 		throw new Error('Invalid Cohere embedding response format');
@@ -229,14 +230,15 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 				// Check for 429 specifically
 				if (response.status === 429) {
 					const retryAfter = response.headers['retry-after'] || response.headers['Retry-After'];
-					throw new Error(`Google Gemini rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : 'Please wait before retrying.'}`);
+					throw new Error(`Google Gemini rate limit (429). ${retryAfter ? retryAfter + ' seconds.' : 'Please wait before retrying.'}`);
 				}
 				throw new Error(`Google Gemini batch embedding API error: ${response.status} ${errorText}`);
 			}
 
 			const data: { embeddings?: Array<{ values?: number[] }> } = typeof response.json === 'object' ? response.json : JSON.parse(response.text);
-			if (data.embeddings && data.embeddings[0] && data.embeddings[0].values) {
-				return data.embeddings[0].values;
+			const batchValues = data.embeddings?.[0]?.values;
+			if (batchValues) {
+				return batchValues;
 			}
 			throw new Error('Invalid Google Gemini batch embedding response format');
 		} else {
@@ -258,7 +260,7 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 				// Check for 429 specifically
 				if (response.status === 429) {
 					const retryAfter = response.headers['retry-after'] || response.headers['Retry-After'];
-					throw new Error(`Google Gemini rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : 'Please wait before retrying.'}`);
+					throw new Error(`Google Gemini rate limit (429). ${retryAfter ? retryAfter + ' seconds.' : 'Please wait before retrying.'}`);
 				}
 				throw new Error(`Google Gemini embedding API error: ${response.status} ${errorText}`);
 			}
@@ -288,7 +290,7 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 			// Check for 429 specifically
 			if (response.status === 429) {
 				const retryAfter = response.headers['retry-after'] || response.headers['Retry-After'];
-				throw new Error(`Custom embedding API rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : 'Please wait before retrying.'}`);
+				throw new Error(`Custom embedding API rate limit (429). ${retryAfter ? retryAfter + ' seconds.' : 'Please wait before retrying.'}`);
 			}
 			throw new Error(`Custom embedding API error: ${response.status} ${errorText}`);
 		}

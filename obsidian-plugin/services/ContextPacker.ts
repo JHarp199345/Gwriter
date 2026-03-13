@@ -67,8 +67,12 @@ export class ContextPacker {
         // Sort hits deterministically: (intentHardness desc, score desc, id asc)
         const sortedHits = [...retrievalHits].sort((a, b) => {
             // HARD > SOFT > undefined
-            const hardnessA = a.intentHardness === 'HARD' ? 2 : (a.intentHardness === 'SOFT' ? 1 : 0);
-            const hardnessB = b.intentHardness === 'HARD' ? 2 : (b.intentHardness === 'SOFT' ? 1 : 0);
+            let hardnessA = 0;
+            if (a.intentHardness === 'HARD') hardnessA = 2;
+            else if (a.intentHardness === 'SOFT') hardnessA = 1;
+            let hardnessB = 0;
+            if (b.intentHardness === 'HARD') hardnessB = 2;
+            else if (b.intentHardness === 'SOFT') hardnessB = 1;
             if (hardnessA !== hardnessB) return hardnessB - hardnessA;
 
             // Score descending
@@ -125,6 +129,7 @@ export class ContextPacker {
             },
             styleSignature: styleSignature || undefined,
             retrievalHits: hitsWithHashes,
+            droppedItems,
             tokenEstimate: {
                 lockMap: Math.min(lockMapTokens, this.maxLockMapTokens),
                 state: Math.min(stateTokens, this.maxStateTokens),
@@ -214,7 +219,7 @@ export class ContextPacker {
             lockMap: pack.lockMap,
             tokenEstimate: pack.tokenEstimate,
             includedHitIds: pack.retrievalHits.map(h => h.id),
-            droppedItems: [] // Would be populated if we tracked drops during packing
+            droppedItems: pack.droppedItems ?? []
         };
 
         const packPath = `.gwriter/output/${runKey}/context/context-pack.json`;

@@ -823,9 +823,11 @@ Constraints:
         }
 
         // Create continuation record with hierarchical support
-        const continuationId = `cont-${String((this.manifest!.continuations?.length || 0) + 1).padStart(3, '0')}`;
+        const continuationId = `cont-${String((this.manifest!.continuations?.length ?? 0) + 1).padStart(3, '0')}`;
         const snapshotHash = await sha256(JSON.stringify(contextManager.getState()));
-        const parentContId = this.manifest!.continuations?.length ? this.manifest!.continuations[this.manifest!.continuations.length - 1].continuationId : undefined;
+        const parentContId = this.manifest!.continuations?.length
+            ? this.manifest!.continuations[this.manifest!.continuations.length - 1].continuationId
+            : undefined;
         
         const continuation: RunContinuation = {
             continuationId,
@@ -1302,7 +1304,7 @@ Constraints:
         // 4. Over-reliance (15%)
         let relianceRisk = 0;
         const lastWrite = writeStages[writeStages.length - 1];
-        if (lastWrite && lastWrite.metadata) {
+        if (lastWrite?.metadata) {
             const factCounts: Record<string, number> = {};
             lastWrite.metadata.forEach(m => {
                 m.factIds.forEach(id => {

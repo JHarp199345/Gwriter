@@ -69,7 +69,11 @@ export function showHarvestChecklistModal(
                             dropdown.addOption('none', 'Reject');
                             dropdown.addOption('run-local', 'Accept Run-Local');
                             dropdown.addOption('promote', staleEvidence ? 'Promote (Stale Evidence Override)' : 'Promote to Story Bible');
-                            dropdown.setValue(isAutoAccepted ? 'run-local' : (isPromoted ? 'promote' : 'none'));
+                            let dropdownValue: string;
+                            if (isAutoAccepted) dropdownValue = 'run-local';
+                            else if (isPromoted) dropdownValue = 'promote';
+                            else dropdownValue = 'none';
+                            dropdown.setValue(dropdownValue);
                             dropdown.setDisabled(isAutoAccepted);
                             dropdown.onChange((value) => {
                                 selectedIds.delete(item.harvestId);
@@ -105,10 +109,15 @@ export function showHarvestChecklistModal(
                     const evidenceTiers = item.supportingEvidence.map(e => e.relocationTier);
                     const uniqueTiers = [...new Set(evidenceTiers)];
                     uniqueTiers.forEach(tier => {
-                        metaDiv.createSpan({
-                            text: tier === 'EXACT' ? '✓ Exact' : tier === 'RELOCATED_UNIQUE' ? '~ Relocated' : tier === 'STALE' ? '⚠ Stale' : tier,
-                            cls: tier === 'EXACT' ? 'evidence-badge-exact' : tier === 'RELOCATED_UNIQUE' ? 'evidence-badge-relocated' : 'evidence-badge-stale'
-                        });
+                        let tierText: string;
+                        if (tier === 'EXACT') tierText = '✓ Exact';
+                        else if (tier === 'RELOCATED_UNIQUE') tierText = '~ Relocated';
+                        else if (tier === 'STALE') tierText = '⚠ Stale';
+                        else tierText = tier;
+                        const tierCls = tier === 'EXACT' ? 'evidence-badge-exact'
+                            : tier === 'RELOCATED_UNIQUE' ? 'evidence-badge-relocated'
+                            : 'evidence-badge-stale';
+                        metaDiv.createSpan({ text: tierText, cls: tierCls });
                     });
                     
                     if (item.recommendedAction === 'AUTO_ACCEPT_SCENE_ONLY') {
