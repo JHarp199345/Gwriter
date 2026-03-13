@@ -146,102 +146,32 @@ async function getPipeline(plugin: WritingDashboardPlugin): Promise<any> {
 	}
 	
 	// Configure WASM paths - CRITICAL: Must be done BEFORE any ONNX backend initialization
-	console.debug(`[LocalEmbeddingModel] [STEP 4] Attempting to configure WASM paths...`);
-	
 	const wasmBasePath = './lib/';
-	
+
 	if (env) {
-		// Approach 1: Try to access ONNX backend directly from the module
-		// The ONNX backend is exported from transformers.js, we need to access it
-		let onnxBackendEnv: any = null;
-		let onnxBackendPath = 'none';
-		
-		// Try to find ONNX in the module exports
+		// Find ONNX backend env: check module.ONNX first, then env.backends.onnx
+		let onnxEnv: any = null;
 		if (mod?.ONNX) {
-			console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ Found ONNX export in module`);
 			const onnx = mod.ONNX;
-			if (onnx?.env?.wasm) {
-				onnxBackendEnv = onnx.env.wasm;
-				onnxBackendPath = 'mod.ONNX.env.wasm';
-				console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ Found ONNX env.wasm via mod.ONNX`);
-			} else if (onnx?.env) {
-				onnxBackendEnv = onnx.env;
-				onnxBackendPath = 'mod.ONNX.env';
-				console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ Found ONNX env via mod.ONNX`);
-			}
+			onnxEnv = onnx?.env?.wasm ?? onnx?.env ?? null;
 		}
-		
-		// Approach 2: Try via env.backends.onnx (transformers.js structure)
-		if (!onnxBackendEnv && env.backends?.onnx) {
-			const onnxBackend = env.backends.onnx;
-			console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ ONNX backend found via env.backends.onnx`);
-			
-			if (onnxBackend.env?.wasm) {
-				onnxBackendEnv = onnxBackend.env.wasm;
-				onnxBackendPath = 'env.backends.onnx.env.wasm';
-				console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ Found WASM env at onnxBackend.env.wasm`);
-			} else if (onnxBackend.wasm) {
-				onnxBackendEnv = onnxBackend.wasm;
-				onnxBackendPath = 'onnxBackend.wasm';
-				console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ Found WASM env at onnxBackend.wasm`);
-			} else if (onnxBackend.env) {
-				onnxBackendEnv = onnxBackend.env;
-				onnxBackendPath = 'onnxBackend.env';
-				console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ Found env at onnxBackend.env`);
-			}
+		if (!onnxEnv && env.backends?.onnx) {
+			const b = env.backends.onnx;
+			onnxEnv = b.env?.wasm ?? b.wasm ?? b.env ?? null;
 		}
-		
-		// Set wasmPaths on the ONNX backend environment
-		if (onnxBackendEnv) {
-			console.debug(`[LocalEmbeddingModel] [STEP 4] Configuring WASM paths at: ${onnxBackendPath}`);
+		if (onnxEnv) {
 			try {
-				if ('wasmPaths' in onnxBackendEnv) {
-					const currentPaths = onnxBackendEnv.wasmPaths;
-					console.debug(`[LocalEmbeddingModel] [STEP 4] Current wasmPaths: ${JSON.stringify(currentPaths)}`);
-					onnxBackendEnv.wasmPaths = wasmBasePath;
-					console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ Updated wasmPaths to: ${wasmBasePath}`);
-					console.debug(`[LocalEmbeddingModel] [STEP 4] Verified wasmPaths: ${JSON.stringify(onnxBackendEnv.wasmPaths)}`);
-				} else {
-					Object.defineProperty(onnxBackendEnv, 'wasmPaths', {
-						value: wasmBasePath,
-						writable: true,
-						enumerable: true,
-						configurable: true
-					});
-					console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ Created and set wasmPaths to: ${wasmBasePath}`);
-				}
+				if ('wasmPaths' in onnxEnv) onnxEnv.wasmPaths = wasmBasePath;
+				else Object.defineProperty(onnxEnv, 'wasmPaths', { value: wasmBasePath, writable: true, enumerable: true, configurable: true });
 			} catch (pathErr) {
-				console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to set wasmPaths at ${onnxBackendPath}:`, pathErr);
+				console.warn(`[LocalEmbeddingModel] Failed to set wasmPaths:`, pathErr);
 			}
 		} else {
-			// ONNX backend environment not found - try fallback approaches
-			console.warn(`[LocalEmbeddingModel] [STEP 4] ⚠ ONNX backend environment not found via standard paths`);
-			console.warn(`[LocalEmbeddingModel] [STEP 4] Attempting fallback: setting on env.backends.onnx directly...`);
-			
-			// Try to create/access backends.onnx if it doesn't exist
-			if (!env.backends) {
-				try {
-					env.backends = {};
-					console.debug(`[LocalEmbeddingModel] [STEP 4] Created env.backends object`);
-				} catch (e) {
-					console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to create env.backends:`, e);
-				}
-			}
-			
-			// Check if we can access ONNX after creating backends
-			if (env.backends && !env.backends.onnx) {
-				console.warn(`[LocalEmbeddingModel] [STEP 4] env.backends.onnx is still undefined - ONNX backend may not be initialized yet`);
-				console.warn(`[LocalEmbeddingModel] [STEP 4] This is expected if ONNX backend initializes lazily`);
-			}
-			
-			// Always capture snapshot for diagnostics
+			// ONNX backend not yet initialized - capture snapshot for diagnostics
 			captureEnvSnapshot(mod, env, 'wasm-config-attempt');
-			if (lastEnvSnapshot) {
-				console.debug('[LocalEmbeddingModel] [ENV SNAPSHOT]', JSON.stringify(lastEnvSnapshot, null, 2));
-			}
 		}
-		
-		// Approach 3: Also try setting at top-level env (some transformers.js versions use this)
+
+		// Also try setting at top-level env
 		try {
 			if ('wasmPaths' in env) {
 				env.wasmPaths = wasmBasePath;
