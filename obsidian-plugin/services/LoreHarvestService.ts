@@ -63,113 +63,20 @@ export class LoreHarvestService {
                     const parsed = JSON.parse(result);
                     if (parsed?.candidates) {
                         for (const c of parsed.candidates) {
-                        const harvestId = `harvest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                        const proposedFact: CanonFact = {
-                            id: `fact-harvest-${Date.now()}`,
-                            entityId: c.entityId,
-                            type: c.type.toUpperCase() as FactType,
-                            attribute: c.attribute,
-                            value: c.value,
-                            scope: c.scope.toUpperCase() as FactScope,
-                            origin: 'EXTRACTOR',
-                            timestamp: Date.now(),
-                            confidence: c.confidence,
-                            lifecycleState: 'PROPOSED'
-                        };
-
-                        // Create triple-anchored evidence span with content-hash paragraph IDs
-                        const excerptIndex = chunk.text.indexOf(c.excerpt);
-                        const startPos = excerptIndex >= 0 ? excerptIndex : 0;
-                        const endPos = excerptIndex >= 0 ? excerptIndex + c.excerpt.length : c.excerpt.length;
-                        
-                        // Trim anchors to max 500 chars at word boundary
-                        const trimToBoundary = (text: string, maxLen: number): string => {
-                            if (text.length <= maxLen) return text;
-                            let trimmed = text.slice(-maxLen);
-                            // Expand backward to nearest whitespace/punctuation
-                            const match = trimmed.match(/^[\s.,;:!?]*/);
-                            if (match) {
-                                const prefix = match[0];
-                                trimmed = text.slice(-maxLen + prefix.length);
+                            const item = await this.buildHarvestItem(c, chunk);
+                            const clusterKey = this.getClusterKey(item);
+                            const existing = candidatesMap.get(clusterKey);
+                            if (existing) {
+                                existing.supportingEvidence.push(...item.supportingEvidence);
+                                existing.appearanceCount++;
+                                existing.confidence = Math.max(existing.confidence, item.confidence);
+                            } else {
+                                candidatesMap.set(clusterKey, item);
                             }
-                            return trimmed;
-                        };
-                        
-                        const textBefore = trimToBoundary(chunk.text.substring(Math.max(0, startPos - 500), startPos), 500);
-                        const textAfter = trimToBoundary(chunk.text.substring(endPos, Math.min(chunk.text.length, endPos + 500)), 500);
-                        
-                        // Compute hashes
-                        const excerptHashRaw = await sha256(c.excerpt);
-                        const excerptHashNormalized = await sha256(normalizeForExcerptHash(c.excerpt));
-                        
-                        // Generate paragraph ID using content-hash strategy
-                        // paragraphId = sha256(headingPath + normalizeParagraphText(paragraph))
-                        const headingPath = ''; // TODO: Extract from chunk metadata if available
-                        const paragraphText = c.excerpt;
-                        const normalizedParagraph = normalizeWhitespace(paragraphText);
-                        const paragraphId = await sha256(headingPath + normalizedParagraph);
-                        
-                        // Get source file path (map from chunk metadata or manifest)
-                        const sourceFilePath = chunk.metadata?.sourceFilePath || chunk.chunkId;
-                        
-                        // Compute source file hash at run time (if file available)
-                        let sourceFileHashAtRun = '';
-                        try {
-                            const sourceFile = this.plugin.app.vault.getAbstractFileByPath(sourceFilePath);
-                            if (sourceFile instanceof TFile) {
-                                const fileContent = await this.plugin.app.vault.read(sourceFile);
-                                sourceFileHashAtRun = await sha256(fileContent);
-                            }
-                        } catch (err) {
-                            // File not available, leave empty for now
-                        }
-                        
-                        const evidenceSpan: EvidenceSpan = {
-                            // Required fields
-                            sourceFilePath,
-                            excerptHashRaw,
-                            excerptHashNormalized,
-                            textAnchor: {
-                                before: textBefore,
-                                after: textAfter
-                            },
-                            charRange: { start: startPos, end: endPos }, // UTF-16 code units
-                            sourceFileHashAtRun,
-                            relocationTier: 'EXACT' as EvidenceRelocationTier, // Initial extraction is always EXACT
-                            
-                            // Optional / Best Effort
-                            paragraphId,
-                            headingPath: headingPath || undefined,
-                            originalExcerptText: c.excerpt
-                        };
-
-                        const item: HarvestItem = {
-                            harvestId,
-                            proposedFact,
-                            factType: proposedFact.type,
-                            scope: proposedFact.scope,
-                            entityIds: [proposedFact.entityId],
-                            supportingEvidence: [evidenceSpan],
-                            confidence: c.confidence,
-                            conflictCheckResult: { hasConflict: false },
-                            tierImpact: 'SUPPORTING',
-                            recommendedAction: 'REVIEW',
-                            appearanceCount: 1
-                        };
-
-                        const clusterKey = this.getClusterKey(item);
-                        const existing = candidatesMap.get(clusterKey);
-                        if (existing) {
-                            existing.supportingEvidence.push(...item.supportingEvidence);
-                            existing.appearanceCount++;
-                            existing.confidence = Math.max(existing.confidence, item.confidence);
-                        } else {
-                            candidatesMap.set(clusterKey, item);
                         }
                     }
                 }
-            }
-        } catch (err) {
+            } catch (err) {
                 console.error(`[LoreHarvestService] AI extraction failed for chunk ${chunk.chunkId}:`, err);
             }
         }
@@ -202,6 +109,83 @@ export class LoreHarvestService {
         });
 
         return stable;
+    }
+
+    /**
+     * Builds a HarvestItem from a raw AI candidate and the source chunk.
+     */
+    private async buildHarvestItem(c: any, chunk: { chunkId: string; text: string; metadata?: any }): Promise<HarvestItem> {
+        const harvestId = `harvest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const proposedFact: CanonFact = {
+            id: `fact-harvest-${Date.now()}`,
+            entityId: c.entityId,
+            type: c.type.toUpperCase() as FactType,
+            attribute: c.attribute,
+            value: c.value,
+            scope: c.scope.toUpperCase() as FactScope,
+            origin: 'EXTRACTOR',
+            timestamp: Date.now(),
+            confidence: c.confidence,
+            lifecycleState: 'PROPOSED'
+        };
+
+        const excerptIndex = chunk.text.indexOf(c.excerpt);
+        const startPos = excerptIndex >= 0 ? excerptIndex : 0;
+        const endPos = excerptIndex >= 0 ? excerptIndex + c.excerpt.length : c.excerpt.length;
+
+        const trimToBoundary = (text: string, maxLen: number): string => {
+            if (text.length <= maxLen) return text;
+            let trimmed = text.slice(-maxLen);
+            const match = trimmed.match(/^[\s.,;:!?]*/);
+            if (match) trimmed = text.slice(-maxLen + match[0].length);
+            return trimmed;
+        };
+
+        const textBefore = trimToBoundary(chunk.text.substring(Math.max(0, startPos - 500), startPos), 500);
+        const textAfter = trimToBoundary(chunk.text.substring(endPos, Math.min(chunk.text.length, endPos + 500)), 500);
+        const [excerptHashRaw, excerptHashNormalized, paragraphId] = await Promise.all([
+            sha256(c.excerpt),
+            sha256(normalizeForExcerptHash(c.excerpt)),
+            sha256(normalizeWhitespace(c.excerpt))
+        ]);
+
+        const sourceFilePath = chunk.metadata?.sourceFilePath || chunk.chunkId;
+        let sourceFileHashAtRun = '';
+        try {
+            const sourceFile = this.plugin.app.vault.getAbstractFileByPath(sourceFilePath);
+            if (sourceFile instanceof TFile) {
+                sourceFileHashAtRun = await sha256(await this.plugin.app.vault.read(sourceFile));
+            }
+        } catch {
+            sourceFileHashAtRun = '';
+        }
+
+        const evidenceSpan: EvidenceSpan = {
+            sourceFilePath,
+            excerptHashRaw,
+            excerptHashNormalized,
+            textAnchor: { before: textBefore, after: textAfter },
+            charRange: { start: startPos, end: endPos },
+            sourceFileHashAtRun,
+            relocationTier: 'EXACT' as EvidenceRelocationTier,
+            paragraphId,
+            headingPath: undefined,
+            originalExcerptText: c.excerpt
+        };
+
+        return {
+            harvestId,
+            proposedFact,
+            factType: proposedFact.type,
+            scope: proposedFact.scope,
+            entityIds: [proposedFact.entityId],
+            supportingEvidence: [evidenceSpan],
+            confidence: c.confidence,
+            conflictCheckResult: { hasConflict: false },
+            tierImpact: 'SUPPORTING',
+            recommendedAction: 'REVIEW',
+            appearanceCount: 1
+        };
     }
 
     /**

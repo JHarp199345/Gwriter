@@ -231,33 +231,20 @@ export class OllamaGenerationProvider {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n');
-
-                for (const line of lines) {
+                for (const line of decoder.decode(value, { stream: true }).split('\n')) {
                     if (!line.trim()) continue;
                     try {
-                        const json = JSON.parse(line);
-                        const token = json.response || '';
+                        const token = (JSON.parse(line).response || '') as string;
                         fullResponse += token;
                         buffer += token;
-
-                        const now = Date.now();
-                        const timeSinceFlush = now - lastFlush;
-
-                        // Token-safe flush: complete units at punctuation or throttled sentence-end
-                        if (
-                            /[.!?\n]/.test(token) || 
-                            (timeSinceFlush > 200 && buffer.length > 50) ||
-                            buffer.length > 400
-                        ) {
+                        const timeSinceFlush = Date.now() - lastFlush;
+                        const shouldFlush = /[.!?\n]/.test(token) || (timeSinceFlush > 200 && buffer.length > 50) || buffer.length > 400;
+                        if (shouldFlush) {
                             onToken(buffer);
                             buffer = '';
-                            lastFlush = now;
+                            lastFlush = Date.now();
                         }
                     } catch {
-                        // Partial JSON line from streaming chunk; skip and continue.
                         continue;
                     }
                 }
