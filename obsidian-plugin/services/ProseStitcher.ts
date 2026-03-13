@@ -202,17 +202,9 @@ Max churn: ${STITCH_CONFIG.MAX_CHARS_CHANGED_PCT * 100}%`;
                 if (totalChanged > 800) throw new Error('BUDGET');
 
                 // 3. Fast Gate: LockMap (Protected Nouns)
+                const allParas = [...prevParas, ...nextParas];
                 for (const op of result.patchOps) {
-                    const entities = state.entities.map(e => e.name);
-                    const matches = op.replacementText.match(STITCH_CONFIG.PROPER_NOUN_PATTERN) || [];
-                    for (const match of matches) {
-                        if (this.isTokenProtected(match, { text: op.replacementText, index: op.replacementText.indexOf(match), entities })) {
-                            const originalPara = [...prevParas, ...nextParas].find(p => p.id === op.paragraphId);
-                            if (originalPara && !originalPara.text.includes(match)) {
-                                throw new Error('LOCKMAP');
-                            }
-                        }
-                    }
+                    if (this.hasLockMapViolation(op, state, allParas)) throw new Error('LOCKMAP');
                 }
 
                 // 4. Slow Gate: Tuple Integrity
@@ -269,6 +261,19 @@ Max churn: ${STITCH_CONFIG.MAX_CHARS_CHANGED_PCT * 100}%`;
         }
 
         return isTail ? window.reverse() : window;
+    }
+
+    private hasLockMapViolation(op: StitchPatchOp, state: ChapterState, allParas: { id: string; text: string; hash?: string; status?: string }[]): boolean {
+        const entities = state.entities.map(e => e.name);
+        const matches = op.replacementText.match(STITCH_CONFIG.PROPER_NOUN_PATTERN) || [];
+        for (const match of matches) {
+            const ctx = { text: op.replacementText, index: op.replacementText.indexOf(match), entities };
+            if (this.isTokenProtected(match, ctx)) {
+                const originalPara = allParas.find(p => p.id === op.paragraphId);
+                if (originalPara && !originalPara.text.includes(match)) return true;
+            }
+        }
+        return false;
     }
 
     private applyStitch(text: string, ops: StitchPatchOp[], paras: { id: string, text: string }[]): string {

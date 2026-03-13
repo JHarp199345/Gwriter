@@ -370,81 +370,85 @@ export class VaultService {
 	 * 5. Content hash match.
 	 */
 	async relocateFile(
-		path: string, 
-		expectedHash?: string, 
+		path: string,
+		expectedHash?: string,
 		aliases: string[] = []
 	): Promise<{ path: string; confidence: SpanConfidence }> {
 		const normalizedPath = path.replace(/\\/g, '/');
-		
-		// 1. Exact path match
-		const exact = this.vault.getAbstractFileByPath(normalizedPath);
-		if (exact instanceof TFile) {
-			const content = await this.vault.read(exact);
-			const actualHash = await sha256(content);
-			if (!expectedHash || actualHash === expectedHash) {
-				return { path: normalizedPath, confidence: 'EXACT' };
-			}
-		}
-
 		const fileName = normalizedPath.split('/').pop() || '';
 		const baseName = fileName.replace(/\.md$/, '');
 		const parentPath = normalizedPath.includes('/') ? normalizedPath.substring(0, normalizedPath.lastIndexOf('/')) : '';
 
-		// 2. Base name match in the same folder
-		if (parentPath) {
-			const parent = this.vault.getAbstractFileByPath(parentPath);
-			if (parent instanceof TFolder) {
-				for (const child of parent.children) {
-					if (child instanceof TFile && child.name.replace(/\.md$/, '') === baseName) {
-						return { path: child.path, confidence: 'RELOCATED_UNIQUE' };
-					}
-				}
-			}
-		}
+		const exact = await this.tryExactMatch(normalizedPath, expectedHash);
+		if (exact) return exact;
 
-		// 3. Fuzzy name match in the vault (case-insensitive)
+		const sameFolderMatch = this.trySameFolderMatch(parentPath, baseName);
+		if (sameFolderMatch) return sameFolderMatch;
+
 		const allFiles = this.vault.getMarkdownFiles();
-		const fuzzyMatches = allFiles.filter(f => 
-			f.name.toLowerCase() === fileName.toLowerCase() || 
-			f.basename.toLowerCase() === baseName.toLowerCase()
-		);
-		if (fuzzyMatches.length === 1) {
-			return { path: fuzzyMatches[0].path, confidence: 'RELOCATED_UNIQUE' };
-		} else if (fuzzyMatches.length > 1) {
-			if (expectedHash) {
-				for (const f of fuzzyMatches) {
-					const content = await this.vault.read(f);
-					const h = await sha256(content);
-					if (h === expectedHash) {
-						return { path: f.path, confidence: 'RELOCATED_UNIQUE' };
-					}
-				}
-			}
-			return { path: fuzzyMatches[0].path, confidence: 'RELOCATED_AMBIGUOUS' };
-		}
+		const fuzzy = await this.tryFuzzyMatch(allFiles, fileName, baseName, expectedHash);
+		if (fuzzy) return fuzzy;
 
-		// 4. Alias match
-		if (aliases.length > 0) {
-			const aliasMatches = allFiles.filter(f => 
-				aliases.some(a => f.basename.toLowerCase() === a.toLowerCase())
-			);
-			if (aliasMatches.length === 1) {
-				return { path: aliasMatches[0].path, confidence: 'RELOCATED_UNIQUE' };
-			}
-		}
+		const aliasMatch = this.tryAliasMatch(allFiles, aliases);
+		if (aliasMatch) return aliasMatch;
 
-		// 5. Content hash match (Expensive fallback)
 		if (expectedHash) {
-			for (const f of allFiles) {
-				const content = await this.vault.read(f);
-				const h = await sha256(content);
-				if (h === expectedHash) {
-					return { path: f.path, confidence: 'RELOCATED_UNIQUE' };
-				}
-			}
+			const hashMatch = await this.tryHashMatch(allFiles, expectedHash);
+			if (hashMatch) return hashMatch;
 		}
 
 		return { path: normalizedPath, confidence: 'INVALID' };
+	}
+
+	private async tryExactMatch(normalizedPath: string, expectedHash?: string): Promise<{ path: string; confidence: SpanConfidence } | null> {
+		const exact = this.vault.getAbstractFileByPath(normalizedPath);
+		if (!(exact instanceof TFile)) return null;
+		const content = await this.vault.read(exact);
+		const actualHash = await sha256(content);
+		if (!expectedHash || actualHash === expectedHash) return { path: normalizedPath, confidence: 'EXACT' };
+		return null;
+	}
+
+	private trySameFolderMatch(parentPath: string, baseName: string): { path: string; confidence: SpanConfidence } | null {
+		if (!parentPath) return null;
+		const parent = this.vault.getAbstractFileByPath(parentPath);
+		if (!(parent instanceof TFolder)) return null;
+		for (const child of parent.children) {
+			if (child instanceof TFile && child.name.replace(/\.md$/, '') === baseName) {
+				return { path: child.path, confidence: 'RELOCATED_UNIQUE' };
+			}
+		}
+		return null;
+	}
+
+	private async tryFuzzyMatch(allFiles: TFile[], fileName: string, baseName: string, expectedHash?: string): Promise<{ path: string; confidence: SpanConfidence } | null> {
+		const matches = allFiles.filter(f => f.name.toLowerCase() === fileName.toLowerCase() || f.basename.toLowerCase() === baseName.toLowerCase());
+		if (matches.length === 1) return { path: matches[0].path, confidence: 'RELOCATED_UNIQUE' };
+		if (matches.length > 1) {
+			if (expectedHash) {
+				for (const f of matches) {
+					const h = await sha256(await this.vault.read(f));
+					if (h === expectedHash) return { path: f.path, confidence: 'RELOCATED_UNIQUE' };
+				}
+			}
+			return { path: matches[0].path, confidence: 'RELOCATED_AMBIGUOUS' };
+		}
+		return null;
+	}
+
+	private tryAliasMatch(allFiles: TFile[], aliases: string[]): { path: string; confidence: SpanConfidence } | null {
+		if (!aliases.length) return null;
+		const matches = allFiles.filter(f => aliases.some(a => f.basename.toLowerCase() === a.toLowerCase()));
+		if (matches.length === 1) return { path: matches[0].path, confidence: 'RELOCATED_UNIQUE' };
+		return null;
+	}
+
+	private async tryHashMatch(allFiles: TFile[], expectedHash: string): Promise<{ path: string; confidence: SpanConfidence } | null> {
+		for (const f of allFiles) {
+			const h = await sha256(await this.vault.read(f));
+			if (h === expectedHash) return { path: f.path, confidence: 'RELOCATED_UNIQUE' };
+		}
+		return null;
 	}
 
 	private _traverseFolder(

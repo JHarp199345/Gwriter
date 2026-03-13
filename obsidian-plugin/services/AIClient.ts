@@ -386,60 +386,45 @@ export class AIClient {
 		}
 
 		const data = this._getJson(response);
-
-		const candidates =
-			data && typeof data === 'object'
-				? (data as Record<string, unknown>).candidates
-				: undefined;
-		if (!Array.isArray(candidates) || candidates.length === 0) {
-			let blockReason: unknown;
-			let promptFeedback: unknown;
-			if (data && typeof data === 'object') {
-				promptFeedback = (data as Record<string, unknown>).promptFeedback;
-				if (promptFeedback && typeof promptFeedback === 'object') {
-					blockReason = (promptFeedback as Record<string, unknown>).blockReason;
-				}
-			}
-			const details =
-				blockReason ? ` blockReason=${this._formatUnknown(blockReason)}` : '';
-			const preview = this._safeJsonPreview(
-				promptFeedback || data
-			);
-			throw new Error(
-				`Gemini returned no candidates.${details} Preview: ${preview}`
-			);
-		}
-
-		const firstCandidate = candidates[0];
-		let parts: unknown;
-		if (firstCandidate && typeof firstCandidate === 'object') {
-			const content = (firstCandidate as Record<string, unknown>).content;
-			if (content && typeof content === 'object') {
-				parts = (content as Record<string, unknown>).parts;
-			}
-		}
-		const partText = (p: unknown): string | null => {
-			if (!p || typeof p !== 'object') return null;
-			if (!('text' in p)) return null;
-			const t = (p as { text?: unknown }).text;
-			return typeof t === 'string' ? t : null;
-		};
-		const text = Array.isArray(parts)
-			? parts.map(partText).filter((t): t is string => Boolean(t)).join('\n')
-			: undefined;
+		const candidates = this._getGeminiCandidates(data);
+		const text = this._extractGeminiText(candidates[0]);
 
 		if (typeof text !== 'string' || text.trim().length === 0) {
-			let finishReason: unknown;
-			if (firstCandidate && typeof firstCandidate === 'object') {
-				finishReason = (firstCandidate as Record<string, unknown>).finishReason;
-			}
-			const preview = this._safeJsonPreview(firstCandidate || data);
-			throw new Error(
-				`Gemini candidate missing text. finishReason=${this._formatUnknown(finishReason)} Preview: ${preview}`
-			);
+			const finishReason = candidates[0] && typeof candidates[0] === 'object'
+				? (candidates[0] as Record<string, unknown>).finishReason
+				: undefined;
+			throw new Error(`Gemini candidate missing text. finishReason=${this._formatUnknown(finishReason)} Preview: ${this._safeJsonPreview(candidates[0] || data)}`);
 		}
 
 		return text;
+	}
+
+	private _getGeminiCandidates(data: unknown): unknown[] {
+		const obj = data && typeof data === 'object' ? data as Record<string, unknown> : {};
+		const candidates = obj.candidates;
+		if (Array.isArray(candidates) && candidates.length > 0) return candidates;
+		const promptFeedback = obj.promptFeedback;
+		const blockReason = promptFeedback && typeof promptFeedback === 'object'
+			? (promptFeedback as Record<string, unknown>).blockReason
+			: undefined;
+		const details = blockReason ? ` blockReason=${this._formatUnknown(blockReason)}` : '';
+		throw new Error(`Gemini returned no candidates.${details} Preview: ${this._safeJsonPreview(promptFeedback || data)}`);
+	}
+
+	private _extractGeminiText(candidate: unknown): string | undefined {
+		if (!candidate || typeof candidate !== 'object') return undefined;
+		const content = (candidate as Record<string, unknown>).content;
+		if (!content || typeof content !== 'object') return undefined;
+		const parts = (content as Record<string, unknown>).parts;
+		if (!Array.isArray(parts)) return undefined;
+		const texts = parts
+			.map(p => {
+				if (!p || typeof p !== 'object' || !('text' in p)) return null;
+				const t = (p as { text?: unknown }).text;
+				return typeof t === 'string' ? t : null;
+			})
+			.filter((t): t is string => Boolean(t));
+		return texts.join('\n');
 	}
 }
 
