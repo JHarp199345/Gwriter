@@ -459,39 +459,38 @@ export class EmbeddingsIndex {
 				await this.acquireLock(dir);
 			}
 
-			if (!(await this.vault.adapter.exists(path))) return;
-			const raw = await this.vault.adapter.read(path);
-			const parsed = JSON.parse(raw) as PersistedIndexV1;
-			if (parsed?.version !== 1 || !Array.isArray(parsed.chunks)) return;
-			if (parsed.backend && parsed.backend !== this.backend) {
-				// Backend mismatch: ignore persisted index and rebuild.
-				this.enqueueFullRescan();
-				return;
-			}
-			if (typeof parsed.dim === 'number') {
-				this.dim = parsed.dim;
-			}
-			const expectedChunking = chunkingKey(this.plugin);
-			if (
-				parsed.chunking &&
-				(parsed.chunking.headingLevel !== expectedChunking.headingLevel ||
-					parsed.chunking.targetWords !== expectedChunking.targetWords ||
-					parsed.chunking.overlapWords !== expectedChunking.overlapWords)
-			) {
-				// Chunking config changed; rebuild index.
-				this.enqueueFullRescan();
-				return;
-			}
-			for (const chunk of parsed.chunks) {
-				if (!chunk?.key || !chunk?.path || !Array.isArray(chunk.vector)) continue;
-				this._setChunk(chunk);
-			}
+		if (!(await this.vault.adapter.exists(path))) return;
+		const raw = await this.vault.adapter.read(path);
+		this.loadFromParsed(JSON.parse(raw) as PersistedIndexV1);
 	} catch (err) {
 		// Corrupt index should not break the plugin. We'll rebuild lazily.
 		console.warn('[EmbeddingsIndex] Corrupt index data detected, rebuilding from scratch:', err);
 		this.chunksByKey.clear();
 		this.chunkKeysByPath.clear();
 	}
+	}
+
+	private loadFromParsed(parsed: PersistedIndexV1): void {
+		if (parsed?.version !== 1 || !Array.isArray(parsed.chunks)) return;
+		if (parsed.backend && parsed.backend !== this.backend) {
+			this.enqueueFullRescan();
+			return;
+		}
+		if (typeof parsed.dim === 'number') this.dim = parsed.dim;
+		const expectedChunking = chunkingKey(this.plugin);
+		const chunkingMismatch = parsed.chunking && (
+			parsed.chunking.headingLevel !== expectedChunking.headingLevel ||
+			parsed.chunking.targetWords !== expectedChunking.targetWords ||
+			parsed.chunking.overlapWords !== expectedChunking.overlapWords
+		);
+		if (chunkingMismatch) {
+			this.enqueueFullRescan();
+			return;
+		}
+		for (const chunk of parsed.chunks) {
+			if (!chunk?.key || !chunk?.path || !Array.isArray(chunk.vector)) continue;
+			this._setChunk(chunk);
+		}
 	}
 
 	getStatus(): { indexedFiles: number; indexedChunks: number; paused: boolean; queued: number } {

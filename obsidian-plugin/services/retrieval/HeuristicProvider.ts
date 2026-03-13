@@ -1,4 +1,4 @@
-import type { Vault } from 'obsidian';
+import type { Vault, TFile } from 'obsidian';
 import type { ContextItem, RetrievalOptions, RetrievalProvider, RetrievalQuery } from './types';
 import type { VaultService } from '../VaultService';
 import { fnv1a32 } from '../ContentHash';
@@ -90,30 +90,18 @@ export class HeuristicProvider implements RetrievalProvider {
 
 		// Fast candidate scoring without reading file content.
 		const now = Date.now();
-		const scored = files
-			.map((f) => {
-				const base = `${f.basename} ${f.path}`.toLowerCase();
-				let score = 0;
-				let titleHits = 0;
-				for (const t of terms) {
-					if (base.includes(t)) {
-						score += 1.0;
-						titleHits++;
-					}
-				}
-				// Recency boost (soft): newer files float up for relevance.
-				const ageMs = Math.max(0, now - (f.stat?.mtime ?? now));
-				const recency = 1 / (1 + ageMs / (1000 * 60 * 60 * 24 * 30)); // ~30 day scale
-				score += recency * 0.5;
-
-				// Working-file proximity boost
-				if (query.activeFilePath && f.path === query.activeFilePath) score += 0.75;
-				if (query.activeFilePath && f.path.startsWith(query.activeFilePath.split('/').slice(0, -1).join('/'))) score += 0.15;
-
-				return { file: f, score, titleHits };
-			})
-			.sort((a, b) => b.score - a.score)
-			.slice(0, 200);
+		const activeDir = query.activeFilePath?.split('/').slice(0, -1).join('/') ?? '';
+		const scoreFile = (f: TFile) => {
+			const base = `${f.basename} ${f.path}`.toLowerCase();
+			let score = terms.filter(t => base.includes(t)).length;
+			const titleHits = score;
+			const ageMs = Math.max(0, now - (f.stat?.mtime ?? now));
+			score += (1 / (1 + ageMs / (1000 * 60 * 60 * 24 * 30))) * 0.5;
+			if (query.activeFilePath && f.path === query.activeFilePath) score += 0.75;
+			if (activeDir && f.path.startsWith(activeDir)) score += 0.15;
+			return { file: f, score, titleHits };
+		};
+		const scored = files.map(scoreFile).sort((a, b) => b.score - a.score).slice(0, 200);
 
 		const results: ContextItem[] = [];
 		const maxRead = Math.min(scored.length, 120);
