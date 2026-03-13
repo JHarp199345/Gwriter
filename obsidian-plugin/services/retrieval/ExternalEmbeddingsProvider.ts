@@ -83,19 +83,7 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 		for (let attempt = 0; attempt <= this.retryConfig.maxRetries; attempt++) {
 			try {
 				this.lastRequestTime = Date.now();
-				
-				let vector: number[];
-				if (provider === 'openai') {
-					vector = await this.callOpenAIEmbedding(apiKey, model, query);
-				} else if (provider === 'cohere') {
-					vector = await this.callCohereEmbedding(apiKey, model, query);
-				} else if (provider === 'google') {
-					vector = await this.callGoogleEmbedding(apiKey, model, query, settings.externalEmbeddingUseBatch || false);
-				} else if (provider === 'custom' && apiUrl) {
-					vector = await this.callCustomEmbedding(apiUrl, query);
-				} else {
-					throw new Error(`Unsupported embedding provider: ${provider}`);
-				}
+				const vector = await this.callProvider(provider, apiKey, model, query, settings, apiUrl);
 
 				// Cache the result
 				this.embeddingCache.set(query, { vector, timestamp: Date.now() });
@@ -130,6 +118,21 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 		// All retries exhausted
 		console.error(`[ExternalEmbeddingsProvider] Failed to get embedding after ${this.retryConfig.maxRetries + 1} attempts:`, lastError);
 		throw lastError || new Error('Failed to get embedding');
+	}
+
+	private async callProvider(
+		provider: string,
+		apiKey: string,
+		model: string,
+		query: string,
+		settings: { externalEmbeddingUseBatch?: boolean },
+		apiUrl?: string
+	): Promise<number[]> {
+		if (provider === 'openai') return this.callOpenAIEmbedding(apiKey, model, query);
+		if (provider === 'cohere') return this.callCohereEmbedding(apiKey, model, query);
+		if (provider === 'google') return this.callGoogleEmbedding(apiKey, model, query, settings.externalEmbeddingUseBatch || false);
+		if (provider === 'custom' && apiUrl) return this.callCustomEmbedding(apiUrl, query);
+		throw new Error(`Unsupported embedding provider: ${provider}`);
 	}
 
 	private getDefaultModel(provider?: string): string {
@@ -209,68 +212,45 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 	}
 
 	private async callGoogleEmbedding(apiKey: string, model: string, query: string, useBatch: boolean): Promise<number[]> {
-		if (useBatch) {
-			const response = await requestUrl({
-				url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents?key=${apiKey}`,
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					requests: [{
-						content: {
-							parts: [{ text: query }]
-						}
-					}]
-				})
-			});
+		return useBatch
+			? this.callGoogleBatchEmbedding(apiKey, model, query)
+			: this.callGoogleSingleEmbedding(apiKey, model, query);
+	}
 
-			if (response.status !== 200) {
-				const errorText = response.text || '';
-				// Check for 429 specifically
-				if (response.status === 429) {
-					const retryAfter = response.headers['retry-after'] || response.headers['Retry-After'];
-					throw new Error(`Google Gemini rate limit (429). ${retryAfter ? retryAfter + ' seconds.' : 'Please wait before retrying.'}`);
-				}
-				throw new Error(`Google Gemini batch embedding API error: ${response.status} ${errorText}`);
-			}
+	private async callGoogleBatchEmbedding(apiKey: string, model: string, query: string): Promise<number[]> {
+		const response = await requestUrl({
+			url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents?key=${apiKey}`,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ requests: [{ content: { parts: [{ text: query }] } }] })
+		});
+		this.assertResponseOk(response, 'Google Gemini batch embedding API');
+		const data: { embeddings?: Array<{ values?: number[] }> } = typeof response.json === 'object' ? response.json : JSON.parse(response.text);
+		const values = data.embeddings?.[0]?.values;
+		if (values) return values;
+		throw new Error('Invalid Google Gemini batch embedding response format');
+	}
 
-			const data: { embeddings?: Array<{ values?: number[] }> } = typeof response.json === 'object' ? response.json : JSON.parse(response.text);
-			const batchValues = data.embeddings?.[0]?.values;
-			if (batchValues) {
-				return batchValues;
-			}
-			throw new Error('Invalid Google Gemini batch embedding response format');
-		} else {
-			const response = await requestUrl({
-				url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${apiKey}`,
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					content: {
-						parts: [{ text: query }]
-					}
-				})
-			});
+	private async callGoogleSingleEmbedding(apiKey: string, model: string, query: string): Promise<number[]> {
+		const response = await requestUrl({
+			url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${apiKey}`,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ content: { parts: [{ text: query }] } })
+		});
+		this.assertResponseOk(response, 'Google Gemini embedding API');
+		const data: { embedding?: { values?: number[] } } = typeof response.json === 'object' ? response.json : JSON.parse(response.text);
+		if (data.embedding?.values) return data.embedding.values;
+		throw new Error('Invalid Google Gemini embedding response format');
+	}
 
-			if (response.status !== 200) {
-				const errorText = response.text || '';
-				// Check for 429 specifically
-				if (response.status === 429) {
-					const retryAfter = response.headers['retry-after'] || response.headers['Retry-After'];
-					throw new Error(`Google Gemini rate limit (429). ${retryAfter ? retryAfter + ' seconds.' : 'Please wait before retrying.'}`);
-				}
-				throw new Error(`Google Gemini embedding API error: ${response.status} ${errorText}`);
-			}
-
-			const data: { embedding?: { values?: number[] } } = typeof response.json === 'object' ? response.json : JSON.parse(response.text);
-			if (data.embedding && data.embedding.values) {
-				return data.embedding.values;
-			}
-			throw new Error('Invalid Google Gemini embedding response format');
+	private assertResponseOk(response: { status: number; text: string; headers: Record<string, string> }, providerName: string): void {
+		if (response.status === 200) return;
+		if (response.status === 429) {
+			const retryAfter = response.headers['retry-after'] || response.headers['Retry-After'];
+			throw new Error(`${providerName} rate limit (429). ${retryAfter ? retryAfter + ' seconds.' : 'Please wait before retrying.'}`);
 		}
+		throw new Error(`${providerName} error: ${response.status} ${response.text || ''}`);
 	}
 
 	private async callCustomEmbedding(apiUrl: string, query: string): Promise<number[]> {
