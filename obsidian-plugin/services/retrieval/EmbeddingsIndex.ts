@@ -625,55 +625,11 @@ export class EmbeddingsIndex {
 				relayEventBus.emit('index:progress', { processed: processedCount, total: totalFiles, currentFile: next });
 			}
 
-			// Exclusions can change at any time; honor them during processing.
-			if (this.plugin.vaultService.isExcludedPath(next)) {
-				skippedExcluded++;
-				this._removePath(next);
-				this._schedulePersist();
-				this._scheduleSettingsSave();
-				continue;
-			}
-
-			const file = this.vault.getAbstractFileByPath(next);
-			// Only index markdown files.
-			if (!(file instanceof TFile) || file.extension !== 'md') {
-				skippedNotMarkdown++;
-				this._removePath(next);
-				this._schedulePersist();
-				this._scheduleSettingsSave();
-				continue;
-			}
-
-			try {
-				const content = await this.vault.read(file);
-				const normalizedContent = normalizeChunkText(content);
-				const fileHash = await sha256(normalizedContent);
-				const prev = this.plugin.settings.retrievalIndexState?.[next];
-				const isCurrentlyIndexed = this.chunkKeysByPath.has(next);
-				
-				// Skip only if: hash matches AND file is already indexed
-				// If hash matches but file is NOT indexed, re-index it (might have been removed)
-				if (prev?.hash === fileHash && isCurrentlyIndexed) {
-					skippedHashMatch++;
-					continue;
-				}
-
-				await this._reindexFile(next, content);
-				indexedCount++;
-				this.plugin.settings.retrievalIndexState = {
-					...(this.plugin.settings.retrievalIndexState || {}),
-					[next]: {
-						hash: fileHash,
-						chunkCount: this.chunkKeysByPath.get(next)?.size ?? 0,
-						updatedAt: new Date().toISOString()
-					}
-				};
-				this._schedulePersist();
-				this._scheduleSettingsSave();
-			} catch (err) {
-				// Skip unreadable files, but log for debugging
-				this.logError('_runWorker', `Processing file: ${next}`, err);
-			}
+			const result = await this._processQueueItem(next);
+			if (result === 'excluded') skippedExcluded++;
+			else if (result === 'not-markdown') skippedNotMarkdown++;
+			else if (result === 'hash-match') skippedHashMatch++;
+			else if (result === 'indexed') indexedCount++;
 
 			// Yield to keep UI responsive.
 			await new Promise((r) => setTimeout(r, 10));
@@ -697,6 +653,39 @@ export class EmbeddingsIndex {
 
 		this.stopHeartbeat();
 		this.workerRunning = false;
+	}
+
+	private async _processQueueItem(path: string): Promise<'excluded' | 'not-markdown' | 'hash-match' | 'indexed' | 'error'> {
+		if (this.plugin.vaultService.isExcludedPath(path)) {
+			this._removePath(path);
+			this._schedulePersist();
+			this._scheduleSettingsSave();
+			return 'excluded';
+		}
+		const file = this.vault.getAbstractFileByPath(path);
+		if (!(file instanceof TFile) || file.extension !== 'md') {
+			this._removePath(path);
+			this._schedulePersist();
+			this._scheduleSettingsSave();
+			return 'not-markdown';
+		}
+		try {
+			const content = await this.vault.read(file);
+			const fileHash = await sha256(normalizeChunkText(content));
+			const prev = this.plugin.settings.retrievalIndexState?.[path];
+			if (prev?.hash === fileHash && this.chunkKeysByPath.has(path)) return 'hash-match';
+			await this._reindexFile(path, content);
+			this.plugin.settings.retrievalIndexState = {
+				...(this.plugin.settings.retrievalIndexState || {}),
+				[path]: { hash: fileHash, chunkCount: this.chunkKeysByPath.get(path)?.size ?? 0, updatedAt: new Date().toISOString() }
+			};
+			this._schedulePersist();
+			this._scheduleSettingsSave();
+			return 'indexed';
+		} catch (err) {
+			this.logError('_runWorker', `Processing file: ${path}`, err);
+			return 'error';
+		}
 	}
 
 	private async _reindexFile(path: string, content: string): Promise<void> {
