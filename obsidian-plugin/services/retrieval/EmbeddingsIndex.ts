@@ -727,49 +727,23 @@ export class EmbeddingsIndex {
 			let vector: number[];
 		try {
 			vector = await this.embeddingProvider.getEmbedding(normalizedText);
-			this.aiErrorStreak = 0; // Success: reset streak
-			if (!Array.isArray(vector) || vector.length === 0) {
-				throw new Error('Empty embedding returned from Ollama');
-			}
-			if (this.dim === 0) {
-				this.dim = vector.length;
-			}
+			this.aiErrorStreak = 0;
+			if (!Array.isArray(vector) || vector.length === 0) throw new Error('Empty embedding returned from Ollama');
+			if (this.dim === 0) this.dim = vector.length;
 		} catch (err) {
-				this.aiErrorStreak++;
-				const errorMsg = err instanceof Error ? err.message : String(err);
-				const errorStack = err instanceof Error ? err.stack : undefined;
-				const context = `File: ${path}, Chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words, ${ch.text.length} chars)`;
-				this.logError('_reindexFile.embedChunk', context, err);
-				
-				console.error(`  - ✗ Embedding generation failed for chunk ${i + 1}/${chunks.length}:`, errorMsg);
-				
-				if (this.aiErrorStreak >= 3) {
-					console.warn('[EmbeddingsIndex] Embedding breaker triggered: paused 15s and cleared queue after 3 consecutive failures.');
-					this.queue.clear();
-					this.aiErrorStreak = 0;
-					// Yield and wait 15s
-					await new Promise(r => setTimeout(r, 15000));
-					throw new Error('Embedding breaker triggered; batch aborted.');
-				}
-
-				if (errorStack) {
-					console.error(`    Stack: ${errorStack.split('\n').slice(0, 3).join('\n    ')}`);
-				}
-				if (err instanceof Error) {
-					console.error(`    Error type: ${err.constructor.name}`);
-					if ('cause' in err) {
-						console.error(`    Cause: ${err.cause}`);
-					}
-				}
-				// If ALL chunks fail for a file, the file won't be indexed
-				// This is a critical failure that should be logged
-				if (i === 0) {
-					console.warn(`  - Warning: First chunk failed for ${path}. Attempting subsequent chunks.`);
-					firstError = err instanceof Error ? err : new Error(String(err));
-				}
-				// Skip this chunk if embedding fails, but continue with others
-				continue;
+			this.aiErrorStreak++;
+			const context = `File: ${path}, Chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words, ${ch.text.length} chars)`;
+			this.logError('_reindexFile.embedChunk', context, err);
+			console.error(`  - ✗ Embedding generation failed for chunk ${i + 1}/${chunks.length}:`, err instanceof Error ? err.message : String(err));
+			if (this.aiErrorStreak >= 3) {
+				this.queue.clear();
+				this.aiErrorStreak = 0;
+				await new Promise(r => setTimeout(r, 15000));
+				throw new Error('Embedding breaker triggered; batch aborted.');
 			}
+			if (i === 0) firstError = err instanceof Error ? err : new Error(String(err));
+			continue;
+		}
 			const excerpt = excerptOf(ch.text, 2500);
 			this._setChunk({
 				key,
