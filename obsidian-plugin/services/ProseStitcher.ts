@@ -249,7 +249,7 @@ Max churn: ${STITCH_CONFIG.MAX_CHARS_CHANGED_PCT * 100}%`;
         }
 
         if (!response) {
-            console.log(`[ProseStitcher] All attempts failed for ${routing.seamId}. Skipping silently.`);
+            console.debug(`[ProseStitcher] All attempts failed for ${routing.seamId}. Skipping silently.`);
             return null;
         }
 

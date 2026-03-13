@@ -135,7 +135,7 @@ export class OllamaEmbeddingProvider {
 			}
 		}
 
-		console.log(`[Ollama] Embed call: original=${meta.originalLength}, final=${meta.finalLength}, defangs=${meta.defangCount}, retry=${meta.hadRetry}, status=${res.status}`);
+		console.debug(`[Ollama] Embed call: original=${meta.originalLength}, final=${meta.finalLength}, defangs=${meta.defangCount}, retry=${meta.hadRetry}, status=${res.status}`);
 
 		if (res.status !== 200) {
 			const err: any = new Error(`[Ollama] Embed failed with status ${res.status}`);

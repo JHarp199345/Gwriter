@@ -249,7 +249,7 @@ export class SequentialGenerator {
             while (totalWords < targetWordCount && (this.state === 'RUNNING' || this.state === 'RESUMING')) {
                 if (this.checkControlFlow()) break;
 
-                console.log(`[SequentialGenerator] --- Iteration ${iteration} ---`);
+                console.debug(`[SequentialGenerator] --- Iteration ${iteration} ---`);
                 
                 // --- SPONTANEITY & RISK ---
                 const sliderValue = (this.plugin.settings as any).spontaneitySlider || 50;
@@ -377,7 +377,7 @@ export class SequentialGenerator {
                             m.newFactsProposed.forEach((f: any) => {
                                 if (restrictedDomains.some(d => f.type === d || f.attribute === d)) {
                                     f.lifecycleState = 'QUARANTINED';
-                                    console.log(`[SequentialGenerator] Auto-quarantined fact in restricted domain: ${f.attribute}`);
+                                    console.debug(`[SequentialGenerator] Auto-quarantined fact in restricted domain: ${f.attribute}`);
                                 }
                             });
                         }
@@ -777,7 +777,7 @@ Constraints:
                     relayEventBus.emit('chunk:patch', response);
                     
                     // Log success
-                    console.log(`[SequentialGenerator] Stitch success: ${seamId} (seq ${seqNo})`);
+                    console.debug(`[SequentialGenerator] Stitch success: ${seamId} (seq ${seqNo})`);
                 }
             } catch (err) {
                 console.error(`[SequentialGenerator] Stitch task failed for ${seamId}:`, err);
@@ -914,7 +914,7 @@ Constraints:
             const contextLimit = this.plugin.settings.contextTokenLimit || 128000;
             const usage = lastWriteStage.manifest.tokenEstimate / contextLimit;
             if (usage > policy.CONTEXT_PRESSURE_THRESHOLD) {
-                console.log(`[SequentialGenerator] 🚀 Telescoping triggered by context pressure: ${Math.round(usage * 100)}%`);
+                console.debug(`[SequentialGenerator] 🚀 Telescoping triggered by context pressure: ${Math.round(usage * 100)}%`);
                 return true;
             }
         }
@@ -928,7 +928,7 @@ Constraints:
                 this.entitiesMentionedHistory.get(id)?.forEach(e => uniqueEntities.add(e));
             });
             if (uniqueEntities.size > policy.HIGH_ENTITY_DENSITY_THRESHOLD) {
-                console.log(`[SequentialGenerator] 🚀 Telescoping triggered by high entity density: ${uniqueEntities.size} entities in last ${window} chunks`);
+                console.debug(`[SequentialGenerator] 🚀 Telescoping triggered by high entity density: ${uniqueEntities.size} entities in last ${window} chunks`);
                 return true;
             }
         }
@@ -1007,7 +1007,7 @@ Constraints:
             timestamp: plotMemory.timestamp
         });
 
-        console.log(`[SequentialGenerator] 📊 Telescoped plot memory v${plotMemory.version} from chunks ${sourceChunkIds.join(', ')}`);
+        console.debug(`[SequentialGenerator] 📊 Telescoped plot memory v${plotMemory.version} from chunks ${sourceChunkIds.join(', ')}`);
     }
 
     /**
@@ -1035,7 +1035,7 @@ Constraints:
         );
 
         if (candidates.length === 0) {
-            console.log('[SequentialGenerator] 🌾 No lore candidates found for harvesting.');
+            console.debug('[SequentialGenerator] 🌾 No lore candidates found for harvesting.');
             return;
         }
 
@@ -1060,7 +1060,7 @@ Constraints:
                 const fact = { ...item.proposedFact, lifecycleState: 'CANON' as const };
                 contextManager.updateState([fact]);
                 this.manifest!.harvestSummary!.autoAcceptedSceneOnly.push(item.harvestId);
-                console.log(`[SequentialGenerator] ✅ Auto-accepted run-local lore: ${item.proposedFact.attribute} of ${item.proposedFact.entityId}`);
+                console.debug(`[SequentialGenerator] ✅ Auto-accepted run-local lore: ${item.proposedFact.attribute} of ${item.proposedFact.entityId}`);
             });
         }
 
@@ -1081,7 +1081,7 @@ Constraints:
                         const fact = { ...item.proposedFact, lifecycleState: 'CANON' as const, scope: 'SCENE' as const };
                         contextManager.updateState([fact]);
                         this.manifest!.harvestSummary!.autoAcceptedSceneOnly.push(item.harvestId);
-                        console.log(`[SequentialGenerator] ✅ Accepted run-local lore: ${item.proposedFact.attribute} of ${item.proposedFact.entityId}`);
+                        console.debug(`[SequentialGenerator] ✅ Accepted run-local lore: ${item.proposedFact.attribute} of ${item.proposedFact.entityId}`);
                     });
                 }
 
@@ -1150,7 +1150,7 @@ Constraints:
      * Triggers a lightweight re-evaluation of grounding after a mutation is accepted.
      */
     private async reGround(contextManager: ContextManager) {
-        console.log('[SequentialGenerator] 🔄 Post-mutation re-grounding triggered.');
+        console.debug('[SequentialGenerator] 🔄 Post-mutation re-grounding triggered.');
         // In a real run, this would trigger a partial RETRIEVE or update the PLAN
         // to ensure new canon is used in the next iteration.
     }
@@ -1417,7 +1417,7 @@ Constraints:
 
         // Recovery: if \n\n is missing or paragraphs are too long
         if (paragraphs.length <= 1 && text.length > policy.HARD_MAX_CHARS_PER_PARA) {
-            console.log('[SequentialGenerator] ⚠️ Segmentation drift detected. Recovering...');
+            console.debug('[SequentialGenerator] ⚠️ Segmentation drift detected. Recovering...');
             paragraphs = this.fallbackSegment(text);
         }
 
@@ -1988,7 +1988,7 @@ Constraints:
         for (const folder of toTrash) {
             try {
                 await this.plugin.trashService.trashRun(folder.name, folder.path, 'Automatic cleanup: exceeded keep limit');
-                console.log(`[SequentialGenerator] 🧹 Moved run to trash: ${folder.name}`);
+                console.debug(`[SequentialGenerator] 🧹 Moved run to trash: ${folder.name}`);
             } catch (err) {
                 console.warn(`[SequentialGenerator] Failed to trash run ${folder.name}:`, err);
             }
@@ -2423,7 +2423,7 @@ Constraints:
                 path: this.plugin.settings.book2Path 
             });
         } else {
-            console.log(`[SequentialGenerator] [DRY-RUN] Would have committed monolithic chapter to ${this.plugin.settings.book2Path}`);
+            console.debug(`[SequentialGenerator] [DRY-RUN] Would have committed monolithic chapter to ${this.plugin.settings.book2Path}`);
         }
 
         // Update timeline in state
@@ -2469,7 +2469,7 @@ Constraints:
         }
 
         if (harvestResult.length === 0) {
-            console.log('[SequentialGenerator] 🌾 No lore candidates found for cloud harvest.');
+            console.debug('[SequentialGenerator] 🌾 No lore candidates found for cloud harvest.');
             return;
         }
 

@@ -131,7 +131,7 @@ export class DiagnosticsService {
         } catch (e) {
             results.push({
                 status: 'FAIL',
-                message: `Local generation test failed: ${e.message}`
+                message: `Local generation test failed: ${e instanceof Error ? e.message : String(e)}`
             });
         }
     }
@@ -167,7 +167,7 @@ export class DiagnosticsService {
             results.push({
                 status: 'FAIL',
                 code: 'CLOUD_AUTH_FAIL',
-                message: `Cloud connectivity failed: ${e.message}`,
+                message: `Cloud connectivity failed: ${e instanceof Error ? e.message : String(e)}`,
                 suggestedFix: REMEDIATION_MAPPING['CLOUD_AUTH_FAIL']
             });
         }
@@ -179,7 +179,7 @@ export class DiagnosticsService {
         } catch (e) {
             results.push({
                 status: 'FAIL',
-                message: `Cloud generation test failed: ${e.message}`
+                message: `Cloud generation test failed: ${e instanceof Error ? e.message : String(e)}`
             });
         }
     }

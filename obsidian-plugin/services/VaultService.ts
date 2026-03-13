@@ -264,7 +264,7 @@ export class VaultService {
 			try {
 				existingContent = await this.readFile(characterPath);
 			} catch {
-				// File doesn't exist, will create new
+				existingContent = '';
 			}
 			
 			// Generate readable timestamp
@@ -523,8 +523,6 @@ export class VaultService {
 				
 				// Add new bullets, avoiding duplicates
 				const lines = sectionContent.split('\n');
-				const mergedBullets = [...newBullets];
-				
 				newBullets.forEach(nb => {
 					if (!lines.some(l => l.trim() === nb)) {
 						lines.push(nb);
@@ -563,7 +561,7 @@ export class VaultService {
 		const file = this.vault.getAbstractFileByPath(storyBiblePath);
 		if (file instanceof TFile) {
 			await this.vault.modify(file, reversePatch);
-			console.log(`[VaultService] 🔄 Rolled back Story Bible to previous state.`);
+			console.debug(`[VaultService] 🔄 Rolled back Story Bible to previous state.`);
 		}
 	}
 }

@@ -344,7 +344,7 @@ export class LoreHarvestService {
                 // Match found: boost confidence to "Tier A" (max confidence)
                 localCandidate.confidence = 1.0;
                 localCandidate.appearanceCount += 1; // Reward agreement
-                console.log(`[LoreHarvestService] ✅ Model-local agreement: ${modelTuple.entityId}.${modelTuple.attribute}`);
+                console.debug(`[LoreHarvestService] ✅ Model-local agreement: ${modelTuple.entityId}.${modelTuple.attribute}`);
             }
         }
     }

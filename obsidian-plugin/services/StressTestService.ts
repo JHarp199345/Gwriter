@@ -124,7 +124,7 @@ export class StressTestService {
 		const timestamp = new Date().toISOString();
 		const entry = `[${timestamp}] ${message}`;
 		this.log.push(entry);
-		console.log(`[StressTest] ${message}`);
+		console.debug(`[StressTest] ${message}`);
 	}
 
 	private async phase1_Setup() {
@@ -507,8 +507,8 @@ export class StressTestService {
 			// Fallback: attempt adapter removal (best-effort)
 			try {
 				await this.app.vault.adapter.remove(path);
-			} catch {
-				/* ignore */
+			} catch (err) {
+				console.debug('[StressTestService] Path removal failed (non-critical):', err);
 			}
 		}
 	}

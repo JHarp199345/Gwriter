@@ -87,12 +87,14 @@ export class OllamaGenerationProvider {
         if (this.isProcessing || this.queue.length === 0) return;
         this.isProcessing = true;
 
-        while (this.queue.length > 0) {
-            const item = this.queue.shift()!;
-            await item.task(item.abortController?.signal);
+        try {
+            while (this.queue.length > 0) {
+                const item = this.queue.shift()!;
+                await item.task(item.abortController?.signal);
+            }
+        } finally {
+            this.isProcessing = false;
         }
-
-        this.isProcessing = false;
     }
 
     /**
@@ -111,7 +113,7 @@ export class OllamaGenerationProvider {
      * Generates text based on a prompt and parameters.
      */
     async generate(prompt: string, params: GenerationParams, signal?: AbortSignal): Promise<string> {
-        console.log(`[OllamaGen] 📡 Sending request to model: ${params.model} (Temp: ${params.temperature}, num_ctx: ${params.num_ctx || 'default'})`);
+        console.debug(`[OllamaGen] Sending request to model: ${params.model} (Temp: ${params.temperature}, num_ctx: ${params.num_ctx || 'default'})`);
         
         try {
             // Build options object, only include num_ctx if provided
@@ -191,7 +193,7 @@ export class OllamaGenerationProvider {
         onToken: (token: string) => void,
         signal?: AbortSignal
     ): Promise<string> {
-        console.log(`[OllamaGen] 📡 Sending streaming request to model: ${params.model} (num_ctx: ${params.num_ctx || 'default'})`);
+        console.debug(`[OllamaGen] Sending streaming request to model: ${params.model} (num_ctx: ${params.num_ctx || 'default'})`);
         
         let fullResponse = '';
         let buffer = '';
@@ -255,7 +257,8 @@ export class OllamaGenerationProvider {
                             lastFlush = now;
                         }
                     } catch {
-                        // Partial JSON line, continue
+                        // Partial JSON line from streaming chunk; skip and continue.
+                        continue;
                     }
                 }
             }

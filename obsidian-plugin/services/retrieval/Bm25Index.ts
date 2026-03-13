@@ -246,9 +246,9 @@ export class Bm25Index {
 					updatedAt: new Date().toISOString()
 				};
 				this._schedulePersist();
-			} catch {
-				// ignore unreadable files
-			}
+		} catch (err) {
+			console.debug('[Bm25Index] Skipping unreadable file:', err);
+		}
 
 			// Yield to keep UI responsive.
 			await new Promise((r) => setTimeout(r, 10));
@@ -329,8 +329,8 @@ export class Bm25Index {
 			if (!(await this.vault.adapter.exists(dir))) {
 				await this.vault.adapter.mkdir(dir);
 			}
-		} catch {
-			// ignore mkdir failures
+		} catch (err) {
+			console.warn('[Bm25Index] Failed to create index directory:', err);
 		}
 
 		const postingsObj: PersistedBm25V1['postings'] = {};

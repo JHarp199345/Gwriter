@@ -62,7 +62,7 @@ function captureEnvSnapshot(mod: any, env: any, where: string): void {
 			onnxWasmPaths: onnx?.wasm?.wasmPaths ?? null,
 			envHasUseWasm: typeof env?.useWasm === 'function',
 		};
-		console.log('[LocalEmbeddingModel] [ENV SNAPSHOT]', lastEnvSnapshot);
+		console.debug('[LocalEmbeddingModel] [ENV SNAPSHOT]', lastEnvSnapshot);
 	} catch (e) {
 		console.warn('[LocalEmbeddingModel] [ENV SNAPSHOT] Failed to capture env snapshot:', e);
 	}
@@ -71,65 +71,65 @@ function captureEnvSnapshot(mod: any, env: any, where: string): void {
 // Helper to get pipeline function with proper error handling
 // Uses vendored transformers.js to avoid bundling issues
 async function getPipeline(plugin: WritingDashboardPlugin): Promise<any> {
-	console.log(`[LocalEmbeddingModel] === STARTING PIPELINE LOAD ===`);
-	console.log(`[LocalEmbeddingModel] Timestamp: ${new Date().toISOString()}`);
+	console.debug(`[LocalEmbeddingModel] === STARTING PIPELINE LOAD ===`);
+	console.debug(`[LocalEmbeddingModel] Timestamp: ${new Date().toISOString()}`);
 	
 	// Import the vendored transformers library first
-	console.log(`[LocalEmbeddingModel] [STEP 1] Importing transformers.js module...`);
+	console.debug(`[LocalEmbeddingModel] [STEP 1] Importing transformers.js module...`);
 	let mod: any;
 	try {
 		mod = await import('../../lib/transformers.js');
-		console.log(`[LocalEmbeddingModel] [STEP 1] ✓ Module imported successfully`);
-		console.log(`[LocalEmbeddingModel] [STEP 1] Module type: ${typeof mod}`);
-		console.log(`[LocalEmbeddingModel] [STEP 1] Module is null: ${mod === null}`);
-		console.log(`[LocalEmbeddingModel] [STEP 1] Module is undefined: ${mod === undefined}`);
+		console.debug(`[LocalEmbeddingModel] [STEP 1] ✓ Module imported successfully`);
+		console.debug(`[LocalEmbeddingModel] [STEP 1] Module type: ${typeof mod}`);
+		console.debug(`[LocalEmbeddingModel] [STEP 1] Module is null: ${mod === null}`);
+		console.debug(`[LocalEmbeddingModel] [STEP 1] Module is undefined: ${mod === undefined}`);
 	} catch (importErr) {
 		console.error(`[LocalEmbeddingModel] [STEP 1] ✗ Module import failed:`, importErr);
 		throw new Error(`Failed to import transformers.js: ${importErr instanceof Error ? importErr.message : String(importErr)}`);
 	}
 	
 	// Deep inspection of module structure
-	console.log(`[LocalEmbeddingModel] [STEP 2] Inspecting module structure...`);
-	console.log(`[LocalEmbeddingModel] [STEP 2] Module keys (first 30):`, mod && typeof mod === 'object' ? Object.keys(mod).slice(0, 30) : 'N/A');
-	console.log(`[LocalEmbeddingModel] [STEP 2] Has 'env' property:`, 'env' in (mod || {}));
-	console.log(`[LocalEmbeddingModel] [STEP 2] Has 'default' property:`, 'default' in (mod || {}));
-	console.log(`[LocalEmbeddingModel] [STEP 2] Has 'pipeline' property:`, 'pipeline' in (mod || {}));
-	console.log(`[LocalEmbeddingModel] [STEP 2] mod.env type:`, typeof mod?.env);
-	console.log(`[LocalEmbeddingModel] [STEP 2] mod.default type:`, typeof mod?.default);
-	console.log(`[LocalEmbeddingModel] [STEP 2] mod.pipeline type:`, typeof mod?.pipeline);
+	console.debug(`[LocalEmbeddingModel] [STEP 2] Inspecting module structure...`);
+	console.debug(`[LocalEmbeddingModel] [STEP 2] Module keys (first 30):`, mod && typeof mod === 'object' ? Object.keys(mod).slice(0, 30) : 'N/A');
+	console.debug(`[LocalEmbeddingModel] [STEP 2] Has 'env' property:`, 'env' in (mod || {}));
+	console.debug(`[LocalEmbeddingModel] [STEP 2] Has 'default' property:`, 'default' in (mod || {}));
+	console.debug(`[LocalEmbeddingModel] [STEP 2] Has 'pipeline' property:`, 'pipeline' in (mod || {}));
+	console.debug(`[LocalEmbeddingModel] [STEP 2] mod.env type:`, typeof mod?.env);
+	console.debug(`[LocalEmbeddingModel] [STEP 2] mod.default type:`, typeof mod?.default);
+	console.debug(`[LocalEmbeddingModel] [STEP 2] mod.pipeline type:`, typeof mod?.pipeline);
 	
 	// Try multiple ways to access the environment
 	let env: any = null;
 	let envSource = 'none';
 	
-	console.log(`[LocalEmbeddingModel] [STEP 3] Attempting to locate environment structure...`);
+	console.debug(`[LocalEmbeddingModel] [STEP 3] Attempting to locate environment structure...`);
 	
 	// Method 1: Direct mod.env (standard structure)
 	if (mod?.env) {
-		console.log(`[LocalEmbeddingModel] [STEP 3] ✓ Found env via mod.env`);
+		console.debug(`[LocalEmbeddingModel] [STEP 3] ✓ Found env via mod.env`);
 		env = mod.env;
 		envSource = 'mod.env';
 	}
 	// Method 2: mod.default.env (if default export)
 	else if (mod?.default?.env) {
-		console.log(`[LocalEmbeddingModel] [STEP 3] ✓ Found env via mod.default.env`);
+		console.debug(`[LocalEmbeddingModel] [STEP 3] ✓ Found env via mod.default.env`);
 		env = mod.default.env;
 		envSource = 'mod.default.env';
 	}
 	
 	// Deep inspection of what we have
 	if (env) {
-		console.log(`[LocalEmbeddingModel] [STEP 3] env type: ${typeof env}`);
-		console.log(`[LocalEmbeddingModel] [STEP 3] env keys (first 30):`, Object.keys(env).slice(0, 30));
-		console.log(`[LocalEmbeddingModel] [STEP 3] env.backends exists:`, 'backends' in env);
-		console.log(`[LocalEmbeddingModel] [STEP 3] env.backends.onnx exists:`, env.backends?.onnx !== undefined);
-		console.log(`[LocalEmbeddingModel] [STEP 3] env.useWasm exists:`, typeof env.useWasm === 'function');
+		console.debug(`[LocalEmbeddingModel] [STEP 3] env type: ${typeof env}`);
+		console.debug(`[LocalEmbeddingModel] [STEP 3] env keys (first 30):`, Object.keys(env).slice(0, 30));
+		console.debug(`[LocalEmbeddingModel] [STEP 3] env.backends exists:`, 'backends' in env);
+		console.debug(`[LocalEmbeddingModel] [STEP 3] env.backends.onnx exists:`, env.backends?.onnx !== undefined);
+		console.debug(`[LocalEmbeddingModel] [STEP 3] env.useWasm exists:`, typeof env.useWasm === 'function');
 		if (env.backends) {
-			console.log(`[LocalEmbeddingModel] [STEP 3] env.backends keys:`, Object.keys(env.backends));
+			console.debug(`[LocalEmbeddingModel] [STEP 3] env.backends keys:`, Object.keys(env.backends));
 		}
 		if (env.backends?.onnx) {
-			console.log(`[LocalEmbeddingModel] [STEP 3] env.backends.onnx type:`, typeof env.backends.onnx);
-			console.log(`[LocalEmbeddingModel] [STEP 3] env.backends.onnx keys:`, Object.keys(env.backends.onnx).slice(0, 20));
+			console.debug(`[LocalEmbeddingModel] [STEP 3] env.backends.onnx type:`, typeof env.backends.onnx);
+			console.debug(`[LocalEmbeddingModel] [STEP 3] env.backends.onnx keys:`, Object.keys(env.backends.onnx).slice(0, 20));
 		}
 		// Capture env snapshot before WASM config
 		if (!lastEnvSnapshot) {
@@ -141,15 +141,15 @@ async function getPipeline(plugin: WritingDashboardPlugin): Promise<any> {
 		console.warn(`[LocalEmbeddingModel] [STEP 3] mod.default exists:`, mod?.default !== undefined);
 		console.warn(`[LocalEmbeddingModel] [STEP 3] mod.default.env exists:`, mod?.default?.env !== undefined);
 		if (mod?.env) {
-			console.log(`[LocalEmbeddingModel] [STEP 3] mod.env structure (depth 3):`, deepInspect(mod.env, 3));
+			console.debug(`[LocalEmbeddingModel] [STEP 3] mod.env structure (depth 3):`, deepInspect(mod.env, 3));
 		}
 		if (mod?.default?.env) {
-			console.log(`[LocalEmbeddingModel] [STEP 3] mod.default.env structure (depth 3):`, deepInspect(mod.default.env, 3));
+			console.debug(`[LocalEmbeddingModel] [STEP 3] mod.default.env structure (depth 3):`, deepInspect(mod.default.env, 3));
 		}
 	}
 	
 	// Configure WASM paths - CRITICAL: Must be done BEFORE any ONNX backend initialization
-	console.log(`[LocalEmbeddingModel] [STEP 4] Attempting to configure WASM paths...`);
+	console.debug(`[LocalEmbeddingModel] [STEP 4] Attempting to configure WASM paths...`);
 	
 	const wasmBasePath = './lib/';
 	
@@ -161,49 +161,49 @@ async function getPipeline(plugin: WritingDashboardPlugin): Promise<any> {
 		
 		// Try to find ONNX in the module exports
 		if (mod?.ONNX) {
-			console.log(`[LocalEmbeddingModel] [STEP 4] ✓ Found ONNX export in module`);
+			console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ Found ONNX export in module`);
 			const onnx = mod.ONNX;
 			if (onnx?.env?.wasm) {
 				onnxBackendEnv = onnx.env.wasm;
 				onnxBackendPath = 'mod.ONNX.env.wasm';
-				console.log(`[LocalEmbeddingModel] [STEP 4] ✓ Found ONNX env.wasm via mod.ONNX`);
+				console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ Found ONNX env.wasm via mod.ONNX`);
 			} else if (onnx?.env) {
 				onnxBackendEnv = onnx.env;
 				onnxBackendPath = 'mod.ONNX.env';
-				console.log(`[LocalEmbeddingModel] [STEP 4] ✓ Found ONNX env via mod.ONNX`);
+				console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ Found ONNX env via mod.ONNX`);
 			}
 		}
 		
 		// Approach 2: Try via env.backends.onnx (transformers.js structure)
 		if (!onnxBackendEnv && env.backends?.onnx) {
 			const onnxBackend = env.backends.onnx;
-			console.log(`[LocalEmbeddingModel] [STEP 4] ✓ ONNX backend found via env.backends.onnx`);
+			console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ ONNX backend found via env.backends.onnx`);
 			
 			if (onnxBackend.env?.wasm) {
 				onnxBackendEnv = onnxBackend.env.wasm;
 				onnxBackendPath = 'env.backends.onnx.env.wasm';
-				console.log(`[LocalEmbeddingModel] [STEP 4] ✓ Found WASM env at onnxBackend.env.wasm`);
+				console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ Found WASM env at onnxBackend.env.wasm`);
 			} else if (onnxBackend.wasm) {
 				onnxBackendEnv = onnxBackend.wasm;
 				onnxBackendPath = 'onnxBackend.wasm';
-				console.log(`[LocalEmbeddingModel] [STEP 4] ✓ Found WASM env at onnxBackend.wasm`);
+				console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ Found WASM env at onnxBackend.wasm`);
 			} else if (onnxBackend.env) {
 				onnxBackendEnv = onnxBackend.env;
 				onnxBackendPath = 'onnxBackend.env';
-				console.log(`[LocalEmbeddingModel] [STEP 4] ✓ Found env at onnxBackend.env`);
+				console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ Found env at onnxBackend.env`);
 			}
 		}
 		
 		// Set wasmPaths on the ONNX backend environment
 		if (onnxBackendEnv) {
-			console.log(`[LocalEmbeddingModel] [STEP 4] Configuring WASM paths at: ${onnxBackendPath}`);
+			console.debug(`[LocalEmbeddingModel] [STEP 4] Configuring WASM paths at: ${onnxBackendPath}`);
 			try {
 				if ('wasmPaths' in onnxBackendEnv) {
 					const currentPaths = onnxBackendEnv.wasmPaths;
-					console.log(`[LocalEmbeddingModel] [STEP 4] Current wasmPaths: ${JSON.stringify(currentPaths)}`);
+					console.debug(`[LocalEmbeddingModel] [STEP 4] Current wasmPaths: ${JSON.stringify(currentPaths)}`);
 					onnxBackendEnv.wasmPaths = wasmBasePath;
-					console.log(`[LocalEmbeddingModel] [STEP 4] ✓ Updated wasmPaths to: ${wasmBasePath}`);
-					console.log(`[LocalEmbeddingModel] [STEP 4] Verified wasmPaths: ${JSON.stringify(onnxBackendEnv.wasmPaths)}`);
+					console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ Updated wasmPaths to: ${wasmBasePath}`);
+					console.debug(`[LocalEmbeddingModel] [STEP 4] Verified wasmPaths: ${JSON.stringify(onnxBackendEnv.wasmPaths)}`);
 				} else {
 					Object.defineProperty(onnxBackendEnv, 'wasmPaths', {
 						value: wasmBasePath,
@@ -211,7 +211,7 @@ async function getPipeline(plugin: WritingDashboardPlugin): Promise<any> {
 						enumerable: true,
 						configurable: true
 					});
-					console.log(`[LocalEmbeddingModel] [STEP 4] ✓ Created and set wasmPaths to: ${wasmBasePath}`);
+					console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ Created and set wasmPaths to: ${wasmBasePath}`);
 				}
 			} catch (pathErr) {
 				console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to set wasmPaths at ${onnxBackendPath}:`, pathErr);
@@ -225,7 +225,7 @@ async function getPipeline(plugin: WritingDashboardPlugin): Promise<any> {
 			if (!env.backends) {
 				try {
 					env.backends = {};
-					console.log(`[LocalEmbeddingModel] [STEP 4] Created env.backends object`);
+					console.debug(`[LocalEmbeddingModel] [STEP 4] Created env.backends object`);
 				} catch (e) {
 					console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to create env.backends:`, e);
 				}
@@ -240,7 +240,7 @@ async function getPipeline(plugin: WritingDashboardPlugin): Promise<any> {
 			// Always capture snapshot for diagnostics
 			captureEnvSnapshot(mod, env, 'wasm-config-attempt');
 			if (lastEnvSnapshot) {
-				console.log('[LocalEmbeddingModel] [ENV SNAPSHOT]', JSON.stringify(lastEnvSnapshot, null, 2));
+				console.debug('[LocalEmbeddingModel] [ENV SNAPSHOT]', JSON.stringify(lastEnvSnapshot, null, 2));
 			}
 		}
 		
@@ -248,7 +248,7 @@ async function getPipeline(plugin: WritingDashboardPlugin): Promise<any> {
 		try {
 			if ('wasmPaths' in env) {
 				env.wasmPaths = wasmBasePath;
-				console.log(`[LocalEmbeddingModel] [STEP 4] ✓ Also set env.wasmPaths to: ${wasmBasePath}`);
+				console.debug(`[LocalEmbeddingModel] [STEP 4] ✓ Also set env.wasmPaths to: ${wasmBasePath}`);
 			}
 		} catch (envPathErr) {
 			console.warn(`[LocalEmbeddingModel] [STEP 4] Failed to set top-level env.wasmPaths:`, envPathErr);
@@ -258,11 +258,11 @@ async function getPipeline(plugin: WritingDashboardPlugin): Promise<any> {
 	}
 	
 	// Get pipeline function
-	console.log(`[LocalEmbeddingModel] [STEP 5] Locating pipeline function...`);
+	console.debug(`[LocalEmbeddingModel] [STEP 5] Locating pipeline function...`);
 	const pipeline = mod.pipeline || mod.default?.pipeline;
-	console.log(`[LocalEmbeddingModel] [STEP 5] Pipeline found:`, pipeline !== undefined && pipeline !== null);
-	console.log(`[LocalEmbeddingModel] [STEP 5] Pipeline type:`, typeof pipeline);
-	console.log(`[LocalEmbeddingModel] [STEP 5] Pipeline is function:`, typeof pipeline === 'function');
+	console.debug(`[LocalEmbeddingModel] [STEP 5] Pipeline found:`, pipeline !== undefined && pipeline !== null);
+	console.debug(`[LocalEmbeddingModel] [STEP 5] Pipeline type:`, typeof pipeline);
+	console.debug(`[LocalEmbeddingModel] [STEP 5] Pipeline is function:`, typeof pipeline === 'function');
 	
 	if (!pipeline || typeof pipeline !== 'function') {
 		console.error(`[LocalEmbeddingModel] [STEP 5] ✗ Pipeline not found or not a function`);
@@ -271,8 +271,8 @@ async function getPipeline(plugin: WritingDashboardPlugin): Promise<any> {
 		throw new Error('Pipeline not found in transformers module');
 	}
 	
-	console.log(`[LocalEmbeddingModel] [STEP 5] ✓ Pipeline function found`);
-	console.log(`[LocalEmbeddingModel] === PIPELINE LOAD COMPLETE ===`);
+	console.debug(`[LocalEmbeddingModel] [STEP 5] ✓ Pipeline function found`);
+	console.debug(`[LocalEmbeddingModel] === PIPELINE LOAD COMPLETE ===`);
 	return pipeline;
 }
 
@@ -322,23 +322,23 @@ export class MiniLmLocalEmbeddingModel implements LocalEmbeddingModel {
 
 	private async ensureLoaded(): Promise<void> {
 		if (this.pipeline) {
-			console.log(`[LocalEmbeddingModel] Pipeline already loaded (attempt #${this.loadAttempts})`);
+			console.debug(`[LocalEmbeddingModel] Pipeline already loaded (attempt #${this.loadAttempts})`);
 			return;
 		}
 		if (this.loading !== null) {
-			console.log(`[LocalEmbeddingModel] Pipeline loading in progress (attempt #${this.loadAttempts}), waiting...`);
+			console.debug(`[LocalEmbeddingModel] Pipeline loading in progress (attempt #${this.loadAttempts}), waiting...`);
 			return this.loading;
 		}
 
-		console.log(`[LocalEmbeddingModel] === STARTING MODEL LOAD ===`);
-		console.log(`[LocalEmbeddingModel] Load attempt #${this.loadAttempts + 1}`);
-		console.log(`[LocalEmbeddingModel] Timestamp: ${new Date().toISOString()}`);
+		console.debug(`[LocalEmbeddingModel] === STARTING MODEL LOAD ===`);
+		console.debug(`[LocalEmbeddingModel] Load attempt #${this.loadAttempts + 1}`);
+		console.debug(`[LocalEmbeddingModel] Timestamp: ${new Date().toISOString()}`);
 		this.loadAttempts++;
 		const loadStart = Date.now();
 		this.loading = (async () => {
 			try {
 				// Get pipeline function - using helper to ensure proper initialization
-				console.log(`[LocalEmbeddingModel] [LOAD] Step 1: Getting pipeline function...`);
+				console.debug(`[LocalEmbeddingModel] [LOAD] Step 1: Getting pipeline function...`);
 				let pipeline: any;
 				try {
 					pipeline = await getPipeline(this.plugin);
@@ -348,7 +348,7 @@ export class MiniLmLocalEmbeddingModel implements LocalEmbeddingModel {
 					if (typeof pipeline !== 'function') {
 						throw new Error(`Pipeline is not a function, got: ${typeof pipeline}`);
 					}
-					console.log(`[LocalEmbeddingModel] [LOAD] Step 1: ✓ Pipeline function loaded (type: ${typeof pipeline}, name: ${pipeline.name || 'anonymous'})`);
+					console.debug(`[LocalEmbeddingModel] [LOAD] Step 1: ✓ Pipeline function loaded (type: ${typeof pipeline}, name: ${pipeline.name || 'anonymous'})`);
 				} catch (importErr) {
 					console.error(`[LocalEmbeddingModel] [LOAD] Step 1: ✗ Failed to get pipeline function`);
 					this.logError('ensureLoaded.import', 'Loading vendored transformers pipeline', importErr);
@@ -358,11 +358,11 @@ export class MiniLmLocalEmbeddingModel implements LocalEmbeddingModel {
 				// Cache models inside plugin data to avoid re-downloading if possible.
 				// Note: transformers uses its own caching strategy; this is a hint.
 				const cacheDir = `${this.vault.configDir}/plugins/${this.plugin.manifest.id}/rag-index/models`;
-				console.log(`[LocalEmbeddingModel] [LOAD] Step 2: Preparing model cache...`);
-				console.log(`[LocalEmbeddingModel] [LOAD] Step 2: Cache directory: ${cacheDir}`);
-				console.log(`[LocalEmbeddingModel] [LOAD] Step 2: Model: Xenova/all-MiniLM-L6-v2`);
-				console.log(`[LocalEmbeddingModel] [LOAD] Step 2: Quantized: true`);
-				console.log(`[LocalEmbeddingModel] [LOAD] Step 3: Creating model pipeline (this may take time)...`);
+				console.debug(`[LocalEmbeddingModel] [LOAD] Step 2: Preparing model cache...`);
+				console.debug(`[LocalEmbeddingModel] [LOAD] Step 2: Cache directory: ${cacheDir}`);
+				console.debug(`[LocalEmbeddingModel] [LOAD] Step 2: Model: Xenova/all-MiniLM-L6-v2`);
+				console.debug(`[LocalEmbeddingModel] [LOAD] Step 2: Quantized: true`);
+				console.debug(`[LocalEmbeddingModel] [LOAD] Step 3: Creating model pipeline (this may take time)...`);
 
 				let pipeUnknown: unknown;
 				try {
@@ -374,9 +374,9 @@ export class MiniLmLocalEmbeddingModel implements LocalEmbeddingModel {
 						cache_dir: cacheDir
 					});
 					const pipelineDuration = Date.now() - pipelineStartTime;
-					console.log(`[LocalEmbeddingModel] [LOAD] Step 3: ✓ Pipeline created in ${pipelineDuration}ms`);
-					console.log(`[LocalEmbeddingModel] [LOAD] Step 3: Pipeline output type: ${typeof pipeUnknown}`);
-					console.log(`[LocalEmbeddingModel] [LOAD] Step 3: Pipeline output is array: ${Array.isArray(pipeUnknown)}`);
+					console.debug(`[LocalEmbeddingModel] [LOAD] Step 3: ✓ Pipeline created in ${pipelineDuration}ms`);
+					console.debug(`[LocalEmbeddingModel] [LOAD] Step 3: Pipeline output type: ${typeof pipeUnknown}`);
+					console.debug(`[LocalEmbeddingModel] [LOAD] Step 3: Pipeline output is array: ${Array.isArray(pipeUnknown)}`);
 				} catch (pipelineErr) {
 					console.error(`[LocalEmbeddingModel] [LOAD] Step 3: ✗ Pipeline creation failed`);
 					console.error(`[LocalEmbeddingModel] [LOAD] Step 3: Error type: ${pipelineErr instanceof Error ? pipelineErr.constructor.name : typeof pipelineErr}`);
@@ -393,8 +393,8 @@ export class MiniLmLocalEmbeddingModel implements LocalEmbeddingModel {
 							if (envAtError) {
 								captureEnvSnapshot(modAtError, envAtError, 'on-pipeline-error');
 							}
-						} catch {
-							// ignore secondary failures
+						} catch (err) {
+							console.debug('[LocalEmbeddingModel] Secondary env snapshot capture failed:', err);
 						}
 					}
 					this.logError('ensureLoaded.createPipeline', `Creating pipeline with model Xenova/all-MiniLM-L6-v2, cache: ${cacheDir}`, pipelineErr);
@@ -402,30 +402,30 @@ export class MiniLmLocalEmbeddingModel implements LocalEmbeddingModel {
 				}
 				
 				const pipe = pipeUnknown as (input: string, opts?: Record<string, unknown>) => Promise<unknown>;
-				console.log(`[LocalEmbeddingModel] [LOAD] Step 4: Wrapping pipeline function...`);
+				console.debug(`[LocalEmbeddingModel] [LOAD] Step 4: Wrapping pipeline function...`);
 
 				this.pipeline = async (text: string) => {
 					const embedStartTime = Date.now();
 					try {
-						console.log(`[LocalEmbeddingModel] [EMBED] Starting embedding generation for text (${text.length} chars, ${text.split(/\s+/).length} words)...`);
+						console.debug(`[LocalEmbeddingModel] [EMBED] Starting embedding generation for text (${text.length} chars, ${text.split(/\s+/).length} words)...`);
 						const out = await pipe(text, { pooling: 'mean', normalize: true });
 						const embedDuration = Date.now() - embedStartTime;
-						console.log(`[LocalEmbeddingModel] [EMBED] Raw output received in ${embedDuration}ms`);
-						console.log(`[LocalEmbeddingModel] [EMBED] Output type: ${typeof out}`);
-						console.log(`[LocalEmbeddingModel] [EMBED] Output is array: ${Array.isArray(out)}`);
+						console.debug(`[LocalEmbeddingModel] [EMBED] Raw output received in ${embedDuration}ms`);
+						console.debug(`[LocalEmbeddingModel] [EMBED] Output type: ${typeof out}`);
+						console.debug(`[LocalEmbeddingModel] [EMBED] Output is array: ${Array.isArray(out)}`);
 						
 						// transformers output can vary; handle common cases.
 						let result: number[];
 						if (Array.isArray(out) && Array.isArray(out[0])) {
-							console.log(`[LocalEmbeddingModel] [EMBED] Format: Array<Array<number>>, using out[0]`);
+							console.debug(`[LocalEmbeddingModel] [EMBED] Format: Array<Array<number>>, using out[0]`);
 							result = l2Normalize(out[0] as number[]);
 						} else if (Array.isArray(out)) {
-							console.log(`[LocalEmbeddingModel] [EMBED] Format: Array<number>, using directly`);
+							console.debug(`[LocalEmbeddingModel] [EMBED] Format: Array<number>, using directly`);
 							result = l2Normalize(out as number[]);
 						} else {
 							const maybe = out as { data?: number[] };
 							if (Array.isArray(maybe?.data)) {
-								console.log(`[LocalEmbeddingModel] [EMBED] Format: Object with data array, using data`);
+								console.debug(`[LocalEmbeddingModel] [EMBED] Format: Object with data array, using data`);
 								result = l2Normalize(maybe.data);
 							} else {
 								const err = new Error(`Unexpected embeddings output format: ${typeof out}, isArray: ${Array.isArray(out)}`);
@@ -435,7 +435,7 @@ export class MiniLmLocalEmbeddingModel implements LocalEmbeddingModel {
 								throw err;
 							}
 						}
-						console.log(`[LocalEmbeddingModel] [EMBED] ✓ Embedding generated successfully (${result.length} dimensions)`);
+						console.debug(`[LocalEmbeddingModel] [EMBED] ✓ Embedding generated successfully (${result.length} dimensions)`);
 						return result;
 					} catch (err) {
 						const embedDuration = Date.now() - embedStartTime;
@@ -446,10 +446,10 @@ export class MiniLmLocalEmbeddingModel implements LocalEmbeddingModel {
 					}
 				};
 				const loadDuration = Date.now() - loadStart;
-				console.log(`[LocalEmbeddingModel] [LOAD] Step 4: ✓ Pipeline wrapper created`);
-				console.log(`[LocalEmbeddingModel] === MODEL FULLY LOADED ===`);
-				console.log(`[LocalEmbeddingModel] Total load time: ${loadDuration}ms`);
-				console.log(`[LocalEmbeddingModel] Load attempts: ${this.loadAttempts}`);
+				console.debug(`[LocalEmbeddingModel] [LOAD] Step 4: ✓ Pipeline wrapper created`);
+				console.debug(`[LocalEmbeddingModel] === MODEL FULLY LOADED ===`);
+				console.debug(`[LocalEmbeddingModel] Total load time: ${loadDuration}ms`);
+				console.debug(`[LocalEmbeddingModel] Load attempts: ${this.loadAttempts}`);
 			} catch (err) {
 				const loadDuration = Date.now() - loadStart;
 				console.error(`[LocalEmbeddingModel] === MODEL LOAD FAILED ===`);
@@ -544,7 +544,7 @@ export class MiniLmLocalEmbeddingModel implements LocalEmbeddingModel {
 			const embedStart = Date.now();
 			const result = await this.pipeline(t);
 			const embedDuration = Date.now() - embedStart;
-			console.log(`[LocalEmbeddingModel] Generated embedding in ${embedDuration}ms for text (${t.length} chars, ${t.split(/\s+/).length} words)`);
+			console.debug(`[LocalEmbeddingModel] Generated embedding in ${embedDuration}ms for text (${t.length} chars, ${t.split(/\s+/).length} words)`);
 			return result;
 		} catch (err) {
 			this.logError('embed', `Embedding text (${t.length} chars, ${t.split(/\s+/).length} words)`, err);

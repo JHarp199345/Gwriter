@@ -73,25 +73,25 @@ export class TestHarness {
         auditFn: (chunk: string, state: ChapterState) => Promise<AuditResult>,
         repairFn: (chunk: string, audit: AuditResult, state: ChapterState) => Promise<PatchOp>
     ) {
-        console.log('🚀 Starting Relay Generation Test Suite...');
+        console.debug('🚀 Starting Relay Generation Test Suite...');
         
         for (const testCase of IntentionalViolationsCorpus) {
-            console.log(`\n--- Testing: ${testCase.name} ---`);
+            console.debug(`\n--- Testing: ${testCase.name} ---`);
             
             const auditResult = await auditFn(testCase.chunk, testCase.state as ChapterState);
             const auditPassed = this.verifyAudit(auditResult, testCase.expectedViolation);
             
-            console.log(`${auditPassed ? '✅' : '❌'} Audit: ${testCase.expectedViolation} detected: ${auditPassed}`);
+            console.debug(`${auditPassed ? '✅' : '❌'} Audit: ${testCase.expectedViolation} detected: ${auditPassed}`);
             
             if (auditPassed && auditResult.overallSeverity >= 4) {
-                console.log(`   Attempting Repair...`);
+                console.debug(`   Attempting Repair...`);
                 const patch = await repairFn(testCase.chunk, auditResult, testCase.state as ChapterState);
                 const patchResult = this.verifyPatch(patch, testCase.chunk, testCase.state as ChapterState);
-                console.log(`${patchResult.success ? '✅' : '❌'} Repair: ${patchResult.success ? 'Succeeded' : 'Failed - ' + patchResult.reason}`);
+                console.debug(`${patchResult.success ? '✅' : '❌'} Repair: ${patchResult.success ? 'Succeeded' : 'Failed - ' + patchResult.reason}`);
             }
         }
         
-        console.log('\n🏁 Test Suite Complete.');
+        console.debug('\n🏁 Test Suite Complete.');
     }
 }
 

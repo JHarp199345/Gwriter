@@ -153,7 +153,7 @@ export class ContextManager {
 
         this.state.redirectRegistryVersion = (this.state.redirectRegistryVersion || 0) + 1;
         this.state.canonVersion++;
-        console.log(`[ContextManager] 🤝 Merged ${fromId} into ${resolvedTo}. v${this.state.canonVersion} (Registry v${this.state.redirectRegistryVersion})`);
+        console.debug(`[ContextManager] 🤝 Merged ${fromId} into ${resolvedTo}. v${this.state.canonVersion} (Registry v${this.state.redirectRegistryVersion})`);
     }
 
     /**
@@ -163,7 +163,7 @@ export class ContextManager {
         this.pinnedFactIds.add(factId);
         this.pinnedTtl[factId] = CO_AUTHORING_POLICY.SPONTANEITY.PIN_TTL_CHUNKS;
         this.pinnedExtensions[factId] = 0;
-        console.log(`[ContextManager] 📌 Pinned fact ${factId}`);
+        console.debug(`[ContextManager] 📌 Pinned fact ${factId}`);
     }
 
     /**
@@ -188,14 +188,14 @@ export class ContextManager {
                 if (this.pinnedExtensions[id] < policy.MAX_PIN_EXTENSIONS) {
                     this.pinnedTtl[id] = policy.PIN_TTL_CHUNKS;
                     this.pinnedExtensions[id]++;
-                    console.log(`[ContextManager] 🔄 Refreshed TTL for pinned fact ${id} (Extension ${this.pinnedExtensions[id]})`);
+                    console.debug(`[ContextManager] 🔄 Refreshed TTL for pinned fact ${id} (Extension ${this.pinnedExtensions[id]})`);
                 }
             } else {
                 // Decay TTL
                 this.pinnedTtl[id]--;
                 if (this.pinnedTtl[id] <= 0) {
                     this.unpinFact(id);
-                    console.log(`[ContextManager] ⏰ Pin expired for fact ${id}`);
+                    console.debug(`[ContextManager] ⏰ Pin expired for fact ${id}`);
                 }
             }
         });
@@ -265,7 +265,7 @@ export class ContextManager {
      */
     deferMutation(acceptance: MutationAcceptance) {
         this.state.pendingMutations.push(acceptance);
-        console.log(`[ContextManager] ⏳ Mutation ${acceptance.id} deferred.`);
+        console.debug(`[ContextManager] ⏳ Mutation ${acceptance.id} deferred.`);
     }
 
     /**
@@ -288,7 +288,7 @@ export class ContextManager {
         this.state.pendingMutations = this.state.pendingMutations.filter(m => m.id !== acceptance.id);
         
         this.state.canonVersion++;
-        console.log(`[ContextManager] ✅ Canon version bumped to ${this.state.canonVersion}`);
+        console.debug(`[ContextManager] ✅ Canon version bumped to ${this.state.canonVersion}`);
     }
 
     private updateFactVersioned(newFact: CanonFact) {
@@ -376,7 +376,7 @@ export class ContextManager {
             return { updated: false, hash };
         }
 
-        console.log(`[ContextManager] 📚 Seeding canon from story bible (Hash: ${hash})`);
+        console.debug(`[ContextManager] 📚 Seeding canon from story bible (Hash: ${hash})`);
         
         // MOCK: LLM-extracted proposals
         const proposals = [
@@ -412,10 +412,10 @@ export class ContextManager {
             if (prop.confidence >= 0.85 && !hasCollision && this.shouldAutoPromote(mockFact)) {
                 this.state.entities.push(prop.entity as any);
                 this.state.canonFacts.push({ ...mockFact, lifecycleState: 'CANON' });
-                console.log(`[ContextManager] ✅ Auto-accepted seeding: ${prop.entity.name}`);
+                console.debug(`[ContextManager] ✅ Auto-accepted seeding: ${prop.entity.name}`);
             } else {
                 seedProposals.push(prop);
-                console.log(`[ContextManager] ⚠️ Seeding proposal quarantined: ${prop.entity.name} (Conf: ${prop.confidence}, Collision: ${hasCollision})`);
+                console.debug(`[ContextManager] ⚠️ Seeding proposal quarantined: ${prop.entity.name} (Conf: ${prop.confidence}, Collision: ${hasCollision})`);
             }
         });
 
@@ -429,7 +429,7 @@ export class ContextManager {
      */
     lockSemanticEntity(id: string, type: string, value: any, scope: string = 'GLOBAL') {
         this.semanticLockMap.set(id, { type, value, scope });
-        console.log(`[ContextManager] 🔒 Locked semantic entity: ${id} (${type})`);
+        console.debug(`[ContextManager] 🔒 Locked semantic entity: ${id} (${type})`);
     }
 
     /**

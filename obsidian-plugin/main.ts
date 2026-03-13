@@ -288,7 +288,7 @@ export default class WritingDashboardPlugin extends Plugin {
 		const { workspace } = this.app;
 		let leaf = workspace.getLeavesOfType(VIEW_TYPE_DASHBOARD)[0];
 		if (!leaf) {
-			leaf = workspace.getRightLeaf(false);
+			leaf = workspace.getRightLeaf(false) ?? workspace.getLeaf(true);
 			await leaf.setViewState({ type: VIEW_TYPE_DASHBOARD, active: true });
 		}
 		workspace.revealLeaf(leaf);
@@ -299,7 +299,7 @@ export default class WritingDashboardPlugin extends Plugin {
 		
 		// Migration: Remove legacy relayFastModel
 		if (loaded.relayFastModel) {
-			console.log('[WritingDashboard] Migrating to single-model mode: removing legacy relayFastModel setting.');
+			console.debug('[WritingDashboard] Migrating to single-model mode: removing legacy relayFastModel setting.');
 			delete loaded.relayFastModel;
 			await this.saveData(loaded);
 		}
@@ -378,8 +378,8 @@ export default class WritingDashboardPlugin extends Plugin {
 	private notifyUi(eventName: string) {
 		try {
 			window.dispatchEvent(new CustomEvent(eventName));
-		} catch {
-			// ignore
+		} catch (err) {
+			console.debug('[WritingDashboard] UI event dispatch failed:', err);
 		}
 	}
 

@@ -122,8 +122,8 @@ export class SettingsTab extends PluginSettingTab {
 		const refreshIfVisible = () => {
 			try {
 				if (this.containerEl?.isConnected) this.display();
-			} catch {
-				// ignore
+			} catch (err) {
+				console.debug('[SettingsTab] Failed to refresh settings display:', err);
 			}
 		};
 		this.plugin.registerEvent(this.app.vault.on('create', refreshIfVisible));
@@ -400,8 +400,8 @@ export class SettingsTab extends PluginSettingTab {
 								new Notice(`❌ Invalid model name: ${normalizedId}`);
 							}
 						}
-					} catch (e) {
-						new Notice(`❌ Verification failed: ${e.message}`);
+				} catch (e) {
+					new Notice(`❌ Verification failed: ${e instanceof Error ? e.message : String(e)}`);
 					} finally {
 						btn.setDisabled(false);
 						btn.setButtonText('Verify & Add');
@@ -446,7 +446,7 @@ export class SettingsTab extends PluginSettingTab {
 								new Notice(`❌ ${fails.length} systems FAILED. Generation is blocked. Check console/artifacts.`);
 							}
 
-							console.log('[Diagnostics] Full Report:', report);
+							console.debug('[Diagnostics] Full Report:', report);
 						} catch (err) {
 							new Notice(`❌ Diagnostics failed: ${err instanceof Error ? err.message : String(err)}`);
 						} finally {

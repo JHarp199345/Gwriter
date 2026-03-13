@@ -238,12 +238,13 @@ export class ContextAggregator {
 			if (this.plugin.settings.retrievalEnableReranker) {
 				try {
 					results = await this.plugin.cpuReranker.rerank(query.text || '', results, { limit: Math.max(1, Math.min(200, limit)) });
-				} catch {
-					// If reranker fails, keep pre-rerank results.
+				} catch (err) {
+					console.warn('[ContextAggregator] Reranker failed, keeping pre-rerank results:', err);
 				}
 			}
 			return this.formatRetrievedItems(results);
-		} catch {
+		} catch (err) {
+			console.warn('[ContextAggregator] Retrieval failed:', err);
 			return '[Retrieved context unavailable]';
 		}
 	}
@@ -262,8 +263,8 @@ export class ContextAggregator {
 					}
 				}
 			}
-		} catch {
-			// Folder doesn't exist yet, that's okay
+		} catch (err) {
+			console.debug('[ContextAggregator] Character folder not accessible:', err);
 		}
 		
 		return notes;
@@ -304,7 +305,8 @@ export class ContextAggregator {
 		let sourceText = '';
 		try {
 			sourceText = await this.readFile(settings.book2Path);
-		} catch {
+		} catch (err) {
+			console.warn('[ContextAggregator] Could not read book file for surrounding context:', err);
 			return { before: '', after: '' };
 		}
 		

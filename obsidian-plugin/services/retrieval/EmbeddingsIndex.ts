@@ -121,16 +121,17 @@ export class EmbeddingsIndex {
 			if (await this.vault.adapter.exists(lockPath)) {
 				const raw = await this.vault.adapter.read(lockPath);
 				try {
-					const lock = JSON.parse(raw);
+				const lock = JSON.parse(raw);
 					if (lock.holder === 'writing-dashboard') {
 						await this.vault.adapter.remove(lockPath);
 					}
-				} catch {
+				} catch (err) {
 					// JSON parse failed - do not delete (could be another plugin's lock)
+					console.debug('[EmbeddingsIndex] Lock file JSON parse failed, skipping removal:', err);
 				}
 			}
-		} catch {
-			// ignore filesystem errors
+		} catch (err) {
+			console.debug('[EmbeddingsIndex] Filesystem error during lock cleanup:', err);
 		}
 	}
 
@@ -348,7 +349,7 @@ export class EmbeddingsIndex {
 				return true;
 			}
 
-			console.log('[EmbeddingsIndex] Starting atomic migration from legacy to overt folder...');
+			console.debug('[EmbeddingsIndex] Starting atomic migration from legacy to overt folder...');
 
 			// Ensure overt folder exists
 			if (!(await this.vault.adapter.exists(overtDir))) {
@@ -402,7 +403,7 @@ export class EmbeddingsIndex {
 				await this.vault.adapter.rename(legacyManifest, `${legacyManifest}.migrated`);
 			}
 
-			console.log('[EmbeddingsIndex] ✓ Atomic migration completed successfully.');
+			console.debug('[EmbeddingsIndex] ✓ Atomic migration completed successfully.');
 			return true;
 		} catch (err) {
 			console.warn('[EmbeddingsIndex] Legacy migration failed; falling back to isolated.', err);
@@ -415,8 +416,8 @@ export class EmbeddingsIndex {
 				if (await this.vault.adapter.exists(`${overtDir}/index.manifest.json.tmp`)) {
 					await this.vault.adapter.remove(`${overtDir}/index.manifest.json.tmp`);
 				}
-			} catch {
-				// ignore cleanup errors
+			} catch (err) {
+				console.debug('[EmbeddingsIndex] Temp file cleanup failed (non-critical):', err);
 			}
 
 			return false;
@@ -506,11 +507,12 @@ export class EmbeddingsIndex {
 				if (!chunk?.key || !chunk?.path || !Array.isArray(chunk.vector)) continue;
 				this._setChunk(chunk);
 			}
-		} catch {
-			// Corrupt index should not break the plugin. We'll rebuild lazily.
-			this.chunksByKey.clear();
-			this.chunkKeysByPath.clear();
-		}
+	} catch (err) {
+		// Corrupt index should not break the plugin. We'll rebuild lazily.
+		console.warn('[EmbeddingsIndex] Corrupt index data detected, rebuilding from scratch:', err);
+		this.chunksByKey.clear();
+		this.chunkKeysByPath.clear();
+	}
 	}
 
 	getStatus(): { indexedFiles: number; indexedChunks: number; paused: boolean; queued: number } {
@@ -605,7 +607,7 @@ export class EmbeddingsIndex {
 		await this.ensureLoaded();
 
 		if (this.isReadOnly) {
-			console.log('[EmbeddingsIndex] Shared index locked; operating read-only.');
+			console.debug('[EmbeddingsIndex] Shared index locked; operating read-only.');
 			this.workerRunning = false;
 			return;
 		}
@@ -704,8 +706,8 @@ export class EmbeddingsIndex {
 		const totalSkipped = skippedExcluded + skippedNotMarkdown + skippedHashMatch;
 
 		// Log indexing stats for debugging
-		if (processedCount > 0) {
-			console.log(`[EmbeddingsIndex] Processed ${processedCount} files: ${indexedCount} indexed, ${skippedExcluded} excluded, ${skippedNotMarkdown} not markdown, ${skippedHashMatch} hash match (already indexed)`);
+	if (processedCount > 0) {
+		console.debug(`[EmbeddingsIndex] Processed ${processedCount} files: ${indexedCount} indexed, ${skippedExcluded} excluded, ${skippedNotMarkdown} not markdown, ${skippedHashMatch} hash match (already indexed)`);
 			new Notice(`✅ Indexed ${indexedCount} files in ${duration.toFixed(1)}s (${this.chunksByKey.size} chunks total)`);
 			relayEventBus.emit('index:complete', { 
 				indexed: indexedCount, 
@@ -734,23 +736,13 @@ export class EmbeddingsIndex {
 			return;
 		}
 
-		const cfg = chunkingKey(this.plugin);
-		console.log(`[EmbeddingsIndex] Processing file: ${path}`);
-		console.log(`  - Backend: ${this.backend}`);
-		console.log(`  - Content length: ${content.length} chars, ${content.split(/\s+/).length} words`);
-		console.log(`  - Chunking config: headingLevel=${cfg.headingLevel}, targetWords=${cfg.targetWords}, overlapWords=${cfg.overlapWords}`);
-		
-		const chunks = buildIndexChunks({
-			text: content,
-			headingLevel: cfg.headingLevel,
-			targetWords: cfg.targetWords,
-			overlapWords: cfg.overlapWords
-		});
-		
-		console.log(`  - Chunks created: ${chunks.length}`);
-		if (chunks.length > 0) {
-			console.log(`  - First chunk preview: ${chunks[0].text.substring(0, 100)}...`);
-		}
+	const cfg = chunkingKey(this.plugin);
+	const chunks = buildIndexChunks({
+		text: content,
+		headingLevel: cfg.headingLevel,
+		targetWords: cfg.targetWords,
+		overlapWords: cfg.overlapWords
+	});
 		
 		// If no chunks created, skip this file (might be too short or have no headings)
 		if (chunks.length === 0) {
@@ -766,20 +758,16 @@ export class EmbeddingsIndex {
 			const textHash = await sha256(normalizedText);
 			const key = `chunk:${path}:${i}`;
 			let vector: number[];
-			try {
-				console.log(`  - Generating embedding for chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words)...`);
-				const embedStart = Date.now();
-				vector = await this.embeddingProvider.getEmbedding(normalizedText);
-				this.aiErrorStreak = 0; // Success: reset streak
-				if (!Array.isArray(vector) || vector.length === 0) {
-					throw new Error('Empty embedding returned from Ollama');
-				}
-				if (this.dim === 0) {
-					this.dim = vector.length;
-				}
-				const embedDuration = Date.now() - embedStart;
-				console.log(`  - ✓ Ollama embedding generated in ${embedDuration}ms: ${vector.length} dimensions`);
-			} catch (err) {
+		try {
+			vector = await this.embeddingProvider.getEmbedding(normalizedText);
+			this.aiErrorStreak = 0; // Success: reset streak
+			if (!Array.isArray(vector) || vector.length === 0) {
+				throw new Error('Empty embedding returned from Ollama');
+			}
+			if (this.dim === 0) {
+				this.dim = vector.length;
+			}
+		} catch (err) {
 				this.aiErrorStreak++;
 				const errorMsg = err instanceof Error ? err.message : String(err);
 				const errorStack = err instanceof Error ? err.stack : undefined;
@@ -838,11 +826,9 @@ export class EmbeddingsIndex {
 			} else {
 				this.logError('_reindexFile.allChunksFailed', criticalContext, new Error('All chunks failed but no first error captured'));
 			}
-		} else if (successfulChunks < chunks.length) {
-			console.warn(`[EmbeddingsIndex] Partial success for ${path}: ${successfulChunks}/${chunks.length} chunks indexed`);
-		} else {
-			console.log(`[EmbeddingsIndex] ✓ Successfully indexed ${path}: ${successfulChunks} chunks`);
-		}
+	} else if (successfulChunks < chunks.length) {
+		console.warn(`[EmbeddingsIndex] Partial success for ${path}: ${successfulChunks}/${chunks.length} chunks indexed`);
+	}
 	}
 
 	private _setChunk(chunk: IndexedChunk): void {
@@ -943,7 +929,7 @@ export class EmbeddingsIndex {
 
 	private async _persistNow(): Promise<void> {
 		if (this.isReadOnly) {
-			console.log('[EmbeddingsIndex] Skipping persistence: Read-Only mode');
+			console.debug('[EmbeddingsIndex] Skipping persistence: Read-Only mode');
 			return;
 		}
 
@@ -961,8 +947,8 @@ export class EmbeddingsIndex {
 					}
 				}
 			}
-		} catch {
-			// ignore mkdir failures
+		} catch (err) {
+			console.warn('[EmbeddingsIndex] Failed to create index directory:', err);
 		}
 
 		const payload: PersistedIndexV1 = {

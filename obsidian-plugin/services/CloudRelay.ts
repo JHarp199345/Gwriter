@@ -576,13 +576,10 @@ Return JSON with:
      * Safe JSON recovery - only safe transforms
      */
     private safeJsonRecovery(jsonText: string): string {
-        // Attempt 1: Direct parse
-        try {
-            JSON.parse(jsonText);
-            return jsonText;
-        } catch (e) {
-            // Continue to recovery
-        }
+        // Attempt 1: Direct parse (fast path)
+        let isValidJson = false;
+        try { JSON.parse(jsonText); isValidJson = true; } catch { isValidJson = false; }
+        if (isValidJson) return jsonText;
 
         // Recovery: Trim trailing junk after last valid bracket
         let trimmed = jsonText.trim();
@@ -621,8 +618,8 @@ Return JSON with:
                 try {
                     JSON.parse(recovered);
                     return recovered;
-                } catch {
-                    // Still failed
+                } catch (e2) {
+                    console.warn('[CloudRelay] JSON brace-closure recovery failed:', e2);
                 }
             }
         }
