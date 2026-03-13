@@ -29,9 +29,20 @@ export function showCharacterNameConflictModal(
 			resolve(value);
 		};
 
-		const modal = new (class extends Modal {
-			private selected: string | null = null;
+		const handleCreate = () => {
+			settle({ type: 'create', name: opts.proposedName });
+			modal.close();
+		};
+		const handleCancel = () => {
+			settle(null);
+			modal.close();
+		};
+		const makeUseHandler = (name: string) => () => {
+			settle({ type: 'existing', name });
+			modal.close();
+		};
 
+		const modal = new (class extends Modal {
 			onOpen() {
 				this.titleEl.setText(opts.title);
 				this.contentEl.createEl('p', { text: opts.message });
@@ -45,11 +56,7 @@ export function showCharacterNameConflictModal(
 							.addButton((btn) => {
 								btn.setButtonText('Use');
 								btn.setCta();
-								btn.onClick(() => {
-									this.selected = c;
-									settle({ type: 'existing', name: c });
-									this.close();
-								});
+								btn.onClick(makeUseHandler(c));
 							});
 					}
 				}
@@ -59,18 +66,12 @@ export function showCharacterNameConflictModal(
 					.setDesc('Use the proposed name as a new file in your character folder.')
 					.addButton((btn) => {
 						btn.setButtonText('Create new');
-						btn.onClick(() => {
-							settle({ type: 'create', name: opts.proposedName });
-							this.close();
-						});
+						btn.onClick(handleCreate);
 					});
 
 				new Setting(this.contentEl).addButton((btn) => {
 					btn.setButtonText('Cancel');
-					btn.onClick(() => {
-						settle(null);
-						this.close();
-					});
+					btn.onClick(handleCancel);
 				});
 			}
 

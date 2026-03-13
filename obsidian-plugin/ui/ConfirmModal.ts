@@ -17,32 +17,26 @@ export function showConfirmModal(app: App, opts: ConfirmModalOptions): Promise<b
 			resolve(value);
 		};
 
+		const handleCancel = () => { settle(false); modal.close(); };
+		const handleConfirm = () => { settle(true); modal.close(); };
+
 		const modal = new (class extends Modal {
 			onOpen() {
 				this.titleEl.setText(opts.title);
-
 				this.contentEl.createEl('p', { text: opts.message });
-
 				new Setting(this.contentEl)
 					.addButton((btn) => {
 						btn.setButtonText(opts.cancelText ?? 'Cancel');
-						btn.onClick(() => {
-							settle(false);
-							this.close();
-						});
+						btn.onClick(handleCancel);
 					})
 					.addButton((btn) => {
 						btn.setCta();
 						btn.setButtonText(opts.confirmText ?? 'Continue');
-						btn.onClick(() => {
-							settle(true);
-							this.close();
-						});
+						btn.onClick(handleConfirm);
 					});
 			}
 
 			onClose() {
-				// If the user closes the modal via ESC/x, treat as cancel.
 				settle(false);
 				this.contentEl.empty();
 			}

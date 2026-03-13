@@ -26,6 +26,8 @@ export function showInterventionModal(
             resolve(value);
         };
 
+        const handleCancel = () => { settle(null); modal.close(); };
+
         const modal = new (class extends Modal {
             private goalInput: TextAreaComponent;
             private mustPreserveInput: TextAreaComponent;
@@ -108,14 +110,11 @@ export function showInterventionModal(
                         text.inputEl.style.width = '100%';
                     });
 
-                // Buttons
+			// Buttons
                 new Setting(content)
                     .addButton((btn) => {
                         btn.setButtonText('Cancel (Stop Run)');
-                        btn.onClick(() => {
-                            settle(null);
-                            this.close();
-                        });
+                        btn.onClick(handleCancel);
                     })
                     .addButton((btn) => {
                         btn.setCta();

@@ -113,56 +113,38 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			}
 		};
 
-		const onPatch = (data: StitchResponse) => {
-			// 1. Route check
-			if (data.runId !== plugin.sequentialGenerator.getCurrentRunId?.()) return;
+		const applyPatchOps = (prev: typeof generatedParagraphs, data: StitchResponse) => {
+			const next = [...prev];
+			let anyChanged = false;
+			for (const op of data.patchOps) {
+				const idx = next.findIndex(p => p.id === op.paragraphId);
+				if (idx === -1) continue;
+				const para = next[idx];
+				if (para.status === 'USER_DIRTY') continue;
+				const currentHash = fnv1a32(para.text.replace(/\s+/g, ' ').trim());
+				if (currentHash !== op.beforeHash) {
+					console.warn(`[Dashboard] Patch rejected: Hash mismatch for ${op.paragraphId}`);
+					continue;
+				}
+				const stack = undoStack.get(para.id) || [];
+				stack.push({ beforeHash: para.hash, text: para.text });
+				undoStack.set(para.id, stack);
+				const newText = para.text.substring(0, op.start) + op.replacementText + para.text.substring(op.end);
+				next[idx] = { ...para, text: newText, hash: fnv1a32(newText.replace(/\s+/g, ' ').trim()), lastPatched: Date.now() };
+				anyChanged = true;
+			}
+			if (anyChanged) {
+				setLastAppliedSeqNo(new Map(lastAppliedSeqNo).set(data.seamId, data.seqNo));
+				setGeneratedText(next.map(p => p.text).join('\n\n'));
+			}
+			return next;
+		};
 
-			// 2. SeqNo Check
+		const onPatch = (data: StitchResponse) => {
+			if (data.runId !== plugin.sequentialGenerator.getCurrentRunId?.()) return;
 			const lastSeq = lastAppliedSeqNo.get(data.seamId) || 0;
 			if (data.seqNo < lastSeq) return;
-
-			setGeneratedParagraphs(prev => {
-				const next = [...prev];
-				let anyChanged = false;
-
-				for (const op of data.patchOps) {
-					const idx = next.findIndex(p => p.id === op.paragraphId);
-					if (idx === -1) continue;
-
-					const para = next[idx];
-					// 3. Status Check: Skip if USER_DIRTY
-					if (para.status === 'USER_DIRTY') continue;
-
-					// 4. Hash Check: Skip if text changed
-					const currentHash = fnv1a32(para.text.replace(/\s+/g, ' ').trim());
-					if (currentHash !== op.beforeHash) {
-						console.warn(`[Dashboard] Patch rejected: Hash mismatch for ${op.paragraphId}`);
-						continue;
-					}
-
-					// 5. Store Undo
-					const stack = undoStack.get(para.id) || [];
-					stack.push({ beforeHash: para.hash, text: para.text });
-					undoStack.set(para.id, stack);
-
-					// 6. Apply Patch
-					const newText = para.text.substring(0, op.start) + op.replacementText + para.text.substring(op.end);
-					next[idx] = {
-						...para,
-						text: newText,
-						hash: fnv1a32(newText.replace(/\s+/g, ' ').trim()),
-						lastPatched: Date.now()
-					};
-					anyChanged = true;
-				}
-
-				if (anyChanged) {
-					setLastAppliedSeqNo(new Map(lastAppliedSeqNo).set(data.seamId, data.seqNo));
-					// Sync flat text
-					setGeneratedText(next.map(p => p.text).join('\n\n'));
-				}
-				return next;
-			});
+			setGeneratedParagraphs(prev => applyPatchOps(prev, data));
 		};
 
 		const onAuditViolations = (data: { overallSeverity: number, violations: any[] }) => {

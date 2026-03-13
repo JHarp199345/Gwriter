@@ -30,6 +30,32 @@ export function showHarvestChecklistModal(
         const autoAcceptedIds = new Set<string>();
         const resolutionActions: Record<string, string> = {};
 
+        const handleDropdownChange = (harvestId: string) => (value: string) => {
+            selectedIds.delete(harvestId);
+            runLocalIds.delete(harvestId);
+            if (value === 'promote') {
+                selectedIds.add(harvestId);
+                resolutionActions[harvestId] = 'PROMOTE_TO_BIBLE';
+            } else if (value === 'run-local') {
+                runLocalIds.add(harvestId);
+                resolutionActions[harvestId] = 'SCOPE_TO_SCENE';
+            } else {
+                delete resolutionActions[harvestId];
+            }
+        };
+
+        const handleCancel = () => { settle(null); modal.close(); };
+        const handleApply = () => {
+            const allIds = new Set(opts.items.map(i => i.harvestId));
+            settle({
+                approvedIds: Array.from(selectedIds),
+                rejectedIds: Array.from(allIds).filter(id => !selectedIds.has(id) && !runLocalIds.has(id)),
+                runLocalIds: Array.from(runLocalIds),
+                resolutionActions
+            });
+            modal.close();
+        };
+
         // Pre-select auto-accept items
         opts.items.forEach(item => {
             if (item.recommendedAction === 'AUTO_ACCEPT_SCENE_ONLY') {
@@ -75,19 +101,7 @@ export function showHarvestChecklistModal(
                             else dropdownValue = 'none';
                             dropdown.setValue(dropdownValue);
                             dropdown.setDisabled(isAutoAccepted);
-                            dropdown.onChange((value) => {
-                                selectedIds.delete(item.harvestId);
-                                runLocalIds.delete(item.harvestId);
-                                if (value === 'promote') {
-                                    selectedIds.add(item.harvestId);
-                                    resolutionActions[item.harvestId] = 'PROMOTE_TO_BIBLE';
-                                } else if (value === 'run-local') {
-                                    runLocalIds.add(item.harvestId);
-                                    resolutionActions[item.harvestId] = 'SCOPE_TO_SCENE';
-                                } else {
-                                    delete resolutionActions[item.harvestId];
-                                }
-                            });
+                            dropdown.onChange(handleDropdownChange(item.harvestId));
                         });
 
                     // Show conflict flags with taxonomy
@@ -134,28 +148,12 @@ export function showHarvestChecklistModal(
                 new Setting(content)
                     .addButton((btn) => {
                         btn.setButtonText('Cancel');
-                        btn.onClick(() => {
-                            settle(null);
-                            this.close();
-                        });
+                        btn.onClick(handleCancel);
                     })
                     .addButton((btn) => {
                         btn.setCta();
-                        const totalSelected = selectedIds.size + runLocalIds.size;
-                        btn.setButtonText(`Apply ${totalSelected} Selected`);
-                        btn.onClick(() => {
-                            const allIds = new Set(opts.items.map(i => i.harvestId));
-                            const approved = Array.from(selectedIds);
-                            const runLocal = Array.from(runLocalIds);
-                            const rejected = Array.from(allIds).filter(id => !selectedIds.has(id) && !runLocalIds.has(id));
-                            settle({ 
-                                approvedIds: approved, 
-                                rejectedIds: rejected,
-                                runLocalIds: runLocal,
-                                resolutionActions
-                            });
-                            this.close();
-                        });
+                        btn.setButtonText(`Apply ${selectedIds.size + runLocalIds.size} Selected`);
+                        btn.onClick(handleApply);
                     });
             }
 
