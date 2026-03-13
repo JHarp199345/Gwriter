@@ -59,21 +59,23 @@ export function mmrSelect(items: ContextItem[], opts: MmrOptions): ContextItem[]
 		return jaccard(lex.get(a.key) ?? new Set(), lex.get(b.key) ?? new Set());
 	};
 
+	const computeRedundancy = (cand: ContextItem, sel: ContextItem[]): number => {
+		let redundancy = 0;
+		for (const s of sel) {
+			redundancy = Math.max(redundancy, sim(cand, s));
+			if (redundancy >= 0.95) break;
+		}
+		return redundancy;
+	};
+
 	while (selected.length < limit) {
 		let best: ContextItem | null = null;
 		let bestScore = -Infinity;
 
 		for (const cand of candidates) {
 			if (selectedKeys.has(cand.key)) continue;
-
-			const relevance = cand.score;
-			let redundancy = 0;
-			for (const s of selected) {
-				redundancy = Math.max(redundancy, sim(cand, s));
-				if (redundancy >= 0.95) break;
-			}
-
-			const score = lambda * relevance - (1 - lambda) * redundancy;
+			const redundancy = computeRedundancy(cand, selected);
+			const score = lambda * cand.score - (1 - lambda) * redundancy;
 			if (score > bestScore) {
 				bestScore = score;
 				best = cand;

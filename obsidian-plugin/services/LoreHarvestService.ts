@@ -249,19 +249,20 @@ export class LoreHarvestService {
         const conflicts: string[] = [];
         let conflictType: ConflictTaxonomy | undefined;
 
+        const getConflictType = (f: CanonFact, existing: CanonFact): ConflictTaxonomy => {
+            if (f.type === 'IDENTITY') return 'CONFLICT_IDENTITY';
+            if (f.type === 'RELATIONSHIP') return 'CONFLICT_RELATIONSHIP';
+            if (f.type === 'TIMELINE') return 'CONFLICT_TIMELINE';
+            if (f.scope !== existing.scope) return 'CONFLICT_SCOPE';
+            return 'CONFLICT_CARDINALITY';
+        };
+
         // Check against existing canon facts
         for (const existingFact of chapterState.canonFacts) {
-            if (existingFact.entityId === fact.entityId && existingFact.attribute === fact.attribute) {
-                if (JSON.stringify(existingFact.value) !== JSON.stringify(fact.value)) {
-                    conflicts.push(existingFact.id);
-                    
-                    // Determine conflict type
-                    if (fact.type === 'IDENTITY') conflictType = 'CONFLICT_IDENTITY';
-                    else if (fact.type === 'RELATIONSHIP') conflictType = 'CONFLICT_RELATIONSHIP';
-                    else if (fact.type === 'TIMELINE') conflictType = 'CONFLICT_TIMELINE';
-                    else if (fact.scope !== existingFact.scope) conflictType = 'CONFLICT_SCOPE';
-                    else conflictType = 'CONFLICT_CARDINALITY';
-                }
+            const sameEntity = existingFact.entityId === fact.entityId && existingFact.attribute === fact.attribute;
+            if (sameEntity && JSON.stringify(existingFact.value) !== JSON.stringify(fact.value)) {
+                conflicts.push(existingFact.id);
+                conflictType = getConflictType(fact, existingFact);
             }
         }
 

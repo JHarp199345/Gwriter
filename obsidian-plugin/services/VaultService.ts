@@ -186,25 +186,10 @@ export class VaultService {
 		}
 
 		// If overwriting, delete any extra old chunk files beyond the new chunk count
-		let deletedExtra = 0;
-		if (overwrite) {
-			const folder = this.vault.getAbstractFileByPath(chunkedFolderName);
-			if (folder instanceof TFolder) {
-				const maxIndex = chunks.length;
-				const regex = new RegExp(`^${this._escapeRegExp(baseName)}-CHUNK-(\\d{3})\\.md$`);
-				for (const child of folder.children) {
-					if (!(child instanceof TFile) || child.extension !== 'md') continue;
-					const match = child.name.match(regex);
-					if (!match) continue;
-					const idx = parseInt(match[1], 10);
-					if (Number.isFinite(idx) && idx > maxIndex) {
-						await this.vault.delete(child);
-						deletedExtra++;
-					}
-				}
-			}
-		}
-		
+		const deletedExtra = overwrite
+			? await this.deleteExtraChunkFiles(chunkedFolderName, baseName, chunks.length)
+			: 0;
+
 		return {
 			folder: chunkedFolderName,
 			totalChunks: chunks.length,
@@ -216,8 +201,53 @@ export class VaultService {
 		};
 	}
 
+	private async deleteExtraChunkFiles(folderPath: string, baseName: string, maxChunks: number): Promise<number> {
+		const folder = this.vault.getAbstractFileByPath(folderPath);
+		if (!(folder instanceof TFolder)) return 0;
+		let deleted = 0;
+		const regex = new RegExp(`^${this._escapeRegExp(baseName)}-CHUNK-(\\d{3})\\.md$`);
+		for (const child of folder.children) {
+			if (!(child instanceof TFile) || child.extension !== 'md') continue;
+			const match = child.name.match(regex);
+			if (!match) continue;
+			const idx = parseInt(match[1], 10);
+			if (Number.isFinite(idx) && idx > maxChunks) {
+				await this.vault.delete(child);
+				deleted++;
+			}
+		}
+		return deleted;
+	}
+
 	private _escapeRegExp(value: string): string {
 		return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	}
+
+	private async resolveCharacterName(
+		proposed: string,
+		resolver: CharacterNameResolver,
+		sessionCache: Map<string, string>
+	): Promise<string | null> {
+		const cached = sessionCache.get(proposed);
+		if (cached) return cached;
+		const res = resolver.resolve(proposed);
+		let resolved: string;
+		if (res.resolvedName) {
+			resolved = res.resolvedName;
+		} else if (res.needsConfirmation) {
+			const choice = await showCharacterNameConflictModal(this.plugin.app, {
+				title: 'Confirm character note',
+				message: 'Choose an existing character note to update, or create a new one.',
+				proposedName: res.needsConfirmation.proposedName,
+				candidates: res.needsConfirmation.candidates
+			});
+			if (!choice) return null;
+			resolved = choice.name;
+		} else {
+			resolved = proposed;
+		}
+		sessionCache.set(proposed, resolved);
+		return resolved;
 	}
 
 	async updateCharacterNotes(
@@ -235,26 +265,8 @@ export class VaultService {
 			const proposed = (character || '').trim();
 			if (!proposed) continue;
 
-			const cached = sessionResolutions.get(proposed);
-			let resolvedName = cached;
-			if (!resolvedName) {
-				const res = resolver.resolve(proposed);
-				if (res.resolvedName) {
-					resolvedName = res.resolvedName;
-				} else if (res.needsConfirmation) {
-					const choice = await showCharacterNameConflictModal(this.plugin.app, {
-						title: 'Confirm character note',
-						message: 'Choose an existing character note to update, or create a new one.',
-						proposedName: res.needsConfirmation.proposedName,
-						candidates: res.needsConfirmation.candidates
-					});
-					if (!choice) continue;
-					resolvedName = choice.name;
-				} else {
-					resolvedName = proposed;
-				}
-				sessionResolutions.set(proposed, resolvedName);
-			}
+			const resolvedName = await this.resolveCharacterName(proposed, resolver, sessionResolutions);
+			if (!resolvedName) continue;
 
 			const characterPath = `${characterFolder}/${resolvedName}.md`;
 			let existingContent = '';

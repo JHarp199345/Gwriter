@@ -109,24 +109,14 @@ export class TrashService {
             const shouldPurgeBySize = maxSizeBytes && (totalSizeBytes + entry.sizeBytes) > maxSizeBytes;
             const shouldKeep = opts.keepLatest && kept.length < opts.keepLatest;
 
-            if ((shouldPurgeByAge || shouldPurgeBySize) && !shouldKeep) {
-                const trashPath = `${this.trashRoot}/${entry.runId}`;
-                try {
-                    const trashFolder = this.vault.getAbstractFileByPath(trashPath);
-                    if (trashFolder) {
-                        await this.vault.delete(trashFolder); // Recursive deletion via Obsidian API
-                    } else {
-                        // Fallback: use adapter if file doesn't exist in vault cache
-                        await this.vault.adapter.remove(trashPath);
-                    }
-                    purged.push(entry.runId);
-                } catch (err) {
-                    console.error(`[TrashService] Failed to purge ${entry.runId}:`, err);
-                }
-            } else {
+            const shouldPurge = (shouldPurgeByAge || shouldPurgeBySize) && !shouldKeep;
+            if (!shouldPurge) {
                 kept.push(entry.runId);
                 totalSizeBytes += entry.sizeBytes;
+                continue;
             }
+            await this.purgeEntry(entry.runId);
+            purged.push(entry.runId);
         }
 
         // Update index with remaining entries
@@ -143,6 +133,20 @@ export class TrashService {
     async listTrash(): Promise<TombstoneEntry[]> {
         const index = await this.readTrashIndex();
         return index.entries;
+    }
+
+    private async purgeEntry(runId: string): Promise<void> {
+        const trashPath = `${this.trashRoot}/${runId}`;
+        try {
+            const trashFolder = this.vault.getAbstractFileByPath(trashPath);
+            if (trashFolder) {
+                await this.vault.delete(trashFolder);
+            } else {
+                await this.vault.adapter.remove(trashPath);
+            }
+        } catch (err) {
+            console.error(`[TrashService] Failed to purge ${runId}:`, err);
+        }
     }
 
     private async ensureTrashFolder(): Promise<void> {
