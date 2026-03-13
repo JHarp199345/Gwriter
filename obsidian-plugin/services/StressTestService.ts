@@ -21,6 +21,38 @@ export class StressTestService {
 		this.options = options;
 	}
 
+	private logConfiguration(): void {
+		const s = this.plugin.settings;
+		this.logEntry('=== PLUGIN CONFIGURATION ===');
+		this.logEntry(`API Key: ${s.apiKey ? '✓ Configured' : '✗ Missing'}`);
+		this.logEntry(`API Provider: ${s.apiProvider || 'Not set'}`);
+		this.logEntry(`Model: ${s.model || 'Not set'}`);
+		this.logEntry(`Generation Mode: ${s.generationMode || 'single'}`);
+		this.logEntry(`Book Main Path: ${s.book2Path || 'Not configured'}`);
+		this.logEntry(`Story Bible Path: ${s.storyBiblePath || 'Not configured'}`);
+		this.logEntry(`Character Folder: ${s.characterFolder || 'Not configured (will use default: Characters)'}`);
+		this.logEntry(`Semantic Retrieval: ${s.retrievalEnableSemanticIndex ? 'Enabled' : 'Disabled'}`);
+		this.logEntry(`Embedding Backend: ${s.retrievalEmbeddingBackend || 'hash'}`);
+		this.logEntry(`BM25 Retrieval: ${s.retrievalEnableBm25 ? 'Enabled' : 'Disabled'}`);
+		this.logEntry(`Index Paused: ${s.retrievalIndexPaused ? 'Yes' : 'No'}`);
+		this.logEntry(`Retrieval Top K: ${s.retrievalTopK || 24}`);
+		this.logEntry(`External Embeddings: ${s.externalEmbeddingsEnabled ? 'Enabled' : 'Disabled'}`);
+		this.logEntry('');
+	}
+
+	private logFatalError(error: unknown): void {
+		this.logEntry(`=== FATAL ERROR IN STRESS TEST ===`);
+		this.logEntry(`  WHERE: runFullStressTest (top-level catch)`);
+		this.logEntry(`  WHAT: ${error instanceof Error ? error.message : String(error)}`);
+		this.logEntry(`  TYPE: ${error instanceof Error ? error.constructor.name : typeof error}`);
+		if (error instanceof Error && error.stack) {
+			this.logEntry(`  STACK (first 10 lines):`);
+			error.stack.split('\n').slice(0, 10).forEach(line => { this.logEntry(`    ${line.trim()}`); });
+		}
+		if (error instanceof Error && 'cause' in error) this.logEntry(`  CAUSE: ${(error as any).cause}`);
+		this.logEntry(`=== END FATAL ERROR ===`);
+	}
+
 	async runFullStressTest() {
 		this.log = [];
 		this.startTime = Date.now();
@@ -29,60 +61,22 @@ export class StressTestService {
 		this.logEntry(`Started: ${new Date().toISOString()}`);
 		this.logEntry(`Vault: ${this.plugin.app.vault.getName()}`);
 		this.logEntry('');
-		this.logEntry('=== PLUGIN CONFIGURATION ===');
-		this.logEntry(`API Key: ${this.plugin.settings.apiKey ? '✓ Configured' : '✗ Missing'}`);
-		this.logEntry(`API Provider: ${this.plugin.settings.apiProvider || 'Not set'}`);
-		this.logEntry(`Model: ${this.plugin.settings.model || 'Not set'}`);
-		this.logEntry(`Generation Mode: ${this.plugin.settings.generationMode || 'single'}`);
-		this.logEntry(`Book Main Path: ${this.plugin.settings.book2Path || 'Not configured'}`);
-		this.logEntry(`Story Bible Path: ${this.plugin.settings.storyBiblePath || 'Not configured'}`);
-		this.logEntry(`Character Folder: ${this.plugin.settings.characterFolder || 'Not configured (will use default: Characters)'}`);
-		this.logEntry(`Semantic Retrieval: ${this.plugin.settings.retrievalEnableSemanticIndex ? 'Enabled' : 'Disabled'}`);
-		this.logEntry(`Embedding Backend: ${this.plugin.settings.retrievalEmbeddingBackend || 'hash'}`);
-		this.logEntry(`BM25 Retrieval: ${this.plugin.settings.retrievalEnableBm25 ? 'Enabled' : 'Disabled'}`);
-		this.logEntry(`Index Paused: ${this.plugin.settings.retrievalIndexPaused ? 'Yes' : 'No'}`);
-		this.logEntry(`Retrieval Top K: ${this.plugin.settings.retrievalTopK || 24}`);
-		this.logEntry(`External Embeddings: ${this.plugin.settings.externalEmbeddingsEnabled ? 'Enabled' : 'Disabled'}`);
-		this.logEntry('');
+		this.logConfiguration();
 
 		try {
 			await this.phase1_Setup();
 			await this.phase2_Indexing();
 			await this.phase3_FileOperations();
-
-			if (this.plugin.settings.apiKey) {
-				await this.phase4_WritingModes();
-			} else {
-				this.logEntry('Phase 4: Skipped (no API key configured)');
-			}
-
+			if (this.plugin.settings.apiKey) await this.phase4_WritingModes();
+			else this.logEntry('Phase 4: Skipped (no API key configured)');
 			await this.phase5_Retrieval();
-
-			if (this.plugin.settings.apiKey) {
-				await this.phase7_CharacterOperations();
-			} else {
-				this.logEntry('Phase 7: Skipped (no API key configured)');
-			}
-
+			if (this.plugin.settings.apiKey) await this.phase7_CharacterOperations();
+			else this.logEntry('Phase 7: Skipped (no API key configured)');
 			await this.phase8_RelayPipeline();
 			await this.phase9_SemanticRobustness();
 			await this.phase10_StitchingAndSafety();
-
 		} catch (error) {
-			this.logEntry(`=== FATAL ERROR IN STRESS TEST ===`);
-			this.logEntry(`  WHERE: runFullStressTest (top-level catch)`);
-			this.logEntry(`  WHAT: ${error instanceof Error ? error.message : String(error)}`);
-			this.logEntry(`  TYPE: ${error instanceof Error ? error.constructor.name : typeof error}`);
-			if (error instanceof Error && error.stack) {
-				this.logEntry(`  STACK (first 10 lines):`);
-				error.stack.split('\n').slice(0, 10).forEach(line => {
-					this.logEntry(`    ${line.trim()}`);
-				});
-			}
-			if (error instanceof Error && 'cause' in error) {
-				this.logEntry(`  CAUSE: ${(error as any).cause}`);
-			}
-			this.logEntry(`=== END FATAL ERROR ===`);
+			this.logFatalError(error);
 		} finally {
 			await this.phase6_Cleanup();
 		}
