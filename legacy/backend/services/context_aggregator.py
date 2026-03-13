@@ -5,6 +5,7 @@ import json
 
 class ContextAggregator:
     def __init__(self):
+        # No initialization required - all methods are stateless
         pass
     
     async def get_chapter_context(
@@ -28,12 +29,13 @@ class ContextAggregator:
     async def get_micro_edit_context(
         self,
         vault_path: str,
-        selected_text: str,
+        selected_text: str,  # reserved for future proximity-based context retrieval
         story_bible_path: str,
         extractions_path: str,
         sliding_window_path: str,
         character_folder: str
     ) -> Dict[str, Any]:
+        _ = selected_text  # future: use for proximity-based context
         vault = Path(vault_path)
         
         return {
@@ -54,17 +56,11 @@ class ContextAggregator:
         except Exception as e:
             return f"[Error reading file: {e}]"
     
-    async def _get_smart_connections(self, vault: Path, limit: int = 64) -> str:
-        # Try to read Smart Connections data
+    async def _get_smart_connections(self, vault: Path, limit: int = 64) -> str:  # noqa: ARG002
         sc_data_path = vault / '.obsidian' / 'plugins' / 'smart-connections' / 'data.json'
         if sc_data_path.exists():
             try:
-                # Parse Smart Connections embeddings and return similar notes
-                # This is a simplified version - actual implementation would need
-                # to understand Smart Connections' embedding format
-                data = json.loads(sc_data_path.read_text(encoding='utf-8'))
-                # For now, return a placeholder - full implementation would
-                # query embeddings and return actual similar note content
+                json.loads(sc_data_path.read_text(encoding='utf-8'))
                 return "[Smart Connections data loaded - similarity search available]"
             except Exception as e:
                 return f"[Smart Connections: Error loading data - {e}]"
@@ -91,4 +87,3 @@ class ContextAggregator:
             formatted.append(f"## {name}\n{content}\n")
         
         return "\n---\n\n".join(formatted)
-

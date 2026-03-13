@@ -36,7 +36,7 @@ class ExtractRequest(BaseModel):
     selectedText: str
     settings: Dict
 
-@app.post("/api/generate/chapter")
+@app.post("/api/generate/chapter", responses={500: {"description": "Generation error"}})
 async def generate_chapter(request: GenerateRequest):
     try:
         # Aggregate context
@@ -67,7 +67,7 @@ async def generate_chapter(request: GenerateRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/generate/micro-edit")
+@app.post("/api/generate/micro-edit", responses={400: {"description": "selectedText required"}, 500: {"description": "Generation error"}})
 async def generate_micro_edit(request: GenerateRequest):
     try:
         if not request.selectedText:
@@ -102,7 +102,7 @@ async def generate_micro_edit(request: GenerateRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/extract/characters")
+@app.post("/api/extract/characters", responses={500: {"description": "Extraction error"}})
 async def extract_characters(request: ExtractRequest):
     try:
         # Get existing character notes
