@@ -393,8 +393,8 @@ export class MiniLmLocalEmbeddingModel implements LocalEmbeddingModel {
 							if (envAtError) {
 								captureEnvSnapshot(modAtError, envAtError, 'on-pipeline-error');
 							}
-						} catch {
-							// ignore secondary failures
+						} catch (err) {
+							console.debug('[LocalEmbeddingModel] Secondary env snapshot capture failed:', err);
 						}
 					}
 					this.logError('ensureLoaded.createPipeline', `Creating pipeline with model Xenova/all-MiniLM-L6-v2, cache: ${cacheDir}`, pipelineErr);

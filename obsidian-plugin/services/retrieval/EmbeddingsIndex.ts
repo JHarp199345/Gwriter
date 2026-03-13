@@ -121,16 +121,17 @@ export class EmbeddingsIndex {
 			if (await this.vault.adapter.exists(lockPath)) {
 				const raw = await this.vault.adapter.read(lockPath);
 				try {
-					const lock = JSON.parse(raw);
+				const lock = JSON.parse(raw);
 					if (lock.holder === 'writing-dashboard') {
 						await this.vault.adapter.remove(lockPath);
 					}
-				} catch {
+				} catch (err) {
 					// JSON parse failed - do not delete (could be another plugin's lock)
+					console.debug('[EmbeddingsIndex] Lock file JSON parse failed, skipping removal:', err);
 				}
 			}
-		} catch {
-			// ignore filesystem errors
+		} catch (err) {
+			console.debug('[EmbeddingsIndex] Filesystem error during lock cleanup:', err);
 		}
 	}
 
@@ -415,8 +416,8 @@ export class EmbeddingsIndex {
 				if (await this.vault.adapter.exists(`${overtDir}/index.manifest.json.tmp`)) {
 					await this.vault.adapter.remove(`${overtDir}/index.manifest.json.tmp`);
 				}
-			} catch {
-				// ignore cleanup errors
+			} catch (err) {
+				console.debug('[EmbeddingsIndex] Temp file cleanup failed (non-critical):', err);
 			}
 
 			return false;
@@ -506,11 +507,12 @@ export class EmbeddingsIndex {
 				if (!chunk?.key || !chunk?.path || !Array.isArray(chunk.vector)) continue;
 				this._setChunk(chunk);
 			}
-		} catch {
-			// Corrupt index should not break the plugin. We'll rebuild lazily.
-			this.chunksByKey.clear();
-			this.chunkKeysByPath.clear();
-		}
+	} catch (err) {
+		// Corrupt index should not break the plugin. We'll rebuild lazily.
+		console.warn('[EmbeddingsIndex] Corrupt index data detected, rebuilding from scratch:', err);
+		this.chunksByKey.clear();
+		this.chunkKeysByPath.clear();
+	}
 	}
 
 	getStatus(): { indexedFiles: number; indexedChunks: number; paused: boolean; queued: number } {
@@ -961,8 +963,8 @@ export class EmbeddingsIndex {
 					}
 				}
 			}
-		} catch {
-			// ignore mkdir failures
+		} catch (err) {
+			console.warn('[EmbeddingsIndex] Failed to create index directory:', err);
 		}
 
 		const payload: PersistedIndexV1 = {

@@ -207,7 +207,8 @@ export class OllamaModelManager {
                         const json = JSON.parse(line);
                         onProgress(json);
                     } catch {
-                        // ignore partial lines
+                        // Partial streaming line; skip and continue.
+                        continue;
                     }
                 }
             }

@@ -87,12 +87,14 @@ export class OllamaGenerationProvider {
         if (this.isProcessing || this.queue.length === 0) return;
         this.isProcessing = true;
 
-        while (this.queue.length > 0) {
-            const item = this.queue.shift()!;
-            await item.task(item.abortController?.signal);
+        try {
+            while (this.queue.length > 0) {
+                const item = this.queue.shift()!;
+                await item.task(item.abortController?.signal);
+            }
+        } finally {
+            this.isProcessing = false;
         }
-
-        this.isProcessing = false;
     }
 
     /**
@@ -255,7 +257,8 @@ export class OllamaGenerationProvider {
                             lastFlush = now;
                         }
                     } catch {
-                        // Partial JSON line, continue
+                        // Partial JSON line from streaming chunk; skip and continue.
+                        continue;
                     }
                 }
             }

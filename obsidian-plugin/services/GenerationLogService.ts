@@ -134,8 +134,8 @@ export class GenerationLogService {
 		try {
 			const existing = await this.app.vault.read(file);
 			await this.app.vault.modify(file, `${existing}\n${appendix}`);
-		} catch {
-			// ignore
+		} catch (err) {
+			console.warn('[GenerationLog] Failed to append result to log file:', err);
 		}
 	}
 }

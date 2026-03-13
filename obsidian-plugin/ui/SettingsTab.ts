@@ -122,8 +122,8 @@ export class SettingsTab extends PluginSettingTab {
 		const refreshIfVisible = () => {
 			try {
 				if (this.containerEl?.isConnected) this.display();
-			} catch {
-				// ignore
+			} catch (err) {
+				console.debug('[SettingsTab] Failed to refresh settings display:', err);
 			}
 		};
 		this.plugin.registerEvent(this.app.vault.on('create', refreshIfVisible));

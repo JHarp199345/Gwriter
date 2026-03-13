@@ -507,8 +507,8 @@ export class StressTestService {
 			// Fallback: attempt adapter removal (best-effort)
 			try {
 				await this.app.vault.adapter.remove(path);
-			} catch {
-				/* ignore */
+			} catch (err) {
+				console.debug('[StressTestService] Path removal failed (non-critical):', err);
 			}
 		}
 	}

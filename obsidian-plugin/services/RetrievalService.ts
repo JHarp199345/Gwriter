@@ -74,7 +74,6 @@ export class RetrievalService {
 
 		// Scoring Weights (Version 1)
 		const weights = { lex: 0.4, embed: 0.6 };
-		const scoringVersion = opts.scoringVersion || 1;
 
 		// Phase 2: Intent-Driven Retrieval
 		const intents = (query as any).intents || [];
