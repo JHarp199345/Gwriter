@@ -296,18 +296,7 @@ export class EmbeddingsIndex {
 		const sourceIndex = `${sourceDir}/index.json`;
 		if (await this.vault.adapter.exists(sourceIndex)) {
 			try {
-				if (!(await this.vault.adapter.exists(targetDir))) {
-					// Recursive mkdir
-					const parts = targetDir.split('/');
-					let current = '';
-					for (const part of parts) {
-						if (!part) continue;
-						current += (current ? '/' : '') + part;
-						if (!(await this.vault.adapter.exists(current))) {
-							await this.vault.adapter.mkdir(current);
-						}
-					}
-				}
+				await this._ensureDir(targetDir);
 				const content = await this.vault.adapter.read(sourceIndex);
 				await this.vault.adapter.write(indexPath, content);
 
@@ -352,17 +341,7 @@ export class EmbeddingsIndex {
 			console.debug('[EmbeddingsIndex] Starting atomic migration from legacy to overt folder...');
 
 			// Ensure overt folder exists
-			if (!(await this.vault.adapter.exists(overtDir))) {
-				const parts = overtDir.split('/');
-				let current = '';
-				for (const part of parts) {
-					if (!part) continue;
-					current += (current ? '/' : '') + part;
-					if (!(await this.vault.adapter.exists(current))) {
-						await this.vault.adapter.mkdir(current);
-					}
-				}
-			}
+			await this._ensureDir(overtDir);
 
 			// Acquire writer lock on overt folder
 			const hasLock = await this.acquireLock(overtDir);
@@ -831,6 +810,19 @@ export class EmbeddingsIndex {
 	}
 	}
 
+	private async _ensureDir(dirPath: string): Promise<void> {
+		if (await this.vault.adapter.exists(dirPath)) return;
+		const parts = dirPath.split('/');
+		let current = '';
+		for (const part of parts) {
+			if (!part) continue;
+			current += (current ? '/' : '') + part;
+			if (!(await this.vault.adapter.exists(current))) {
+				await this.vault.adapter.mkdir(current);
+			}
+		}
+	}
+
 	private _setChunk(chunk: IndexedChunk): void {
 		this.chunksByKey.set(chunk.key, chunk);
 		const set = this.chunkKeysByPath.get(chunk.path) ?? new Set<string>();
@@ -935,18 +927,7 @@ export class EmbeddingsIndex {
 
 		const dir = await this.resolveIndexDir();
 		try {
-			if (!(await this.vault.adapter.exists(dir))) {
-				// Recursive mkdir
-				const parts = dir.split('/');
-				let current = '';
-				for (const part of parts) {
-					if (!part) continue;
-					current += (current ? '/' : '') + part;
-					if (!(await this.vault.adapter.exists(current))) {
-						await this.vault.adapter.mkdir(current);
-					}
-				}
-			}
+			await this._ensureDir(dir);
 		} catch (err) {
 			console.warn('[EmbeddingsIndex] Failed to create index directory:', err);
 		}

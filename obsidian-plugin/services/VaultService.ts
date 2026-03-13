@@ -348,11 +348,14 @@ export class VaultService {
 			}
 		}
 
+		return this.isInExcludedFolder(normalized);
+	}
+
+	private isInExcludedFolder(normalizedPath: string): boolean {
 		const excluded = this.plugin.settings.retrievalExcludedFolders || [];
 		for (const folder of excluded) {
 			const f = folder.replace(/\\/g, '/').replace(/\/+$/, '');
-			if (!f) continue;
-			if (normalized === f || normalized.startsWith(`${f}/`)) return true;
+			if (f && (normalizedPath === f || normalizedPath.startsWith(`${f}/`))) return true;
 		}
 		return false;
 	}
