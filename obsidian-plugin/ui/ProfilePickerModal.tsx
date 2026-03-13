@@ -5,7 +5,7 @@ import WritingDashboardPlugin from '../main';
 import { TreePickerComponent } from './TreePickerModal';
 
 export class ProfilePickerModal extends Modal {
-	private plugin: WritingDashboardPlugin;
+	private readonly plugin: WritingDashboardPlugin;
 	private reactRoot: { render: (node: unknown) => void; unmount: () => void } | null = null;
 
 	constructor(plugin: WritingDashboardPlugin) {

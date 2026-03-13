@@ -36,9 +36,9 @@ function levenshteinDistance(a: string, b: string): number {
  * when manuscript edits cause paragraph IDs to shift.
  */
 export class EvidenceRelocationService {
-    private vault: Vault;
-    private plugin: WritingDashboardPlugin;
-    private fileCache: Map<string, { content: string; hash: string }> = new Map();
+    private readonly vault: Vault;
+    private readonly plugin: WritingDashboardPlugin;
+    private readonly fileCache: Map<string, { content: string; hash: string }> = new Map();
 
     constructor(vault: Vault, plugin: WritingDashboardPlugin) {
         this.vault = vault;
@@ -271,10 +271,7 @@ export class EvidenceRelocationService {
             const index = normalizedContent.indexOf(normalizedOriginal, searchStart);
             if (index === -1) break;
 
-            // Verify hash matches
-            const candidate = normalizedContent.substring(index, index + normalizedOriginal.length);
-            // Note: We're comparing normalized text, so hash should match if text matches
-            // In practice, we'd compute hash and compare, but for performance we compare normalized text
+            // Note: We're comparing normalized text for performance rather than computing a hash
             matches.push({
                 start: index,
                 end: index + normalizedOriginal.length

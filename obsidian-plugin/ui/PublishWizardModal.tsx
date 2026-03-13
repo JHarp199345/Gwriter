@@ -46,7 +46,7 @@ function ensureEpubExt(name: string): string {
 }
 
 export class PublishWizardModal extends Modal {
-	private plugin: WritingDashboardPlugin;
+	private readonly plugin: WritingDashboardPlugin;
 	private reactRoot: { render: (node: unknown) => void; unmount: () => void } | null = null;
 
 	constructor(plugin: WritingDashboardPlugin) {

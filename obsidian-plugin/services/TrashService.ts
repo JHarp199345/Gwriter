@@ -20,10 +20,10 @@ export interface TrashIndex {
  * Moves runs to .gwriter/trash/ instead of hard deletion.
  */
 export class TrashService {
-    private vault: Vault;
-    private plugin: WritingDashboardPlugin;
-    private trashRoot: string = '.gwriter/trash';
-    private indexPath: string = `${this.trashRoot}/index.json`;
+    private readonly vault: Vault;
+    private readonly plugin: WritingDashboardPlugin;
+    private readonly trashRoot: string = '.gwriter/trash';
+    private readonly indexPath: string = `${this.trashRoot}/index.json`;
 
     constructor(vault: Vault, plugin: WritingDashboardPlugin) {
         this.vault = vault;

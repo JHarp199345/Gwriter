@@ -6,14 +6,14 @@ interface StressTestOptions {
 }
 
 export class StressTestService {
-	private plugin: WritingDashboardPlugin;
-	private app: App;
+	private readonly plugin: WritingDashboardPlugin;
+	private readonly app: App;
 	private log: string[] = [];
-	private testFolder = 'WritingDashboard-StressTest';
-	private testFiles: string[] = [];
-	private testFolders: string[] = [];
+	private readonly testFolder = 'WritingDashboard-StressTest';
+	private readonly testFiles: string[] = [];
+	private readonly testFolders: string[] = [];
 	private startTime = 0;
-	private options: StressTestOptions;
+	private readonly options: StressTestOptions;
 
 	constructor(plugin: WritingDashboardPlugin, options: StressTestOptions = {}) {
 		this.plugin = plugin;
@@ -461,24 +461,10 @@ export class StressTestService {
 			// 1. Test Rolling Window Juggling
 			this.logEntry('Testing Rolling Window orchestration...');
 			
-			// Mock a generation run to populate rolling window
-			const runId = `st-run-${Date.now()}`;
-			const sessionId = 'st-session-42';
-			
-			// Generate two fake chunks
-			const chunk1 = [
-				{ id: 'c1-p1', text: 'This is the first paragraph of chunk one.', hash: 'h1', status: 'FINALIZED' as const },
-				{ id: 'c1-p2', text: 'This is the second paragraph of chunk one.', hash: 'h2', status: 'FINALIZED' as const }
-			];
-			const chunk2 = [
-				{ id: 'c2-p1', text: 'This is the first paragraph of chunk two.', hash: 'h3', status: 'FINALIZED' as const }
-			];
-
 			this.logEntry('✓ Rolling Window: Correctly handling multi-chunk transitions.');
 
 			// 2. Test User-Dirty Protection
 			this.logEntry('Testing User Protection (USER_DIRTY gate)...');
-			const dirtyPara = { id: 'c1-p1', text: 'Edited by user.', hash: 'h1-mod', status: 'USER_DIRTY' as const };
 			this.logEntry('✓ User Protection: Successfully blocked AI refinement on manual edits.');
 
 			// 3. Test Hash Gate (Staleness)

@@ -8,9 +8,9 @@ type Node = { name: string; path: string; type: 'file' | 'folder' };
 export type TreePickerMode = 'single' | 'multi';
 
 export class TreePickerModal extends Modal {
-	private plugin: WritingDashboardPlugin;
+	private readonly plugin: WritingDashboardPlugin;
 	private reactRoot: { render: (node: unknown) => void; unmount: () => void } | null = null;
-	private opts: {
+	private readonly opts: {
 		title?: string;
 		initialSelection?: string | string[];
 		mode?: TreePickerMode;

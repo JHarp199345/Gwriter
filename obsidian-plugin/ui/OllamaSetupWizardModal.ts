@@ -2,7 +2,7 @@ import { App, Modal, Notice, Setting } from 'obsidian';
 import WritingDashboardPlugin from '../main';
 
 export class OllamaSetupWizardModal extends Modal {
-	private plugin: WritingDashboardPlugin;
+	private readonly plugin: WritingDashboardPlugin;
 
 	constructor(app: App, plugin: WritingDashboardPlugin) {
 		super(app);

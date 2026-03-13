@@ -18,7 +18,6 @@ export const EditorPanel: React.FC<{
 	chunkBuffer?: string;
 }> = ({ mode, selectedText, onSelectionChange, generatedText, generatedParagraphs, heatmapEnabled, onGeneratedChange, onCopy, onUndo, chunkBuffer }) => {
 	const [hoveredPara, setHoveredPara] = useState<number | null>(null);
-	const [debugLevel, setDebugLevel] = useState<'off' | 'summary' | 'raw'>('off');
 	const [debugMode, setDebugMode] = useState<DebugMode>('off');
 
 	const selectedWords = TextChunker.getWordCount(selectedText || '');

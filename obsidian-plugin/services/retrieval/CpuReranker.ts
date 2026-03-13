@@ -42,23 +42,20 @@ class TransformersCrossEncoder implements CpuRerankerModel {
 				throw new Error(`Failed to import transformers.js: ${importErr instanceof Error ? importErr.message : String(importErr)}`);
 			}
 			
-			// Try multiple ways to access the environment
-			console.debug(`[CpuReranker] [STEP 2] Locating environment structure...`);
-			let env: any = null;
-			let envSource = 'none';
-			
-			// Method 1: Direct env (standard)
-			if (transformersModule.env) {
-				console.debug(`[CpuReranker] [STEP 2] ✓ Found env via transformersModule.env`);
-				env = transformersModule.env;
-				envSource = 'transformersModule.env';
-			}
-			// Method 2: default.env (if default export)
-			else if (transformersModule.default?.env) {
-				console.debug(`[CpuReranker] [STEP 2] ✓ Found env via transformersModule.default.env`);
-				env = transformersModule.default.env;
-				envSource = 'transformersModule.default.env';
-			}
+		// Try multiple ways to access the environment
+		console.debug(`[CpuReranker] [STEP 2] Locating environment structure...`);
+		let env: any = null;
+
+		// Method 1: Direct env (standard)
+		if (transformersModule.env) {
+			console.debug(`[CpuReranker] [STEP 2] ✓ Found env via transformersModule.env`);
+			env = transformersModule.env;
+		}
+		// Method 2: default.env (if default export)
+		else if (transformersModule.default?.env) {
+			console.debug(`[CpuReranker] [STEP 2] ✓ Found env via transformersModule.default.env`);
+			env = transformersModule.default.env;
+		}
 			
 			if (env) {
 				console.debug(`[CpuReranker] [STEP 2] env.backends exists:`, 'backends' in env);

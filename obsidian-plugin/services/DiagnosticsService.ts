@@ -10,7 +10,7 @@ import {
 import { RunPaths } from './RunPaths';
 
 export class DiagnosticsService {
-    private plugin: WritingDashboardPlugin;
+    private readonly plugin: WritingDashboardPlugin;
 
     constructor(plugin: WritingDashboardPlugin) {
         this.plugin = plugin;

@@ -10,9 +10,9 @@ import { RamTier, RAM_TIERS } from '../services/ContextSafety';
  * Can be changed later in Settings → Memory & Performance.
  */
 export class RamTierModal extends Modal {
-    private plugin: WritingDashboardPlugin;
+    private readonly plugin: WritingDashboardPlugin;
     private selectedTier: RamTier = 32; // Default selection
-    private onComplete?: (tier: RamTier) => void;
+    private readonly onComplete?: (tier: RamTier) => void;
 
     constructor(app: App, plugin: WritingDashboardPlugin, onComplete?: (tier: RamTier) => void) {
         super(app);

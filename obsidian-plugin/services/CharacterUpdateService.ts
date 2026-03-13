@@ -13,10 +13,10 @@ export interface ProcessEntireBookResult {
 
 export class CharacterUpdateService {
 	constructor(
-		private plugin: WritingDashboardPlugin,
-		private promptEngine: PromptEngine,
-		private characterExtractor: CharacterExtractor,
-		private vaultService: VaultService
+		private readonly plugin: WritingDashboardPlugin,
+		private readonly promptEngine: PromptEngine,
+		private readonly characterExtractor: CharacterExtractor,
+		private readonly vaultService: VaultService
 	) {}
 
 	/**

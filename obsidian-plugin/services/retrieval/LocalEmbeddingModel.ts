@@ -100,21 +100,18 @@ async function getPipeline(plugin: WritingDashboardPlugin): Promise<any> {
 	
 	// Try multiple ways to access the environment
 	let env: any = null;
-	let envSource = 'none';
-	
+
 	console.debug(`[LocalEmbeddingModel] [STEP 3] Attempting to locate environment structure...`);
-	
+
 	// Method 1: Direct mod.env (standard structure)
 	if (mod?.env) {
 		console.debug(`[LocalEmbeddingModel] [STEP 3] ✓ Found env via mod.env`);
 		env = mod.env;
-		envSource = 'mod.env';
 	}
 	// Method 2: mod.default.env (if default export)
 	else if (mod?.default?.env) {
 		console.debug(`[LocalEmbeddingModel] [STEP 3] ✓ Found env via mod.default.env`);
 		env = mod.default.env;
-		envSource = 'mod.default.env';
 	}
 	
 	// Deep inspection of what we have

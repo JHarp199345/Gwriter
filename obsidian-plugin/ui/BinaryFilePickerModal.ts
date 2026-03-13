@@ -4,9 +4,9 @@ import { App, FuzzySuggestModal, TFile } from 'obsidian';
  * Generic searchable picker for any file types (useful for fonts).
  */
 export class BinaryFilePickerModal extends FuzzySuggestModal<TFile> {
-	private files: TFile[];
-	private placeholderText: string;
-	private onPick: (file: TFile) => void | Promise<void>;
+	private readonly files: TFile[];
+	private readonly placeholderText: string;
+	private readonly onPick: (file: TFile) => void | Promise<void>;
 
 	constructor(opts: {
 		app: App;

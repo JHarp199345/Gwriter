@@ -3,7 +3,7 @@ import WritingDashboardPlugin from '../main';
 import { FileTreePickerModal } from './FileTreePickerModal';
 
 export class BookMainSelectorModal extends Modal {
-	private plugin: WritingDashboardPlugin;
+	private readonly plugin: WritingDashboardPlugin;
 
 	constructor(plugin: WritingDashboardPlugin) {
 		super(plugin.app);

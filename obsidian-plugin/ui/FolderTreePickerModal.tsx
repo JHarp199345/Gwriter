@@ -4,11 +4,11 @@ import { createRoot } from 'react-dom/client';
 import WritingDashboardPlugin from '../main';
 
 export class FolderTreePickerModal extends Modal {
-	private plugin: WritingDashboardPlugin;
+	private readonly plugin: WritingDashboardPlugin;
 	private reactRoot: { render: (node: unknown) => void; unmount: () => void } | null = null;
-	private onPick: (folderPath: string) => void | Promise<void>;
-	private currentPath?: string;
-	private title: string;
+	private readonly onPick: (folderPath: string) => void | Promise<void>;
+	private readonly currentPath?: string;
+	private readonly title: string;
 
 	constructor(
 		plugin: WritingDashboardPlugin,

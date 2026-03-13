@@ -16,8 +16,8 @@ export interface OllamaModel {
  * It merges the local installed tags with a curated catalog.
  */
 export class OllamaModelManager {
-    private plugin: WritingDashboardPlugin;
-    private catalog: Partial<OllamaModel>[] = [];
+    private readonly plugin: WritingDashboardPlugin;
+    private readonly catalog: Partial<OllamaModel>[] = [];
 
     private get baseUrl() {
         return this.plugin.settings.ollamaBaseUrl || 'http://127.0.0.1:11434';
@@ -225,9 +225,8 @@ export class OllamaModelManager {
     async warmup(modelId: string): Promise<{ success: boolean, latency: number, error?: string }> {
         const start = Date.now();
         try {
-            const prompt = '{"test": true}';
             const result = await this.plugin.ollamaGen.generateJson<{ test: boolean }>(
-                'Output a JSON object: {"test": true}', 
+                'Output a JSON object: {"test": true}',
                 modelId
             );
             return {

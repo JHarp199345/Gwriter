@@ -7,8 +7,8 @@ import { sha256 } from './ContentHash';
 import { SpanConfidence } from './Schemas';
 
 export class VaultService {
-	private vault: Vault;
-	private plugin: WritingDashboardPlugin;
+	private readonly vault: Vault;
+	private readonly plugin: WritingDashboardPlugin;
 
 	constructor(vault: Vault, plugin: WritingDashboardPlugin) {
 		this.vault = vault;

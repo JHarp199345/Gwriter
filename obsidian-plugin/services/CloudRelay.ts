@@ -133,8 +133,8 @@ export interface EditOutputContract {
  * All safety gates (audit, tuple verification) run locally.
  */
 export class CloudRelay {
-    private plugin: WritingDashboardPlugin;
-    private maxCloudAttemptsPerRequest: number = 1; // Strict: no retries unless zero bytes
+    private readonly plugin: WritingDashboardPlugin;
+    private readonly maxCloudAttemptsPerRequest: number = 1; // Strict: no retries unless zero bytes
 
     constructor(plugin: WritingDashboardPlugin) {
         this.plugin = plugin;

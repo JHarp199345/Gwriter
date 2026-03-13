@@ -4,11 +4,11 @@ import { createRoot } from 'react-dom/client';
 import WritingDashboardPlugin from '../main';
 
 export class FileTreePickerModal extends Modal {
-	private plugin: WritingDashboardPlugin;
+	private readonly plugin: WritingDashboardPlugin;
 	private reactRoot: { render: (node: unknown) => void; unmount: () => void } | null = null;
-	private onPick: (filePath: string) => void | Promise<void>;
-	private currentPath?: string;
-	private title: string;
+	private readonly onPick: (filePath: string) => void | Promise<void>;
+	private readonly currentPath?: string;
+	private readonly title: string;
 
 	constructor(plugin: WritingDashboardPlugin, opts: { onPick: (filePath: string) => void | Promise<void>; currentPath?: string; title?: string }) {
 		super(plugin.app);

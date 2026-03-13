@@ -6,9 +6,9 @@ import { VaultService } from './VaultService';
 import { getSafeContextLimit, isModelBlocked, getBlockedModelError, RamTier } from './ContextSafety';
 
 export class ContextAggregator {
-	private vault: Vault;
-	private plugin: WritingDashboardPlugin;
-	private vaultService: VaultService;
+	private readonly vault: Vault;
+	private readonly plugin: WritingDashboardPlugin;
+	private readonly vaultService: VaultService;
 
 	private budgetToChars(tokens: number): number {
 		// estimateTokens uses ~4 chars per token; invert that here

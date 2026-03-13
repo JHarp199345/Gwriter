@@ -55,8 +55,6 @@ export function showHarvestChecklistModal(
                     
                     const isAutoAccepted = autoAcceptedIds.has(item.harvestId);
                     const isPromoted = selectedIds.has(item.harvestId);
-                    const isRunLocal = runLocalIds.has(item.harvestId);
-
                     // Check evidence freshness
                     const staleEvidence = item.supportingEvidence.some(e => e.relocationTier === 'STALE' || e.relocationTier === 'RELOCATED_AMBIGUOUS');
                     if (staleEvidence && !isAutoAccepted) {
@@ -107,7 +105,7 @@ export function showHarvestChecklistModal(
                     const evidenceTiers = item.supportingEvidence.map(e => e.relocationTier);
                     const uniqueTiers = [...new Set(evidenceTiers)];
                     uniqueTiers.forEach(tier => {
-                        const badge = metaDiv.createSpan({ 
+                        metaDiv.createSpan({
                             text: tier === 'EXACT' ? '✓ Exact' : tier === 'RELOCATED_UNIQUE' ? '~ Relocated' : tier === 'STALE' ? '⚠ Stale' : tier,
                             cls: tier === 'EXACT' ? 'evidence-badge-exact' : tier === 'RELOCATED_UNIQUE' ? 'evidence-badge-relocated' : 'evidence-badge-stale'
                         });

@@ -17,26 +17,6 @@ export const DevReplayPanel: React.FC<DevReplayPanelProps> = ({ manifests, onRep
 
     const selectedRun = manifests.find(m => m.runId === selectedRunId);
 
-    const calculateJaccard = (a: string[], b: string[]) => {
-        const setA = new Set(a);
-        const setB = new Set(b);
-        const intersection = new Set([...setA].filter(x => setB.has(x)));
-        const union = new Set([...setA, ...setB]);
-        return union.size === 0 ? 1 : intersection.size / union.size;
-    };
-
-    const checkLoreParity = (orig: RunManifest, repl: RunManifest) => {
-        const origUpdateStages = orig.stages.filter(s => s.stageType === 'UPDATE');
-        const replUpdateStages = repl.stages.filter(s => s.stageType === 'UPDATE');
-        
-        if (origUpdateStages.length !== replUpdateStages.length) return false;
-        
-        for (let i = 0; i < origUpdateStages.length; i++) {
-            if (origUpdateStages[i].data.version !== replUpdateStages[i].data.version) return false;
-        }
-        return true;
-    };
-
     const normalizeProse = (text: string) => {
         if (typeof text !== 'string') return text;
         return text.replace(/\s+/g, ' ').trim();

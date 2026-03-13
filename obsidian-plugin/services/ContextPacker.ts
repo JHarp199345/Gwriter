@@ -13,10 +13,10 @@ import { sha256, normalizeWhitespace } from './ContentHash';
  * 4. RAG Hits (fill remaining)
  */
 export class ContextPacker {
-    private maxLockMapTokens: number = 40000;
-    private maxStateTokens: number = 10000;
-    private maxStyleTokens: number = 5000;
-    private maxTotalTokens: number = 128000;
+    private readonly maxLockMapTokens: number = 40000;
+    private readonly maxStateTokens: number = 10000;
+    private readonly maxStyleTokens: number = 5000;
+    private readonly maxTotalTokens: number = 128000;
 
     /**
      * Legacy wrapper for packing context.

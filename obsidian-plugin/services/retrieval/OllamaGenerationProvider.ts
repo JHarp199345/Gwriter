@@ -16,7 +16,7 @@ export interface GenerationParams {
  * It enforces deterministic parameters and validates structured JSON outputs.
  */
 export class OllamaGenerationProvider {
-    private plugin: WritingDashboardPlugin;
+    private readonly plugin: WritingDashboardPlugin;
 
     private get baseUrl() {
         return this.plugin.settings.ollamaBaseUrl || 'http://127.0.0.1:11434';

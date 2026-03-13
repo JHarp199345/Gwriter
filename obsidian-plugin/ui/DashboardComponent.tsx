@@ -30,9 +30,7 @@ const DEFAULT_REWRITE_INSTRUCTIONS =
 	'[INSTRUCTION: The Scene Summary is a rough summary OR directions. Rewrite it into a fully detailed dramatic scene. Include dialogue, sensory details, and action. Do not summarize; write the prose. Match the tone, rhythm, and pacing of the provided context.]';
 
 export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = ({ plugin }) => {
-	const [mode, setMode] = useState<Mode>('chapter');
-	const [demoStep, setDemoStep] = useState<DemoStep>('off');
-	const [apiKeyPresent, setApiKeyPresent] = useState<boolean>(Boolean(plugin.settings.apiKey));
+	const [mode] = useState<Mode>('chapter');
 	const [modeState, setModeState] = useState(() => plugin.settings.modeState);
 	
 	const [generatedText, setGeneratedText] = useState<string>('');
@@ -45,12 +43,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [generationStage, setGenerationStage] = useState<string>('');
 	const [pulseMessage, setPulseMessage] = useState<string | null>(null);
 	const [pulseDetail, setPulseDetail] = useState<string | null>(null);
-	const [generationSteps, setGenerationSteps] = useState<GenerationStep[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [mismatchReport, setMismatchReport] = useState<any[] | null>(null); // New
-	const [telemetry, setTelemetry] = useState<{ tps: number, model: string, digest: string } | null>(null);
-	const [costEstimate, setCostEstimate] = useState<{ low: number, high: number } | null>(null);
-	const [showFactInspector, setShowFactInspector] = useState(false);
+	const [telemetry] = useState<{ tps: number, model: string, digest: string } | null>(null);
 	const [heatmapEnabled, setHeatmapEnabled] = useState(true);
 	const [spontaneity, setSpontaneity] = useState((plugin.settings as any).spontaneitySlider || 50);
 	const [misses, setMisses] = useState<any[]>([]); // New
@@ -71,7 +66,6 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 	useEffect(() => {
 		const onStart = () => {
-			setGenerationSteps([]);
 			setChunkBuffer('');
 			setGeneratedText('');
 			setGeneratedParagraphs([]);

@@ -111,8 +111,6 @@ export class RetrievalService {
 
 		// Phase 2: Versioned RAG Scoring
 		const T_hard = 0.7;
-		const E_hard = 0.6;
-		const L_hard = 0.6;
 
 		fused = fused.map(item => {
 			// In a real implementation, we would recalculate lex/embed per provider

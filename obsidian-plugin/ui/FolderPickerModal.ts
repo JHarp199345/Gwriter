@@ -4,9 +4,9 @@ import { App, FuzzySuggestModal, TFolder } from 'obsidian';
  * Generic searchable picker for folders in the vault.
  */
 export class FolderPickerModal extends FuzzySuggestModal<TFolder> {
-	private folders: TFolder[];
-	private placeholderText: string;
-	private onPick: (folder: TFolder) => void | Promise<void>;
+	private readonly folders: TFolder[];
+	private readonly placeholderText: string;
+	private readonly onPick: (folder: TFolder) => void | Promise<void>;
 
 	constructor(opts: {
 		app: App;

@@ -857,7 +857,7 @@ export class SettingsTab extends PluginSettingTab {
 				})
 			);
 
-		const generationLogsFolderSetting = new Setting(containerEl)
+		new Setting(containerEl)
 			.setName('Generation logs folder')
 			.setDesc(`Current: ${this.plugin.settings.generationLogsFolder || '(none selected)'}`)
 			.addButton(button => button
@@ -1035,7 +1035,7 @@ export class SettingsTab extends PluginSettingTab {
 			);
 
 		addSection('Manuscript & characters', 'Core paths for manuscript, story bible, and character notes.');
-		const characterFolderSetting = new Setting(containerEl)
+		new Setting(containerEl)
 			.setName('Character folder')
 			.setDesc(`Current: ${this.plugin.settings.characterFolder || '(none selected)'}`)
 			.addButton(button => button
@@ -1074,7 +1074,7 @@ export class SettingsTab extends PluginSettingTab {
 					}).open();
 				}));
 
-		const storyBibleSetting = new Setting(containerEl)
+		new Setting(containerEl)
 			.setName('Story bible path')
 			.setDesc(`Current: ${this.plugin.settings.storyBiblePath || '(none selected)'}`)
 			.addButton(button => button

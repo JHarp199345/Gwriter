@@ -6,7 +6,7 @@ import { GroundingScorer, GroundingResult } from './GroundingScorer';
  * ExplainabilityService manages Paragraph-to-Fact mapping and grounding telemetry.
  */
 export class ExplainabilityService {
-    private scorer: GroundingScorer;
+    private readonly scorer: GroundingScorer;
 
     constructor() {
         this.scorer = new GroundingScorer();
@@ -60,9 +60,8 @@ export class ExplainabilityService {
      * Detects "Drift Risk" based on fact dormancy.
      */
     detectDriftRisk(_allFacts: CanonFact[], _currentChunkIndex: number): string[] {
-        const threshold = CO_AUTHORING_POLICY.GROUNDING.DORMANCY_THRESHOLD;
         const riskyFactIds: string[] = [];
-        // Implementation would check f.chunkId vs currentChunkIndex
+        // Implementation would check f.chunkId vs currentChunkIndex against DORMANCY_THRESHOLD
         return riskyFactIds;
     }
 }

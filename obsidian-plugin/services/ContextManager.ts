@@ -20,14 +20,14 @@ import { sha256 } from './ContentHash';
  * It is the sole authority for versioned canon evolution.
  */
 export class ContextManager {
-    private state: ChapterState;
-    private vault: Vault;
+    private readonly state: ChapterState;
+    private readonly vault: Vault;
     private lastStoryBibleHash: string = '';
     private stickyCount: Record<string, number> = {}; // Track how many chunks a context ID has been sticky
-    private pinnedFactIds: Set<string> = new Set(); // User-pinned facts (need[])
+    private readonly pinnedFactIds: Set<string> = new Set(); // User-pinned facts (need[])
     private pinnedTtl: Record<string, number> = {}; // factId -> chunksRemaining
     private pinnedExtensions: Record<string, number> = {}; // factId -> extensionCount
-    private semanticLockMap: Map<string, { type: string, value: any, scope: string }> = new Map(); // Locked entities/relations
+    private readonly semanticLockMap: Map<string, { type: string, value: any, scope: string }> = new Map(); // Locked entities/relations
 
     constructor(vault: Vault, initialState: ChapterState) {
         this.vault = vault;

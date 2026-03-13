@@ -22,7 +22,7 @@ import { TFile } from 'obsidian';
  * and prepares them for user review and Story Bible merge.
  */
 export class LoreHarvestService {
-    private plugin: WritingDashboardPlugin;
+    private readonly plugin: WritingDashboardPlugin;
 
     constructor(plugin: WritingDashboardPlugin) {
         this.plugin = plugin;

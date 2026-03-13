@@ -39,7 +39,7 @@ export interface ReplayManifest {
  * ReplayEngine supports deterministic replay of generation runs for debugging and regression testing.
  */
 export class ReplayEngine {
-    private plugin: WritingDashboardPlugin;
+    private readonly plugin: WritingDashboardPlugin;
 
     constructor(plugin: WritingDashboardPlugin) {
         this.plugin = plugin;
@@ -204,8 +204,7 @@ export class ReplayEngine {
             };
         }
 
-        const contextPackContent = await this.plugin.app.vault.read(contextPackFile);
-        const contextPack = JSON.parse(contextPackContent);
+        await this.plugin.app.vault.read(contextPackFile);
 
         // Verify orchestration flow: Check if we can reconstruct the same input
         const cloudStage = originalManifest.stages.find(s => s.data?.runMode === 'CLOUD_MONOLITHIC');

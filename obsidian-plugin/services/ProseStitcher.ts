@@ -18,7 +18,7 @@ import { fnv1a32, normalizeWhitespace } from './ContentHash';
  * It is strictly forbidden from altering canonical claim tuples.
  */
 export class ProseStitcher {
-    private plugin: WritingDashboardPlugin;
+    private readonly plugin: WritingDashboardPlugin;
 
     constructor(plugin: WritingDashboardPlugin) {
         this.plugin = plugin;

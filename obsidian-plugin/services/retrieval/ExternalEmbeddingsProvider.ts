@@ -31,7 +31,7 @@ export class ExternalEmbeddingsProvider implements RetrievalProvider {
 	
 	// Rate limiting infrastructure
 	private readonly requestQueue: Array<{ resolve: (value: number[]) => void; reject: (error: Error) => void; query: string }> = [];
-	private requestInFlight = false;
+	private readonly requestInFlight = false;
 	private readonly maxConcurrentRequests = 1; // Serialize requests to avoid bursts
 	private readonly minRequestInterval = 100; // Minimum 100ms between requests
 	private lastRequestTime = 0;

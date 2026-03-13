@@ -60,11 +60,11 @@ import { isModelBlocked, getBlockedModelError, RamTier } from './ContextSafety';
  * It manages the Plan-Retrieve-Write-Verify-Repair loop as a version-pinned state machine.
  */
 export class SequentialGenerator {
-    private plugin: WritingDashboardPlugin;
-    private proseStitcher: ProseStitcher;
-    private identityService: ParagraphIdentityService;
-    private loreHarvestService: LoreHarvestService;
-    private auditService: AuditService;
+    private readonly plugin: WritingDashboardPlugin;
+    private readonly proseStitcher: ProseStitcher;
+    private readonly identityService: ParagraphIdentityService;
+    private readonly loreHarvestService: LoreHarvestService;
+    private readonly auditService: AuditService;
     private abortController: AbortController | null = null;
     
     private state: RunState = 'idle';
@@ -74,16 +74,16 @@ export class SequentialGenerator {
     private commitLock: boolean = false;
     private dryRun: boolean = false;
     private interventionCount: number = 0;
-    private interventionCountPerChunk: Map<string, number> = new Map();
+    private readonly interventionCountPerChunk: Map<string, number> = new Map();
     private contextManager: ContextManager | null = null;
-    private entitiesMentionedHistory: Map<string, string[]> = new Map(); // chunkId -> entityIds
-    private rollingWindow: { id: string, text: string, hash: string, status: 'STREAMING' | 'FINALIZED' | 'USER_DIRTY' }[][] = []; // Last 3 chunks
-    private lastAppliedSeqNo: Map<string, number> = new Map(); // seamId -> seqNo
-    private seamTaskCounters: Map<string, number> = new Map(); // seamId -> counter
-    private sessionId: string = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    private readonly entitiesMentionedHistory: Map<string, string[]> = new Map(); // chunkId -> entityIds
+    private readonly rollingWindow: { id: string, text: string, hash: string, status: 'STREAMING' | 'FINALIZED' | 'USER_DIRTY' }[][] = []; // Last 3 chunks
+    private readonly lastAppliedSeqNo: Map<string, number> = new Map(); // seamId -> seqNo
+    private readonly seamTaskCounters: Map<string, number> = new Map(); // seamId -> counter
+    private readonly sessionId: string = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     private heartbeatInterval: NodeJS.Timeout | null = null;
-    private cloudRelay: CloudRelay | null = null;
-    private contextPacker: ContextPacker | null = null;
+    private readonly cloudRelay: CloudRelay | null = null;
+    private readonly contextPacker: ContextPacker | null = null;
 
     constructor(app: App, plugin: WritingDashboardPlugin) {
         this.plugin = plugin;
@@ -200,7 +200,6 @@ export class SequentialGenerator {
 
         // Get plugin version from manifest.json
         const pluginVersion = this.plugin.manifest.version || '1.0.3';
-        const generatorVersion = `${pluginVersion}+policy-${policyHash.slice(0, 8)}`;
 
         // Build environment metadata
         const environment = {
@@ -730,7 +729,6 @@ Constraints:
         this.seamTaskCounters.set(seamId, seqNo);
 
         const taskKey = `${this.currentRunId}__${this.sessionId}__${seamId}`;
-        const smartModel = this.manifest!.config.smartModel;
 
         // Find the actual chunks in rolling window
         // Note: leftIdx and rightIdx are iteration numbers (1-based)
@@ -752,13 +750,11 @@ Constraints:
         void this.plugin.ollamaGen.enqueue(3, taskKey, async (signal) => {
             if (signal?.aborted) return;
 
-            const startTime = Date.now();
             try {
                 // Get stable prefix for KV cache warmth
                 const state = this.contextManager!.getState();
                 const context = await this.contextPacker!.packContext(this.plugin, state);
                 const stablePrefix = this.plugin.promptEngine.buildStablePrefix(context);
-                const mechanicalProfile = this.getTaskProfile('STITCH');
 
                 const response = await this.proseStitcher.stitch(
                     cleanLeft,
@@ -1944,8 +1940,7 @@ Constraints:
         try {
             const globalIndexFile = this.plugin.app.vault.getAbstractFileByPath(globalIndexPath);
             if (globalIndexFile instanceof TFile) {
-                const content = await this.plugin.app.vault.read(globalIndexFile);
-                const index: Record<string, ProtectionReason[]> = JSON.parse(content);
+                await this.plugin.app.vault.read(globalIndexFile);
                 // Index uses runId, but we need runKey - would need to read manifests
                 // For now, check protected.json files
             }

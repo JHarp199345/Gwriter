@@ -94,9 +94,9 @@ export class Bm25Index {
 	private readonly plugin: WritingDashboardPlugin;
 
 	private loaded = false;
-	private chunksByKey = new Map<string, Bm25Chunk>();
-	private chunkKeysByPath = new Map<string, Set<string>>();
-	private postings = new Map<string, Array<[string, number]>>();
+	private readonly chunksByKey = new Map<string, Bm25Chunk>();
+	private readonly chunkKeysByPath = new Map<string, Set<string>>();
+	private readonly postings = new Map<string, Array<[string, number]>>();
 	private fileState: Record<string, { hash: string; chunkCount: number; updatedAt: string }> = {};
 	private sumLen = 0;
 

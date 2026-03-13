@@ -73,8 +73,8 @@ export class EmbeddingsIndex {
 	private embeddingProvider: OllamaEmbeddingProvider;
 
 	private loaded = false;
-	private chunksByKey = new Map<string, IndexedChunk>();
-	private chunkKeysByPath = new Map<string, Set<string>>();
+	private readonly chunksByKey = new Map<string, IndexedChunk>();
+	private readonly chunkKeysByPath = new Map<string, Set<string>>();
 
 	private readonly queue = new Set<string>();
 	private workerRunning = false;
