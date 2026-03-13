@@ -65,30 +65,25 @@ export class CharacterExtractor {
 			}
 		}
 		
-		// If no structured format found, try to extract character names from text (optional)
+		// If no structured format found, fallback to extracting capitalized names
 		if (!strict && updates.length === 0) {
-			// Look for character names mentioned in the text (capitalized words)
-			const characterPattern = /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/g;
-			const potentialCharacters = new Set<string>();
-			let match;
-			
-			while ((match = characterPattern.exec(extractionText)) !== null) {
-				const name = match[1];
-				if (name.split(' ').length <= 3) {
-					potentialCharacters.add(name);
-				}
-			}
-			
-			// Create updates for potential characters
-			for (const charName of potentialCharacters) {
-				updates.push({
-					character: charName,
-					update: extractionText
-				});
+			const candidates = this.extractCapitalizedNames(extractionText);
+			for (const charName of candidates) {
+				updates.push({ character: charName, update: extractionText });
 			}
 		}
 		
 		return updates;
+	}
+
+	private extractCapitalizedNames(text: string): Set<string> {
+		const pattern = /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/g;
+		const names = new Set<string>();
+		let match;
+		while ((match = pattern.exec(text)) !== null) {
+			if (match[1].split(' ').length <= 3) names.add(match[1]);
+		}
+		return names;
 	}
 }
 

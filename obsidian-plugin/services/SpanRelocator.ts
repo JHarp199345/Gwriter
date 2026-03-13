@@ -46,43 +46,13 @@ export class SpanRelocator {
 
         // 3. Anchored Windows
         if (anchorTextBefore || anchorTextAfter) {
-            const before = anchorTextBefore || '';
-            const after = anchorTextAfter || '';
-            
-            // Search for before + * + after
-            // This is a bit complex for a simple string search. 
-            // We'll look for all occurrences of 'before' and 'after' and find the gap.
-            
-            const beforeIndices = this.findAllOccurrences(currentDocText, before);
-            const afterIndices = this.findAllOccurrences(currentDocText, after);
-
-            let bestMatch: { start: number, end: number } | null = null;
-            let minDistance = Infinity;
-
-            for (const bIdx of beforeIndices) {
-                for (const aIdx of afterIndices) {
-                    if (aIdx > bIdx + before.length) {
-                        const newStart = bIdx + before.length;
-                        const newEnd = aIdx;
-                        const distance = Math.abs(newStart - start);
-                        
-                        if (distance < minDistance) {
-                            minDistance = distance;
-                            bestMatch = { start: newStart, end: newEnd };
-                        }
-                    }
-                }
-            }
-
-            if (bestMatch) {
-                // If we found a match via anchors, we should still check if there's a unique match
-                // but for now we'll take the closest one.
-                return { 
-                    start: bestMatch.start, 
-                    end: bestMatch.end, 
-                    confidence: beforeIndices.length === 1 && afterIndices.length === 1 ? 'RELOCATED_UNIQUE' : 'RELOCATED_AMBIGUOUS'
-                };
-            }
+            const anchorResult = this.findByAnchors(
+                currentDocText,
+                anchorTextBefore || '',
+                anchorTextAfter || '',
+                start
+            );
+            if (anchorResult) return anchorResult;
         }
 
         // 4. Ambiguous Match (Closest to old pos)
@@ -101,6 +71,38 @@ export class SpanRelocator {
             indices.push(i);
         }
         return indices;
+    }
+
+    private findByAnchors(
+        docText: string,
+        before: string,
+        after: string,
+        originalStart: number
+    ): { start: number; end: number; confidence: SpanConfidence } | null {
+        const beforeIndices = this.findAllOccurrences(docText, before);
+        const afterIndices = this.findAllOccurrences(docText, after);
+        let bestMatch: { start: number; end: number } | null = null;
+        let minDistance = Infinity;
+
+        for (const bIdx of beforeIndices) {
+            for (const aIdx of afterIndices) {
+                if (aIdx > bIdx + before.length) {
+                    const newStart = bIdx + before.length;
+                    const distance = Math.abs(newStart - originalStart);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        bestMatch = { start: newStart, end: aIdx };
+                    }
+                }
+            }
+        }
+
+        if (!bestMatch) return null;
+        const confidence: SpanConfidence =
+            beforeIndices.length === 1 && afterIndices.length === 1
+                ? 'RELOCATED_UNIQUE'
+                : 'RELOCATED_AMBIGUOUS';
+        return { ...bestMatch, confidence };
     }
 }
 

@@ -352,6 +352,28 @@ export class Bm25Index {
 		await this.vault.adapter.write(this.getIndexFilePath(), JSON.stringify(payload));
 	}
 
+	private _scoreTerm(
+		term: string,
+		scores: Map<string, number>,
+		N: number,
+		avgdl: number,
+		k1: number,
+		b: number
+	): void {
+		const posting = this.postings.get(term);
+		if (!posting?.length) return;
+		const df = posting.filter(([key]) => this.chunksByKey.has(key)).length;
+		if (df === 0) return;
+		const idf = Math.log(1 + (N - df + 0.5) / (df + 0.5));
+		for (const [key, tf] of posting) {
+			const ch = this.chunksByKey.get(key);
+			if (!ch) continue;
+			const dl = ch.len || 0;
+			const denom = tf + k1 * (1 - b + (b * dl) / (avgdl || 1));
+			scores.set(key, (scores.get(key) ?? 0) + (idf * (tf * (k1 + 1))) / (denom || 1));
+		}
+	}
+
 	search(queryText: string, limit: number): Array<{ chunk: Bm25Chunk; rawScore: number; terms: string[] }> {
 		const qTokens = tokenize(queryText).slice(0, 24);
 		const terms = Array.from(new Set(qTokens));
@@ -363,29 +385,10 @@ export class Bm25Index {
 		const avgdl = N ? this.sumLen / N : 0;
 		const k1 = 1.2;
 		const b = 0.75;
-
 		const scores = new Map<string, number>();
 
 		for (const term of terms) {
-			const posting = this.postings.get(term);
-			if (!posting || posting.length === 0) continue;
-
-			let df = 0;
-			for (const [key] of posting) {
-				if (this.chunksByKey.has(key)) df++;
-			}
-			if (df === 0) continue;
-
-			const idf = Math.log(1 + (N - df + 0.5) / (df + 0.5));
-
-			for (const [key, tf] of posting) {
-				const ch = this.chunksByKey.get(key);
-				if (!ch) continue;
-				const dl = ch.len || 0;
-				const denom = tf + k1 * (1 - b + (b * dl) / (avgdl || 1));
-				const s = (idf * (tf * (k1 + 1))) / (denom || 1);
-				scores.set(key, (scores.get(key) ?? 0) + s);
-			}
+			this._scoreTerm(term, scores, N, avgdl, k1, b);
 		}
 
 		const ranked = Array.from(scores.entries())
