@@ -11,6 +11,27 @@ function normalizeText(s: string): string {
 	return (s || '').replace(/\s+/g, ' ').trim();
 }
 
+function configureWasmPaths(env: any, transformersModule: any, wasmBasePath: string): void {
+	let onnxEnv: any = null;
+	if (transformersModule?.ONNX) {
+		const onnx = transformersModule.ONNX;
+		onnxEnv = onnx?.env?.wasm ?? onnx?.env ?? null;
+	}
+	if (!onnxEnv && env.backends?.onnx) {
+		const b = env.backends.onnx;
+		onnxEnv = b.env?.wasm ?? b.wasm ?? b.env ?? null;
+	}
+	if (onnxEnv) {
+		try {
+			if ('wasmPaths' in onnxEnv) onnxEnv.wasmPaths = wasmBasePath;
+			else Object.defineProperty(onnxEnv, 'wasmPaths', { value: wasmBasePath, writable: true, enumerable: true, configurable: true });
+		} catch (err) {
+			console.warn('[CpuReranker] Failed to set wasmPaths:', err);
+		}
+	}
+	try { if ('wasmPaths' in env) env.wasmPaths = wasmBasePath; } catch { /* non-critical */ }
+}
+
 /**
  * CPU reranker using @xenova/transformers (WASM). Loaded lazily.
  * If the model fails to load/run, callers should fall back to the pre-rerank order.
@@ -71,73 +92,7 @@ class TransformersCrossEncoder implements CpuRerankerModel {
 			const wasmBasePath = './lib/';
 			
 			if (env) {
-				// Approach 1: Try to access ONNX backend directly from the module
-				let onnxBackendEnv: any = null;
-				let onnxBackendPath = 'none';
-				
-				if (transformersModule?.ONNX) {
-					console.debug(`[CpuReranker] [STEP 3] ✓ Found ONNX export in module`);
-					const onnx = transformersModule.ONNX;
-					if (onnx?.env?.wasm) {
-						onnxBackendEnv = onnx.env.wasm;
-						onnxBackendPath = 'transformersModule.ONNX.env.wasm';
-						console.debug(`[CpuReranker] [STEP 3] ✓ Found ONNX env.wasm via transformersModule.ONNX`);
-					} else if (onnx?.env) {
-						onnxBackendEnv = onnx.env;
-						onnxBackendPath = 'transformersModule.ONNX.env';
-						console.debug(`[CpuReranker] [STEP 3] ✓ Found ONNX env via transformersModule.ONNX`);
-					}
-				}
-				
-				// Approach 2: Try via env.backends.onnx (transformers.js structure)
-				if (!onnxBackendEnv && env.backends?.onnx) {
-					const onnxBackend = env.backends.onnx;
-					console.debug(`[CpuReranker] [STEP 3] ✓ ONNX backend found via env.backends.onnx`);
-					
-					if (onnxBackend.env?.wasm) {
-						onnxBackendEnv = onnxBackend.env.wasm;
-						onnxBackendPath = 'env.backends.onnx.env.wasm';
-					} else if (onnxBackend.wasm) {
-						onnxBackendEnv = onnxBackend.wasm;
-						onnxBackendPath = 'onnxBackend.wasm';
-					} else if (onnxBackend.env) {
-						onnxBackendEnv = onnxBackend.env;
-						onnxBackendPath = 'onnxBackend.env';
-					}
-				}
-				
-				// Set wasmPaths on the ONNX backend environment
-				if (onnxBackendEnv) {
-					console.debug(`[CpuReranker] [STEP 3] Configuring WASM paths at: ${onnxBackendPath}`);
-					try {
-						if ('wasmPaths' in onnxBackendEnv) {
-							onnxBackendEnv.wasmPaths = wasmBasePath;
-							console.debug(`[CpuReranker] [STEP 3] ✓ Updated wasmPaths to: ${wasmBasePath}`);
-						} else {
-							Object.defineProperty(onnxBackendEnv, 'wasmPaths', {
-								value: wasmBasePath,
-								writable: true,
-								enumerable: true,
-								configurable: true
-							});
-							console.debug(`[CpuReranker] [STEP 3] ✓ Created and set wasmPaths to: ${wasmBasePath}`);
-						}
-					} catch (pathErr) {
-						console.warn(`[CpuReranker] [STEP 3] Failed to set wasmPaths at ${onnxBackendPath}:`, pathErr);
-					}
-				} else {
-					console.warn(`[CpuReranker] [STEP 3] ⚠ ONNX backend environment not found - may initialize lazily`);
-				}
-				
-				// Approach 3: Also try setting at top-level env
-				try {
-					if ('wasmPaths' in env) {
-						env.wasmPaths = wasmBasePath;
-						console.debug(`[CpuReranker] [STEP 3] ✓ Also set env.wasmPaths to: ${wasmBasePath}`);
-					}
-				} catch (envPathErr) {
-					console.warn(`[CpuReranker] [STEP 3] Failed to set top-level env.wasmPaths:`, envPathErr);
-				}
+				configureWasmPaths(env, transformersModule, wasmBasePath);
 			} else {
 				console.warn(`[CpuReranker] [STEP 3] ✗ Cannot configure WASM paths - env not found`);
 			}
