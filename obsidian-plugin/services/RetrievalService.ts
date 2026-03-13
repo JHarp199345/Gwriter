@@ -29,19 +29,24 @@ export class RetrievalService {
 		const lexicalProviders = this.providers.filter(p => p.id === 'heuristic');
 		const semanticProviders = this.providers.filter(p => p.id === 'semantic');
 
-		const runWithTimeout = async (p: RetrievalProvider) => {
-			const searchPromise = p.search(query, { limit: candidateLimit });
-			const timeoutPromise = new Promise<ContextItem[]>((_, reject) => 
-				setTimeout(() => reject(new Error('FAIL_TIME_BUDGET')), timeout)
-			);
+	const runWithTimeout = async (p: RetrievalProvider) => {
+		const searchPromise = p.search(query, { limit: candidateLimit });
+		let timeoutHandle: ReturnType<typeof setTimeout>;
+		const timeoutPromise = new Promise<ContextItem[]>((_, reject) => {
+			timeoutHandle = setTimeout(() => reject(new Error('FAIL_TIME_BUDGET')), timeout);
+		});
 
-			try {
-				return { providerId: p.id, items: await Promise.race([searchPromise, timeoutPromise]) };
-			} catch (err) {
-				console.warn(`[Retrieval] Provider ${p.id} failed or timed out:`, err);
-				return { providerId: p.id, items: [] as ContextItem[], failureCode: (err as any).message === 'FAIL_TIME_BUDGET' ? 'FAIL_TIME_BUDGET' : undefined };
-			}
-		};
+		try {
+			const result = await Promise.race([searchPromise, timeoutPromise]);
+			clearTimeout(timeoutHandle!);
+			return { providerId: p.id, items: result };
+		} catch (err) {
+			clearTimeout(timeoutHandle!);
+			const errMessage = err instanceof Error ? err.message : String(err);
+			console.warn(`[Retrieval] Provider ${p.id} failed or timed out:`, err);
+			return { providerId: p.id, items: [] as ContextItem[], failureCode: errMessage === 'FAIL_TIME_BUDGET' ? 'FAIL_TIME_BUDGET' : undefined };
+		}
+	};
 
 		// Run in parallel
 		const [lexicalBuckets, semanticBuckets] = await Promise.all([
@@ -76,10 +81,11 @@ export class RetrievalService {
 		const weights = { lex: 0.4, embed: 0.6 };
 
 		// Phase 2: Intent-Driven Retrieval
-		const intents = (query as any).intents || [];
+		const extendedQuery = query as RetrievalQuery & { intents?: Array<{ query?: string; type?: string }> };
+		const intents = extendedQuery.intents || [];
 		
 		// Run searches for each intent if present
-		const intentBuckets = await Promise.all(intents.map(async (intent: any) => {
+		const intentBuckets = await Promise.all(intents.map(async (intent) => {
 			const intentQuery = { ...query, text: intent.query || query.text };
 			const items = await this._searchRaw(intentQuery, { limit: candidateLimit });
 			return items.map(it => ({ ...it, intentType: intent.type }));
@@ -101,8 +107,7 @@ export class RetrievalService {
 
 		let fused = Array.from(acc.values());
 
-		// Instrumentation: Log candidate pools
-		console.log(`[Retrieval] Gathered ${fused.length} unique candidates.`);
+		// Instrumentation: candidate pool size
 
 		// Phase 2: Versioned RAG Scoring
 		const T_hard = 0.7;

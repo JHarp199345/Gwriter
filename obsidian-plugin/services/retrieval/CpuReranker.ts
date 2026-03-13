@@ -28,48 +28,48 @@ class TransformersCrossEncoder implements CpuRerankerModel {
 		if (this.loading !== null) return this.loading;
 
 		this.loading = (async () => {
-			console.log(`[CpuReranker] === STARTING RERANKER LOAD ===`);
-			console.log(`[CpuReranker] Timestamp: ${new Date().toISOString()}`);
+			console.debug(`[CpuReranker] === STARTING RERANKER LOAD ===`);
+			console.debug(`[CpuReranker] Timestamp: ${new Date().toISOString()}`);
 			
 			// Import the vendored transformers library
-			console.log(`[CpuReranker] [STEP 1] Importing transformers.js module...`);
+			console.debug(`[CpuReranker] [STEP 1] Importing transformers.js module...`);
 			let transformersModule: any;
 			try {
 				transformersModule = await import('../../lib/transformers.js');
-				console.log(`[CpuReranker] [STEP 1] ✓ Module imported successfully`);
+				console.debug(`[CpuReranker] [STEP 1] ✓ Module imported successfully`);
 			} catch (importErr) {
 				console.error(`[CpuReranker] [STEP 1] ✗ Module import failed:`, importErr);
 				throw new Error(`Failed to import transformers.js: ${importErr instanceof Error ? importErr.message : String(importErr)}`);
 			}
 			
 			// Try multiple ways to access the environment
-			console.log(`[CpuReranker] [STEP 2] Locating environment structure...`);
+			console.debug(`[CpuReranker] [STEP 2] Locating environment structure...`);
 			let env: any = null;
 			let envSource = 'none';
 			
 			// Method 1: Direct env (standard)
 			if (transformersModule.env) {
-				console.log(`[CpuReranker] [STEP 2] ✓ Found env via transformersModule.env`);
+				console.debug(`[CpuReranker] [STEP 2] ✓ Found env via transformersModule.env`);
 				env = transformersModule.env;
 				envSource = 'transformersModule.env';
 			}
 			// Method 2: default.env (if default export)
 			else if (transformersModule.default?.env) {
-				console.log(`[CpuReranker] [STEP 2] ✓ Found env via transformersModule.default.env`);
+				console.debug(`[CpuReranker] [STEP 2] ✓ Found env via transformersModule.default.env`);
 				env = transformersModule.default.env;
 				envSource = 'transformersModule.default.env';
 			}
 			
 			if (env) {
-				console.log(`[CpuReranker] [STEP 2] env.backends exists:`, 'backends' in env);
-				console.log(`[CpuReranker] [STEP 2] env.backends.onnx exists:`, env.backends?.onnx !== undefined);
-				console.log(`[CpuReranker] [STEP 2] env.useWasm exists:`, typeof env.useWasm === 'function');
+				console.debug(`[CpuReranker] [STEP 2] env.backends exists:`, 'backends' in env);
+				console.debug(`[CpuReranker] [STEP 2] env.backends.onnx exists:`, env.backends?.onnx !== undefined);
+				console.debug(`[CpuReranker] [STEP 2] env.useWasm exists:`, typeof env.useWasm === 'function');
 			} else {
 				console.warn(`[CpuReranker] [STEP 2] ✗ Could not find env structure`);
 			}
 			
 			// Configure WASM paths - CRITICAL: Must be done BEFORE any ONNX backend initialization
-			console.log(`[CpuReranker] [STEP 3] Attempting to configure WASM paths...`);
+			console.debug(`[CpuReranker] [STEP 3] Attempting to configure WASM paths...`);
 			
 			const wasmBasePath = './lib/';
 			
@@ -79,23 +79,23 @@ class TransformersCrossEncoder implements CpuRerankerModel {
 				let onnxBackendPath = 'none';
 				
 				if (transformersModule?.ONNX) {
-					console.log(`[CpuReranker] [STEP 3] ✓ Found ONNX export in module`);
+					console.debug(`[CpuReranker] [STEP 3] ✓ Found ONNX export in module`);
 					const onnx = transformersModule.ONNX;
 					if (onnx?.env?.wasm) {
 						onnxBackendEnv = onnx.env.wasm;
 						onnxBackendPath = 'transformersModule.ONNX.env.wasm';
-						console.log(`[CpuReranker] [STEP 3] ✓ Found ONNX env.wasm via transformersModule.ONNX`);
+						console.debug(`[CpuReranker] [STEP 3] ✓ Found ONNX env.wasm via transformersModule.ONNX`);
 					} else if (onnx?.env) {
 						onnxBackendEnv = onnx.env;
 						onnxBackendPath = 'transformersModule.ONNX.env';
-						console.log(`[CpuReranker] [STEP 3] ✓ Found ONNX env via transformersModule.ONNX`);
+						console.debug(`[CpuReranker] [STEP 3] ✓ Found ONNX env via transformersModule.ONNX`);
 					}
 				}
 				
 				// Approach 2: Try via env.backends.onnx (transformers.js structure)
 				if (!onnxBackendEnv && env.backends?.onnx) {
 					const onnxBackend = env.backends.onnx;
-					console.log(`[CpuReranker] [STEP 3] ✓ ONNX backend found via env.backends.onnx`);
+					console.debug(`[CpuReranker] [STEP 3] ✓ ONNX backend found via env.backends.onnx`);
 					
 					if (onnxBackend.env?.wasm) {
 						onnxBackendEnv = onnxBackend.env.wasm;
@@ -111,11 +111,11 @@ class TransformersCrossEncoder implements CpuRerankerModel {
 				
 				// Set wasmPaths on the ONNX backend environment
 				if (onnxBackendEnv) {
-					console.log(`[CpuReranker] [STEP 3] Configuring WASM paths at: ${onnxBackendPath}`);
+					console.debug(`[CpuReranker] [STEP 3] Configuring WASM paths at: ${onnxBackendPath}`);
 					try {
 						if ('wasmPaths' in onnxBackendEnv) {
 							onnxBackendEnv.wasmPaths = wasmBasePath;
-							console.log(`[CpuReranker] [STEP 3] ✓ Updated wasmPaths to: ${wasmBasePath}`);
+							console.debug(`[CpuReranker] [STEP 3] ✓ Updated wasmPaths to: ${wasmBasePath}`);
 						} else {
 							Object.defineProperty(onnxBackendEnv, 'wasmPaths', {
 								value: wasmBasePath,
@@ -123,7 +123,7 @@ class TransformersCrossEncoder implements CpuRerankerModel {
 								enumerable: true,
 								configurable: true
 							});
-							console.log(`[CpuReranker] [STEP 3] ✓ Created and set wasmPaths to: ${wasmBasePath}`);
+							console.debug(`[CpuReranker] [STEP 3] ✓ Created and set wasmPaths to: ${wasmBasePath}`);
 						}
 					} catch (pathErr) {
 						console.warn(`[CpuReranker] [STEP 3] Failed to set wasmPaths at ${onnxBackendPath}:`, pathErr);
@@ -136,7 +136,7 @@ class TransformersCrossEncoder implements CpuRerankerModel {
 				try {
 					if ('wasmPaths' in env) {
 						env.wasmPaths = wasmBasePath;
-						console.log(`[CpuReranker] [STEP 3] ✓ Also set env.wasmPaths to: ${wasmBasePath}`);
+						console.debug(`[CpuReranker] [STEP 3] ✓ Also set env.wasmPaths to: ${wasmBasePath}`);
 					}
 				} catch (envPathErr) {
 					console.warn(`[CpuReranker] [STEP 3] Failed to set top-level env.wasmPaths:`, envPathErr);
@@ -146,21 +146,21 @@ class TransformersCrossEncoder implements CpuRerankerModel {
 			}
 			
 			// Get pipeline function
-			console.log(`[CpuReranker] [STEP 4] Locating pipeline function...`);
+			console.debug(`[CpuReranker] [STEP 4] Locating pipeline function...`);
 			const pipeline = transformersModule.pipeline || transformersModule.default?.pipeline;
-			console.log(`[CpuReranker] [STEP 4] Pipeline found:`, pipeline !== undefined && pipeline !== null);
-			console.log(`[CpuReranker] [STEP 4] Pipeline type:`, typeof pipeline);
+			console.debug(`[CpuReranker] [STEP 4] Pipeline found:`, pipeline !== undefined && pipeline !== null);
+			console.debug(`[CpuReranker] [STEP 4] Pipeline type:`, typeof pipeline);
 			
 			if (!pipeline || typeof pipeline !== 'function') {
 				console.error(`[CpuReranker] [STEP 4] ✗ Pipeline not found or not a function`);
 				throw new Error('Transformers pipeline is unavailable');
 			}
 			
-			console.log(`[CpuReranker] [STEP 4] ✓ Pipeline function found`);
+			console.debug(`[CpuReranker] [STEP 4] ✓ Pipeline function found`);
 
 			// Cross-encoder reranker model (small-ish). Best-effort: may fail on some environments.
-			console.log(`[CpuReranker] [STEP 5] Creating cross-encoder pipeline...`);
-			console.log(`[CpuReranker] [STEP 5] Model: Xenova/cross-encoder-ms-marco-MiniLM-L-6-v2`);
+			console.debug(`[CpuReranker] [STEP 5] Creating cross-encoder pipeline...`);
+			console.debug(`[CpuReranker] [STEP 5] Model: Xenova/cross-encoder-ms-marco-MiniLM-L-6-v2`);
 			try {
 				const pipeUnknown = await pipeline(
 					'text-classification',
@@ -169,8 +169,8 @@ class TransformersCrossEncoder implements CpuRerankerModel {
 				);
 				const pipe = pipeUnknown as (input: unknown) => Promise<unknown>;
 				this.pipeline = async (input) => await pipe(input);
-				console.log(`[CpuReranker] [STEP 5] ✓ Pipeline created successfully`);
-				console.log(`[CpuReranker] === RERANKER LOAD COMPLETE ===`);
+				console.debug(`[CpuReranker] [STEP 5] ✓ Pipeline created successfully`);
+				console.debug(`[CpuReranker] === RERANKER LOAD COMPLETE ===`);
 			} catch (pipeErr) {
 				console.error(`[CpuReranker] [STEP 5] ✗ Pipeline creation failed:`, pipeErr);
 				throw pipeErr;

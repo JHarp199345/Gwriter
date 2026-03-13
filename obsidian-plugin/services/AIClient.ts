@@ -238,15 +238,20 @@ export class AIClient {
 		};
 	}
 
-	private async _generateOpenRouter(prompt: string, settings: DashboardSettings): Promise<string> {
+	private async _generateOpenAICompat(
+		prompt: string,
+		settings: DashboardSettings,
+		url: string,
+		providerName: string,
+		extraHeaders?: Record<string, string>
+	): Promise<string> {
 		const response = await requestUrl({
-			url: 'https://openrouter.ai/api/v1/chat/completions',
+			url,
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
 				'Authorization': `Bearer ${settings.apiKey}`,
-				'HTTP-Referer': 'https://github.com/JHarp199345/Gwriter',
-				'X-Title': 'Writing Dashboard'
+				...extraHeaders
 			},
 			body: JSON.stringify({
 				model: settings.model,
@@ -261,53 +266,40 @@ export class AIClient {
 
 		if (response.status >= 400) {
 			const error = this._getJson(response);
-			throw new Error(`OpenRouter API error: ${this._getNestedErrorMessage(error) || response.status}`);
+			throw new Error(`${providerName} API error: ${this._getNestedErrorMessage(error) || response.status}`);
 		}
 
 		const data = this._getJson(response);
 		const content = this._getOpenAIStyleContent(data);
 		if (typeof content !== 'string' || content.trim().length === 0) {
 			throw new Error(
-				`OpenRouter response missing message content. ` +
+				`${providerName} response missing message content. ` +
 				`Preview: ${this._safeJsonPreview(data)}`
 			);
 		}
 		return content;
 	}
 
+	private async _generateOpenRouter(prompt: string, settings: DashboardSettings): Promise<string> {
+		return this._generateOpenAICompat(
+			prompt,
+			settings,
+			'https://openrouter.ai/api/v1/chat/completions',
+			'OpenRouter',
+			{
+				'HTTP-Referer': 'https://github.com/JHarp199345/Gwriter',
+				'X-Title': 'Writing Dashboard'
+			}
+		);
+	}
+
 	private async _generateOpenAI(prompt: string, settings: DashboardSettings): Promise<string> {
-		const response = await requestUrl({
-			url: 'https://api.openai.com/v1/chat/completions',
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'Authorization': `Bearer ${settings.apiKey}`
-			},
-			body: JSON.stringify({
-				model: settings.model,
-				messages: [
-					{ role: 'system', content: 'You are a professional writing assistant.' },
-					{ role: 'user', content: prompt }
-				],
-				max_tokens: 4000,
-				temperature: 0.7
-			})
-		});
-
-		if (response.status >= 400) {
-			const error = this._getJson(response);
-			throw new Error(`OpenAI API error: ${this._getNestedErrorMessage(error) || response.status}`);
-		}
-
-		const data = this._getJson(response);
-		const content = this._getOpenAIStyleContent(data);
-		if (typeof content !== 'string' || content.trim().length === 0) {
-			throw new Error(
-				`OpenAI response missing message content. ` +
-				`Preview: ${this._safeJsonPreview(data)}`
-			);
-		}
-		return content;
+		return this._generateOpenAICompat(
+			prompt,
+			settings,
+			'https://api.openai.com/v1/chat/completions',
+			'OpenAI'
+		);
 	}
 
 	private async _generateAnthropic(prompt: string, settings: DashboardSettings): Promise<string> {

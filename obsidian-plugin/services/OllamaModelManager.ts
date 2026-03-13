@@ -138,7 +138,7 @@ export class OllamaModelManager {
                 null;
 
             if (numCtx && typeof numCtx === 'number') {
-                console.log(`[ModelManager] Model ${modelName} context limit: ${numCtx}`);
+                console.debug(`[ModelManager] Model ${modelName} context limit: ${numCtx}`);
                 return numCtx;
             }
 
@@ -148,7 +148,7 @@ export class OllamaModelManager {
                 const ctxMatch = templateStr.match(/num_ctx\s+(\d+)/i);
                 if (ctxMatch) {
                     const parsed = parseInt(ctxMatch[1], 10);
-                    console.log(`[ModelManager] Model ${modelName} context limit (from template): ${parsed}`);
+                    console.debug(`[ModelManager] Model ${modelName} context limit (from template): ${parsed}`);
                     return parsed;
                 }
             }
@@ -181,7 +181,7 @@ export class OllamaModelManager {
      * Uses the /api/pull endpoint and emits progress events.
      */
     async pullModel(modelId: string, onProgress: (data: any) => void): Promise<void> {
-        console.log(`[ModelManager] 📥 Pulling model: ${modelId}`);
+        console.debug(`[ModelManager] 📥 Pulling model: ${modelId}`);
         
         try {
             const response = await fetch(`${this.baseUrl}/api/pull`, {
@@ -212,7 +212,7 @@ export class OllamaModelManager {
                     }
                 }
             }
-            console.log(`[ModelManager] ✅ Pull complete: ${modelId}`);
+            console.debug(`[ModelManager] ✅ Pull complete: ${modelId}`);
         } catch (err) {
             console.error('[ModelManager] ❌ Pull failed:', err);
             throw err;

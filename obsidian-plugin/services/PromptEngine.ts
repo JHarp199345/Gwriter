@@ -37,7 +37,7 @@ ${context.story_bible || ''}
 These define rules of the world, character arcs, faction details, timelines, technology, tone, themes, motifs, and relationship structure.`;
 	}
 
-	buildAuditPrompt(state: any, prose: string, chapterState: any): string {
+	buildAuditPrompt(_state: unknown, prose: string, chapterState: any): string {
 		return `Analyze the following prose for narrative violations.
 Prose:
 """

@@ -299,7 +299,7 @@ export default class WritingDashboardPlugin extends Plugin {
 		
 		// Migration: Remove legacy relayFastModel
 		if (loaded.relayFastModel) {
-			console.log('[WritingDashboard] Migrating to single-model mode: removing legacy relayFastModel setting.');
+			console.debug('[WritingDashboard] Migrating to single-model mode: removing legacy relayFastModel setting.');
 			delete loaded.relayFastModel;
 			await this.saveData(loaded);
 		}

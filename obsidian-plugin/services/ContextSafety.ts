@@ -328,6 +328,6 @@ export function runInvariantChecks(): void {
     assertRamMonotonicity('moderate');
     assertRamMonotonicity('aggressive');
     assertProfileOrdering();
-    console.log('[ContextSafety] All invariants passed');
+    console.debug('[ContextSafety] All invariants passed');
 }
 

@@ -124,7 +124,7 @@ export class StressTestService {
 		const timestamp = new Date().toISOString();
 		const entry = `[${timestamp}] ${message}`;
 		this.log.push(entry);
-		console.log(`[StressTest] ${message}`);
+		console.debug(`[StressTest] ${message}`);
 	}
 
 	private async phase1_Setup() {

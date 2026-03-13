@@ -91,7 +91,7 @@ export class CharacterUpdateService {
 		const roster = parseCharacterRoster(rosterResponse);
 		const rosterText = rosterToBulletList(roster);
 
-		console.log(`[CharacterUpdateService] Roster built: ${roster.length} characters`);
+		console.debug(`[CharacterUpdateService] Roster built: ${roster.length} characters`);
 
 		// PASS 2: Per-chapter extraction with roster
 		const allUpdates: CharacterUpdate[] = [];
@@ -124,7 +124,7 @@ export class CharacterUpdateService {
 			text => this.characterExtractor.parseExtraction(text)
 		);
 
-		console.log(`[CharacterUpdateService] Extraction complete: ${aggregated.length} character updates from ${chapters.length} chapters`);
+		console.debug(`[CharacterUpdateService] Extraction complete: ${aggregated.length} character updates from ${chapters.length} chapters`);
 
 		return { roster, updates: aggregated, chaptersProcessed: chapters.length };
 	}
@@ -134,11 +134,11 @@ export class CharacterUpdateService {
 	 */
 	async commitUpdates(updates: CharacterUpdate[]): Promise<void> {
 		if (updates.length === 0) {
-			console.log('[CharacterUpdateService] No updates to commit');
+			console.debug('[CharacterUpdateService] No updates to commit');
 			return;
 		}
 		await this.vaultService.updateCharacterNotes(updates);
-		console.log(`[CharacterUpdateService] Committed ${updates.length} character updates`);
+		console.debug(`[CharacterUpdateService] Committed ${updates.length} character updates`);
 	}
 
 	/**

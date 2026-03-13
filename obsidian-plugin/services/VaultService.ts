@@ -561,7 +561,7 @@ export class VaultService {
 		const file = this.vault.getAbstractFileByPath(storyBiblePath);
 		if (file instanceof TFile) {
 			await this.vault.modify(file, reversePatch);
-			console.log(`[VaultService] 🔄 Rolled back Story Bible to previous state.`);
+			console.debug(`[VaultService] 🔄 Rolled back Story Bible to previous state.`);
 		}
 	}
 }

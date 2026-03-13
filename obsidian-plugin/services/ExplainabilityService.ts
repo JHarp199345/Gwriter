@@ -59,7 +59,7 @@ export class ExplainabilityService {
     /**
      * Detects "Drift Risk" based on fact dormancy.
      */
-    detectDriftRisk(allFacts: CanonFact[], currentChunkIndex: number): string[] {
+    detectDriftRisk(_allFacts: CanonFact[], _currentChunkIndex: number): string[] {
         const threshold = CO_AUTHORING_POLICY.GROUNDING.DORMANCY_THRESHOLD;
         const riskyFactIds: string[] = [];
         // Implementation would check f.chunkId vs currentChunkIndex

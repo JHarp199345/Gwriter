@@ -113,7 +113,7 @@ export class OllamaGenerationProvider {
      * Generates text based on a prompt and parameters.
      */
     async generate(prompt: string, params: GenerationParams, signal?: AbortSignal): Promise<string> {
-        console.log(`[OllamaGen] 📡 Sending request to model: ${params.model} (Temp: ${params.temperature}, num_ctx: ${params.num_ctx || 'default'})`);
+        console.debug(`[OllamaGen] Sending request to model: ${params.model} (Temp: ${params.temperature}, num_ctx: ${params.num_ctx || 'default'})`);
         
         try {
             // Build options object, only include num_ctx if provided
@@ -193,7 +193,7 @@ export class OllamaGenerationProvider {
         onToken: (token: string) => void,
         signal?: AbortSignal
     ): Promise<string> {
-        console.log(`[OllamaGen] 📡 Sending streaming request to model: ${params.model} (num_ctx: ${params.num_ctx || 'default'})`);
+        console.debug(`[OllamaGen] Sending streaming request to model: ${params.model} (num_ctx: ${params.num_ctx || 'default'})`);
         
         let fullResponse = '';
         let buffer = '';
