@@ -92,7 +92,7 @@ export const EditorPanel: React.FC<{
 				<div className="editor-section">
 					<div className="generated-header">
 						<div style={{ display: 'flex', flexDirection: 'column' }}>
-							<label>Generated output:</label>
+							<span className="output-label">Generated output:</span>
 							<span className="generation-status" style={{ margin: 0 }}>
 								{outputWords.toLocaleString()} words / {outputChars.toLocaleString()} chars
 							</span>
@@ -130,12 +130,12 @@ export const EditorPanel: React.FC<{
 					
 					{heatmapEnabled ? (
 						<div className="generated-display heatmap-view">
-							{generatedParagraphs.map((para, idx) => (
-								<div 
-									key={idx} 
-									className={`generated-para ${getParaClass(para)}`}
-									onMouseEnter={() => setHoveredPara(idx)}
-									onMouseLeave={() => setHoveredPara(null)}
+						{generatedParagraphs.map((para, idx) => (
+							<div 
+								key={para.id}
+								className={`generated-para ${getParaClass(para)}`}
+								onMouseEnter={() => setHoveredPara(idx)}
+								onMouseLeave={() => setHoveredPara(null)}
 									style={{ position: 'relative' }}
 								>
 									<span className="para-icon">{getParaIcon(para)}</span>

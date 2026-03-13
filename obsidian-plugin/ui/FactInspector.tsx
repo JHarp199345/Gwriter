@@ -61,8 +61,11 @@ export const FactInspector: React.FC<FactInspectorProps> = ({ plugin, state }) =
                         filteredFacts.map(fact => (
                             <div 
                                 key={fact.id} 
+                                role="button"
+                                tabIndex={0}
                                 className={`fact-item ${selectedFactId === fact.id ? 'is-selected' : ''}`}
                                 onClick={() => setSelectedFactId(fact.id)}
+                                onKeyDown={(e) => e.key === 'Enter' && setSelectedFactId(fact.id)}
                                 style={{ 
                                     padding: '8px', 
                                     cursor: 'pointer', 
@@ -126,8 +129,8 @@ export const FactInspector: React.FC<FactInspectorProps> = ({ plugin, state }) =
                     {state.timeline.length === 0 ? (
                         <p className="empty-msg" style={{ color: 'var(--text-muted)' }}>No timeline events yet.</p>
                     ) : (
-                        state.timeline.map((t, i) => (
-                            <div key={i} style={{ display: 'flex', gap: '12px', marginBottom: '4px' }}>
+                        state.timeline.map((t) => (
+                            <div key={t.chunkId} style={{ display: 'flex', gap: '12px', marginBottom: '4px' }}>
                                 <span style={{ color: 'var(--text-accent)', minWidth: '60px' }}>{t.chunkId}</span>
                                 <span>{t.summary}</span>
                             </div>

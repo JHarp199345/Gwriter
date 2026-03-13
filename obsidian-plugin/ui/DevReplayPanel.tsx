@@ -59,7 +59,7 @@ export const DevReplayPanel: React.FC<DevReplayPanelProps> = ({ manifests, onRep
                     <div className="diff-settings">
                         <label>
                             <input type="checkbox" checked={normalizedMode} onChange={() => setNormalizedMode(!normalizedMode)} />
-                            Normalized Diff (Ignore whitespace)
+                            {' '}Normalized Diff (Ignore whitespace)
                         </label>
                     </div>
 

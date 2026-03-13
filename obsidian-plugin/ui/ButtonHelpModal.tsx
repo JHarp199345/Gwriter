@@ -184,9 +184,9 @@ export const ButtonHelpModalComponent: React.FC<ButtonHelpModalComponentProps> =
 					</button>
 					{expandedCategory === category && (
 						<div style={{ marginTop: '8px', paddingLeft: '12px' }}>
-							{items.map((item, index) => (
-								<div
-									key={index}
+						{items.map((item) => (
+							<div
+								key={item.buttonLabel}
 									style={{
 										marginBottom: '20px',
 										padding: '12px',
@@ -218,8 +218,8 @@ export const ButtonHelpModalComponent: React.FC<ButtonHelpModalComponentProps> =
 										</div>
 									)}
 									<ol style={{ margin: 0, paddingLeft: '20px' }}>
-										{item.workflow.map((step, stepIndex) => (
-											<li key={stepIndex} style={{ marginBottom: '4px', fontSize: '13px' }}>
+									{item.workflow.map((step, stepIndex) => (
+										<li key={`${item.buttonLabel}-step-${stepIndex}`} style={{ marginBottom: '4px', fontSize: '13px' }}>
 												{step}
 											</li>
 										))}

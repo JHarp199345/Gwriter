@@ -128,32 +128,38 @@ export const FolderTreePickerComponent: React.FC<FolderTreePickerComponentProps>
 
 			return (
 				<div key={item.path} style={{ paddingLeft: `${depth * 20}px` }}>
-					<div
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: '8px',
-							padding: '4px 8px',
-							borderRadius: '4px',
-							cursor: 'pointer',
-							backgroundColor: isSelected ? 'var(--background-modifier-hover)' : 'transparent',
-							userSelect: 'none'
+				<div
+					role="button"
+					tabIndex={0}
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: '8px',
+						padding: '4px 8px',
+						borderRadius: '4px',
+						cursor: 'pointer',
+						backgroundColor: isSelected ? 'var(--background-modifier-hover)' : 'transparent',
+						userSelect: 'none'
+					}}
+					onClick={() => onPick(item.path)}
+					onKeyDown={(e) => e.key === 'Enter' && onPick(item.path)}
+					onMouseEnter={(e) => {
+						if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--background-modifier-hover)';
+					}}
+					onMouseLeave={(e) => {
+						if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+					}}
+				>
+					<span
+						role="button"
+						tabIndex={0}
+						onClick={(e) => {
+							e.stopPropagation();
+							toggleFolder(item.path);
 						}}
-						onClick={() => onPick(item.path)}
-						onMouseEnter={(e) => {
-							if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--background-modifier-hover)';
-						}}
-						onMouseLeave={(e) => {
-							if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
-						}}
+						onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); toggleFolder(item.path); } }}
+						style={{ cursor: 'pointer' }}
 					>
-						<span
-							onClick={(e) => {
-								e.stopPropagation();
-								toggleFolder(item.path);
-							}}
-							style={{ cursor: 'pointer' }}
-						>
 							{isExpanded ? '📂' : '📁'}
 						</span>
 						<span style={{ flex: 1 }}>{item.name}</span>

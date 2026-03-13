@@ -146,25 +146,28 @@ export const TreePickerComponent: React.FC<{
 						backgroundColor: isSelected ? 'var(--background-modifier-hover)' : 'transparent'
 					}}
 				>
-					{isFolder ? (
-						<span
-							onClick={() => toggleExpand(node.path)}
-							style={{ cursor: 'pointer', width: '16px', textAlign: 'center' }}
-							title={isExpanded ? 'Collapse' : 'Expand'}
-						>
-							{isExpanded ? '📂' : '📁'}
-						</span>
-					) : (
-						<span style={{ width: '16px', textAlign: 'center' }}>📄</span>
-					)}
-					<input
-						type={mode === 'single' ? 'radio' : 'checkbox'}
-						checked={isSelected}
-						onChange={() => toggleSelect(node.path)}
-						style={{ margin: 0 }}
-						name="tree-picker"
-					/>
-					<span onClick={() => toggleSelect(node.path)} style={{ flex: 1 }}>
+				{isFolder ? (
+					<span
+						role="button"
+						tabIndex={0}
+						onClick={() => toggleExpand(node.path)}
+						onKeyDown={(e) => e.key === 'Enter' && toggleExpand(node.path)}
+						style={{ cursor: 'pointer', width: '16px', textAlign: 'center' }}
+						title={isExpanded ? 'Collapse' : 'Expand'}
+					>
+						{isExpanded ? '📂' : '📁'}
+					</span>
+				) : (
+					<span style={{ width: '16px', textAlign: 'center' }}>📄</span>
+				)}
+				<input
+					type={mode === 'single' ? 'radio' : 'checkbox'}
+					checked={isSelected}
+					onChange={() => toggleSelect(node.path)}
+					style={{ margin: 0 }}
+					name="tree-picker"
+				/>
+				<span role="button" tabIndex={0} onClick={() => toggleSelect(node.path)} onKeyDown={(e) => e.key === 'Enter' && toggleSelect(node.path)} style={{ flex: 1 }}>
 						{node.name}
 					</span>
 				</div>

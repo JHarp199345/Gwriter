@@ -114,8 +114,11 @@ export const ReplayPanel: React.FC<ReplayPanelProps> = ({ plugin }) => {
                         runs.map(run => (
                             <div 
                                 key={run.key} 
+                                role="button"
+                                tabIndex={0}
                                 className={`run-item ${selectedRunKey === run.key ? 'is-selected' : ''}`}
                                 onClick={() => setSelectedRunKey(run.key)}
+                                onKeyDown={(e) => e.key === 'Enter' && setSelectedRunKey(run.key)}
                                 style={{ 
                                     padding: '8px', 
                                     cursor: 'pointer', 
@@ -148,7 +151,7 @@ export const ReplayPanel: React.FC<ReplayPanelProps> = ({ plugin }) => {
                             <h5 style={{ borderBottom: '1px solid var(--background-modifier-border)', paddingBottom: '4px' }}>Execution Stages</h5>
                             <div className="stage-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
                                 {selectedRun.manifest.stages.map((stage, i) => (
-                                    <div key={i} style={{ padding: '8px', backgroundColor: 'var(--background-secondary)', borderRadius: '4px', fontSize: '0.9em' }}>
+                                    <div key={`${stage.stageType}-${i}`} style={{ padding: '8px', backgroundColor: 'var(--background-secondary)', borderRadius: '4px', fontSize: '0.9em' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                             <span style={{ color: 'var(--text-accent)', fontWeight: 'bold' }}>{getStageLabel(stage)}</span>
                                             <span style={{ fontSize: '0.8em', color: 'var(--text-muted)' }}>{Math.round(stage.endTime - stage.startTime)}ms</span>

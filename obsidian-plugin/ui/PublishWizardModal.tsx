@@ -306,7 +306,7 @@ export const PublishWizardComponent: React.FC<{ plugin: WritingDashboardPlugin; 
 								onChange={() => setMode('book-main')}
 								disabled={isExporting}
 							/>
-							Book main (H1 chapters)
+       {' '}Book main (H1 chapters)
 						</label>
 						<label style={{ marginLeft: 12 }}>
 							<input
@@ -315,7 +315,7 @@ export const PublishWizardComponent: React.FC<{ plugin: WritingDashboardPlugin; 
 								onChange={() => setMode('toc-note')}
 								disabled={isExporting}
 							/>
-							TOC note
+       {' '}TOC note
 						</label>
 					</div>
 
@@ -387,7 +387,7 @@ export const PublishWizardComponent: React.FC<{ plugin: WritingDashboardPlugin; 
 					<div className="publish-row">
 						<label>
 							<input type="checkbox" checked={includeTitlePage} onChange={(e) => setIncludeTitlePage(e.target.checked)} />
-							Title page
+       {' '}Title page
 						</label>
 					</div>
 					<div className="publish-row">
@@ -397,7 +397,7 @@ export const PublishWizardComponent: React.FC<{ plugin: WritingDashboardPlugin; 
 								checked={includeCopyrightPage}
 								onChange={(e) => setIncludeCopyrightPage(e.target.checked)}
 							/>
-							Copyright page
+       {' '}Copyright page
 						</label>
 					</div>
 					<div className="publish-row">
@@ -432,7 +432,7 @@ export const PublishWizardComponent: React.FC<{ plugin: WritingDashboardPlugin; 
 					<div className="publish-row">
 						<label>
 							<input type="checkbox" checked={embedFonts} onChange={(e) => setEmbedFonts(e.target.checked)} disabled={isExporting} />
-							Embed custom fonts
+       {' '}Embed custom fonts
 						</label>
 					</div>
 

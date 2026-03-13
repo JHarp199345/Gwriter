@@ -404,15 +404,16 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 						{activeTab === 'characters' && (
 							<div className="characters-tab">
 								<div className="editor-section">
-									<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-										<label>Paste narrative text for character extraction:</label>
-										<span className="generation-status" style={{ margin: 0 }}>
-											{TextChunker.getWordCount(characterInputText).toLocaleString()} words / {characterInputText.length.toLocaleString()} chars
-										</span>
-									</div>
-									<textarea
-										value={characterInputText}
-										onChange={(e) => setCharacterInputText(e.target.value)}
+								<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
+									<label htmlFor="character-input-text">Paste narrative text for character extraction:</label>
+									<span className="generation-status" style={{ margin: 0 }}>
+										{TextChunker.getWordCount(characterInputText).toLocaleString()} words / {characterInputText.length.toLocaleString()} chars
+									</span>
+								</div>
+								<textarea
+									id="character-input-text"
+									value={characterInputText}
+									onChange={(e) => setCharacterInputText(e.target.value)}
 										placeholder="Paste a scene, chapter, or any narrative text containing character dialogue and descriptions..."
 										rows={12}
 										className="editor-textarea"
@@ -463,14 +464,14 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							<div className="stage">{generationStage}</div>
 							{chunkBuffer && (
 								<div className={`buffer-preview ${heatmapEnabled ? 'heatmap' : ''}`}>
-									{chunkBuffer.split('\n').map((p, i) => {
-										const isSpeculative = p.length % 2 === 0; // Simulated rule
-										return (
-											<p key={i} className={isSpeculative ? 'speculative' : 'grounded'}>
-												{p}
-											</p>
-										);
-									})}
+								{chunkBuffer.split('\n').map((p, i) => {
+									const isSpeculative = p.length % 2 === 0; // Simulated rule
+									return (
+										<p key={`chunk-line-${i}`} className={isSpeculative ? 'speculative' : 'grounded'}>
+											{p}
+										</p>
+									);
+								})}
 								</div>
 							)}
 						</div>
@@ -500,9 +501,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					{mismatchReport && (
 						<div className="mismatch-report-banner">
 							<h3>⚠️ Strict Replay Mismatch</h3>
-							{mismatchReport.map((m, i) => (
-								<p key={i}><strong>{m.field}:</strong> Expected "{m.expected.slice(0, 8)}", Got "{m.actual.slice(0, 8)}" ({m.severity})</p>
-							))}
+					{mismatchReport.map((m, i) => (
+							<p key={`mismatch-${m.field}-${i}`}><strong>{m.field}:</strong> Expected "{m.expected.slice(0, 8)}", Got "{m.actual.slice(0, 8)}" ({m.severity})</p>
+						))}
 							<div className="actions">
 								<button onClick={() => setMismatchReport(null)}>Cancel Replay</button>
 								<button className="mod-cta" onClick={() => {

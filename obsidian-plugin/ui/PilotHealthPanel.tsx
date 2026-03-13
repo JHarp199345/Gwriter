@@ -43,7 +43,7 @@ export const PilotHealthPanel: React.FC<PilotHealthPanelProps> = ({ misses, reje
                     <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>Recent HARD Misses:</div>
                     <ul style={{ margin: 0, paddingLeft: '20px' }}>
                         {misses.slice(-3).map((m, i) => (
-                            <li key={i}>{m.type}</li>
+                            <li key={`${m.type}-${i}`}>{m.type}</li>
                         ))}
                     </ul>
                 </div>

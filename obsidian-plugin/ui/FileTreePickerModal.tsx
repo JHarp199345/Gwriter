@@ -111,7 +111,9 @@ export const FileTreePickerComponent: React.FC<FileTreePickerComponentProps> = (
 			const isSelected = item.path === currentPath;
 			return (
 				<div 
-					key={item.path} 
+					key={item.path}
+					role="button"
+					tabIndex={0}
 					className={`vault-item file ${isSelected ? 'selected' : 'hoverable'}`}
 					style={{ 
 						paddingLeft: `${depth * 20}px`,
@@ -120,6 +122,7 @@ export const FileTreePickerComponent: React.FC<FileTreePickerComponentProps> = (
 						borderRadius: '4px'
 					}}
 					onClick={() => onPick(item.path)}
+					onKeyDown={(e) => e.key === 'Enter' && onPick(item.path)}
 				>
 					📄 {item.name}
 					{isSelected && <span style={{ marginLeft: '8px', color: 'var(--text-accent)' }}>✓</span>}

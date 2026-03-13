@@ -8,8 +8,9 @@ export const ModeSelector: React.FC<{
 }> = ({ mode, onChange }) => {
 	return (
 		<div className="mode-selector">
-			<label>Mode:</label>
+			<label htmlFor="mode-select">Mode:</label>
 			<select 
+				id="mode-select"
 				value={mode} 
 				onChange={(e) => onChange(e.target.value as Mode)}
 				className="mode-dropdown"
