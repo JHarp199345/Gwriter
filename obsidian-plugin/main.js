@@ -30712,16 +30712,17 @@ var CharacterUpdateService = class {
     const storyBible = await this.vaultService.readFile(
       this.plugin.settings.storyBiblePath
     ).catch(() => "");
-    onProgress?.("Pass 1: Building character roster...");
+    onProgress?.(`Pass 1: Building character roster from ${chapters.length} chapters...`);
+    const rosterSample = this._buildRosterSample(chapters);
     const rosterPrompt = this.promptEngine.buildCharacterRosterPrompt(
-      content.slice(0, 5e4),
-      // First 50k chars for roster
+      rosterSample,
       storyBible
     );
     const rosterResponse = await this.callAI(rosterPrompt);
     const roster = parseCharacterRoster(rosterResponse);
     const rosterText = rosterToBulletList(roster);
-    console.debug(`[CharacterUpdateService] Roster built: ${roster.length} characters`);
+    console.debug(`[CharacterUpdateService] Roster built: ${roster.length} characters from ${chapters.length} chapters`);
+    const existingNotes = await this.getExistingCharacterNotes();
     const allUpdates = [];
     for (let i = 0; i < chapters.length; i++) {
       onProgress?.(`Pass 2: Chapter ${i + 1}/${chapters.length}...`);
@@ -30731,7 +30732,7 @@ var CharacterUpdateService = class {
       const prompt = this.promptEngine.buildCharacterExtractionPromptWithRoster({
         passage: chapterContent,
         roster: rosterText,
-        characterNotes: await this.getExistingCharacterNotes(),
+        characterNotes: existingNotes,
         storyBible
       });
       try {
@@ -30760,6 +30761,29 @@ ${u.update}`),
     }
     await this.vaultService.updateCharacterNotes(updates);
     console.debug(`[CharacterUpdateService] Committed ${updates.length} character updates`);
+  }
+  /**
+   * Build a representative text sample for roster generation by taking the
+   * opening of every chapter across the entire book.
+   *
+   * Characters are almost always introduced (or re-introduced) near the start
+   * of a chapter, so sampling chapter openings gives far better coverage than
+   * a naive content.slice(0, 50000) which only sees the first few chapters.
+   *
+   * Total sample is capped at ~80K characters to keep the roster prompt
+   * within a reasonable size regardless of book length.
+   */
+  _buildRosterSample(chapters) {
+    if (chapters.length === 0)
+      return "";
+    const TARGET_TOTAL = 8e4;
+    const charsPerChapter = Math.min(3e3, Math.floor(TARGET_TOTAL / chapters.length));
+    const samples = chapters.map((ch, i) => {
+      const excerpt = ch.slice(0, charsPerChapter).trim();
+      return `[Chapter ${i + 1}]
+${excerpt}`;
+    });
+    return samples.join("\n\n---\n\n").slice(0, TARGET_TOTAL);
   }
   /**
    * Split content by H1 headings (chapters).
