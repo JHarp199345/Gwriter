@@ -137,26 +137,42 @@ export class CharacterUpdateService {
 	}
 
 	/**
-	 * Build a representative text sample for roster generation by taking the
-	 * opening of every chapter across the entire book.
+	 * Build a representative text sample for roster generation by taking
+	 * excerpts from the beginning AND middle of every chapter across the book.
 	 *
-	 * Characters are almost always introduced (or re-introduced) near the start
-	 * of a chapter, so sampling chapter openings gives far better coverage than
-	 * a naive content.slice(0, 50000) which only sees the first few chapters.
+	 * Cloud AI is cheap enough that we can afford a generous sample.
+	 * At Gemini Flash pricing (~$0.07/M input tokens), 200K characters costs
+	 * less than two cents — no reason to be stingy here.
 	 *
-	 * Total sample is capped at ~80K characters to keep the roster prompt
-	 * within a reasonable size regardless of book length.
+	 * Sampling both the start and middle of each chapter ensures we catch
+	 * characters introduced later in a chapter, not just those who appear
+	 * in the opening paragraphs.
 	 */
 	private _buildRosterSample(chapters: string[]): string {
 		if (chapters.length === 0) return '';
 
-		const TARGET_TOTAL = 80000;
-		// Give each chapter an equal slice, but never more than 3000 chars
-		const charsPerChapter = Math.min(3000, Math.floor(TARGET_TOTAL / chapters.length));
+		// ~200K chars total — generous for cloud, negligible cost
+		const TARGET_TOTAL = 200000;
+
+		// Split the budget: 2/3 from chapter openings, 1/3 from mid-chapter
+		const openingBudget = Math.floor(TARGET_TOTAL * 0.67);
+		const middleBudget  = TARGET_TOTAL - openingBudget;
+
+		const charsOpeningPerChapter = Math.min(4000, Math.floor(openingBudget / chapters.length));
+		const charsMiddlePerChapter  = Math.min(2000, Math.floor(middleBudget  / chapters.length));
 
 		const samples = chapters.map((ch, i) => {
-			const excerpt = ch.slice(0, charsPerChapter).trim();
-			return `[Chapter ${i + 1}]\n${excerpt}`;
+			const opening = ch.slice(0, charsOpeningPerChapter).trim();
+
+			// Middle sample: grab a window from ~50% through the chapter
+			const midStart  = Math.floor(ch.length * 0.5);
+			const middle    = ch.slice(midStart, midStart + charsMiddlePerChapter).trim();
+
+			const parts = [`[Chapter ${i + 1} — opening]\n${opening}`];
+			if (middle && middle !== opening) {
+				parts.push(`[Chapter ${i + 1} — mid-chapter]\n${middle}`);
+			}
+			return parts.join('\n\n');
 		});
 
 		return samples.join('\n\n---\n\n').slice(0, TARGET_TOTAL);
