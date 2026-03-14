@@ -20,26 +20,15 @@ export class CharacterUpdateService {
 	) {}
 
 	/**
-	 * Route AI call to either Ollama or Cloud based on settings.
+	 * Route AI call to the cloud API.
 	 */
 	private async callAI(prompt: string): Promise<string> {
-		const backend = this.plugin.settings.characterExtractionBackend || 'ollama';
-
-		if (backend === 'ollama') {
-			// Use OllamaGenerationProvider
-			const response = await this.plugin.ollamaGen.generate(prompt, {
-				model: this.plugin.settings.relaySmartModel,
-				temperature: 0.3
-			});
-			return response;
-		} else {
-			// Use AIClient (cloud) - uses generate with settings
-			const result = await this.plugin.aiClient.generate(prompt, {
-				...this.plugin.settings,
-				generationMode: 'single' as const
-			});
-			return result as string;
-		}
+		// Use AIClient (cloud) - uses generate with settings
+		const result = await this.plugin.aiClient.generate(prompt, {
+			...this.plugin.settings,
+			generationMode: 'single' as const
+		});
+		return result as string;
 	}
 
 	/**

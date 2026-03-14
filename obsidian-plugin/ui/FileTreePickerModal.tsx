@@ -59,7 +59,7 @@ export const FileTreePickerComponent: React.FC<FileTreePickerComponentProps> = (
 	useEffect(() => {
 		// Get vault structure and filter to only markdown files, but keep all folders
 		const vaultStructure = plugin.vaultService.getVaultStructure();
-		const filtered = vaultStructure.filter(item => 
+		const filtered = vaultStructure.filter(item =>
 			item.type === 'folder' || (item.type === 'file' && item.path.endsWith('.md'))
 		);
 		setStructure(filtered);
@@ -87,19 +87,22 @@ export const FileTreePickerComponent: React.FC<FileTreePickerComponentProps> = (
 	const renderItem = (item: { name: string; path: string; type: 'file' | 'folder' }, depth: number = 0) => {
 		if (item.type === 'folder') {
 			const isExpanded = expandedFolders.has(item.path);
-			const children = structure.filter(s => 
-				s.path.startsWith(item.path + '/') && 
+			const children = structure.filter(s =>
+				s.path.startsWith(item.path + '/') &&
 				s.path.split('/').length === item.path.split('/').length + 1
 			);
-			
+
 			// Only show folder if it has children (files or subfolders)
 			if (children.length === 0) return null;
-			
+
 			return (
 				<div key={item.path} className="vault-item folder" style={{ paddingLeft: `${depth * 20}px` }}>
-					<span 
+					<span
 						className="folder-toggle"
+						role="button"
+						tabIndex={0}
 						onClick={() => toggleFolder(item.path)}
+						onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { toggleFolder(item.path); } }}
 						style={{ cursor: 'pointer', userSelect: 'none' }}
 					>
 						{isExpanded ? '📂' : '📁'} {item.name}
@@ -110,16 +113,19 @@ export const FileTreePickerComponent: React.FC<FileTreePickerComponentProps> = (
 		} else {
 			const isSelected = item.path === currentPath;
 			return (
-				<div 
-					key={item.path} 
+				<div
+					key={item.path}
 					className={`vault-item file ${isSelected ? 'selected' : 'hoverable'}`}
-					style={{ 
+					role="button"
+					tabIndex={0}
+					style={{
 						paddingLeft: `${depth * 20}px`,
 						cursor: 'pointer',
 						padding: '4px 8px',
 						borderRadius: '4px'
 					}}
 					onClick={() => onPick(item.path)}
+					onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { onPick(item.path); } }}
 				>
 					📄 {item.name}
 					{isSelected && <span style={{ marginLeft: '8px', color: 'var(--text-accent)' }}>✓</span>}
@@ -142,4 +148,3 @@ export const FileTreePickerComponent: React.FC<FileTreePickerComponentProps> = (
 		</div>
 	);
 };
-

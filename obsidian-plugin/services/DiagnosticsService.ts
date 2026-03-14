@@ -1,34 +1,26 @@
-import { App, Notice, TFile } from 'obsidian';
 import WritingDashboardPlugin from '../main';
-import { 
-    DiagnosticResult, 
-    DiagnosticsReport, 
+import {
+    DiagnosticResult,
+    DiagnosticsReport,
     REMEDIATION_MAPPING,
-    DiagnosticStatus,
-    DiagnosticFailureCode
+    DiagnosticStatus
 } from '../contracts/DiagnosticsContract';
-import { RunPaths } from './RunPaths';
 
 export class DiagnosticsService {
-    private plugin: WritingDashboardPlugin;
+    private readonly plugin: WritingDashboardPlugin;
 
     constructor(plugin: WritingDashboardPlugin) {
         this.plugin = plugin;
     }
 
     async runDiagnostics(): Promise<DiagnosticsReport> {
-        const relayMode = this.plugin.settings.relayMode || 'local';
         const results: DiagnosticResult[] = [];
-        
-        // 1. Common Checks
+
+        // Common checks
         await this.checkIndexSanity(results);
 
-        // 2. Mode-Specific Checks
-        if (relayMode === 'local') {
-            await this.runLocalDiagnostics(results);
-        } else {
-            await this.runCloudDiagnostics(results);
-        }
+        // Cloud diagnostics (the only mode)
+        await this.runCloudDiagnostics(results);
 
         const overallStatus = this.determineOverallStatus(results);
         const report: DiagnosticsReport = {
@@ -36,9 +28,9 @@ export class DiagnosticsService {
             overallStatus,
             results,
             environment: {
-                relayMode,
+                relayMode: 'cloud',
                 pluginVersion: this.plugin.manifest.version,
-                models: [this.plugin.settings.relaySmartModel]
+                models: [this.plugin.settings.model]
             }
         };
 
@@ -70,72 +62,6 @@ export class DiagnosticsService {
         }
     }
 
-    private async runLocalDiagnostics(results: DiagnosticResult[]) {
-        // Ollama Heartbeat
-        const version = await this.plugin.ollamaGen.getOllamaVersion();
-        if (!version) {
-            results.push({
-                status: 'FAIL',
-                code: 'OLLAMA_UNREACHABLE',
-                message: 'Cannot reach Ollama.',
-                suggestedFix: REMEDIATION_MAPPING['OLLAMA_UNREACHABLE']
-            });
-            return;
-        }
-
-        results.push({ status: 'PASS', message: `Ollama reachable (v${version})` });
-
-        // Required Models
-        const smartModel = this.plugin.settings.relaySmartModel;
-        const smartDigest = await this.plugin.ollamaModels.getModelDigest(smartModel);
-        if (!smartDigest) {
-            results.push({
-                status: 'FAIL',
-                code: 'MODEL_MISSING',
-                message: `Model '${smartModel}' not found in Ollama.`,
-                suggestedFix: REMEDIATION_MAPPING['MODEL_MISSING']
-            });
-        } else {
-            results.push({ status: 'PASS', message: `Model '${smartModel}' available.` });
-        }
-
-        // Embedding Model
-        const embedModel = this.plugin.settings.relayEmbeddingModel;
-        const embedDigest = await this.plugin.ollamaModels.getModelDigest(embedModel);
-        if (!embedDigest) {
-            results.push({
-                status: 'FAIL',
-                code: 'MODEL_MISSING',
-                message: `Embedding model '${embedModel}' not found in Ollama. Retrieval will be limited to BM25.`,
-                suggestedFix: `Pull '${embedModel}' using the button in the Writing Dashboard settings tab.`
-            });
-        } else {
-            results.push({ status: 'PASS', message: `Embedding model '${embedModel}' available.` });
-        }
-
-        // Minimal Generation Test
-        try {
-            const testPrompt = 'Respond with "pong" in JSON format: { "result": "pong" }';
-            const response = await this.plugin.ollamaGen.generate(testPrompt, { 
-                model: smartModel,
-                temperature: 0.1,
-                max_tokens: 128,
-                format: 'json'
-            });
-            const parsed = JSON.parse(response);
-            if (parsed.result === 'pong') {
-                results.push({ status: 'PASS', message: 'Local generation test successful.' });
-            } else {
-                throw new Error('Unexpected response content.');
-            }
-        } catch (e) {
-            results.push({
-                status: 'FAIL',
-                message: `Local generation test failed: ${e instanceof Error ? e.message : String(e)}`
-            });
-        }
-    }
-
     private async runCloudDiagnostics(results: DiagnosticResult[]) {
         const apiKey = this.plugin.settings.apiKey;
         if (!apiKey) {
@@ -148,20 +74,24 @@ export class DiagnosticsService {
             return;
         }
 
-        // Check for Local-only models in Cloud mode
-        const smartModel = this.plugin.settings.relaySmartModel;
-        if (smartModel.includes(':') || !(['gpt', 'claude', 'gemini'].some(m => smartModel.toLowerCase().includes(m)))) {
+        results.push({ status: 'PASS', message: 'API key is present.' });
+
+        const apiProvider = this.plugin.settings.apiProvider;
+        if (!apiProvider) {
             results.push({
-                status: 'WARN',
-                code: 'CLOUD_MODEL_MISMATCH',
-                message: `Model '${smartModel}' appears to be a local model name.`,
-                suggestedFix: REMEDIATION_MAPPING['CLOUD_MODEL_MISMATCH']
+                status: 'FAIL',
+                code: 'CLOUD_AUTH_FAIL',
+                message: 'API provider is not set.',
+                suggestedFix: REMEDIATION_MAPPING['CLOUD_AUTH_FAIL']
             });
+            return;
         }
 
-        // Connectivity Test (Ping)
+        results.push({ status: 'PASS', message: `API provider set: ${apiProvider}.` });
+
+        // Connectivity test (mock — real ping requires provider-specific implementation)
         try {
-            // Note: Actual implementation would ping the provider endpoint
+            // Note: Actual implementation would ping the provider endpoint.
             results.push({ status: 'PASS', message: 'Cloud provider connectivity verified (mock).' });
         } catch (e) {
             results.push({
@@ -169,17 +99,6 @@ export class DiagnosticsService {
                 code: 'CLOUD_AUTH_FAIL',
                 message: `Cloud connectivity failed: ${e instanceof Error ? e.message : String(e)}`,
                 suggestedFix: REMEDIATION_MAPPING['CLOUD_AUTH_FAIL']
-            });
-        }
-
-        // Cost-capped Mini Monolith Test
-        try {
-            // Placeholder for real connectivity test
-            results.push({ status: 'PASS', message: 'Cloud generation test successful (mock).' });
-        } catch (e) {
-            results.push({
-                status: 'FAIL',
-                message: `Cloud generation test failed: ${e instanceof Error ? e.message : String(e)}`
             });
         }
     }
@@ -191,13 +110,13 @@ export class DiagnosticsService {
     }
 
     private async writeArtifacts(report: DiagnosticsReport) {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const timestamp = new Date().toISOString().replaceAll(':', '-').replaceAll('.', '-');
         const diagDir = `.gwriter/diagnostics/diag-${timestamp}`;
-        
+
         try {
             await this.plugin.vaultService.ensureParentFolder(`${diagDir}/report.json`);
             await this.plugin.vaultService.writeFile(`${diagDir}/report.json`, JSON.stringify(report, null, 2));
-            
+
             // Also write environment snapshot
             await this.plugin.vaultService.writeFile(`${diagDir}/env.json`, JSON.stringify(report.environment, null, 2));
         } catch (e) {
@@ -205,4 +124,3 @@ export class DiagnosticsService {
         }
     }
 }
-

@@ -152,12 +152,9 @@ export class ReplayEngine {
                 return { mode: manifestTier, reason: manifestReason };
             }
             
-            // Check model identity match if possible
-            if (originalManifest.config.smartModelDigest) {
-                const currentDigest = await this.plugin.ollamaModels.getModelDigest(originalManifest.config.smartModel);
-                if (currentDigest !== originalManifest.config.smartModelDigest) {
-                    return { mode: 'FULL', reason: 'MODEL_MISMATCH' };
-                }
+            // Cloud models: skip digest check, model identity verified by name only.
+            if (originalManifest.config.smartModel !== this.plugin.settings.model) {
+                return { mode: 'FULL', reason: 'MODEL_MISMATCH' };
             }
         }
 

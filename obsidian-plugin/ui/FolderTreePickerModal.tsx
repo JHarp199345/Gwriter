@@ -99,10 +99,10 @@ export const FolderTreePickerComponent: React.FC<FolderTreePickerComponentProps>
 
 	const handleCreateFolder = async () => {
 		if (!newFolderName.trim()) return;
-		
+
 		const parentPath = newFolderParent || '';
 		const fullPath = parentPath ? `${parentPath}/${newFolderName.trim()}` : newFolderName.trim();
-		
+
 		try {
 			await plugin.vaultService.createFolderIfNotExists(fullPath);
 			// Refresh structure
@@ -129,6 +129,8 @@ export const FolderTreePickerComponent: React.FC<FolderTreePickerComponentProps>
 			return (
 				<div key={item.path} style={{ paddingLeft: `${depth * 20}px` }}>
 					<div
+						role="button"
+						tabIndex={0}
 						style={{
 							display: 'flex',
 							alignItems: 'center',
@@ -140,6 +142,7 @@ export const FolderTreePickerComponent: React.FC<FolderTreePickerComponentProps>
 							userSelect: 'none'
 						}}
 						onClick={() => onPick(item.path)}
+						onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { onPick(item.path); } }}
 						onMouseEnter={(e) => {
 							if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--background-modifier-hover)';
 						}}
@@ -148,9 +151,17 @@ export const FolderTreePickerComponent: React.FC<FolderTreePickerComponentProps>
 						}}
 					>
 						<span
+							role="button"
+							tabIndex={0}
 							onClick={(e) => {
 								e.stopPropagation();
 								toggleFolder(item.path);
+							}}
+							onKeyDown={(e) => {
+								if (e.key === 'Enter' || e.key === ' ') {
+									e.stopPropagation();
+									toggleFolder(item.path);
+								}
 							}}
 							style={{ cursor: 'pointer' }}
 						>
@@ -195,11 +206,11 @@ export const FolderTreePickerComponent: React.FC<FolderTreePickerComponentProps>
 					rootItems.map(item => renderItem(item))
 				)}
 			</div>
-			
+
 			{showCreateForm && (
-				<div style={{ 
-					padding: '12px', 
-					border: '1px solid var(--background-modifier-border)', 
+				<div style={{
+					padding: '12px',
+					border: '1px solid var(--background-modifier-border)',
 					borderRadius: '4px',
 					marginTop: '12px',
 					backgroundColor: 'var(--background-secondary)'
@@ -268,7 +279,7 @@ export const FolderTreePickerComponent: React.FC<FolderTreePickerComponentProps>
 					</div>
 				</div>
 			)}
-			
+
 			{!showCreateForm && (
 				<button
 					onClick={() => {
@@ -292,4 +303,3 @@ export const FolderTreePickerComponent: React.FC<FolderTreePickerComponentProps>
 		</div>
 	);
 };
-

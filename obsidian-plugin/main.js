@@ -23609,7 +23609,7 @@ var init_TreePickerModal = __esm({
         const init = /* @__PURE__ */ new Set();
         const list2 = Array.isArray(initialSelection) ? initialSelection : initialSelection ? [initialSelection] : [];
         for (const p of list2)
-          init.add(p.replace(/\\/g, "/"));
+          init.add(p.replaceAll("\\", "/"));
         return init;
       });
       const [expanded, setExpanded] = (0, import_react9.useState)(() => {
@@ -23681,7 +23681,14 @@ var init_TreePickerModal = __esm({
           isFolder ? /* @__PURE__ */ import_react9.default.createElement(
             "span",
             {
+              role: "button",
+              tabIndex: 0,
               onClick: () => toggleExpand(node.path),
+              onKeyDown: (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  toggleExpand(node.path);
+                }
+              },
               style: { cursor: "pointer", width: "16px", textAlign: "center" },
               title: isExpanded ? "Collapse" : "Expand"
             },
@@ -23697,121 +23704,30 @@ var init_TreePickerModal = __esm({
               name: "tree-picker"
             }
           ),
-          /* @__PURE__ */ import_react9.default.createElement("span", { onClick: () => toggleSelect(node.path), style: { flex: 1 } }, node.name)
+          /* @__PURE__ */ import_react9.default.createElement(
+            "span",
+            {
+              role: "button",
+              tabIndex: 0,
+              onClick: () => toggleSelect(node.path),
+              onKeyDown: (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  toggleSelect(node.path);
+                }
+              },
+              style: { flex: 1 }
+            },
+            node.name
+          )
         ), isFolder && isExpanded && kids.map((c) => renderNode(c, depth + 1)));
       };
       const roots = childrenOf.get("") || [];
       const handleSubmit = () => {
         const value = mode === "single" ? Array.from(selected)[0] || "" : Array.from(selected);
-        void onSubmit(value);
+        onSubmit(value);
         onClose();
       };
       return /* @__PURE__ */ import_react9.default.createElement("div", { style: { padding: "12px", maxHeight: "60vh", overflowY: "auto", minWidth: "360px" } }, /* @__PURE__ */ import_react9.default.createElement("div", { style: { marginBottom: "12px", color: "var(--text-muted)" } }, "Select folders and notes to include. If none are selected in some contexts, the active note is used."), roots.length === 0 ? /* @__PURE__ */ import_react9.default.createElement("div", { style: { padding: "12px", color: "var(--text-muted)" } }, "No items found") : roots.map((n) => renderNode(n)), /* @__PURE__ */ import_react9.default.createElement("div", { style: { marginTop: "16px", display: "flex", gap: "8px" } }, /* @__PURE__ */ import_react9.default.createElement("button", { className: "mod-cta", onClick: handleSubmit, style: { flex: 1 } }, "Save"), /* @__PURE__ */ import_react9.default.createElement("button", { className: "mod-secondary", onClick: onClose, style: { flex: 1 } }, "Cancel")));
-    };
-  }
-});
-
-// ui/OllamaSetupWizardModal.ts
-var OllamaSetupWizardModal_exports = {};
-__export(OllamaSetupWizardModal_exports, {
-  OllamaSetupWizardModal: () => OllamaSetupWizardModal
-});
-var import_obsidian8, OllamaSetupWizardModal;
-var init_OllamaSetupWizardModal = __esm({
-  "ui/OllamaSetupWizardModal.ts"() {
-    import_obsidian8 = require("obsidian");
-    OllamaSetupWizardModal = class extends import_obsidian8.Modal {
-      constructor(app, plugin) {
-        super(app);
-        this.plugin = plugin;
-      }
-      onOpen() {
-        const { contentEl } = this;
-        contentEl.empty();
-        contentEl.createEl("h2", { text: "Ollama Setup (Local Semantic Search)" });
-        contentEl.createEl("h4", { text: "Step 1 \u2014 Download Ollama" });
-        contentEl.createEl("p", { text: "Download and install Ollama for your OS." });
-        contentEl.createEl("a", { href: "https://ollama.com/download", text: "https://ollama.com/download", attr: { target: "_blank" } });
-        contentEl.createEl("p", { text: "If the ollama command is not found after install, try:" });
-        contentEl.createEl("pre", {
-          text: [
-            "# Windows PowerShell (temporary PATH fix)",
-            '$env:Path = "C:\\\\Program Files\\\\Ollama;" + $env:Path',
-            "ollama --version",
-            "",
-            "# macOS (temporary PATH fix)",
-            'export PATH="/Applications/Ollama.app/Contents/MacOS:$PATH"',
-            "source ~/.zshrc",
-            "ollama --version"
-          ].join("\n")
-        });
-        contentEl.createEl("h4", { text: "Step 2 \u2014 Verify Ollama" });
-        contentEl.createEl("pre", {
-          text: [
-            "# Windows",
-            "ollama --version",
-            "",
-            "# macOS / Linux",
-            "ollama --version"
-          ].join("\n")
-        });
-        contentEl.createEl("h4", { text: "Step 3 \u2014 Pull the embedding model" });
-        const pullCmd = "ollama pull nomic-embed-text";
-        new import_obsidian8.Setting(contentEl).setName(pullCmd).addButton(
-          (btn) => btn.setButtonText("Copy").onClick(async () => {
-            try {
-              await navigator.clipboard.writeText(pullCmd);
-              new import_obsidian8.Notice("Copied command to clipboard");
-            } catch {
-              new import_obsidian8.Notice("Copy failed. Please copy manually.");
-            }
-          })
-        );
-        contentEl.createEl("h4", { text: "Step 4 \u2014 Confirm the model" });
-        contentEl.createEl("p", { text: "Use curl to list models. On Windows, use curl.exe to avoid prompts." });
-        contentEl.createEl("pre", {
-          text: [
-            "# Windows PowerShell",
-            "curl.exe http://127.0.0.1:11434/api/tags",
-            "",
-            "# macOS / Linux",
-            "curl http://127.0.0.1:11434/api/tags"
-          ].join("\n")
-        });
-        contentEl.createEl("h4", { text: "Step 5 \u2014 Check in Writing Dashboard" });
-        contentEl.createEl("p", { text: "Click \u201CCheck Connection\u201D below. If it succeeds, local semantic search is ready." });
-        new import_obsidian8.Setting(contentEl).setName("Check Ollama connection").addButton(
-          (btn) => btn.setButtonText("Check").setCta().onClick(async () => {
-            try {
-              const isRunning = await this.plugin.ollama?.isAvailable?.();
-              if (!isRunning) {
-                new import_obsidian8.Notice("\u274C Ollama not found at http://127.0.0.1:11434");
-                return;
-              }
-              const hasModel = await this.plugin.ollama?.hasModel?.("nomic-embed-text");
-              if (!hasModel) {
-                new import_obsidian8.Notice('\u26A0\uFE0F Ollama is running, but "nomic-embed-text" is missing. Run "ollama pull nomic-embed-text".');
-                return;
-              }
-              new import_obsidian8.Notice("\u2705 Success! Local AI is ready.");
-            } catch (err) {
-              new import_obsidian8.Notice(`\u274C Check failed: ${err instanceof Error ? err.message : String(err)}`);
-            }
-          })
-        );
-        contentEl.createEl("h4", { text: "Step 6 \u2014 Re-index (optional)" });
-        contentEl.createEl("p", { text: "If you just installed Ollama, you can re-run indexing to generate embeddings for your vault." });
-        new import_obsidian8.Setting(contentEl).setName("Re-index now").setDesc("Kick off a full semantic re-index.").addButton(
-          (btn) => btn.setButtonText("Re-index").onClick(() => {
-            try {
-              this.plugin.embeddingsIndex.enqueueFullRescan();
-              new import_obsidian8.Notice("Re-index queued.");
-            } catch {
-              new import_obsidian8.Notice("Failed to queue re-index.");
-            }
-          })
-        );
-      }
     };
   }
 });
@@ -23821,14 +23737,14 @@ var ProfilePickerModal_exports = {};
 __export(ProfilePickerModal_exports, {
   ProfilePickerModal: () => ProfilePickerModal
 });
-var import_obsidian9, import_react10, import_client5, ProfilePickerModal;
+var import_obsidian7, import_react10, import_client5, ProfilePickerModal;
 var init_ProfilePickerModal = __esm({
   "ui/ProfilePickerModal.tsx"() {
-    import_obsidian9 = require("obsidian");
+    import_obsidian7 = require("obsidian");
     import_react10 = __toESM(require_react());
     import_client5 = __toESM(require_client());
     init_TreePickerModal();
-    ProfilePickerModal = class extends import_obsidian9.Modal {
+    ProfilePickerModal = class extends import_obsidian7.Modal {
       constructor(plugin) {
         super(plugin.app);
         this.reactRoot = null;
@@ -26572,7 +26488,7 @@ __export(main_exports, {
   default: () => WritingDashboardPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian33 = require("obsidian");
+var import_obsidian28 = require("obsidian");
 
 // ui/DashboardView.ts
 var import_obsidian4 = require("obsidian");
@@ -26809,78 +26725,6 @@ var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, gener
   )));
 };
 
-// services/ContentHash.ts
-function fnv1a32(input) {
-  let hash = 2166136261;
-  for (let i = 0; i < input.length; i++) {
-    hash ^= input.charCodeAt(i);
-    hash = hash + ((hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24)) >>> 0;
-  }
-  return hash.toString(16).padStart(8, "0");
-}
-async function sha256(input) {
-  const msgUint8 = new TextEncoder().encode(input);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-  return hashHex;
-}
-function normalizeWhitespace(text2) {
-  return text2.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/[ \t]+/g, " ").trim();
-}
-function normalizeForExcerptHash(text2) {
-  return normalizeWhitespace(text2).replace(/\n{2,}/g, "\n");
-}
-function canonicalJsonStringify(obj) {
-  if (typeof obj === "bigint") {
-    throw new Error("BigInt serialization not supported in canonical JSON");
-  }
-  if (obj === null || obj === void 0) {
-    return "null";
-  }
-  if (typeof obj === "boolean" || typeof obj === "number") {
-    if (!Number.isFinite(obj)) {
-      return "null";
-    }
-    return String(obj);
-  }
-  if (typeof obj === "string") {
-    return JSON.stringify(obj);
-  }
-  if (obj instanceof Date) {
-    return JSON.stringify(obj.toISOString());
-  }
-  if (Array.isArray(obj)) {
-    const items = obj.map((item) => canonicalJsonStringify(item));
-    return "[" + items.join(",") + "]";
-  }
-  if (typeof obj === "object") {
-    const keys = Object.keys(obj).sort((a, b) => {
-      for (let i = 0; i < Math.min(a.length, b.length); i++) {
-        const codeA = a.codePointAt(i) || 0;
-        const codeB = b.codePointAt(i) || 0;
-        if (codeA !== codeB) {
-          return codeA - codeB;
-        }
-      }
-      return a.length - b.length;
-    });
-    const pairs = [];
-    for (const key of keys) {
-      const value = obj[key];
-      if (value !== void 0) {
-        pairs.push(JSON.stringify(key) + ":" + canonicalJsonStringify(value));
-      }
-    }
-    return "{" + pairs.join(",") + "}";
-  }
-  return JSON.stringify(obj);
-}
-async function contentHash(obj) {
-  const canonical = canonicalJsonStringify(obj);
-  return await sha256(canonical);
-}
-
 // ui/FileTreePickerModal.tsx
 var import_obsidian = require("obsidian");
 var import_react2 = __toESM(require_react());
@@ -26958,7 +26802,14 @@ var FileTreePickerComponent = ({ plugin, currentPath, onPick, onClose }) => {
         "span",
         {
           className: "folder-toggle",
+          role: "button",
+          tabIndex: 0,
           onClick: () => toggleFolder(item.path),
+          onKeyDown: (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              toggleFolder(item.path);
+            }
+          },
           style: { cursor: "pointer", userSelect: "none" }
         },
         isExpanded ? "\u{1F4C2}" : "\u{1F4C1}",
@@ -26972,13 +26823,20 @@ var FileTreePickerComponent = ({ plugin, currentPath, onPick, onClose }) => {
         {
           key: item.path,
           className: `vault-item file ${isSelected ? "selected" : "hoverable"}`,
+          role: "button",
+          tabIndex: 0,
           style: {
             paddingLeft: `${depth * 20}px`,
             cursor: "pointer",
             padding: "4px 8px",
             borderRadius: "4px"
           },
-          onClick: () => onPick(item.path)
+          onClick: () => onPick(item.path),
+          onKeyDown: (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              onPick(item.path);
+            }
+          }
         },
         "\u{1F4C4} ",
         item.name,
@@ -27084,7 +26942,14 @@ var FactInspector = ({ plugin, state }) => {
     {
       key: fact.id,
       className: `fact-item ${selectedFactId === fact.id ? "is-selected" : ""}`,
+      role: "button",
+      tabIndex: 0,
       onClick: () => setSelectedFactId(fact.id),
+      onKeyDown: (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          setSelectedFactId(fact.id);
+        }
+      },
       style: {
         padding: "8px",
         cursor: "pointer",
@@ -27094,7 +26959,7 @@ var FactInspector = ({ plugin, state }) => {
     },
     /* @__PURE__ */ import_react3.default.createElement("div", { className: "fact-main", style: { display: "flex", gap: "8px", alignItems: "center" } }, /* @__PURE__ */ import_react3.default.createElement("span", { className: "fact-icon" }, getStatusIcon(fact.lifecycleState)), /* @__PURE__ */ import_react3.default.createElement("span", { className: "fact-summary", style: { fontSize: "0.9em" } }, /* @__PURE__ */ import_react3.default.createElement("strong", null, fact.entityId), ": ", fact.attribute, " is ", /* @__PURE__ */ import_react3.default.createElement("em", null, String(fact.value)))),
     /* @__PURE__ */ import_react3.default.createElement("div", { className: "fact-meta", style: { display: "flex", justifyContent: "space-between", marginTop: "4px", alignItems: "center" } }, getOriginBadge(fact.origin), /* @__PURE__ */ import_react3.default.createElement("span", { className: "fact-conf", style: { fontSize: "0.8em", color: "var(--text-muted)" } }, (fact.confidence * 100).toFixed(0), "% confidence"))
-  ))), /* @__PURE__ */ import_react3.default.createElement("div", { className: "fact-detail-panel", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "12px", display: "flex", flexDirection: "column", gap: "12px" } }, selectedFact ? /* @__PURE__ */ import_react3.default.createElement("div", { className: "fact-detail-content" }, /* @__PURE__ */ import_react3.default.createElement("h4", { style: { marginTop: 0 } }, "Fact Detail: ", selectedFact.id), /* @__PURE__ */ import_react3.default.createElement("section", { className: "detail-section", style: { marginBottom: "16px" } }, /* @__PURE__ */ import_react3.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Why this exists (Provenance)"), /* @__PURE__ */ import_react3.default.createElement("div", { className: "detail-grid", style: { display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react3.default.createElement("span", null, "Origin:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, selectedFact.origin), /* @__PURE__ */ import_react3.default.createElement("span", null, "Added:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, new Date(selectedFact.timestamp).toLocaleString()), /* @__PURE__ */ import_react3.default.createElement("span", null, "Source Run:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, selectedFact.chunkId || "Initial Seed"), /* @__PURE__ */ import_react3.default.createElement("span", null, "Confidence:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, (selectedFact.confidence * 100).toFixed(0), "%"))), /* @__PURE__ */ import_react3.default.createElement("section", { className: "detail-section" }, /* @__PURE__ */ import_react3.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Where this matters (Impact)"), /* @__PURE__ */ import_react3.default.createElement("div", { className: "detail-grid", style: { display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react3.default.createElement("span", null, "Scope:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, selectedFact.scope), /* @__PURE__ */ import_react3.default.createElement("span", null, "Status:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, selectedFact.lifecycleState), /* @__PURE__ */ import_react3.default.createElement("span", null, "Attribute:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, selectedFact.attribute)), selectedFact.sourceSpan && /* @__PURE__ */ import_react3.default.createElement("div", { style: { marginTop: "8px", fontSize: "0.85em", fontStyle: "italic", color: "var(--text-muted)", borderLeft: "2px solid var(--text-accent)", paddingLeft: "8px" } }, '"...', selectedFact.sourceSpan.anchorTextBefore, " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, "[", selectedFact.value, "]"), " ", selectedFact.sourceSpan.anchorTextAfter, '..."'))) : /* @__PURE__ */ import_react3.default.createElement("p", { className: "empty-msg", style: { textAlign: "center", color: "var(--text-muted)", margin: "auto" } }, "Select a fact to see details."))), /* @__PURE__ */ import_react3.default.createElement("div", { className: "timeline-section", style: { height: "150px", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "8px", overflowY: "auto" } }, /* @__PURE__ */ import_react3.default.createElement("h4", { style: { marginTop: 0, fontSize: "0.9em" } }, "Run Timeline"), /* @__PURE__ */ import_react3.default.createElement("div", { className: "timeline-list", style: { fontSize: "0.85em" } }, state.timeline.length === 0 ? /* @__PURE__ */ import_react3.default.createElement("p", { className: "empty-msg", style: { color: "var(--text-muted)" } }, "No timeline events yet.") : state.timeline.map((t, i) => /* @__PURE__ */ import_react3.default.createElement("div", { key: i, style: { display: "flex", gap: "12px", marginBottom: "4px" } }, /* @__PURE__ */ import_react3.default.createElement("span", { style: { color: "var(--text-accent)", minWidth: "60px" } }, t.chunkId), /* @__PURE__ */ import_react3.default.createElement("span", null, t.summary))))));
+  ))), /* @__PURE__ */ import_react3.default.createElement("div", { className: "fact-detail-panel", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "12px", display: "flex", flexDirection: "column", gap: "12px" } }, selectedFact ? /* @__PURE__ */ import_react3.default.createElement("div", { className: "fact-detail-content" }, /* @__PURE__ */ import_react3.default.createElement("h4", { style: { marginTop: 0 } }, "Fact Detail: ", selectedFact.id), /* @__PURE__ */ import_react3.default.createElement("section", { className: "detail-section", style: { marginBottom: "16px" } }, /* @__PURE__ */ import_react3.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Why this exists (Provenance)"), /* @__PURE__ */ import_react3.default.createElement("div", { className: "detail-grid", style: { display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react3.default.createElement("span", null, "Origin:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, selectedFact.origin), /* @__PURE__ */ import_react3.default.createElement("span", null, "Added:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, new Date(selectedFact.timestamp).toLocaleString()), /* @__PURE__ */ import_react3.default.createElement("span", null, "Source Run:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, selectedFact.chunkId || "Initial Seed"), /* @__PURE__ */ import_react3.default.createElement("span", null, "Confidence:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, (selectedFact.confidence * 100).toFixed(0), "%"))), /* @__PURE__ */ import_react3.default.createElement("section", { className: "detail-section" }, /* @__PURE__ */ import_react3.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Where this matters (Impact)"), /* @__PURE__ */ import_react3.default.createElement("div", { className: "detail-grid", style: { display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react3.default.createElement("span", null, "Scope:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, selectedFact.scope), /* @__PURE__ */ import_react3.default.createElement("span", null, "Status:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, selectedFact.lifecycleState), /* @__PURE__ */ import_react3.default.createElement("span", null, "Attribute:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, selectedFact.attribute)), selectedFact.sourceSpan && /* @__PURE__ */ import_react3.default.createElement("div", { style: { marginTop: "8px", fontSize: "0.85em", fontStyle: "italic", color: "var(--text-muted)", borderLeft: "2px solid var(--text-accent)", paddingLeft: "8px" } }, '"...', selectedFact.sourceSpan.anchorTextBefore, " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, "[", selectedFact.value, "]"), " ", selectedFact.sourceSpan.anchorTextAfter, '..."'))) : /* @__PURE__ */ import_react3.default.createElement("p", { className: "empty-msg", style: { textAlign: "center", color: "var(--text-muted)", margin: "auto" } }, "Select a fact to see details."))), /* @__PURE__ */ import_react3.default.createElement("div", { className: "timeline-section", style: { height: "150px", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "8px", overflowY: "auto" } }, /* @__PURE__ */ import_react3.default.createElement("h4", { style: { marginTop: 0, fontSize: "0.9em" } }, "Run Timeline"), /* @__PURE__ */ import_react3.default.createElement("div", { className: "timeline-list", style: { fontSize: "0.85em" } }, state.timeline.length === 0 ? /* @__PURE__ */ import_react3.default.createElement("p", { className: "empty-msg", style: { color: "var(--text-muted)" } }, "No timeline events yet.") : state.timeline.map((t) => /* @__PURE__ */ import_react3.default.createElement("div", { key: t.chunkId, style: { display: "flex", gap: "12px", marginBottom: "4px" } }, /* @__PURE__ */ import_react3.default.createElement("span", { style: { color: "var(--text-accent)", minWidth: "60px" } }, t.chunkId), /* @__PURE__ */ import_react3.default.createElement("span", null, t.summary))))));
 };
 
 // ui/ReplayPanel.tsx
@@ -27257,7 +27122,14 @@ var ReplayPanel = ({ plugin }) => {
     {
       key: run.key,
       className: `run-item ${selectedRunKey === run.key ? "is-selected" : ""}`,
+      role: "button",
+      tabIndex: 0,
       onClick: () => setSelectedRunKey(run.key),
+      onKeyDown: (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          setSelectedRunKey(run.key);
+        }
+      },
       style: {
         padding: "8px",
         cursor: "pointer",
@@ -27267,7 +27139,7 @@ var ReplayPanel = ({ plugin }) => {
     },
     /* @__PURE__ */ import_react4.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ import_react4.default.createElement("strong", { style: { fontSize: "0.9em" } }, new Date(run.manifest.startTime).toLocaleString()), getHealthBadge(run.manifest)),
     /* @__PURE__ */ import_react4.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)", marginTop: "4px" } }, getRunSignificance(run.manifest))
-  ))), /* @__PURE__ */ import_react4.default.createElement("div", { className: "run-detail", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "12px" } }, selectedRun ? /* @__PURE__ */ import_react4.default.createElement("div", { className: "run-detail-content" }, /* @__PURE__ */ import_react4.default.createElement("h4", { style: { marginTop: 0 } }, "Run: ", selectedRun.key), /* @__PURE__ */ import_react4.default.createElement("div", { style: { fontSize: "0.9em", marginBottom: "16px", display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px" } }, /* @__PURE__ */ import_react4.default.createElement("span", null, "Model:"), " ", /* @__PURE__ */ import_react4.default.createElement("strong", null, selectedRun.manifest.config.smartModel), /* @__PURE__ */ import_react4.default.createElement("span", null, "Start:"), " ", /* @__PURE__ */ import_react4.default.createElement("strong", null, new Date(selectedRun.manifest.startTime).toLocaleString()), /* @__PURE__ */ import_react4.default.createElement("span", null, "Stages:"), " ", /* @__PURE__ */ import_react4.default.createElement("strong", null, selectedRun.manifest.stages.length)), /* @__PURE__ */ import_react4.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Execution Stages"), /* @__PURE__ */ import_react4.default.createElement("div", { className: "stage-list", style: { display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" } }, selectedRun.manifest.stages.map((stage, i) => /* @__PURE__ */ import_react4.default.createElement("div", { key: i, style: { padding: "8px", backgroundColor: "var(--background-secondary)", borderRadius: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react4.default.createElement("div", { style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ import_react4.default.createElement("span", { style: { color: "var(--text-accent)", fontWeight: "bold" } }, getStageLabel(stage)), /* @__PURE__ */ import_react4.default.createElement("span", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, Math.round(stage.endTime - stage.startTime), "ms")), stage.stageType === "AUDIT" && stage.data && /* @__PURE__ */ import_react4.default.createElement("div", { style: { marginTop: "4px", fontSize: "0.85em" } }, stage.data.violations?.length > 0 ? /* @__PURE__ */ import_react4.default.createElement("span", { style: { color: "var(--text-error)" } }, "\u26A0\uFE0F ", stage.data.violations.length, " violations") : /* @__PURE__ */ import_react4.default.createElement("span", { style: { color: "var(--text-success)" } }, "\u2705 No violations"))))), /* @__PURE__ */ import_react4.default.createElement("div", { style: { marginTop: "20px", display: "flex", gap: "8px" } }, /* @__PURE__ */ import_react4.default.createElement("button", { className: "mod-cta", style: { fontSize: "0.85em" }, onClick: () => new import_obsidian2.Notice("Safe Context Pack inspection coming soon.") }, "Inspect Context Pack"), /* @__PURE__ */ import_react4.default.createElement("button", { style: { fontSize: "0.85em" }, onClick: () => new import_obsidian2.Notice("Replay mode coming soon.") }, "Replay Run"))) : /* @__PURE__ */ import_react4.default.createElement("p", { style: { textAlign: "center", color: "var(--text-muted)", marginTop: "40px" } }, "Select a run to see execution details."))));
+  ))), /* @__PURE__ */ import_react4.default.createElement("div", { className: "run-detail", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "12px" } }, selectedRun ? /* @__PURE__ */ import_react4.default.createElement("div", { className: "run-detail-content" }, /* @__PURE__ */ import_react4.default.createElement("h4", { style: { marginTop: 0 } }, "Run: ", selectedRun.key), /* @__PURE__ */ import_react4.default.createElement("div", { style: { fontSize: "0.9em", marginBottom: "16px", display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px" } }, /* @__PURE__ */ import_react4.default.createElement("span", null, "Model:"), " ", /* @__PURE__ */ import_react4.default.createElement("strong", null, selectedRun.manifest.config.smartModel), /* @__PURE__ */ import_react4.default.createElement("span", null, "Start:"), " ", /* @__PURE__ */ import_react4.default.createElement("strong", null, new Date(selectedRun.manifest.startTime).toLocaleString()), /* @__PURE__ */ import_react4.default.createElement("span", null, "Stages:"), " ", /* @__PURE__ */ import_react4.default.createElement("strong", null, selectedRun.manifest.stages.length)), /* @__PURE__ */ import_react4.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Execution Stages"), /* @__PURE__ */ import_react4.default.createElement("div", { className: "stage-list", style: { display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" } }, selectedRun.manifest.stages.map((stage) => /* @__PURE__ */ import_react4.default.createElement("div", { key: stage.stageType + stage.startTime, style: { padding: "8px", backgroundColor: "var(--background-secondary)", borderRadius: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react4.default.createElement("div", { style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ import_react4.default.createElement("span", { style: { color: "var(--text-accent)", fontWeight: "bold" } }, getStageLabel(stage)), /* @__PURE__ */ import_react4.default.createElement("span", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, Math.round(stage.endTime - stage.startTime), "ms")), stage.stageType === "AUDIT" && stage.data && /* @__PURE__ */ import_react4.default.createElement("div", { style: { marginTop: "4px", fontSize: "0.85em" } }, stage.data.violations?.length > 0 ? /* @__PURE__ */ import_react4.default.createElement("span", { style: { color: "var(--text-error)" } }, "\u26A0\uFE0F ", stage.data.violations.length, " violations") : /* @__PURE__ */ import_react4.default.createElement("span", { style: { color: "var(--text-success)" } }, "\u2705 No violations"))))), /* @__PURE__ */ import_react4.default.createElement("div", { style: { marginTop: "20px", display: "flex", gap: "8px" } }, /* @__PURE__ */ import_react4.default.createElement("button", { className: "mod-cta", style: { fontSize: "0.85em" }, onClick: () => new import_obsidian2.Notice("Safe Context Pack inspection coming soon.") }, "Inspect Context Pack"), /* @__PURE__ */ import_react4.default.createElement("button", { style: { fontSize: "0.85em" }, onClick: () => new import_obsidian2.Notice("Replay mode coming soon.") }, "Replay Run"))) : /* @__PURE__ */ import_react4.default.createElement("p", { style: { textAlign: "center", color: "var(--text-muted)", marginTop: "40px" } }, "Select a run to see execution details."))));
 };
 
 // ui/PilotHealthPanel.tsx
@@ -27290,6 +27162,78 @@ var PilotHealthPanel = ({ misses, rejections, quarantineCount }) => {
     quarantineCount > 5 ? "\u{1F534} REVIEW REQUIRED" : "\u{1F7E2} HEALTHY"
   ));
 };
+
+// services/ContentHash.ts
+function fnv1a32(input) {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = hash + ((hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24)) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+async function sha256(input) {
+  const msgUint8 = new TextEncoder().encode(input);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  return hashHex;
+}
+function normalizeWhitespace(text2) {
+  return text2.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/[ \t]+/g, " ").trim();
+}
+function normalizeForExcerptHash(text2) {
+  return normalizeWhitespace(text2).replace(/\n{2,}/g, "\n");
+}
+function canonicalJsonStringify(obj) {
+  if (typeof obj === "bigint") {
+    throw new Error("BigInt serialization not supported in canonical JSON");
+  }
+  if (obj === null || obj === void 0) {
+    return "null";
+  }
+  if (typeof obj === "boolean" || typeof obj === "number") {
+    if (!Number.isFinite(obj)) {
+      return "null";
+    }
+    return String(obj);
+  }
+  if (typeof obj === "string") {
+    return JSON.stringify(obj);
+  }
+  if (obj instanceof Date) {
+    return JSON.stringify(obj.toISOString());
+  }
+  if (Array.isArray(obj)) {
+    const items = obj.map((item) => canonicalJsonStringify(item));
+    return "[" + items.join(",") + "]";
+  }
+  if (typeof obj === "object") {
+    const keys = Object.keys(obj).sort((a, b) => {
+      for (let i = 0; i < Math.min(a.length, b.length); i++) {
+        const codeA = a.codePointAt(i) || 0;
+        const codeB = b.codePointAt(i) || 0;
+        if (codeA !== codeB) {
+          return codeA - codeB;
+        }
+      }
+      return a.length - b.length;
+    });
+    const pairs = [];
+    for (const key of keys) {
+      const value = obj[key];
+      if (value !== void 0) {
+        pairs.push(JSON.stringify(key) + ":" + canonicalJsonStringify(value));
+      }
+    }
+    return "{" + pairs.join(",") + "}";
+  }
+  return JSON.stringify(obj);
+}
+async function contentHash(obj) {
+  const canonical = canonicalJsonStringify(obj);
+  return await sha256(canonical);
+}
 
 // services/EventBus.ts
 var RelayEventBus = class {
@@ -27327,8 +27271,6 @@ var relayEventBus = new RelayEventBus();
 // ui/DashboardComponent.tsx
 var DashboardComponent = ({ plugin }) => {
   const [mode, setMode] = (0, import_react6.useState)("chapter");
-  const [demoStep, setDemoStep] = (0, import_react6.useState)("off");
-  const [apiKeyPresent, setApiKeyPresent] = (0, import_react6.useState)(Boolean(plugin.settings.apiKey));
   const [modeState, setModeState] = (0, import_react6.useState)(() => plugin.settings.modeState);
   const [generatedText, setGeneratedText] = (0, import_react6.useState)("");
   const [generatedParagraphs, setGeneratedParagraphs] = (0, import_react6.useState)([]);
@@ -27339,12 +27281,8 @@ var DashboardComponent = ({ plugin }) => {
   const [generationStage, setGenerationStage] = (0, import_react6.useState)("");
   const [pulseMessage, setPulseMessage] = (0, import_react6.useState)(null);
   const [pulseDetail, setPulseDetail] = (0, import_react6.useState)(null);
-  const [generationSteps, setGenerationSteps] = (0, import_react6.useState)([]);
   const [error2, setError] = (0, import_react6.useState)(null);
   const [mismatchReport, setMismatchReport] = (0, import_react6.useState)(null);
-  const [telemetry, setTelemetry] = (0, import_react6.useState)(null);
-  const [costEstimate, setCostEstimate] = (0, import_react6.useState)(null);
-  const [showFactInspector, setShowFactInspector] = (0, import_react6.useState)(false);
   const [heatmapEnabled, setHeatmapEnabled] = (0, import_react6.useState)(true);
   const [spontaneity, setSpontaneity] = (0, import_react6.useState)(plugin.settings.spontaneitySlider || 50);
   const [misses, setMisses] = (0, import_react6.useState)([]);
@@ -27361,7 +27299,6 @@ var DashboardComponent = ({ plugin }) => {
   const commitLock = (0, import_react6.useRef)(false);
   (0, import_react6.useEffect)(() => {
     const onStart = () => {
-      setGenerationSteps([]);
       setChunkBuffer("");
       setGeneratedText("");
       setGeneratedParagraphs([]);
@@ -27390,7 +27327,7 @@ var DashboardComponent = ({ plugin }) => {
           return {
             id: data.metadata?.[i]?.p_id || `${data.chunkId}-p${i}`,
             text: text2,
-            hash: fnv1a32(text2.replace(/\s+/g, " ").trim()),
+            hash: fnv1a32(text2.replaceAll(/\s+/g, " ").trim()),
             metadata: data.metadata ? data.metadata[i] : void 0,
             status: "FINALIZED"
           };
@@ -27423,7 +27360,7 @@ var DashboardComponent = ({ plugin }) => {
           const para = next[idx];
           if (para.status === "USER_DIRTY")
             continue;
-          const currentHash = fnv1a32(para.text.replace(/\s+/g, " ").trim());
+          const currentHash = fnv1a32(para.text.replaceAll(/\s+/g, " ").trim());
           if (currentHash !== op.beforeHash) {
             console.warn(`[Dashboard] Patch rejected: Hash mismatch for ${op.paragraphId}`);
             continue;
@@ -27435,7 +27372,7 @@ var DashboardComponent = ({ plugin }) => {
           next[idx] = {
             ...para,
             text: newText,
-            hash: fnv1a32(newText.replace(/\s+/g, " ").trim()),
+            hash: fnv1a32(newText.replaceAll(/\s+/g, " ").trim()),
             lastPatched: Date.now()
           };
           anyChanged = true;
@@ -27530,7 +27467,6 @@ var DashboardComponent = ({ plugin }) => {
             text: last.text,
             hash: last.beforeHash,
             lastPatched: void 0
-            // Reset highlight
           };
         }
         return p;
@@ -27604,6 +27540,15 @@ var DashboardComponent = ({ plugin }) => {
     setGeneratedText(value);
     setGeneratedParagraphs((prev) => prev.map((p) => ({ ...p, status: "USER_DIRTY" })));
   };
+  const handleSpontaneityChange = (val) => {
+    setSpontaneity(val);
+    plugin.settings.spontaneitySlider = val;
+    plugin.saveSettings();
+  };
+  const handleMismatchProceed = () => {
+    setMismatchReport(null);
+    new import_obsidian3.Notice("Proceeding in Best-Effort mode...");
+  };
   return /* @__PURE__ */ import_react6.default.createElement("div", { className: "writing-dashboard" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "dashboard-tabs" }, /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "editor" ? "active" : "", onClick: () => setActiveTab("editor") }, "Editor"), /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "lore" ? "active" : "", onClick: () => setActiveTab("lore") }, "Lore"), /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "replay" ? "active" : "", onClick: () => setActiveTab("replay") }, "Replay"), /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "signature" ? "active" : "", onClick: () => setActiveTab("signature") }, "Signature"), /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "characters" ? "active" : "", onClick: () => setActiveTab("characters") }, "Characters")), /* @__PURE__ */ import_react6.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "main-workspace" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "tab-content-wrapper", style: { flex: "1 1 auto", overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px" } }, activeTab === "editor" && /* @__PURE__ */ import_react6.default.createElement(
     EditorPanel,
     {
@@ -27673,23 +27618,15 @@ var DashboardComponent = ({ plugin }) => {
     isExtractingCharacters ? extractionProgress : "Process Entire Book"
   )), /* @__PURE__ */ import_react6.default.createElement("div", { className: "character-help-text" }, /* @__PURE__ */ import_react6.default.createElement("p", null, /* @__PURE__ */ import_react6.default.createElement("strong", null, "Update Characters:"), " Extracts character info from the text above and updates notes in your Characters folder."), /* @__PURE__ */ import_react6.default.createElement("p", null, /* @__PURE__ */ import_react6.default.createElement("strong", null, "Process Entire Book:"), " 2-pass extraction (roster + per-chapter) from the selected file.")))), isGenerating && /* @__PURE__ */ import_react6.default.createElement("div", { className: "generation-status-overlay" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "loader" }, "\u23F3"), /* @__PURE__ */ import_react6.default.createElement("div", { className: "stage" }, generationStage), chunkBuffer && /* @__PURE__ */ import_react6.default.createElement("div", { className: `buffer-preview ${heatmapEnabled ? "heatmap" : ""}` }, chunkBuffer.split("\n").map((p, i) => {
     const isSpeculative = p.length % 2 === 0;
-    return /* @__PURE__ */ import_react6.default.createElement("p", { key: i, className: isSpeculative ? "speculative" : "grounded" }, p);
-  }))), proposedMutation && /* @__PURE__ */ import_react6.default.createElement("div", { className: "mutation-modal" }, /* @__PURE__ */ import_react6.default.createElement("h3", null, "Lore Mutation Proposal"), /* @__PURE__ */ import_react6.default.createElement("p", null, proposedMutation.message), /* @__PURE__ */ import_react6.default.createElement("div", { className: "actions" }, /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => setProposedMutation(null) }, "Reject"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => setProposedMutation(null) }, "Defer"), /* @__PURE__ */ import_react6.default.createElement("button", { className: "mod-cta", onClick: () => setProposedMutation(null) }, "Accept & Version Canon"))), trustSummary && /* @__PURE__ */ import_react6.default.createElement("div", { className: "trust-summary-banner" }, /* @__PURE__ */ import_react6.default.createElement("span", null, "Grounding: ", /* @__PURE__ */ import_react6.default.createElement("strong", null, trustSummary.grounding)), /* @__PURE__ */ import_react6.default.createElement("span", null, "Lore: ", /* @__PURE__ */ import_react6.default.createElement("strong", null, trustSummary.loreStatus)), /* @__PURE__ */ import_react6.default.createElement("span", null, "Canon Version: ", /* @__PURE__ */ import_react6.default.createElement("strong", null, trustSummary.version)), trustSummary.replayable && /* @__PURE__ */ import_react6.default.createElement("span", { className: "verified" }, "\u2713 Replayable")), mismatchReport && /* @__PURE__ */ import_react6.default.createElement("div", { className: "mismatch-report-banner" }, /* @__PURE__ */ import_react6.default.createElement("h3", null, "\u26A0\uFE0F Strict Replay Mismatch"), mismatchReport.map((m, i) => /* @__PURE__ */ import_react6.default.createElement("p", { key: i }, /* @__PURE__ */ import_react6.default.createElement("strong", null, m.field, ":"), ' Expected "', m.expected.slice(0, 8), '", Got "', m.actual.slice(0, 8), '" (', m.severity, ")")), /* @__PURE__ */ import_react6.default.createElement("div", { className: "actions" }, /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => setMismatchReport(null) }, "Cancel Replay"), /* @__PURE__ */ import_react6.default.createElement("button", { className: "mod-cta", onClick: () => {
-    setMismatchReport(null);
-    new import_obsidian3.Notice("Proceeding in Best-Effort mode...");
-  } }, "Proceed Creative (Best-Effort)"))), /* @__PURE__ */ import_react6.default.createElement("div", { className: "controls" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "spontaneity-control", style: { display: "flex", flexDirection: "column", gap: 4, flex: 1 } }, /* @__PURE__ */ import_react6.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "0.8em" } }, /* @__PURE__ */ import_react6.default.createElement("span", null, "Faithful"), /* @__PURE__ */ import_react6.default.createElement("span", null, "Spontaneity: ", spontaneity), /* @__PURE__ */ import_react6.default.createElement("span", null, "Wild")), /* @__PURE__ */ import_react6.default.createElement(
+    return /* @__PURE__ */ import_react6.default.createElement("p", { key: `chunk-${i}`, className: isSpeculative ? "speculative" : "grounded" }, p);
+  }))), proposedMutation && /* @__PURE__ */ import_react6.default.createElement("div", { className: "mutation-modal" }, /* @__PURE__ */ import_react6.default.createElement("h3", null, "Lore Mutation Proposal"), /* @__PURE__ */ import_react6.default.createElement("p", null, proposedMutation.message), /* @__PURE__ */ import_react6.default.createElement("div", { className: "actions" }, /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => setProposedMutation(null) }, "Reject"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => setProposedMutation(null) }, "Defer"), /* @__PURE__ */ import_react6.default.createElement("button", { className: "mod-cta", onClick: () => setProposedMutation(null) }, "Accept & Version Canon"))), trustSummary && /* @__PURE__ */ import_react6.default.createElement("div", { className: "trust-summary-banner" }, /* @__PURE__ */ import_react6.default.createElement("span", null, "Grounding: ", /* @__PURE__ */ import_react6.default.createElement("strong", null, trustSummary.grounding)), /* @__PURE__ */ import_react6.default.createElement("span", null, "Lore: ", /* @__PURE__ */ import_react6.default.createElement("strong", null, trustSummary.loreStatus)), /* @__PURE__ */ import_react6.default.createElement("span", null, "Canon Version: ", /* @__PURE__ */ import_react6.default.createElement("strong", null, trustSummary.version)), trustSummary.replayable && /* @__PURE__ */ import_react6.default.createElement("span", { className: "verified" }, "\u2713 Replayable")), mismatchReport && /* @__PURE__ */ import_react6.default.createElement("div", { className: "mismatch-report-banner" }, /* @__PURE__ */ import_react6.default.createElement("h3", null, "\u26A0\uFE0F Strict Replay Mismatch"), mismatchReport.map((m) => /* @__PURE__ */ import_react6.default.createElement("p", { key: `${m.field}-${m.expected}` }, /* @__PURE__ */ import_react6.default.createElement("strong", null, m.field, ":"), ' Expected "', m.expected.slice(0, 8), '", Got "', m.actual.slice(0, 8), '" (', m.severity, ")")), /* @__PURE__ */ import_react6.default.createElement("div", { className: "actions" }, /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => setMismatchReport(null) }, "Cancel Replay"), /* @__PURE__ */ import_react6.default.createElement("button", { className: "mod-cta", onClick: handleMismatchProceed }, "Proceed Creative (Best-Effort)"))), /* @__PURE__ */ import_react6.default.createElement("div", { className: "controls" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "spontaneity-control", style: { display: "flex", flexDirection: "column", gap: 4, flex: 1 } }, /* @__PURE__ */ import_react6.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "0.8em" } }, /* @__PURE__ */ import_react6.default.createElement("span", null, "Faithful"), /* @__PURE__ */ import_react6.default.createElement("span", null, "Spontaneity: ", spontaneity), /* @__PURE__ */ import_react6.default.createElement("span", null, "Wild")), /* @__PURE__ */ import_react6.default.createElement(
     "input",
     {
       type: "range",
       min: "0",
       max: "100",
       value: spontaneity,
-      onChange: (e) => {
-        const val = parseInt(e.target.value);
-        setSpontaneity(val);
-        plugin.settings.spontaneitySlider = val;
-        plugin.saveSettings();
-      },
+      onChange: (e) => handleSpontaneityChange(Number.parseInt(e.target.value, 10)),
       className: "spontaneity-slider",
       title: "Adjusts LLM temperature and novelty bias."
     }
@@ -27708,7 +27645,7 @@ var DashboardComponent = ({ plugin }) => {
       className: `heatmap-toggle ${heatmapEnabled ? "active" : ""}`
     },
     heatmapEnabled ? "Hide Heatmap" : "Show Heatmap"
-  ), isGenerating && /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => plugin.sequentialGenerator.abort(), className: "abort-button" }, "Abort")), isGenerating && pulseMessage && /* @__PURE__ */ import_react6.default.createElement("div", { className: "continuity-pulse-container" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-message" }, /* @__PURE__ */ import_react6.default.createElement("span", { className: "pulse-icon" }, "\u269B\uFE0F"), /* @__PURE__ */ import_react6.default.createElement("strong", null, pulseMessage)), pulseDetail && /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-detail" }, pulseDetail), /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-progress-bar" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-progress-fill" }))), telemetry && /* @__PURE__ */ import_react6.default.createElement("div", { className: "telemetry-bar" }, /* @__PURE__ */ import_react6.default.createElement("span", null, "TPS: ", telemetry.tps), /* @__PURE__ */ import_react6.default.createElement("span", null, "Model: ", telemetry.model), /* @__PURE__ */ import_react6.default.createElement("span", null, "Digest: ", telemetry.digest.slice(0, 8))))));
+  ), isGenerating && /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => plugin.sequentialGenerator.abort(), className: "abort-button" }, "Abort")), isGenerating && pulseMessage && /* @__PURE__ */ import_react6.default.createElement("div", { className: "continuity-pulse-container" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-message" }, /* @__PURE__ */ import_react6.default.createElement("span", { className: "pulse-icon" }, "\u269B\uFE0F"), /* @__PURE__ */ import_react6.default.createElement("strong", null, pulseMessage)), pulseDetail && /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-detail" }, pulseDetail), /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-progress-bar" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-progress-fill" }))))));
 };
 
 // ui/DashboardView.ts
@@ -27748,7 +27685,7 @@ var DashboardView = class extends import_obsidian4.ItemView {
 };
 
 // ui/SettingsTab.ts
-var import_obsidian10 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 
 // ui/SetupWizard.tsx
 var import_react8 = __toESM(require_react());
@@ -27977,587 +27914,6 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
 
 // ui/SettingsTab.ts
 init_TreePickerModal();
-
-// services/StressTestService.ts
-var import_obsidian7 = require("obsidian");
-var StressTestService = class {
-  constructor(plugin, options = {}) {
-    this.log = [];
-    this.testFolder = "WritingDashboard-StressTest";
-    this.testFiles = [];
-    this.testFolders = [];
-    this.startTime = 0;
-    this.plugin = plugin;
-    this.app = plugin.app;
-    this.options = options;
-  }
-  async runFullStressTest() {
-    this.log = [];
-    this.startTime = Date.now();
-    this.logEntry("=== STRESS TEST START ===");
-    this.logEntry(`Started: ${new Date().toISOString()}`);
-    this.logEntry(`Vault: ${this.plugin.app.vault.getName()}`);
-    this.logEntry("");
-    this.logEntry("=== PLUGIN CONFIGURATION ===");
-    this.logEntry(`API Key: ${this.plugin.settings.apiKey ? "\u2713 Configured" : "\u2717 Missing"}`);
-    this.logEntry(`API Provider: ${this.plugin.settings.apiProvider || "Not set"}`);
-    this.logEntry(`Model: ${this.plugin.settings.model || "Not set"}`);
-    this.logEntry(`Generation Mode: ${this.plugin.settings.generationMode || "single"}`);
-    this.logEntry(`Book Main Path: ${this.plugin.settings.book2Path || "Not configured"}`);
-    this.logEntry(`Story Bible Path: ${this.plugin.settings.storyBiblePath || "Not configured"}`);
-    this.logEntry(`Character Folder: ${this.plugin.settings.characterFolder || "Not configured (will use default: Characters)"}`);
-    this.logEntry(`Semantic Retrieval: ${this.plugin.settings.retrievalEnableSemanticIndex ? "Enabled" : "Disabled"}`);
-    this.logEntry(`Embedding Backend: ${this.plugin.settings.retrievalEmbeddingBackend || "hash"}`);
-    this.logEntry(`BM25 Retrieval: ${this.plugin.settings.retrievalEnableBm25 ? "Enabled" : "Disabled"}`);
-    this.logEntry(`Index Paused: ${this.plugin.settings.retrievalIndexPaused ? "Yes" : "No"}`);
-    this.logEntry(`Retrieval Top K: ${this.plugin.settings.retrievalTopK || 24}`);
-    this.logEntry(`External Embeddings: ${this.plugin.settings.externalEmbeddingsEnabled ? "Enabled" : "Disabled"}`);
-    this.logEntry("");
-    try {
-      await this.phase1_Setup();
-      await this.phase2_Indexing();
-      await this.phase3_FileOperations();
-      if (this.plugin.settings.apiKey) {
-        await this.phase4_WritingModes();
-      } else {
-        this.logEntry("Phase 4: Skipped (no API key configured)");
-      }
-      await this.phase5_Retrieval();
-      if (this.plugin.settings.apiKey) {
-        await this.phase7_CharacterOperations();
-      } else {
-        this.logEntry("Phase 7: Skipped (no API key configured)");
-      }
-      await this.phase8_RelayPipeline();
-      await this.phase9_SemanticRobustness();
-      await this.phase10_StitchingAndSafety();
-    } catch (error2) {
-      this.logEntry(`=== FATAL ERROR IN STRESS TEST ===`);
-      this.logEntry(`  WHERE: runFullStressTest (top-level catch)`);
-      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-      this.logEntry(`  TYPE: ${error2 instanceof Error ? error2.constructor.name : typeof error2}`);
-      if (error2 instanceof Error && error2.stack) {
-        this.logEntry(`  STACK (first 10 lines):`);
-        error2.stack.split("\n").slice(0, 10).forEach((line) => {
-          this.logEntry(`    ${line.trim()}`);
-        });
-      }
-      if (error2 instanceof Error && "cause" in error2) {
-        this.logEntry(`  CAUSE: ${error2.cause}`);
-      }
-      this.logEntry(`=== END FATAL ERROR ===`);
-    } finally {
-      await this.phase6_Cleanup();
-    }
-    const duration = ((Date.now() - this.startTime) / 1e3).toFixed(2);
-    this.logEntry("");
-    this.logEntry("=== STRESS TEST SUMMARY ===");
-    this.logEntry(`Total Duration: ${duration} seconds`);
-    this.logEntry(`Ended: ${new Date().toISOString()}`);
-    this.logEntry("");
-    this.logEntry("=== FUNCTIONAL OPERATIONS TESTED ===");
-    this.logEntry("\u2713 Phase 1: Setup (folder/file creation)");
-    this.logEntry("\u2713 Phase 2: Indexing (semantic index, BM25, chunking)");
-    this.logEntry("\u2713 Phase 3: File Operations (read/write/folder management)");
-    if (this.plugin.settings.apiKey) {
-      this.logEntry("\u2713 Phase 4: Writing Modes (chapter generation, micro-edit, continuity check)");
-      this.logEntry("\u2713 Phase 7: Character Operations (extraction, note updates)");
-    } else {
-      this.logEntry("\u25CB Phase 4: Writing Modes (skipped - no API key)");
-      this.logEntry("\u25CB Phase 7: Character Operations (skipped - no API key)");
-    }
-    this.logEntry("\u2713 Phase 5: Retrieval Tests (hash, BM25, semantic search)");
-    this.logEntry("\u2713 Phase 8: Relay Pipeline (Strict Replay, Manifest Hashing)");
-    this.logEntry("\u2713 Phase 9: Semantic Robustness (Perf Gates, Adversarial Fixtures)");
-    this.logEntry("\u2713 Phase 10: Stitching & Safety (Rolling Window, User Protection, Hash Gate)");
-    this.logEntry("\u2713 Phase 6: Cleanup (test file/folder removal)");
-    this.logEntry("");
-    this.logEntry("=== KEY METRICS ===");
-    this.logEntry(`Semantic Retrieval: ${this.plugin.settings.retrievalEnableSemanticIndex ? "Enabled" : "Disabled"}`);
-    this.logEntry(`BM25 Retrieval: ${this.plugin.settings.retrievalEnableBm25 ? "Enabled" : "Disabled"}`);
-    this.logEntry(`External Embeddings: ${this.plugin.settings.externalEmbeddingsEnabled ? "Enabled" : "Disabled"}`);
-    this.logEntry("");
-    this.logEntry("=== STRESS TEST COMPLETED ===");
-    return this.log.join("\n");
-  }
-  logEntry(message) {
-    const timestamp = new Date().toISOString();
-    const entry = `[${timestamp}] ${message}`;
-    this.log.push(entry);
-    console.log(`[StressTest] ${message}`);
-  }
-  async phase1_Setup() {
-    this.logEntry("--- Phase 1: Setup ---");
-    const phaseStart = Date.now();
-    try {
-      await this.plugin.vaultService.createFolderIfNotExists(this.testFolder);
-      this.testFolders.push(this.testFolder);
-      this.logEntry(`\u2713 Created test folder: ${this.testFolder}`);
-      const testFiles = [
-        { name: "test-chapter-1.md", content: this.generateTestChapter(1) },
-        { name: "test-chapter-2.md", content: this.generateTestChapter(2) },
-        { name: "test-character-scene.md", content: this.generateCharacterScene() },
-        { name: "test-short.md", content: "This is a short test file with minimal content." },
-        { name: "test-long.md", content: this.generateLongContent() },
-        { name: "test-adversarial.md", content: "ADVERSARIAL_WORD_START_" + "X".repeat(1e3) + "_ADVERSARIAL_WORD_END" }
-      ];
-      for (const testFile of testFiles) {
-        const path = `${this.testFolder}/${testFile.name}`;
-        await this.plugin.vaultService.writeFile(path, testFile.content);
-        this.testFiles.push(path);
-        this.logEntry(`\u2713 Created test file: ${testFile.name} (${testFile.content.split(/\s+/).length} words)`);
-      }
-      const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
-      this.logEntry(`Phase 1 completed in ${phaseDuration}s`);
-      this.logEntry("");
-    } catch (error2) {
-      this.logEntry(`\u2717 Phase 1 failed`);
-      this.logEntry(`  WHERE: phase1_Setup`);
-      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-    }
-  }
-  async phase2_Indexing() {
-    this.logEntry("--- Phase 2: Indexing Tests ---");
-    const phaseStart = Date.now();
-    try {
-      this.plugin.embeddingsIndex.enqueueFullRescan();
-      for (const filePath of this.testFiles) {
-        this.plugin.embeddingsIndex.queueUpdateFile(filePath);
-      }
-      await new Promise((resolve) => setTimeout(resolve, 2500));
-      const status = this.plugin.embeddingsIndex.getStatus();
-      this.logEntry(`Indexed files: ${status.indexedFiles}, chunks: ${status.indexedChunks}, queued: ${status.queued}`);
-      const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
-      this.logEntry(`Phase 2 completed in ${phaseDuration}s`);
-      this.logEntry("");
-    } catch (error2) {
-      this.logEntry(`\u2717 Phase 2 failed`);
-      this.logEntry(`  WHERE: phase2_Indexing`);
-      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-    }
-  }
-  async phase3_FileOperations() {
-    this.logEntry("--- Phase 3: File Operations ---");
-    const phaseStart = Date.now();
-    try {
-      for (const path of [...this.testFiles]) {
-        const newPath = path.replace(".md", "-copy.md");
-        const content = await this.plugin.vaultService.readFile(path);
-        await this.plugin.vaultService.writeFile(newPath, content);
-        this.testFiles.push(newPath);
-        this.logEntry(`\u2713 Copied file: ${path} -> ${newPath}`);
-      }
-      const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
-      this.logEntry(`Phase 3 completed in ${phaseDuration}s`);
-      this.logEntry("");
-    } catch (error2) {
-      this.logEntry(`\u2717 Phase 3 failed`);
-      this.logEntry(`  WHERE: phase3_FileOperations`);
-      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-    }
-  }
-  async phase4_WritingModes() {
-    this.logEntry("--- Phase 4: Writing Modes ---");
-    const phaseStart = Date.now();
-    try {
-      if (!this.plugin.settings.apiKey?.trim()) {
-        this.logEntry("API key not set; writing mode tests skipped.");
-      } else {
-        this.logEntry("Running live generation (chapter) with current API/provider/model...");
-        const prompt = [
-          "Write a 30-word noir scene in a rainy alley.",
-          "Include a clue (matchbook) and a terse line of dialogue.",
-          "Keep it concise."
-        ].join(" ");
-        const settings = {
-          ...this.plugin.settings,
-          generationMode: "single"
-        };
-        const genStart = Date.now();
-        const output = await this.plugin.aiClient.generate(prompt, settings);
-        const genDuration = ((Date.now() - genStart) / 1e3).toFixed(2);
-        const snippet = typeof output === "string" ? output.slice(0, 140) : JSON.stringify(output).slice(0, 140);
-        this.logEntry(`\u2713 Generation succeeded in ${genDuration}s (first 140 chars): ${snippet}`);
-      }
-      const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
-      this.logEntry(`Phase 4 completed in ${phaseDuration}s`);
-      this.logEntry("");
-    } catch (error2) {
-      this.logEntry(`\u2717 Phase 4 failed`);
-      this.logEntry(`  WHERE: phase4_WritingModes`);
-      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-    }
-  }
-  async phase5_Retrieval() {
-    this.logEntry("--- Phase 5: Retrieval Tests ---");
-    const phaseStart = Date.now();
-    try {
-      const query = this.plugin.queryBuilder.build({
-        mode: "chapter",
-        activeFilePath: this.plugin.settings.book2Path,
-        primaryText: "test query for retrieval",
-        directorNotes: ""
-      });
-      this.logEntry("Running hybrid retrieval (hash + BM25 + semantic fused)...");
-      const hybridStart = Date.now();
-      const hybridResults = await this.plugin.retrievalService.search(query, { limit: 32 });
-      const hybridDuration = ((Date.now() - hybridStart) / 1e3).toFixed(2);
-      this.logEntry(`\u2713 Hybrid retrieval completed in ${hybridDuration}s: ${hybridResults.length} results`);
-      if (hybridResults.length > 0) {
-        this.logEntry("  Top results (first 5):");
-        hybridResults.slice(0, 5).forEach((result, idx) => {
-          this.logEntry(`    ${idx + 1}. ${result.path} (score: ${result.score.toFixed(3)})`);
-        });
-      } else {
-        this.logEntry("  \u26A0 No retrieval results found");
-      }
-      const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
-      this.logEntry(`Phase 5 completed in ${phaseDuration}s`);
-      this.logEntry("");
-    } catch (error2) {
-      this.logEntry(`\u2717 Phase 5 failed`);
-      this.logEntry(`  WHERE: phase5_Retrieval`);
-      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-    }
-  }
-  async phase6_Cleanup() {
-    this.logEntry("--- Phase 6: Cleanup ---");
-    const phaseStart = Date.now();
-    try {
-      if (this.options.skipCleanup) {
-        this.logEntry("Cleanup skipped (per options)");
-        return;
-      }
-      for (const path of this.testFiles) {
-        await this.deletePath(path);
-        this.logEntry(`\u2713 Deleted test file: ${path}`);
-      }
-      for (const folder of this.testFolders) {
-        await this.deletePath(folder);
-        this.logEntry(`\u2713 Deleted test folder: ${folder}`);
-      }
-      const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
-      this.logEntry(`Phase 6 completed in ${phaseDuration}s`);
-      this.logEntry("");
-    } catch (error2) {
-      this.logEntry(`\u2717 Phase 6 failed`);
-      this.logEntry(`  WHERE: phase6_Cleanup`);
-      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-    }
-  }
-  async phase7_CharacterOperations() {
-    this.logEntry("--- Phase 7: Character Operations ---");
-    const phaseStart = Date.now();
-    try {
-      let characterFolder = this.plugin.settings.characterFolder;
-      if (!characterFolder) {
-        characterFolder = "Characters";
-        this.logEntry(`\u26A0 Character folder not configured, using default: ${characterFolder}`);
-      } else {
-        this.logEntry(`Using configured character folder: ${characterFolder}`);
-      }
-      const folderCreated = await this.plugin.vaultService.createFolderIfNotExists(characterFolder);
-      if (folderCreated) {
-        this.logEntry(`\u2713 Created character folder: ${characterFolder}`);
-      } else {
-        this.logEntry(`\u2713 Character folder already exists: ${characterFolder}`);
-      }
-      this.logEntry("Character extraction/update tests skipped in this stress run.");
-      const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
-      this.logEntry(`Phase 7 completed in ${phaseDuration}s`);
-      this.logEntry("");
-    } catch (error2) {
-      this.logEntry(`\u2717 Phase 7 failed`);
-      this.logEntry(`  WHERE: phase7_CharacterOperations`);
-      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-    }
-  }
-  generateTestChapter(num) {
-    return `# Chapter ${num}
-
-This is a test chapter used for stress testing retrieval and indexing. It contains multiple paragraphs and headings to simulate realistic structure.
-
-## Scene 1
-Content for scene 1 of chapter ${num}. More text to build size.`;
-  }
-  generateCharacterScene() {
-    return "Alice speaks with Bob about the mission. Bob recalls the artifact. Alice notes that the vault is protected by ancient wards. Dialogue and action continue.";
-  }
-  generateLongContent() {
-    return new Array(200).fill("Long content for indexing test.").join(" ");
-  }
-  async phase8_RelayPipeline() {
-    this.logEntry("--- Phase 8: Relay Pipeline Tests ---");
-    const phaseStart = Date.now();
-    try {
-      this.logEntry("Verifying Relay Pipeline orchestration...");
-      const models = await this.plugin.ollamaModels.getModels();
-      this.logEntry(`\u2713 Model Discovery: Found ${models.length} models.`);
-      const ready = models.filter((m) => m.status === "ready");
-      if (ready.length === 0) {
-        this.logEntry("\u26A0 No ready Ollama models found. Skipping generation tests.");
-      } else {
-        this.logEntry(`\u2713 Ready Models: ${ready.map((m) => m.id).join(", ")}`);
-        this.logEntry("Testing bit-perfect Manifest Hashing...");
-        const testRunId = `test-run-${Date.now()}`;
-        const testManifestPath = `.gwriter/runs/${testRunId}/manifest.json`;
-        await this.plugin.vaultService.ensureParentFolder(testManifestPath);
-        await this.plugin.vaultService.writeFile(testManifestPath, JSON.stringify({
-          runId: testRunId,
-          timestamp: Date.now(),
-          status: "verified"
-        }));
-        const exists = await this.app.vault.adapter.exists(testManifestPath);
-        this.logEntry(exists ? "\u2713 Manifest written successfully." : "\u2717 Manifest writing failed.");
-        this.logEntry("Verifying Strict Replay logic...");
-        const ollamaVer = await this.plugin.ollamaModels.getOllamaVersion();
-        this.logEntry(`\u2713 Ollama Version: ${ollamaVer || "Unknown"}`);
-      }
-      const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
-      this.logEntry(`Phase 8 completed in ${phaseDuration}s`);
-      this.logEntry("");
-    } catch (error2) {
-      this.logEntry(`\u2717 Phase 8 failed`);
-      this.logEntry(`  WHERE: phase8_RelayPipeline`);
-      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-    }
-  }
-  async phase9_SemanticRobustness() {
-    this.logEntry("--- Phase 9: Semantic Robustness & Perf Gates ---");
-    const phaseStart = Date.now();
-    try {
-      this.logEntry("Testing Semantic Adversarial fixtures...");
-      this.logEntry("\u2713 Testing pronoun ambiguity resolution...");
-      this.logEntry("\u2713 Testing distant timeline contradiction detection...");
-      this.logEntry("Testing Explainability Perf Gates...");
-      const hoverStart = Date.now();
-      await new Promise((r) => setTimeout(r, 50));
-      const hoverLatency = Date.now() - hoverStart;
-      if (hoverLatency < 150) {
-        this.logEntry(`\u2713 Hover Latency Gate: ${hoverLatency}ms (PASS < 150ms)`);
-      } else {
-        this.logEntry(`\u2717 Hover Latency Gate: ${hoverLatency}ms (FAIL > 150ms)`);
-      }
-      this.logEntry("\u2713 Memory Growth Gate: Stable (PASS)");
-      const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
-      this.logEntry(`Phase 9 completed in ${phaseDuration}s`);
-      this.logEntry("");
-    } catch (error2) {
-      this.logEntry(`\u2717 Phase 9 failed`);
-      this.logEntry(`  WHERE: phase9_SemanticRobustness`);
-      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-    }
-  }
-  async phase10_StitchingAndSafety() {
-    this.logEntry("--- Phase 10: Stitching & Safety Gates ---");
-    const phaseStart = Date.now();
-    try {
-      this.logEntry("Testing Rolling Window orchestration...");
-      const runId = `st-run-${Date.now()}`;
-      const sessionId = "st-session-42";
-      const chunk1 = [
-        { id: "c1-p1", text: "This is the first paragraph of chunk one.", hash: "h1", status: "FINALIZED" },
-        { id: "c1-p2", text: "This is the second paragraph of chunk one.", hash: "h2", status: "FINALIZED" }
-      ];
-      const chunk2 = [
-        { id: "c2-p1", text: "This is the first paragraph of chunk two.", hash: "h3", status: "FINALIZED" }
-      ];
-      this.logEntry("\u2713 Rolling Window: Correctly handling multi-chunk transitions.");
-      this.logEntry("Testing User Protection (USER_DIRTY gate)...");
-      const dirtyPara = { id: "c1-p1", text: "Edited by user.", hash: "h1-mod", status: "USER_DIRTY" };
-      this.logEntry("\u2713 User Protection: Successfully blocked AI refinement on manual edits.");
-      this.logEntry("Testing Hash Gate (Stale patch prevention)...");
-      this.logEntry("\u2713 Hash Gate: Successfully rejected patch due to character offset drift.");
-      this.logEntry("Testing Budget Gate (Runaway edit prevention)...");
-      this.logEntry("\u2713 Budget Gate: Capped excessive paragraph mutations (PASS < 800 chars).");
-      const phaseDuration = ((Date.now() - phaseStart) / 1e3).toFixed(2);
-      this.logEntry(`Phase 10 completed in ${phaseDuration}s`);
-      this.logEntry("");
-    } catch (error2) {
-      this.logEntry(`\u2717 Phase 10 failed`);
-      this.logEntry(`  WHERE: phase10_StitchingAndSafety`);
-      this.logEntry(`  WHAT: ${error2 instanceof Error ? error2.message : String(error2)}`);
-    }
-  }
-  async deletePath(path) {
-    const entry = this.app.vault.getAbstractFileByPath(path);
-    if (entry instanceof import_obsidian7.TFile || entry instanceof import_obsidian7.TFolder) {
-      await this.app.vault.delete(entry);
-    } else {
-      try {
-        await this.app.vault.adapter.remove(path);
-      } catch {
-      }
-    }
-  }
-};
-
-// services/ContextSafety.ts
-var RAM_TIERS = [8, 16, 24, 32, 64, 128];
-var MODEL_TIERS = ["7b", "13b", "20b", "30b", "40b", "50b", "60b", "70b"];
-var RISK_PROFILES = ["safe", "moderate", "aggressive"];
-var BASE_TABLE = {
-  //         7B      13B     20B     30B     40B     50B     60B     70B
-  8: { "7b": 4096, "13b": 0, "20b": 0, "30b": 0, "40b": 0, "50b": 0, "60b": 0, "70b": 0 },
-  16: { "7b": 8192, "13b": 0, "20b": 0, "30b": 0, "40b": 0, "50b": 0, "60b": 0, "70b": 0 },
-  24: { "7b": 16384, "13b": 12288, "20b": 4096, "30b": 0, "40b": 0, "50b": 0, "60b": 0, "70b": 0 },
-  32: { "7b": 24576, "13b": 20480, "20b": 16384, "30b": 12288, "40b": 4096, "50b": 2048, "60b": 2048, "70b": 0 },
-  64: { "7b": 49152, "13b": 40960, "20b": 32768, "30b": 16384, "40b": 8192, "50b": 4096, "60b": 4096, "70b": 4096 },
-  128: { "7b": 65536, "13b": 65536, "20b": 65536, "30b": 32768, "40b": 16384, "50b": 8192, "60b": 8192, "70b": 65536 }
-};
-var PROFILE_MULTIPLIER = {
-  safe: 1,
-  // Use base value as-is
-  moderate: 1.5,
-  // 50% more headroom
-  aggressive: 2
-  // Double (risky)
-};
-var PROFILE_CONTEXT_CAP = {
-  //        Safe      Moderate   Aggressive
-  8: { safe: 2048, moderate: 4096, aggressive: 6144 },
-  16: { safe: 4096, moderate: 8192, aggressive: 12288 },
-  24: { safe: 6144, moderate: 12288, aggressive: 16384 },
-  32: { safe: 8192, moderate: 12288, aggressive: 16384 },
-  64: { safe: 16384, moderate: 20480, aggressive: 32768 },
-  128: { safe: 32768, moderate: 49152, aggressive: 65536 }
-};
-function quantize(n) {
-  return Math.max(0, Math.floor(n / 1024) * 1024);
-}
-function detectModelTier(modelName) {
-  const lower = modelName.toLowerCase();
-  if (lower.includes("70b") || lower.includes("72b"))
-    return "70b";
-  if (lower.includes("65b") || lower.includes("60b"))
-    return "60b";
-  if (lower.includes("50b") || lower.includes("52b"))
-    return "50b";
-  if (lower.includes("40b") || lower.includes("42b") || lower.includes("45b"))
-    return "40b";
-  if (lower.includes("30b") || lower.includes("32b") || lower.includes("34b") || lower.includes("35b"))
-    return "30b";
-  if (lower.includes("20b") || lower.includes("22b") || lower.includes("21b"))
-    return "20b";
-  if (lower.includes("13b") || lower.includes("14b") || lower.includes("12b"))
-    return "13b";
-  if (lower.includes("7b") || lower.includes("8b") || lower.includes("9b"))
-    return "7b";
-  if (lower.includes("3b") || lower.includes("1b") || lower.includes("0.5b"))
-    return "7b";
-  return "7b";
-}
-function getUsageWarning(sliderValue, derivedCap) {
-  if (derivedCap <= 0)
-    return "danger";
-  const ratio = sliderValue / derivedCap;
-  if (ratio >= 0.95)
-    return "danger";
-  if (ratio >= 0.8)
-    return "caution";
-  return "safe";
-}
-function getSliderBounds(maxCap) {
-  const minCap = quantize(maxCap / 2);
-  return {
-    min: Math.max(minCap, 1024),
-    max: maxCap
-  };
-}
-function deriveCap(ramTier, modelTier, profile, modelContextLimit, sliderValue) {
-  const base2 = BASE_TABLE[ramTier][modelTier];
-  if (base2 <= 0) {
-    return {
-      cap: 0,
-      isBlocked: true,
-      isVerified: modelContextLimit !== null,
-      ramCap: 0,
-      modelLimit: modelContextLimit,
-      warning: "danger"
-    };
-  }
-  const scaled = base2 * PROFILE_MULTIPLIER[profile];
-  const profileCap = PROFILE_CONTEXT_CAP[ramTier][profile];
-  const ramCap = quantize(Math.min(scaled, profileCap));
-  const isVerified = modelContextLimit !== null;
-  const capBeforeSlider = isVerified ? quantize(Math.min(ramCap, modelContextLimit)) : ramCap;
-  const finalCap = sliderValue !== void 0 && sliderValue > 0 ? quantize(Math.min(capBeforeSlider, sliderValue)) : capBeforeSlider;
-  const warning = sliderValue !== void 0 ? getUsageWarning(sliderValue, capBeforeSlider) : "safe";
-  return {
-    cap: finalCap,
-    isBlocked: false,
-    isVerified,
-    ramCap,
-    modelLimit: modelContextLimit,
-    warning
-  };
-}
-function getSafeContextLimit(ramTier, modelName, profile, modelContextLimit, sliderValue) {
-  const modelTier = detectModelTier(modelName);
-  return deriveCap(ramTier, modelTier, profile, modelContextLimit, sliderValue);
-}
-function isModelBlocked(ramTier, modelName) {
-  const modelTier = detectModelTier(modelName);
-  return BASE_TABLE[ramTier][modelTier] <= 0;
-}
-function getBlockedModelError(ramTier, modelName) {
-  const modelTier = detectModelTier(modelName);
-  let minRam = null;
-  for (const rt of RAM_TIERS) {
-    if (BASE_TABLE[rt][modelTier] > 0) {
-      minRam = rt;
-      break;
-    }
-  }
-  if (minRam) {
-    return `Model "${modelName}" (${modelTier}) cannot run on ${ramTier}GB RAM. Requires at least ${minRam}GB.`;
-  } else {
-    return `Model "${modelName}" (${modelTier}) is not supported in the current safety tables.`;
-  }
-}
-function assertRamMonotonicity(profile) {
-  for (const tier of MODEL_TIERS) {
-    let prevCap = -1;
-    for (const ram of RAM_TIERS) {
-      const base2 = BASE_TABLE[ram][tier];
-      const scaled = base2 * PROFILE_MULTIPLIER[profile];
-      const profileCap = PROFILE_CONTEXT_CAP[ram][profile];
-      const cap = Math.min(scaled, profileCap);
-      if (cap > 0 && prevCap > 0 && cap < prevCap) {
-        throw new Error(
-          `RAM monotonicity violation [${profile}]: ${tier} @ ${ram}GB (${cap}) < previous (${prevCap})`
-        );
-      }
-      if (cap > 0)
-        prevCap = cap;
-    }
-  }
-}
-function assertProfileOrdering() {
-  for (const ram of RAM_TIERS) {
-    for (const tier of MODEL_TIERS) {
-      const s = deriveCap(ram, tier, "safe", null).cap;
-      const m = deriveCap(ram, tier, "moderate", null).cap;
-      const a = deriveCap(ram, tier, "aggressive", null).cap;
-      if (s === 0 && m === 0 && a === 0)
-        continue;
-      if (s > m || m > a) {
-        throw new Error(
-          `Profile ordering violation: ${tier} @ ${ram}GB: safe=${s} > moderate=${m} or moderate=${m} > aggressive=${a}`
-        );
-      }
-    }
-  }
-}
-function runInvariantChecks() {
-  assertRamMonotonicity("safe");
-  assertRamMonotonicity("moderate");
-  assertRamMonotonicity("aggressive");
-  assertProfileOrdering();
-  console.log("[ContextSafety] All invariants passed");
-}
-
-// ui/SettingsTab.ts
 var OPENAI_MODELS = [
   { value: "gpt-5.2-pro", label: "GPT-5.2 Pro" },
   { value: "gpt-5.2-thinking", label: "GPT-5.2 Thinking" },
@@ -28614,23 +27970,6 @@ var OPENROUTER_MODELS = [
   { value: "google/gemini-1.5-flash", label: "Google Gemini 1.5 Flash" },
   { value: "google/gemini-pro", label: "Google Gemini Pro" }
 ];
-var MAJOR_OLLAMA_MODELS = [
-  "llama3.1",
-  "llama3.1:70b",
-  "llama3.1:8b",
-  "mistral",
-  "gemma2",
-  "gemma2:27b",
-  "gemma2:9b",
-  "phi3",
-  "phi3:medium",
-  "phi3:mini",
-  "qwen2",
-  "codellama",
-  "starcoder2",
-  "nomic-embed-text",
-  "brokenbread"
-];
 function getModelsForProvider(provider) {
   switch (provider) {
     case "openai":
@@ -28645,7 +27984,7 @@ function getModelsForProvider(provider) {
       return [];
   }
 }
-var SettingsTab = class extends import_obsidian10.PluginSettingTab {
+var SettingsTab = class extends import_obsidian8.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -28653,7 +27992,8 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
       try {
         if (this.containerEl?.isConnected)
           this.display();
-      } catch {
+      } catch (err) {
+        console.debug("[SettingsTab] Failed to refresh settings display:", err);
       }
     };
     this.plugin.registerEvent(this.app.vault.on("create", refreshIfVisible));
@@ -28668,23 +28008,23 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     const addSection = (title, desc) => {
-      new import_obsidian10.Setting(containerEl).setName(title).setHeading();
+      new import_obsidian8.Setting(containerEl).setName(title).setHeading();
       if (desc) {
         const p = containerEl.createEl("p", { text: desc });
         p.style.marginTop = "-8px";
       }
     };
     addSection("API & Model", "Provider, key, and model selection");
-    new import_obsidian10.Setting(containerEl).setName("API key").setDesc("Your AI API key (stored securely)").addText((text2) => text2.setPlaceholder("Enter API key").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
+    new import_obsidian8.Setting(containerEl).setName("API key").setDesc("Your AI API key (stored securely)").addText((text2) => text2.setPlaceholder("Enter API key").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
       this.plugin.settings.apiKey = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian10.Setting(containerEl).setName("Generation mode").setDesc("Single mode: fast, single model. Multi mode: higher quality with multiple models.").addDropdown((dropdown) => dropdown.addOption("single", "Single mode").addOption("multi", "Multi mode").setValue(this.plugin.settings.generationMode).onChange(async (value) => {
+    new import_obsidian8.Setting(containerEl).setName("Generation mode").setDesc("Single mode: fast, single model. Multi mode: higher quality with multiple models.").addDropdown((dropdown) => dropdown.addOption("single", "Single mode").addOption("multi", "Multi mode").setValue(this.plugin.settings.generationMode).onChange(async (value) => {
       this.plugin.settings.generationMode = value;
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian10.Setting(containerEl).setName("API provider").setDesc("Choose your AI provider. Openrouter is recommended for multi mode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "Openrouter (recommended)").addOption("openai", "Openai").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
+    new import_obsidian8.Setting(containerEl).setName("API provider").setDesc("Choose your AI provider. Openrouter is recommended for multi mode.").addDropdown((dropdown) => dropdown.addOption("openrouter", "Openrouter (recommended)").addOption("openai", "Openai").addOption("anthropic", "Anthropic").addOption("gemini", "Gemini").setValue(this.plugin.settings.apiProvider).onChange(async (value) => {
       this.plugin.settings.apiProvider = value;
       const models = getModelsForProvider(value);
       const currentModel = this.plugin.settings.model;
@@ -28694,7 +28034,7 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian10.Setting(containerEl).setName("Model").setDesc("AI model to use").addDropdown((dropdown) => {
+    new import_obsidian8.Setting(containerEl).setName("Model").setDesc("AI model to use").addDropdown((dropdown) => {
       const models = getModelsForProvider(this.plugin.settings.apiProvider);
       models.forEach((model) => {
         dropdown.addOption(model.value, model.label);
@@ -28705,154 +28045,39 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    addSection("Local AI (Ollama)", "Local generation and embedding settings.");
-    new import_obsidian10.Setting(containerEl).setName("Ollama Base URL").setDesc("The URL where your local Ollama server is running.").addText((text2) => text2.setPlaceholder("http://127.0.0.1:11434").setValue(this.plugin.settings.ollamaBaseUrl).onChange(async (value) => {
-      this.plugin.settings.ollamaBaseUrl = value;
-      await this.plugin.saveSettings();
-    }));
-    this.renderMemorySection(containerEl, addSection);
-    addSection("Co-Authoring Relay", "Advanced settings for Phases 5 and 6.");
-    new import_obsidian10.Setting(containerEl).setName("Generation Mode").setDesc("Local uses chunked multi-stage pipeline. Cloud uses monolithic single-call primitive.").addDropdown((dropdown) => dropdown.addOption("local", "Local (Ollama)").addOption("cloud", "Cloud (API)").setValue(this.plugin.settings.relayMode || "local").onChange(async (value) => {
-      this.plugin.settings.relayMode = value;
-      await this.plugin.saveSettings();
-      this.display();
-    }));
-    if (this.plugin.settings.relayMode === "cloud") {
-      new import_obsidian10.Setting(containerEl).setName("Cloud Model").setDesc("Single heavyweight model for monolithic generation (one model, one prompt, one output).").addText((text2) => text2.setPlaceholder("gpt-4o").setValue(this.plugin.settings.relayCloudModel || "").onChange(async (value) => {
-        this.plugin.settings.relayCloudModel = value;
-        await this.plugin.saveSettings();
-      }));
-      new import_obsidian10.Setting(containerEl).setName("Max Context Window").setDesc("Maximum tokens to pack into the cloud prompt.").addText((text2) => text2.setPlaceholder("128000").setValue(String(this.plugin.settings.relayMaxContextWindow || 128e3)).onChange(async (value) => {
-        this.plugin.settings.relayMaxContextWindow = Number(value);
-        await this.plugin.saveSettings();
-      }));
-      new import_obsidian10.Setting(containerEl).setName("Hard Budget (USD)").setDesc("Max estimated cost per run before blocking.").addText((text2) => text2.setPlaceholder("1.00").setValue(String(this.plugin.settings.relayCostHardBudget || 1)).onChange(async (value) => {
-        this.plugin.settings.relayCostHardBudget = Number(value);
-        await this.plugin.saveSettings();
-      }));
-      new import_obsidian10.Setting(containerEl).setName("Style Signature").setDesc('Add "Golden Paragraphs" that define your voice (one per line).').addTextArea((text2) => text2.setPlaceholder("The rain lashed against the windows like a desperate lover...").setValue((this.plugin.settings.relayStyleSignature || []).join("\n\n")).onChange(async (value) => {
-        this.plugin.settings.relayStyleSignature = value.split("\n\n").filter((p) => p.trim());
-        await this.plugin.saveSettings();
-      }));
-    }
-    new import_obsidian10.Setting(containerEl).setName("Relay Smart Model (Primary)").setDesc("Local AI model for writing and analysis. Single-model mode keeps Ollama warm; mechanical tasks run in strict low-token mode.").addDropdown(async (dropdown) => {
-      const installed = await this.plugin.ollamaModels.getModels().catch(() => []);
-      const catalog = this.plugin.settings.verifiedModelsCatalog || [];
-      const allOptions = /* @__PURE__ */ new Set([
-        ...MAJOR_OLLAMA_MODELS,
-        ...installed.map((m) => m.id),
-        ...catalog
-      ]);
-      allOptions.forEach((id) => dropdown.addOption(id, id));
-      dropdown.setValue(this.plugin.settings.relaySmartModel).onChange(async (value) => {
-        this.plugin.settings.relaySmartModel = value;
-        await this.plugin.saveSettings();
-      });
-    }).addButton((btn) => btn.setButtonText("Pull").setTooltip("Download this model to Ollama").onClick(async () => {
-      await this.pullModelWithProgress(this.plugin.settings.relaySmartModel, btn);
-    }));
-    new import_obsidian10.Setting(containerEl).setName("Relay Embedding Model (Semantic)").setDesc("Model used for local vector indexing (e.g., nomic-embed-text).").addDropdown(async (dropdown) => {
-      const installed = await this.plugin.ollamaModels.getModels().catch(() => []);
-      const catalog = this.plugin.settings.verifiedModelsCatalog || [];
-      const allOptions = /* @__PURE__ */ new Set([
-        "nomic-embed-text",
-        ...installed.map((m) => m.id),
-        ...catalog
-      ]);
-      allOptions.forEach((id) => dropdown.addOption(id, id));
-      dropdown.setValue(this.plugin.settings.relayEmbeddingModel).onChange(async (value) => {
-        this.plugin.settings.relayEmbeddingModel = value;
-        await this.plugin.saveSettings();
-        this.plugin.recreateEmbeddingProvider();
-      });
-    }).addButton((btn) => btn.setButtonText("Pull").onClick(async () => {
-      await this.pullModelWithProgress(this.plugin.settings.relayEmbeddingModel, btn);
-    }));
-    let customModelToAdd = "";
-    new import_obsidian10.Setting(containerEl).setName("Add Custom Ollama Model").setDesc("Enter a model name to verify and add to your persistent catalog.").addText((text2) => text2.setPlaceholder("e.g., hermes-pro-3").onChange((v) => customModelToAdd = v)).addButton((btn) => btn.setButtonText("Verify & Add").onClick(async () => {
-      if (!customModelToAdd)
-        return;
-      const normalizedId = customModelToAdd.toLowerCase().trim();
-      btn.setDisabled(true);
-      btn.setButtonText("Verifying...");
-      try {
-        const installed = await this.plugin.ollamaModels.getModels();
-        const isInstalled = installed.some((m) => {
-          const installedId = m.id.toLowerCase();
-          const normalizedBase = normalizedId.split(":")[0];
-          const installedBase = installedId.split(":")[0];
-          return installedId === normalizedId || installedId.startsWith(normalizedId + ":") || normalizedId.startsWith(installedId + ":") || installedBase === normalizedBase;
-        });
-        if (isInstalled) {
-          const catalog = this.plugin.settings.verifiedModelsCatalog || [];
-          if (!catalog.includes(normalizedId)) {
-            this.plugin.settings.verifiedModelsCatalog = [...catalog, normalizedId];
-            await this.plugin.saveSettings();
-            new import_obsidian10.Notice(`\u2705 Verified and added ${normalizedId} to catalog.`);
-            this.display();
-          } else {
-            new import_obsidian10.Notice("Model already in catalog.");
-          }
-        } else {
-          if (normalizedId.length > 2) {
-            const catalog = this.plugin.settings.verifiedModelsCatalog || [];
-            if (!catalog.includes(normalizedId)) {
-              this.plugin.settings.verifiedModelsCatalog = [...catalog, normalizedId];
-              await this.plugin.saveSettings();
-              new import_obsidian10.Notice(`\u26A0\uFE0F Added '${normalizedId}' to catalog (not yet seen in your library).`);
-              this.display();
-            }
-          } else {
-            new import_obsidian10.Notice(`\u274C Invalid model name: ${normalizedId}`);
-          }
-        }
-      } catch (e) {
-        new import_obsidian10.Notice(`\u274C Verification failed: ${e.message}`);
-      } finally {
-        btn.setDisabled(false);
-        btn.setButtonText("Verify & Add");
-      }
-    }));
-    new import_obsidian10.Setting(containerEl).setName("Max words per chunk").setDesc("Target word count for each relay iteration.").addText((text2) => text2.setPlaceholder("500").setValue(String(this.plugin.settings.maxChunkWords)).onChange(async (value) => {
-      const parsed = parseInt(value, 10);
+    new import_obsidian8.Setting(containerEl).setName("Max words per chunk").setDesc("Target word count for each relay iteration.").addText((text2) => text2.setPlaceholder("500").setValue(String(this.plugin.settings.maxChunkWords)).onChange(async (value) => {
+      const parsed = Number.parseInt(value, 10);
       if (Number.isFinite(parsed)) {
         this.plugin.settings.maxChunkWords = Math.max(100, Math.min(2e3, parsed));
         await this.plugin.saveSettings();
       }
     }));
-    new import_obsidian10.Setting(containerEl).setName("Test Now (Diagnostics)").setDesc("Run a comprehensive check of all systems based on your current settings (Local or Cloud).").addButton(
+    new import_obsidian8.Setting(containerEl).setName("Test Now (Diagnostics)").setDesc("Run a comprehensive check of all systems based on your current settings.").addButton(
       (btn) => btn.setButtonText("Run Diagnostics").setCta().onClick(async () => {
         btn.setDisabled(true);
         btn.setButtonText("Testing...");
         try {
           const report = await this.plugin.diagnosticsService.runDiagnostics();
           if (report.overallStatus === "PASS") {
-            new import_obsidian10.Notice("\u2705 All systems PASS! Your configuration is healthy.");
+            new import_obsidian8.Notice("All systems PASS! Your configuration is healthy.");
           } else if (report.overallStatus === "WARN") {
             const warnings = report.results.filter((r) => r.status === "WARN");
-            new import_obsidian10.Notice(`\u26A0\uFE0F Systems healthy with ${warnings.length} warnings. Check console/artifacts for details.`);
+            new import_obsidian8.Notice(`Systems healthy with ${warnings.length} warnings. Check console/artifacts for details.`);
           } else {
             const fails = report.results.filter((r) => r.status === "FAIL");
-            new import_obsidian10.Notice(`\u274C ${fails.length} systems FAILED. Generation is blocked. Check console/artifacts.`);
+            new import_obsidian8.Notice(`${fails.length} systems FAILED. Generation is blocked. Check console/artifacts.`);
           }
-          console.log("[Diagnostics] Full Report:", report);
+          console.debug("[Diagnostics] Full Report:", report);
         } catch (err) {
-          new import_obsidian10.Notice(`\u274C Diagnostics failed: ${err instanceof Error ? err.message : String(err)}`);
+          new import_obsidian8.Notice(`Diagnostics failed: ${err instanceof Error ? err.message : String(err)}`);
         } finally {
           btn.setDisabled(false);
           btn.setButtonText("Run Diagnostics");
         }
       })
     );
-    new import_obsidian10.Setting(containerEl).setName("Open Ollama setup wizard").setDesc("Step-by-step instructions to install Ollama, pull the model, and verify connectivity.").addButton(
-      (btn) => btn.setButtonText("Open wizard").onClick(() => {
-        const { OllamaSetupWizardModal: OllamaSetupWizardModal2 } = (init_OllamaSetupWizardModal(), __toCommonJS(OllamaSetupWizardModal_exports));
-        const modal = new OllamaSetupWizardModal2(this.app, this.plugin);
-        modal.open();
-      })
-    );
     addSection("Retrieval scope", "Choose included folders for this project.");
-    new import_obsidian10.Setting(containerEl).setName("Profile").setDesc("Select which folders to include for retrieval/indexing (applies to all features).").addButton(
+    new import_obsidian8.Setting(containerEl).setName("Profile").setDesc("Select which folders to include for retrieval/indexing (applies to all features).").addButton(
       (btn) => btn.setButtonText("Open profile picker").onClick(() => {
         const { ProfilePickerModal: ProfilePickerModal2 } = (init_ProfilePickerModal(), __toCommonJS(ProfilePickerModal_exports));
         new ProfilePickerModal2(this.plugin).open();
@@ -28862,14 +28087,14 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
     const status = this.plugin.embeddingsIndex.getStatus();
     const statusEl = containerEl.createEl("div", {
       cls: "setting-item-description",
-      text: `\u{1F4CA} Index Status: ${status.indexedChunks} chunks across ${status.indexedFiles} files${status.queued > 0 ? ` | Queued: ${status.queued}` : ""}`
+      text: `Index Status: ${status.indexedChunks} chunks across ${status.indexedFiles} files${status.queued > 0 ? ` | Queued: ${status.queued}` : ""}`
     });
     statusEl.style.marginBottom = "10px";
     statusEl.style.padding = "8px";
     statusEl.style.backgroundColor = "var(--background-secondary)";
     statusEl.style.borderRadius = "4px";
-    new import_obsidian10.Setting(containerEl).setName("Semantic Index Management").setDesc("Manually trigger a full rescan of your vault or clear the local index.").addButton((btn) => {
-      let reindexBtn = btn;
+    new import_obsidian8.Setting(containerEl).setName("Semantic Index Management").setDesc("Manually trigger a full rescan of your vault or clear the local index.").addButton((btn) => {
+      const reindexBtn = btn;
       reindexBtn.setButtonText("Re-index Vault");
       const onStart = (data) => {
         reindexBtn.setDisabled(true);
@@ -28882,7 +28107,7 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         reindexBtn.setDisabled(false);
         reindexBtn.setButtonText("Re-index Vault");
         const newStatus = this.plugin.embeddingsIndex.getStatus();
-        statusEl.textContent = `\u{1F4CA} Index Status: ${newStatus.indexedChunks} chunks across ${newStatus.indexedFiles} files`;
+        statusEl.textContent = `Index Status: ${newStatus.indexedChunks} chunks across ${newStatus.indexedFiles} files`;
       };
       relayEventBus.on("index:start", onStart);
       relayEventBus.on("index:progress", onProgress);
@@ -28893,19 +28118,19 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         this.plugin.embeddingsIndex.enqueueFullRescan();
       });
     }).addButton((btn) => btn.setButtonText("Clear Index").setWarning().onClick(async () => {
-      if (confirm("Are you sure? This will delete your entire local semantic index and require a full rebuild.")) {
+      if (globalThis.confirm("Are you sure? This will delete your entire local semantic index and require a full rebuild.")) {
         await this.plugin.embeddingsIndex.clearIndex();
-        new import_obsidian10.Notice("Index cleared successfully.");
+        new import_obsidian8.Notice("Index cleared successfully.");
         this.display();
       }
     }));
-    new import_obsidian10.Setting(containerEl).setName("Enable semantic retrieval").setDesc("Build a local index to retrieve relevant notes from the vault. If disabled, retrieval uses heuristic matching only.").addToggle(
+    new import_obsidian8.Setting(containerEl).setName("Enable semantic retrieval").setDesc("Build a local index to retrieve relevant notes from the vault. If disabled, retrieval uses heuristic matching only.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableSemanticIndex)).onChange(async (value) => {
         this.plugin.settings.retrievalEnableSemanticIndex = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian10.Setting(containerEl).setName("Semantic backend").setDesc("Choose which local semantic retrieval method to use. Hash is fast and reliable.").addDropdown((dropdown) => {
+    new import_obsidian8.Setting(containerEl).setName("Semantic backend").setDesc("Choose which local semantic retrieval method to use. Hash is fast and reliable.").addDropdown((dropdown) => {
       dropdown.addOption("hash", "Hash (fast, reliable - recommended)");
       dropdown.setValue(this.plugin.settings.retrievalEmbeddingBackend ?? "hash");
       dropdown.onChange(async (value) => {
@@ -28913,26 +28138,20 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian10.Setting(containerEl).setName("Embedding Storage Mode").setDesc("Isolated: Private index. Auto: Share with StoryBoard. Manual: Use custom path.").addDropdown((dropdown) => dropdown.addOption("isolated", "Isolated (Private)").addOption("auto", "Auto (Shared Brain)").addOption("manual", "Manual").setValue(this.plugin.settings.embeddingStorageMode || "isolated").onChange(async (value) => {
+    new import_obsidian8.Setting(containerEl).setName("Embedding Storage Mode").setDesc("Isolated: Private index. Auto: Share with StoryBoard. Manual: Use custom path.").addDropdown((dropdown) => dropdown.addOption("isolated", "Isolated (Private)").addOption("auto", "Auto (Shared Brain)").addOption("manual", "Manual").setValue(this.plugin.settings.embeddingStorageMode || "isolated").onChange(async (value) => {
       this.plugin.settings.embeddingStorageMode = value;
       await this.plugin.saveSettings();
       this.display();
     }));
     if (this.plugin.settings.embeddingStorageMode === "manual") {
-      new import_obsidian10.Setting(containerEl).setName("Manual Shared Path").setDesc("Vault-relative path to the shared index directory.").addText((text2) => text2.setPlaceholder("Embeddings/shared-index").setValue(this.plugin.settings.manualSharedPath || "").onChange(async (value) => {
+      new import_obsidian8.Setting(containerEl).setName("Manual Shared Path").setDesc("Vault-relative path to the shared index directory.").addText((text2) => text2.setPlaceholder("Embeddings/shared-index").setValue(this.plugin.settings.manualSharedPath || "").onChange(async (value) => {
         this.plugin.settings.manualSharedPath = value;
         await this.plugin.saveSettings();
       }));
     }
-    new import_obsidian10.Setting(containerEl).setName("Enable reranking (experimental)").setDesc("Use a local CPU reranker to improve the ordering of retrieved snippets. Experimental feature - may fail if model files cannot be downloaded. If disabled, retrieval will work without reranking.").addToggle(
-      (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalEnableReranker)).onChange(async (value) => {
-        this.plugin.settings.retrievalEnableReranker = value;
-        await this.plugin.saveSettings();
-      })
-    );
-    new import_obsidian10.Setting(containerEl).setName("Retrieved items (limit)").setDesc("Maximum number of retrieved snippets to include in prompts.").addText(
+    new import_obsidian8.Setting(containerEl).setName("Retrieved items (limit)").setDesc("Maximum number of retrieved snippets to include in prompts.").addText(
       (text2) => text2.setPlaceholder("24").setValue(String(this.plugin.settings.retrievalTopK ?? 24)).onChange(async (value) => {
-        const parsed = parseInt(value, 10);
+        const parsed = Number.parseInt(value, 10);
         if (Number.isFinite(parsed)) {
           this.plugin.settings.retrievalTopK = Math.max(1, Math.min(100, parsed));
           await this.plugin.saveSettings();
@@ -28940,7 +28159,7 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
       })
     );
     addSection("External embeddings (optional)", "Use a remote embedding API instead of local hash/BM25.");
-    new import_obsidian10.Setting(containerEl).setName("Enable external embeddings").setDesc("\u26A0\uFE0F WARNING: Enabling this will make API calls during retrieval. Keep disabled to use only local hash/BM25 search (recommended).").addToggle((toggle) => {
+    new import_obsidian8.Setting(containerEl).setName("Enable external embeddings").setDesc("WARNING: Enabling this will make API calls during retrieval. Keep disabled to use only local hash/BM25 search (recommended).").addToggle((toggle) => {
       toggle.setValue(Boolean(this.plugin.settings.externalEmbeddingsEnabled ?? false));
       toggle.onChange(async (value) => {
         this.plugin.settings.externalEmbeddingsEnabled = value;
@@ -28950,7 +28169,7 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
       });
     });
     if (this.plugin.settings.externalEmbeddingsEnabled) {
-      new import_obsidian10.Setting(containerEl).setName("External embedding provider").setDesc("Choose which external embedding API to use. If configured, external embeddings will be used automatically instead of local hash embeddings.").addDropdown((dropdown) => {
+      new import_obsidian8.Setting(containerEl).setName("External embedding provider").setDesc("Choose which external embedding API to use. If configured, external embeddings will be used automatically instead of local hash embeddings.").addDropdown((dropdown) => {
         dropdown.addOption("openai", "OpenAI");
         dropdown.addOption("cohere", "Cohere");
         dropdown.addOption("google", "Google (Gemini)");
@@ -28972,7 +28191,7 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
           this.display();
         });
       });
-      new import_obsidian10.Setting(containerEl).setName("External embedding API key").setDesc("Your API key for the external embedding provider.").addText((text2) => {
+      new import_obsidian8.Setting(containerEl).setName("External embedding API key").setDesc("Your API key for the external embedding provider.").addText((text2) => {
         text2.setPlaceholder("Enter API key").setValue(this.plugin.settings.externalEmbeddingApiKey ?? "");
         text2.inputEl.type = "password";
         text2.onChange(async (value) => {
@@ -28983,14 +28202,14 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
       });
       const provider = this.plugin.settings.externalEmbeddingProvider ?? "openai";
       const defaultModel = provider === "openai" ? "text-embedding-3-small" : provider === "cohere" ? "embed-english-v3.0" : provider === "google" ? "gemini-embedding-001" : "";
-      new import_obsidian10.Setting(containerEl).setName("External embedding model").setDesc(`Model name for ${provider} (e.g., ${defaultModel}).`).addText(
+      new import_obsidian8.Setting(containerEl).setName("External embedding model").setDesc(`Model name for ${provider} (e.g., ${defaultModel}).`).addText(
         (text2) => text2.setPlaceholder(defaultModel).setValue(this.plugin.settings.externalEmbeddingModel ?? defaultModel).onChange(async (value) => {
           this.plugin.settings.externalEmbeddingModel = value;
           await this.plugin.saveSettings();
         })
       );
       if (provider === "google") {
-        new import_obsidian10.Setting(containerEl).setName("Use batch embeddings (Google Gemini)").setDesc("Use batch endpoint for more efficient embedding of multiple queries.").addToggle(
+        new import_obsidian8.Setting(containerEl).setName("Use batch embeddings (Google Gemini)").setDesc("Use batch endpoint for more efficient embedding of multiple queries.").addToggle(
           (toggle) => toggle.setValue(Boolean(this.plugin.settings.externalEmbeddingUseBatch)).onChange(async (value) => {
             this.plugin.settings.externalEmbeddingUseBatch = value;
             await this.plugin.saveSettings();
@@ -28998,14 +28217,14 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         );
       }
       if (provider === "custom") {
-        new import_obsidian10.Setting(containerEl).setName("Custom API URL").setDesc("Endpoint URL for your custom embedding API.").addText(
+        new import_obsidian8.Setting(containerEl).setName("Custom API URL").setDesc("Endpoint URL for your custom embedding API.").addText(
           (text2) => text2.setPlaceholder("https://api.example.com/embeddings").setValue(this.plugin.settings.externalEmbeddingApiUrl ?? "").onChange(async (value) => {
             this.plugin.settings.externalEmbeddingApiUrl = value;
             await this.plugin.saveSettings();
           })
         );
       }
-      new import_obsidian10.Setting(containerEl).setName("Test connection").setDesc("Test the external embedding API connection.").addButton(
+      new import_obsidian8.Setting(containerEl).setName("Test connection").setDesc("Test the external embedding API connection.").addButton(
         (btn) => btn.setButtonText("Test").onClick(async () => {
           btn.setDisabled(true);
           btn.setButtonText("Testing...");
@@ -29025,13 +28244,13 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
               }
             );
             if (response.ok) {
-              new import_obsidian10.Notice("External embedding API connection successful!", 3e3);
+              new import_obsidian8.Notice("External embedding API connection successful!", 3e3);
             } else {
               const error2 = await response.text();
-              new import_obsidian10.Notice(`External embedding API test failed: ${response.status} ${error2}`, 5e3);
+              new import_obsidian8.Notice(`External embedding API test failed: ${response.status} ${error2}`, 5e3);
             }
           } catch (error2) {
-            new import_obsidian10.Notice(`External embedding API test failed: ${error2 instanceof Error ? error2.message : String(error2)}`, 5e3);
+            new import_obsidian8.Notice(`External embedding API test failed: ${error2 instanceof Error ? error2.message : String(error2)}`, 5e3);
           } finally {
             btn.setDisabled(false);
             btn.setButtonText("Test");
@@ -29040,25 +28259,25 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
       );
     }
     addSection("Indexing & chunking", "Chunk size, overlap, heading split, and indexing pause.");
-    new import_obsidian10.Setting(containerEl).setName("Index chunk size (words)").setDesc("Controls how your notes are chunked for semantic retrieval. Larger chunks add more context but may reduce precision.").addText(
+    new import_obsidian8.Setting(containerEl).setName("Index chunk size (words)").setDesc("Controls how your notes are chunked for semantic retrieval. Larger chunks add more context but may reduce precision.").addText(
       (text2) => text2.setPlaceholder("500").setValue(String(this.plugin.settings.retrievalChunkWords ?? 500)).onChange(async (value) => {
-        const parsed = parseInt(value, 10);
+        const parsed = Number.parseInt(value, 10);
         if (Number.isFinite(parsed)) {
           this.plugin.settings.retrievalChunkWords = Math.max(200, Math.min(2e3, parsed));
           await this.plugin.saveSettings();
         }
       })
     );
-    new import_obsidian10.Setting(containerEl).setName("Index chunk overlap (words)").setDesc("Overlap helps preserve continuity between chunks.").addText(
+    new import_obsidian8.Setting(containerEl).setName("Index chunk overlap (words)").setDesc("Overlap helps preserve continuity between chunks.").addText(
       (text2) => text2.setPlaceholder("100").setValue(String(this.plugin.settings.retrievalChunkOverlapWords ?? 100)).onChange(async (value) => {
-        const parsed = parseInt(value, 10);
+        const parsed = Number.parseInt(value, 10);
         if (Number.isFinite(parsed)) {
           this.plugin.settings.retrievalChunkOverlapWords = Math.max(0, Math.min(500, parsed));
           await this.plugin.saveSettings();
         }
       })
     );
-    new import_obsidian10.Setting(containerEl).setName("Indexing heading level").setDesc("Preferred heading level used to split notes into coherent chunks for retrieval indexing. Falls back to word-window chunking if headings are missing.").addDropdown((dropdown) => {
+    new import_obsidian8.Setting(containerEl).setName("Indexing heading level").setDesc("Preferred heading level used to split notes into coherent chunks for retrieval indexing. Falls back to word-window chunking if headings are missing.").addDropdown((dropdown) => {
       dropdown.addOption("h1", "H1 (#)");
       dropdown.addOption("h2", "H2 (##)");
       dropdown.addOption("h3", "H3 (###)");
@@ -29069,21 +28288,21 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian10.Setting(containerEl).setName("Pause indexing").setDesc("Pauses background indexing for semantic retrieval.").addToggle(
+    new import_obsidian8.Setting(containerEl).setName("Pause indexing").setDesc("Pauses background indexing for semantic retrieval.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.retrievalIndexPaused)).onChange(async (value) => {
         this.plugin.settings.retrievalIndexPaused = value;
         await this.plugin.saveSettings();
       })
     );
     addSection("Generation logs", "Optional logging of prompts/outputs (excluded from retrieval).");
-    new import_obsidian10.Setting(containerEl).setName("Save generation logs").setDesc("Writes a log note per generation run with inputs, retrieved context, and output. Logs are excluded from retrieval.").addToggle(
+    new import_obsidian8.Setting(containerEl).setName("Save generation logs").setDesc("Writes a log note per generation run with inputs, retrieved context, and output. Logs are excluded from retrieval.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.generationLogsEnabled)).onChange(async (value) => {
         this.plugin.settings.generationLogsEnabled = value;
         await this.plugin.saveSettings();
         if (value) {
           const folderPath = this.plugin.settings.generationLogsFolder || "";
           const folder = this.app.vault.getAbstractFileByPath(folderPath);
-          if (!folderPath || !(folder instanceof import_obsidian10.TFolder)) {
+          if (!folderPath || !(folder instanceof import_obsidian8.TFolder)) {
             new TreePickerModal(this.plugin, {
               title: "Select or create generation logs folder",
               mode: "single",
@@ -29100,7 +28319,7 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         }
       })
     );
-    const generationLogsFolderSetting = new import_obsidian10.Setting(containerEl).setName("Generation logs folder").setDesc(`Current: ${this.plugin.settings.generationLogsFolder || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.generationLogsFolder ? this.plugin.settings.generationLogsFolder.split("/").pop() || "Select folder" : "Select folder").onClick(() => {
+    new import_obsidian8.Setting(containerEl).setName("Generation logs folder").setDesc(`Current: ${this.plugin.settings.generationLogsFolder || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.generationLogsFolder ? this.plugin.settings.generationLogsFolder.split("/").pop() || "Select folder" : "Select folder").onClick(() => {
       new TreePickerModal(this.plugin, {
         title: "Select or create generation logs folder",
         mode: "single",
@@ -29114,20 +28333,20 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         }
       }).open();
     }));
-    new import_obsidian10.Setting(containerEl).setName("Include full prompt in logs").setDesc("If enabled, logs include the full prompt text that was sent to the model.").addToggle(
+    new import_obsidian8.Setting(containerEl).setName("Include full prompt in logs").setDesc("If enabled, logs include the full prompt text that was sent to the model.").addToggle(
       (toggle) => toggle.setValue(Boolean(this.plugin.settings.generationLogsIncludePrompt)).onChange(async (value) => {
         this.plugin.settings.generationLogsIncludePrompt = value;
         await this.plugin.saveSettings();
       })
     );
     if (this.plugin.settings.generationMode === "multi") {
-      new import_obsidian10.Setting(containerEl).setName("Multi-mode strategy").setDesc("Draft + revision: fast draft + quality revision. Consensus + multi-stage: maximum quality (slower, more expensive).").addDropdown((dropdown) => dropdown.addOption("draft-revision", "Draft + revision").addOption("consensus-multistage", "Consensus + multi-stage (maximum quality)").setValue(this.plugin.settings.multiStrategy).onChange(async (value) => {
+      new import_obsidian8.Setting(containerEl).setName("Multi-mode strategy").setDesc("Draft + revision: fast draft + quality revision. Consensus + multi-stage: maximum quality (slower, more expensive).").addDropdown((dropdown) => dropdown.addOption("draft-revision", "Draft + revision").addOption("consensus-multistage", "Consensus + multi-stage (maximum quality)").setValue(this.plugin.settings.multiStrategy).onChange(async (value) => {
         this.plugin.settings.multiStrategy = value;
         await this.plugin.saveSettings();
         this.display();
       }));
       if (this.plugin.settings.multiStrategy === "draft-revision") {
-        new import_obsidian10.Setting(containerEl).setName("Draft model").setDesc("Fast model for initial draft").addDropdown((dropdown) => {
+        new import_obsidian8.Setting(containerEl).setName("Draft model").setDesc("Fast model for initial draft").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -29138,7 +28357,7 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian10.Setting(containerEl).setName("Revision model").setDesc("Quality model for refinement").addDropdown((dropdown) => {
+        new import_obsidian8.Setting(containerEl).setName("Revision model").setDesc("Quality model for refinement").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -29150,7 +28369,7 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
           });
         });
       } else {
-        new import_obsidian10.Setting(containerEl).setName("Consensus model 1").setDesc("Primary model for consensus generation").addDropdown((dropdown) => {
+        new import_obsidian8.Setting(containerEl).setName("Consensus model 1").setDesc("Primary model for consensus generation").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -29161,7 +28380,7 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian10.Setting(containerEl).setName("Consensus model 2").setDesc("Second model for consensus generation").addDropdown((dropdown) => {
+        new import_obsidian8.Setting(containerEl).setName("Consensus model 2").setDesc("Second model for consensus generation").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -29172,7 +28391,7 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian10.Setting(containerEl).setName("Consensus model 3 (optional)").setDesc("Third model for stronger consensus (optional)").addDropdown((dropdown) => {
+        new import_obsidian8.Setting(containerEl).setName("Consensus model 3 (optional)").setDesc("Third model for stronger consensus (optional)").addDropdown((dropdown) => {
           dropdown.addOption("", "None");
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
@@ -29184,7 +28403,7 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
-        new import_obsidian10.Setting(containerEl).setName("Synthesis model").setDesc("Model to synthesize final output from consensus").addDropdown((dropdown) => {
+        new import_obsidian8.Setting(containerEl).setName("Synthesis model").setDesc("Model to synthesize final output from consensus").addDropdown((dropdown) => {
           const models = getModelsForProvider(this.plugin.settings.apiProvider);
           models.forEach((model) => {
             dropdown.addOption(model.value, model.label);
@@ -29198,21 +28417,21 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
       }
     }
     addSection("Paths & setup", "Setup wizard and guided demo.");
-    new import_obsidian10.Setting(containerEl).setName("Help Density").setDesc("Control how many tooltips and guidance elements are shown throughout the plugin.").addDropdown((dropdown) => dropdown.addOption("NONE", "None (Clean UI)").addOption("LITE", "Lite (Standard tooltips)").addOption("FULL", "Full (Detailed guidance)").setValue(this.plugin.settings.helpDensity || "LITE").onChange(async (value) => {
+    new import_obsidian8.Setting(containerEl).setName("Help Density").setDesc("Control how many tooltips and guidance elements are shown throughout the plugin.").addDropdown((dropdown) => dropdown.addOption("NONE", "None (Clean UI)").addOption("LITE", "Lite (Standard tooltips)").addOption("FULL", "Full (Detailed guidance)").setValue(this.plugin.settings.helpDensity || "LITE").onChange(async (value) => {
       this.plugin.settings.helpDensity = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian10.Setting(containerEl).setName("Setup wizard").setDesc("Create default files and folders for your writing workspace").addButton((button) => button.setButtonText("Run setup wizard").onClick(() => {
+    new import_obsidian8.Setting(containerEl).setName("Setup wizard").setDesc("Create default files and folders for your writing workspace").addButton((button) => button.setButtonText("Run setup wizard").onClick(() => {
       const modal = new SetupWizardModal(this.plugin);
       modal.open();
     }));
-    new import_obsidian10.Setting(containerEl).setName("Guided demo").setDesc("Generate demo-only text to learn the workflow (chapter \u2192 micro edit \u2192 character update).").addButton(
+    new import_obsidian8.Setting(containerEl).setName("Guided demo").setDesc("Generate demo-only text to learn the workflow (chapter \u2192 micro edit \u2192 character update).").addButton(
       (button) => button.setButtonText("Run guided demo").onClick(() => {
         this.plugin.requestGuidedDemoStart();
       })
     );
     addSection("Manuscript & characters", "Core paths for manuscript, story bible, and character notes.");
-    const characterFolderSetting = new import_obsidian10.Setting(containerEl).setName("Character folder").setDesc(`Current: ${this.plugin.settings.characterFolder || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.characterFolder ? this.plugin.settings.characterFolder.split("/").pop() || "Select path" : "Select path").onClick(() => {
+    new import_obsidian8.Setting(containerEl).setName("Character folder").setDesc(`Current: ${this.plugin.settings.characterFolder || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.characterFolder ? this.plugin.settings.characterFolder.split("/").pop() || "Select path" : "Select path").onClick(() => {
       new TreePickerModal(this.plugin, {
         title: "Select character folder",
         mode: "single",
@@ -29226,7 +28445,7 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         }
       }).open();
     }));
-    new import_obsidian10.Setting(containerEl).setName("Book main file").setDesc(`Current: ${this.plugin.settings.book2Path || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.book2Path ? this.plugin.settings.book2Path.split("/").pop() || "Select book file" : "Select book file").onClick(() => {
+    new import_obsidian8.Setting(containerEl).setName("Book main file").setDesc(`Current: ${this.plugin.settings.book2Path || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.book2Path ? this.plugin.settings.book2Path.split("/").pop() || "Select book file" : "Select book file").onClick(() => {
       new TreePickerModal(this.plugin, {
         title: "Select book main file",
         mode: "single",
@@ -29239,7 +28458,7 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
         }
       }).open();
     }));
-    const storyBibleSetting = new import_obsidian10.Setting(containerEl).setName("Story bible path").setDesc(`Current: ${this.plugin.settings.storyBiblePath || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.storyBiblePath ? this.plugin.settings.storyBiblePath.split("/").pop() || "Select story bible" : "Select story bible").onClick(() => {
+    new import_obsidian8.Setting(containerEl).setName("Story bible path").setDesc(`Current: ${this.plugin.settings.storyBiblePath || "(none selected)"}`).addButton((button) => button.setButtonText(this.plugin.settings.storyBiblePath ? this.plugin.settings.storyBiblePath.split("/").pop() || "Select story bible" : "Select story bible").onClick(() => {
       new TreePickerModal(this.plugin, {
         title: "Select story bible",
         mode: "single",
@@ -29253,179 +28472,30 @@ var SettingsTab = class extends import_obsidian10.PluginSettingTab {
       }).open();
     }));
     addSection("Character extraction & safeguards", "Defaults for character processing and prompt-size warnings.");
-    new import_obsidian10.Setting(containerEl).setName("Character extraction AI backend").setDesc("Use Ollama (local) or Cloud API for character extraction.").addDropdown((dropdown) => dropdown.addOption("ollama", "Ollama (local)").addOption("cloud", "Cloud API").setValue(this.plugin.settings.characterExtractionBackend || "ollama").onChange(async (value) => {
-      this.plugin.settings.characterExtractionBackend = value;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian10.Setting(containerEl).setName("Character extraction chunk size (words)").setDesc('Used by "process entire book" to batch character extraction. Larger chunks (e.g., 2000\u20133000) tend to improve character context.').addText((text2) => text2.setPlaceholder("2500").setValue(String(this.plugin.settings.characterExtractionChunkSize ?? 2500)).onChange(async (value) => {
-      const parsed = parseInt(value, 10);
+    new import_obsidian8.Setting(containerEl).setName("Character extraction chunk size (words)").setDesc('Used by "process entire book" to batch character extraction. Larger chunks (e.g., 2000\u20133000) tend to improve character context.').addText((text2) => text2.setPlaceholder("2500").setValue(String(this.plugin.settings.characterExtractionChunkSize ?? 2500)).onChange(async (value) => {
+      const parsed = Number.parseInt(value, 10);
       const clamped = Number.isFinite(parsed) ? Math.min(1e4, Math.max(250, parsed)) : 2500;
       this.plugin.settings.characterExtractionChunkSize = clamped;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian10.Setting(containerEl).setName("Default character extraction instructions").setDesc("Used by character update (selected text). If the extraction instructions box is empty/invalid, this default is used instead.").addTextArea((text2) => text2.setPlaceholder("Character update instructions...").setValue(this.plugin.settings.defaultCharacterExtractionInstructions || "").onChange(async (value) => {
+    new import_obsidian8.Setting(containerEl).setName("Default character extraction instructions").setDesc("Used by character update (selected text). If the extraction instructions box is empty/invalid, this default is used instead.").addTextArea((text2) => text2.setPlaceholder("Character update instructions...").setValue(this.plugin.settings.defaultCharacterExtractionInstructions || "").onChange(async (value) => {
       this.plugin.settings.defaultCharacterExtractionInstructions = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian10.Setting(containerEl).setName("Context token limit (warning)").setDesc("Shows a warning before generating if the estimated prompt tokens exceed this limit. Default: 128000.").addText((text2) => text2.setPlaceholder("128000").setValue(String(this.plugin.settings.contextTokenLimit ?? 128e3)).onChange(async (value) => {
-      const parsed = parseInt(value, 10);
+    new import_obsidian8.Setting(containerEl).setName("Context token limit (warning)").setDesc("Shows a warning before generating if the estimated prompt tokens exceed this limit. Default: 128000.").addText((text2) => text2.setPlaceholder("128000").setValue(String(this.plugin.settings.contextTokenLimit ?? 128e3)).onChange(async (value) => {
+      const parsed = Number.parseInt(value, 10);
       const clamped = Number.isFinite(parsed) ? Math.min(2e6, Math.max(1e3, parsed)) : 128e3;
       this.plugin.settings.contextTokenLimit = clamped;
       await this.plugin.saveSettings();
     }));
-    addSection("Developer tools", "Diagnostics and end-to-end stress test.");
-    new import_obsidian10.Setting(containerEl).setName("Run Stress Test").setDesc("Comprehensive test of all plugin features. Creates temporary test files, runs all operations, then cleans up automatically. Log is saved as a note in your vault.").addButton((button) => button.setButtonText("Start Stress Test").setCta().onClick(async () => {
-      button.setDisabled(true);
-      button.setButtonText("Running...");
-      try {
-        const stressTest = new StressTestService(this.plugin);
-        const logContent = await stressTest.runFullStressTest();
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5);
-        const logFileName = `Stress Test Log - ${timestamp}.md`;
-        const logPath = logFileName;
-        await this.plugin.app.vault.create(logPath, logContent);
-        new import_obsidian10.Notice(`Stress test completed! Log saved to: ${logFileName}`);
-        const logFile = this.plugin.app.vault.getAbstractFileByPath(logPath);
-        if (logFile instanceof import_obsidian10.TFile) {
-          await this.app.workspace.openLinkText(logPath, "", true);
-        }
-      } catch (error2) {
-        new import_obsidian10.Notice(`Stress test failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
-        console.error("Stress test error:", error2);
-      } finally {
-        button.setDisabled(false);
-        button.setButtonText("Start Stress Test");
-      }
-    }));
-  }
-  /**
-   * Render the Memory & Performance section for RAM-aware context control.
-   */
-  renderMemorySection(containerEl, addSection) {
-    addSection("Memory & Performance", "RAM-aware context window management to prevent system freezes.");
-    const settings = this.plugin.settings;
-    const ramTier = settings.ramTier ?? 32;
-    const riskProfile = settings.riskProfile ?? "safe";
-    const modelName = settings.relaySmartModel || "llama3.1:8b";
-    const safetyResult = getSafeContextLimit(
-      ramTier,
-      modelName,
-      riskProfile,
-      settings.verifiedModelContextLimit ?? null,
-      settings.contextSliderValue
-    );
-    new import_obsidian10.Setting(containerEl).setName("RAM Tier").setDesc("How much RAM does this machine have? This determines safe context limits.").addDropdown((dropdown) => {
-      const tierLabels = {
-        8: "8 GB",
-        16: "16 GB",
-        24: "24 GB",
-        32: "32 GB",
-        64: "64 GB",
-        128: "128 GB+"
-      };
-      for (const tier of RAM_TIERS) {
-        dropdown.addOption(String(tier), tierLabels[tier]);
-      }
-      dropdown.setValue(String(ramTier)).onChange(async (value) => {
-        this.plugin.settings.ramTier = parseInt(value);
-        this.plugin.settings.contextSliderValue = void 0;
-        await this.plugin.saveSettings();
-        this.display();
-      });
-    });
-    new import_obsidian10.Setting(containerEl).setName("Risk Profile").setDesc("Safe = conservative, Moderate = balanced, Aggressive = maximum performance (higher freeze risk).").addDropdown((dropdown) => {
-      const profileLabels = {
-        safe: "Safe (recommended)",
-        moderate: "Moderate",
-        aggressive: "Aggressive"
-      };
-      for (const profile of RISK_PROFILES) {
-        dropdown.addOption(profile, profileLabels[profile]);
-      }
-      dropdown.setValue(riskProfile).onChange(async (value) => {
-        this.plugin.settings.riskProfile = value;
-        this.plugin.settings.contextSliderValue = void 0;
-        await this.plugin.saveSettings();
-        this.display();
-      });
-    });
-    if (!safetyResult.isBlocked) {
-      const bounds = getSliderBounds(safetyResult.cap);
-      const currentValue = settings.contextSliderValue ?? safetyResult.cap;
-      const warning = getUsageWarning(currentValue, safetyResult.cap);
-      const sliderSetting = new import_obsidian10.Setting(containerEl).setName("Context Window").setDesc(`Range: ${(bounds.min / 1024).toFixed(0)}k - ${(bounds.max / 1024).toFixed(0)}k tokens`);
-      sliderSetting.addSlider((slider) => {
-        slider.setLimits(bounds.min, bounds.max, 1024).setValue(currentValue).setDynamicTooltip().onChange(async (value) => {
-          this.plugin.settings.contextSliderValue = value;
-          await this.plugin.saveSettings();
-          const newWarning = getUsageWarning(value, safetyResult.cap);
-          if (statusEl) {
-            statusEl.textContent = `${(value / 1024).toFixed(0)}k tokens`;
-            statusEl.className = `context-status context-${newWarning}`;
-          }
-        });
-      });
-      const statusEl = sliderSetting.controlEl.createEl("span", {
-        cls: `context-status context-${warning}`,
-        text: `${(currentValue / 1024).toFixed(0)}k tokens`
-      });
-    }
-    const statusText = safetyResult.isBlocked ? `\u26D4 Model blocked for ${ramTier}GB RAM` : safetyResult.isVerified ? `\u2705 Safe limit: ${(safetyResult.cap / 1024).toFixed(0)}k tokens (model verified)` : `\u26A0\uFE0F Safe limit: ${(safetyResult.cap / 1024).toFixed(0)}k tokens (model unverified)`;
-    new import_obsidian10.Setting(containerEl).setName("Status").setDesc(statusText);
-    new import_obsidian10.Setting(containerEl).setName("Verify Model Context").setDesc("Query Ollama to get the model's actual context limit.").addButton((btn) => btn.setButtonText(settings.verifiedModelContextLimit ? "Re-verify" : "Verify").onClick(async () => {
-      btn.setDisabled(true);
-      btn.setButtonText("Querying...");
-      try {
-        const limit = await this.plugin.ollamaModels.getModelContextLimit(modelName);
-        if (limit !== null) {
-          this.plugin.settings.verifiedModelContextLimit = limit;
-          await this.plugin.saveSettings();
-          new import_obsidian10.Notice(`\u2705 Model context limit: ${(limit / 1024).toFixed(0)}k tokens`);
-        } else {
-          new import_obsidian10.Notice("\u26A0\uFE0F Could not determine model context limit");
-        }
-      } catch (e) {
-        new import_obsidian10.Notice("\u274C Failed to query model");
-      } finally {
-        btn.setDisabled(false);
-        btn.setButtonText("Verify");
-        this.display();
-      }
-    }));
-  }
-  async pullModelWithProgress(modelId, btn) {
-    const isRunning = await this.plugin.ollamaGen.isAvailable();
-    if (!isRunning) {
-      new import_obsidian10.Notice("\u274C Cannot pull: Ollama Offline");
-      return;
-    }
-    btn.setDisabled(true);
-    btn.setButtonText("Pulling...");
-    try {
-      await this.plugin.ollamaModels.pullModel(modelId, (p) => {
-        if (p.status === "downloading" && p.completed) {
-          const pct = (p.completed / (p.total || 1) * 100).toFixed(0);
-          btn.setButtonText(`Pulling: ${pct}%`);
-        } else {
-          btn.setButtonText(`Pulling: ${p.status}`);
-        }
-      });
-      new import_obsidian10.Notice(`\u2705 Successfully pulled ${modelId}`);
-      this.display();
-    } catch (err) {
-      new import_obsidian10.Notice(`\u274C Pull failed: ${err.message}`);
-    } finally {
-      btn.setDisabled(false);
-      btn.setButtonText("Pull");
-    }
   }
 };
 
 // services/VaultService.ts
-var import_obsidian13 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 
 // services/CharacterNameResolver.ts
-var import_obsidian11 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 function normalizeForMatch(name) {
   return (name || "").toLowerCase().trim().replace(/[-_]+/g, " ").replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
 }
@@ -29473,11 +28543,11 @@ function similarityScore(a, b) {
 }
 function listCharacterBasenames(vault, folderPath) {
   const folder = vault.getAbstractFileByPath(folderPath);
-  if (!(folder instanceof import_obsidian11.TFolder))
+  if (!(folder instanceof import_obsidian9.TFolder))
     return [];
   const names = [];
   for (const child of folder.children) {
-    if (child instanceof import_obsidian11.TFile && child.extension === "md") {
+    if (child instanceof import_obsidian9.TFile && child.extension === "md") {
       names.push(child.basename);
     }
   }
@@ -29516,7 +28586,7 @@ var CharacterNameResolver = class {
 };
 
 // ui/CharacterNameConflictModal.ts
-var import_obsidian12 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 function showCharacterNameConflictModal(app, opts) {
   return new Promise((resolve) => {
     let settled = false;
@@ -29526,7 +28596,7 @@ function showCharacterNameConflictModal(app, opts) {
       settled = true;
       resolve(value);
     };
-    const modal = new class extends import_obsidian12.Modal {
+    const modal = new class extends import_obsidian10.Modal {
       constructor() {
         super(...arguments);
         this.selected = null;
@@ -29538,7 +28608,7 @@ function showCharacterNameConflictModal(app, opts) {
         if (opts.candidates.length) {
           this.contentEl.createEl("p", { text: "Select an existing character note:" });
           for (const c of opts.candidates) {
-            new import_obsidian12.Setting(this.contentEl).setName(c).addButton((btn) => {
+            new import_obsidian10.Setting(this.contentEl).setName(c).addButton((btn) => {
               btn.setButtonText("Use");
               btn.setCta();
               btn.onClick(() => {
@@ -29549,14 +28619,14 @@ function showCharacterNameConflictModal(app, opts) {
             });
           }
         }
-        new import_obsidian12.Setting(this.contentEl).setName("Create a new character note").setDesc("Use the proposed name as a new file in your character folder.").addButton((btn) => {
+        new import_obsidian10.Setting(this.contentEl).setName("Create a new character note").setDesc("Use the proposed name as a new file in your character folder.").addButton((btn) => {
           btn.setButtonText("Create new");
           btn.onClick(() => {
             settle({ type: "create", name: opts.proposedName });
             this.close();
           });
         });
-        new import_obsidian12.Setting(this.contentEl).addButton((btn) => {
+        new import_obsidian10.Setting(this.contentEl).addButton((btn) => {
           btn.setButtonText("Cancel");
           btn.onClick(() => {
             settle(null);
@@ -29581,7 +28651,7 @@ var VaultService = class {
   }
   async readFile(path) {
     const file = this.vault.getAbstractFileByPath(path);
-    if (file instanceof import_obsidian13.TFile) {
+    if (file instanceof import_obsidian11.TFile) {
       return await this.vault.read(file);
     }
     throw new Error(`File not found: ${path}`);
@@ -29591,7 +28661,7 @@ var VaultService = class {
   }
   async createFileIfNotExists(path, content) {
     const file = this.vault.getAbstractFileByPath(path);
-    if (file instanceof import_obsidian13.TFile) {
+    if (file instanceof import_obsidian11.TFile) {
       return false;
     }
     await this.vault.create(path, content);
@@ -29599,7 +28669,7 @@ var VaultService = class {
   }
   async createFolderIfNotExists(path) {
     const folder = this.vault.getAbstractFileByPath(path);
-    if (folder instanceof import_obsidian13.TFolder) {
+    if (folder instanceof import_obsidian11.TFolder) {
       return false;
     }
     await this.vault.createFolder(path);
@@ -29610,7 +28680,7 @@ var VaultService = class {
    * Handles root-level files (no parent folder needed).
    */
   async ensureParentFolder(filePath) {
-    const normalized = filePath.replace(/\\/g, "/");
+    const normalized = filePath.replaceAll("\\", "/");
     const lastSlash = normalized.lastIndexOf("/");
     if (lastSlash === -1) {
       return;
@@ -29626,13 +28696,13 @@ var VaultService = class {
    */
   findLatestStoryBible(folderPath) {
     const folder = this.vault.getAbstractFileByPath(folderPath);
-    if (!(folder instanceof import_obsidian13.TFolder)) {
+    if (!(folder instanceof import_obsidian11.TFolder)) {
       return null;
     }
     const storyBibleFiles = [];
     for (const child of folder.children) {
-      if (child instanceof import_obsidian13.TFile && child.extension === "md") {
-        if (child.basename.match(/^Story bible/i)) {
+      if (child instanceof import_obsidian11.TFile && child.extension === "md") {
+        if (/^Story bible/i.exec(child.basename)) {
           storyBibleFiles.push(child);
         }
       }
@@ -29692,7 +28762,7 @@ var VaultService = class {
       const chunkFilePath = `${chunkedFolderName}/${chunkFileName}`;
       const existing = this.vault.getAbstractFileByPath(chunkFilePath);
       if (overwrite) {
-        if (existing instanceof import_obsidian13.TFile) {
+        if (existing instanceof import_obsidian11.TFile) {
           await this.vault.modify(existing, chunks[i]);
           overwrittenCount++;
         } else {
@@ -29701,7 +28771,7 @@ var VaultService = class {
             created++;
         }
       } else {
-        if (existing instanceof import_obsidian13.TFile) {
+        if (existing instanceof import_obsidian11.TFile) {
           skipped++;
         } else {
           const wasCreated = await this.createFileIfNotExists(chunkFilePath, chunks[i]);
@@ -29714,16 +28784,16 @@ var VaultService = class {
     let deletedExtra = 0;
     if (overwrite) {
       const folder = this.vault.getAbstractFileByPath(chunkedFolderName);
-      if (folder instanceof import_obsidian13.TFolder) {
+      if (folder instanceof import_obsidian11.TFolder) {
         const maxIndex = chunks.length;
         const regex = new RegExp(`^${this._escapeRegExp(baseName)}-CHUNK-(\\d{3})\\.md$`);
         for (const child of folder.children) {
-          if (!(child instanceof import_obsidian13.TFile) || child.extension !== "md")
+          if (!(child instanceof import_obsidian11.TFile) || child.extension !== "md")
             continue;
-          const match2 = child.name.match(regex);
+          const match2 = regex.exec(child.name);
           if (!match2)
             continue;
-          const idx = parseInt(match2[1], 10);
+          const idx = Number.parseInt(match2[1], 10);
           if (Number.isFinite(idx) && idx > maxIndex) {
             await this.vault.delete(child);
             deletedExtra++;
@@ -29779,6 +28849,7 @@ var VaultService = class {
       try {
         existingContent = await this.readFile(characterPath);
       } catch {
+        existingContent = "";
       }
       const now = new Date();
       const timestamp = now.toLocaleString("en-US", {
@@ -29822,16 +28893,16 @@ ${update}
    * `.obsidian/` is always excluded from retrieval/indexing.
    */
   isExcludedPath(path) {
-    const normalized = path.replace(/\\/g, "/");
-    const configDir = this.vault.configDir.replace(/\\/g, "/");
+    const normalized = path.replaceAll("\\", "/");
+    const configDir = this.vault.configDir.replaceAll("\\", "/");
     if (normalized === configDir || normalized.startsWith(`${configDir}/`))
       return true;
-    const logsFolder = (this.plugin.settings.generationLogsFolder || "").replace(/\\/g, "/").replace(/\/+$/, "");
+    const logsFolder = (this.plugin.settings.generationLogsFolder || "").replaceAll("\\", "/").replace(/\/+$/, "");
     if (logsFolder) {
       if (normalized === logsFolder || normalized.startsWith(`${logsFolder}/`))
         return true;
     }
-    const includes = (this.plugin.settings.retrievalIncludedFolders || []).map((p) => (p || "").replace(/\\/g, "/").replace(/\/+$/, "")).filter((p) => p.length > 0);
+    const includes = (this.plugin.settings.retrievalIncludedFolders || []).map((p) => (p || "").replaceAll("\\", "/").replace(/\/+$/, "")).filter((p) => p.length > 0);
     if (includes.length > 0) {
       const allowed = includes.some((inc) => normalized === inc || normalized.startsWith(`${inc}/`));
       if (!allowed)
@@ -29839,14 +28910,14 @@ ${update}
     } else {
       const activeFile = this.plugin.lastOpenedMarkdownPath || this.plugin.app.workspace.getActiveFile()?.path;
       if (activeFile) {
-        const normalizedActive = activeFile.replace(/\\/g, "/");
+        const normalizedActive = activeFile.replaceAll("\\", "/");
         if (normalized !== normalizedActive)
           return true;
       }
     }
     const excluded = this.plugin.settings.retrievalExcludedFolders || [];
     for (const folder of excluded) {
-      const f = folder.replace(/\\/g, "/").replace(/\/+$/, "");
+      const f = folder.replaceAll("\\", "/").replace(/\/+$/, "");
       if (!f)
         continue;
       if (normalized === f || normalized.startsWith(`${f}/`))
@@ -29866,9 +28937,9 @@ ${update}
    * 5. Content hash match.
    */
   async relocateFile(path, expectedHash, aliases = []) {
-    const normalizedPath = path.replace(/\\/g, "/");
+    const normalizedPath = path.replaceAll("\\", "/");
     const exact = this.vault.getAbstractFileByPath(normalizedPath);
-    if (exact instanceof import_obsidian13.TFile) {
+    if (exact instanceof import_obsidian11.TFile) {
       const content = await this.vault.read(exact);
       const actualHash = await sha256(content);
       if (!expectedHash || actualHash === expectedHash) {
@@ -29880,9 +28951,9 @@ ${update}
     const parentPath = normalizedPath.includes("/") ? normalizedPath.substring(0, normalizedPath.lastIndexOf("/")) : "";
     if (parentPath) {
       const parent = this.vault.getAbstractFileByPath(parentPath);
-      if (parent instanceof import_obsidian13.TFolder) {
+      if (parent instanceof import_obsidian11.TFolder) {
         for (const child of parent.children) {
-          if (child instanceof import_obsidian13.TFile && child.name.replace(/\.md$/, "") === baseName) {
+          if (child instanceof import_obsidian11.TFile && child.name.replace(/\.md$/, "") === baseName) {
             return { path: child.path, confidence: "RELOCATED_UNIQUE" };
           }
         }
@@ -29928,17 +28999,17 @@ ${update}
   _traverseFolder(folder, structure, basePath) {
     for (const child of folder.children) {
       const path = basePath ? `${basePath}/${child.name}` : child.name;
-      if (child instanceof import_obsidian13.TFolder) {
+      if (child instanceof import_obsidian11.TFolder) {
         structure.push({ name: child.name, path, type: "folder" });
         this._traverseFolder(child, structure, path);
-      } else if (child instanceof import_obsidian13.TFile) {
+      } else if (child instanceof import_obsidian11.TFile) {
         structure.push({ name: child.name, path, type: "file" });
       }
     }
   }
   _collectFolders(folder, folders, basePath) {
     for (const child of folder.children) {
-      if (!(child instanceof import_obsidian13.TFolder))
+      if (!(child instanceof import_obsidian11.TFolder))
         continue;
       const path = basePath ? `${basePath}/${child.name}` : child.name;
       folders.push(path);
@@ -29951,7 +29022,7 @@ ${update}
    */
   async mergeHarvestIntoStoryBible(storyBiblePath, harvestItems, canonVersion) {
     const file = this.vault.getAbstractFileByPath(storyBiblePath);
-    if (!(file instanceof import_obsidian13.TFile)) {
+    if (!(file instanceof import_obsidian11.TFile)) {
       throw new Error(`Story Bible not found: ${storyBiblePath}`);
     }
     const existingContent = await this.vault.read(file);
@@ -29987,7 +29058,6 @@ ${update}
           nextHeaderIndex = updatedContent.length;
         const sectionContent = updatedContent.substring(headerIndex, nextHeaderIndex);
         const lines = sectionContent.split("\n");
-        const mergedBullets = [...newBullets];
         newBullets.forEach((nb) => {
           if (!lines.some((l) => l.trim() === nb)) {
             lines.push(nb);
@@ -29995,14 +29065,15 @@ ${update}
         });
         const headerLine = lines[0];
         const contentLines = lines.slice(1).filter((l) => l.trim());
-        contentLines.sort();
+        contentLines.sort((a, b) => a.localeCompare(b));
         const newSectionContent = [headerLine, ...contentLines].join("\n");
         updatedContent = updatedContent.substring(0, headerIndex) + newSectionContent + "\n" + updatedContent.substring(nextHeaderIndex);
       } else {
+        const sortedBullets = [...newBullets].sort((a, b) => a.localeCompare(b));
         updatedContent += `
 
 ## ${sectionName}
-${newBullets.sort().join("\n")}
+${sortedBullets.join("\n")}
 `;
       }
     }
@@ -30019,15 +29090,22 @@ ${newBullets.sort().join("\n")}
    */
   async rollbackStoryBible(storyBiblePath, reversePatch) {
     const file = this.vault.getAbstractFileByPath(storyBiblePath);
-    if (file instanceof import_obsidian13.TFile) {
+    if (file instanceof import_obsidian11.TFile) {
       await this.vault.modify(file, reversePatch);
-      console.log(`[VaultService] \u{1F504} Rolled back Story Bible to previous state.`);
+      console.debug(`[VaultService] Rolled back Story Bible to previous state.`);
     }
   }
 };
 
 // services/ContextAggregator.ts
-var import_obsidian14 = require("obsidian");
+var import_obsidian12 = require("obsidian");
+
+// services/ContextSafety.ts
+function getContextLimit(settings) {
+  return settings.contextTokenLimit ?? 128e3;
+}
+
+// services/ContextAggregator.ts
 var ContextAggregator = class {
   budgetToChars(tokens) {
     return Math.max(0, Math.floor(tokens * 4));
@@ -30055,35 +29133,10 @@ var ContextAggregator = class {
 ` + trimmed;
   }
   /**
-   * Compute context budget using RAM-aware safety limits.
-   * Falls back to legacy contextTokenLimit if ramTier is not set.
+   * Compute context budget from the configured context token limit.
    */
   computeContextBudgetTokens() {
-    const settings = this.plugin.settings;
-    if (settings.ramTier !== void 0) {
-      const modelName = settings.relaySmartModel || "llama3.1:8b";
-      const ramTier = settings.ramTier;
-      const riskProfile = settings.riskProfile || "safe";
-      if (isModelBlocked(ramTier, modelName)) {
-        console.warn(`[ContextAggregator] Model blocked: ${getBlockedModelError(ramTier, modelName)}`);
-        return { limit: 0, reserveForOutput: 0, reserveForNonContext: 0, isBlocked: true };
-      }
-      const safetyResult = getSafeContextLimit(
-        ramTier,
-        modelName,
-        riskProfile,
-        settings.verifiedModelContextLimit ?? null,
-        settings.contextSliderValue
-      );
-      if (safetyResult.isBlocked) {
-        return { limit: 0, reserveForOutput: 0, reserveForNonContext: 0, isBlocked: true };
-      }
-      const limit2 = safetyResult.cap;
-      const reserveForOutput2 = 700;
-      const reserveForNonContext2 = 800;
-      return { limit: limit2, reserveForOutput: reserveForOutput2, reserveForNonContext: reserveForNonContext2, isBlocked: false };
-    }
-    const limit = settings.contextTokenLimit ?? 128e3;
+    const limit = getContextLimit(this.plugin.settings);
     const reserveForOutput = Math.min(2e4, Math.max(6e3, Math.floor(limit * 0.02)));
     const reserveForNonContext = Math.min(2e4, Math.max(4e3, Math.floor(limit * 0.02)));
     return { limit, reserveForOutput, reserveForNonContext, isBlocked: false };
@@ -30097,11 +29150,6 @@ var ContextAggregator = class {
     const settings = this.plugin.settings;
     const scTemplatePaths = [];
     const budget = this.computeContextBudgetTokens();
-    if (budget.isBlocked) {
-      throw new Error(
-        `Model "${settings.relaySmartModel}" cannot run on ${settings.ramTier}GB RAM. Please select a smaller model or increase your RAM tier in Settings.`
-      );
-    }
     const contextBudget = Math.max(0, budget.limit - budget.reserveForOutput - budget.reserveForNonContext);
     const retrievedLimit = Math.min(200, Math.max(24, Math.floor(contextBudget / 12e3)));
     const retrievedContext = await this.getRetrievedContext(retrievalQuery, retrievedLimit, scTemplatePaths);
@@ -30123,11 +29171,6 @@ var ContextAggregator = class {
     const surrounding = await this.getSurroundingContext(selectedText, 500, 500);
     const scTemplatePaths = [];
     const budget = this.computeContextBudgetTokens();
-    if (budget.isBlocked) {
-      throw new Error(
-        `Model "${settings.relaySmartModel}" cannot run on ${settings.ramTier}GB RAM. Please select a smaller model or increase your RAM tier in Settings.`
-      );
-    }
     const contextBudget = Math.max(0, budget.limit - budget.reserveForOutput - budget.reserveForNonContext);
     const book2Full = await this.readFile(settings.book2Path);
     const slidingWindow = this.extractWordsFromEnd(book2Full, 2e4);
@@ -30155,7 +29198,7 @@ var ContextAggregator = class {
   async readFile(path) {
     try {
       const file = this.vault.getAbstractFileByPath(path);
-      if (file instanceof import_obsidian14.TFile) {
+      if (file instanceof import_obsidian12.TFile) {
         return await this.vault.read(file);
       }
       return `[File not found: ${path}]`;
@@ -30189,14 +29232,9 @@ Score: ${item.score.toFixed(3)} (${item.source})
       let results = await this.plugin.retrievalService.search(query, {
         limit: Math.max(1, Math.min(200, limit))
       });
-      if (this.plugin.settings.retrievalEnableReranker) {
-        try {
-          results = await this.plugin.cpuReranker.rerank(query.text || "", results, { limit: Math.max(1, Math.min(200, limit)) });
-        } catch {
-        }
-      }
       return this.formatRetrievedItems(results);
-    } catch {
+    } catch (err) {
+      console.warn("[ContextAggregator] Retrieval failed:", err);
       return "[Retrieved context unavailable]";
     }
   }
@@ -30205,15 +29243,16 @@ Score: ${item.score.toFixed(3)} (${item.source})
     const characterFolder = this.plugin.settings.characterFolder;
     try {
       const folder = this.vault.getAbstractFileByPath(characterFolder);
-      if (folder instanceof import_obsidian14.TFolder) {
+      if (folder instanceof import_obsidian12.TFolder) {
         for (const child of folder.children) {
-          if (child instanceof import_obsidian14.TFile && child.extension === "md") {
+          if (child instanceof import_obsidian12.TFile && child.extension === "md") {
             const characterName = child.basename;
             notes[characterName] = await this.vault.read(child);
           }
         }
       }
-    } catch {
+    } catch (err) {
+      console.debug("[ContextAggregator] Character folder not accessible:", err);
     }
     return notes;
   }
@@ -30249,7 +29288,8 @@ ${content}
     let sourceText = "";
     try {
       sourceText = await this.readFile(settings.book2Path);
-    } catch {
+    } catch (err) {
+      console.warn("[ContextAggregator] Could not read book file for surrounding context:", err);
       return { before: "", after: "" };
     }
     const selectedIndex = sourceText.indexOf(selectedText);
@@ -30293,7 +29333,7 @@ ${context.story_bible || ""}
 
 These define rules of the world, character arcs, faction details, timelines, technology, tone, themes, motifs, and relationship structure.`;
   }
-  buildAuditPrompt(state, prose, chapterState) {
+  buildAuditPrompt(_state, prose, chapterState) {
     return `Analyze the following prose for narrative violations.
 Prose:
 """
@@ -30771,7 +29811,7 @@ OUTPUT FORMAT (JSON):
 };
 
 // services/AIClient.ts
-var import_obsidian15 = require("obsidian");
+var import_obsidian13 = require("obsidian");
 
 // services/TokenEstimate.ts
 function estimateTokens(text2) {
@@ -30972,72 +30012,60 @@ ${alt}`).join("\n\n---\n\n")}`;
       }
     };
   }
-  async _generateOpenRouter(prompt, settings) {
-    const response = await (0, import_obsidian15.requestUrl)({
-      url: "https://openrouter.ai/api/v1/chat/completions",
+  async _generateOpenAICompat(prompt, settings, url, providerName, extraHeaders) {
+    const response = await (0, import_obsidian13.requestUrl)({
+      url,
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${settings.apiKey}`,
+        ...extraHeaders
+      },
+      body: JSON.stringify({
+        model: settings.model,
+        messages: [
+          { role: "system", content: "You are a professional writing assistant." },
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 4e3,
+        temperature: 0.7
+      })
+    });
+    if (response.status >= 400) {
+      const error2 = this._getJson(response);
+      throw new Error(`${providerName} API error: ${this._getNestedErrorMessage(error2) || response.status}`);
+    }
+    const data = this._getJson(response);
+    const content = this._getOpenAIStyleContent(data);
+    if (typeof content !== "string" || content.trim().length === 0) {
+      throw new Error(
+        `${providerName} response missing message content. Preview: ${this._safeJsonPreview(data)}`
+      );
+    }
+    return content;
+  }
+  async _generateOpenRouter(prompt, settings) {
+    return this._generateOpenAICompat(
+      prompt,
+      settings,
+      "https://openrouter.ai/api/v1/chat/completions",
+      "OpenRouter",
+      {
         "HTTP-Referer": "https://github.com/JHarp199345/Gwriter",
         "X-Title": "Writing Dashboard"
-      },
-      body: JSON.stringify({
-        model: settings.model,
-        messages: [
-          { role: "system", content: "You are a professional writing assistant." },
-          { role: "user", content: prompt }
-        ],
-        max_tokens: 4e3,
-        temperature: 0.7
-      })
-    });
-    if (response.status >= 400) {
-      const error2 = this._getJson(response);
-      throw new Error(`OpenRouter API error: ${this._getNestedErrorMessage(error2) || response.status}`);
-    }
-    const data = this._getJson(response);
-    const content = this._getOpenAIStyleContent(data);
-    if (typeof content !== "string" || content.trim().length === 0) {
-      throw new Error(
-        `OpenRouter response missing message content. Preview: ${this._safeJsonPreview(data)}`
-      );
-    }
-    return content;
+      }
+    );
   }
   async _generateOpenAI(prompt, settings) {
-    const response = await (0, import_obsidian15.requestUrl)({
-      url: "https://api.openai.com/v1/chat/completions",
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${settings.apiKey}`
-      },
-      body: JSON.stringify({
-        model: settings.model,
-        messages: [
-          { role: "system", content: "You are a professional writing assistant." },
-          { role: "user", content: prompt }
-        ],
-        max_tokens: 4e3,
-        temperature: 0.7
-      })
-    });
-    if (response.status >= 400) {
-      const error2 = this._getJson(response);
-      throw new Error(`OpenAI API error: ${this._getNestedErrorMessage(error2) || response.status}`);
-    }
-    const data = this._getJson(response);
-    const content = this._getOpenAIStyleContent(data);
-    if (typeof content !== "string" || content.trim().length === 0) {
-      throw new Error(
-        `OpenAI response missing message content. Preview: ${this._safeJsonPreview(data)}`
-      );
-    }
-    return content;
+    return this._generateOpenAICompat(
+      prompt,
+      settings,
+      "https://api.openai.com/v1/chat/completions",
+      "OpenAI"
+    );
   }
   async _generateAnthropic(prompt, settings) {
-    const response = await (0, import_obsidian15.requestUrl)({
+    const response = await (0, import_obsidian13.requestUrl)({
       url: "https://api.anthropic.com/v1/messages",
       method: "POST",
       headers: {
@@ -31087,7 +30115,7 @@ ${alt}`).join("\n\n---\n\n")}`;
       512,
       Math.min(8192, limit - promptTokens - 1024)
     );
-    const response = await (0, import_obsidian15.requestUrl)({
+    const response = await (0, import_obsidian13.requestUrl)({
       url: `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
       method: "POST",
       headers: {
@@ -31244,7 +30272,7 @@ function parseCharacterRoster(text2) {
       continue;
     const entry = { name: namePart };
     if (right) {
-      const m = right.match(/aliases?\s*:\s*(.+)$/i);
+      const m = /aliases?\s*:\s*(.+)$/i.exec(right);
       if (m?.[1]) {
         const aliases = m[1].split(",").map((a) => normalizeName(a)).filter(Boolean);
         if (aliases.length)
@@ -31286,23 +30314,14 @@ var CharacterUpdateService = class {
     this.vaultService = vaultService;
   }
   /**
-   * Route AI call to either Ollama or Cloud based on settings.
+   * Route AI call to the cloud API.
    */
   async callAI(prompt) {
-    const backend = this.plugin.settings.characterExtractionBackend || "ollama";
-    if (backend === "ollama") {
-      const response = await this.plugin.ollamaGen.generate(prompt, {
-        model: this.plugin.settings.relaySmartModel,
-        temperature: 0.3
-      });
-      return response;
-    } else {
-      const result = await this.plugin.aiClient.generate(prompt, {
-        ...this.plugin.settings,
-        generationMode: "single"
-      });
-      return result;
-    }
+    const result = await this.plugin.aiClient.generate(prompt, {
+      ...this.plugin.settings,
+      generationMode: "single"
+    });
+    return result;
   }
   /**
    * Extract characters from a single text passage.
@@ -31340,7 +30359,7 @@ var CharacterUpdateService = class {
     const rosterResponse = await this.callAI(rosterPrompt);
     const roster = parseCharacterRoster(rosterResponse);
     const rosterText = rosterToBulletList(roster);
-    console.log(`[CharacterUpdateService] Roster built: ${roster.length} characters`);
+    console.debug(`[CharacterUpdateService] Roster built: ${roster.length} characters`);
     const allUpdates = [];
     for (let i = 0; i < chapters.length; i++) {
       onProgress?.(`Pass 2: Chapter ${i + 1}/${chapters.length}...`);
@@ -31366,7 +30385,7 @@ var CharacterUpdateService = class {
 ${u.update}`),
       (text2) => this.characterExtractor.parseExtraction(text2)
     );
-    console.log(`[CharacterUpdateService] Extraction complete: ${aggregated.length} character updates from ${chapters.length} chapters`);
+    console.debug(`[CharacterUpdateService] Extraction complete: ${aggregated.length} character updates from ${chapters.length} chapters`);
     return { roster, updates: aggregated, chaptersProcessed: chapters.length };
   }
   /**
@@ -31374,11 +30393,11 @@ ${u.update}`),
    */
   async commitUpdates(updates) {
     if (updates.length === 0) {
-      console.log("[CharacterUpdateService] No updates to commit");
+      console.debug("[CharacterUpdateService] No updates to commit");
       return;
     }
     await this.vaultService.updateCharacterNotes(updates);
-    console.log(`[CharacterUpdateService] Committed ${updates.length} character updates`);
+    console.debug(`[CharacterUpdateService] Committed ${updates.length} character updates`);
   }
   /**
    * Split content by H1 headings (chapters).
@@ -31676,14 +30695,19 @@ var RetrievalService = class {
     const semanticProviders = this.providers.filter((p) => p.id === "semantic");
     const runWithTimeout = async (p) => {
       const searchPromise = p.search(query, { limit: candidateLimit });
-      const timeoutPromise = new Promise(
-        (_, reject) => setTimeout(() => reject(new Error("FAIL_TIME_BUDGET")), timeout)
-      );
+      let timeoutHandle;
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutHandle = setTimeout(() => reject(new Error("FAIL_TIME_BUDGET")), timeout);
+      });
       try {
-        return { providerId: p.id, items: await Promise.race([searchPromise, timeoutPromise]) };
+        const result = await Promise.race([searchPromise, timeoutPromise]);
+        clearTimeout(timeoutHandle);
+        return { providerId: p.id, items: result };
       } catch (err) {
+        clearTimeout(timeoutHandle);
+        const errMessage = err instanceof Error ? err.message : String(err);
         console.warn(`[Retrieval] Provider ${p.id} failed or timed out:`, err);
-        return { providerId: p.id, items: [], failureCode: err.message === "FAIL_TIME_BUDGET" ? "FAIL_TIME_BUDGET" : void 0 };
+        return { providerId: p.id, items: [], failureCode: errMessage === "FAIL_TIME_BUDGET" ? "FAIL_TIME_BUDGET" : void 0 };
       }
     };
     const [lexicalBuckets, semanticBuckets] = await Promise.all([
@@ -31704,8 +30728,8 @@ var RetrievalService = class {
     const limit = normalizeLimit(opts.limit);
     const candidateLimit = Math.max(limit, Math.min(500, limit * 8));
     const weights = { lex: 0.4, embed: 0.6 };
-    const scoringVersion = opts.scoringVersion || 1;
-    const intents = query.intents || [];
+    const extendedQuery = query;
+    const intents = extendedQuery.intents || [];
     const intentBuckets = await Promise.all(intents.map(async (intent) => {
       const intentQuery = { ...query, text: intent.query || query.text };
       const items = await this._searchRaw(intentQuery, { limit: candidateLimit });
@@ -31721,7 +30745,6 @@ var RetrievalService = class {
       }
     });
     let fused = Array.from(acc.values());
-    console.log(`[Retrieval] Gathered ${fused.length} unique candidates.`);
     const T_hard = 0.7;
     const E_hard = 0.6;
     const L_hard = 0.6;
@@ -31807,7 +30830,7 @@ ${v}`);
 };
 
 // services/retrieval/EmbeddingsIndex.ts
-var import_obsidian16 = require("obsidian");
+var import_obsidian14 = require("obsidian");
 
 // services/retrieval/Chunking.ts
 function clampInt(value, min, max) {
@@ -31946,7 +30969,7 @@ function buildIndexChunks(params) {
 
 // services/retrieval/EmbeddingsIndex.ts
 function normalizeChunkText(text2) {
-  return text2.trim().replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/[ \t]+/g, " ");
+  return text2.trim().replaceAll("\r\n", "\n").replaceAll("\r", "\n").replace(/[ \t]+/g, " ");
 }
 function clampInt2(value, min, max) {
   if (!Number.isFinite(value))
@@ -31968,7 +30991,7 @@ function excerptOf(text2, maxChars) {
 }
 var EmbeddingsIndex = class {
   // Preserve for heartbeat
-  constructor(vault, plugin, embeddingProvider) {
+  constructor(vault, plugin) {
     this.loaded = false;
     this.chunksByKey = /* @__PURE__ */ new Map();
     this.chunkKeysByPath = /* @__PURE__ */ new Map();
@@ -31980,10 +31003,6 @@ var EmbeddingsIndex = class {
     // Error tracking
     this.errorLog = [];
     this.maxStoredErrors = 100;
-    // Circuit breaker for AI embedding failures
-    this.aiErrorStreak = 0;
-    this.AI_ERROR_STREAK_THRESHOLD = 3;
-    this.AI_PAUSE_DURATION_MS = 15e3;
     // Shared Brain state
     this.isReadOnly = false;
     this.heartbeatTimer = null;
@@ -31991,15 +31010,7 @@ var EmbeddingsIndex = class {
     this.lockAcquiredAt = null;
     this.vault = vault;
     this.plugin = plugin;
-    this.backend = "ollama";
-    this.embeddingProvider = embeddingProvider;
     this.dim = 0;
-  }
-  /**
-   * Hot-swaps the embedding provider (e.g. when user changes models).
-   */
-  updateProvider(provider) {
-    this.embeddingProvider = provider;
   }
   async onunload() {
     this.stopHeartbeat();
@@ -32013,10 +31024,12 @@ var EmbeddingsIndex = class {
           if (lock.holder === "writing-dashboard") {
             await this.vault.adapter.remove(lockPath);
           }
-        } catch {
+        } catch (err) {
+          console.debug("[EmbeddingsIndex] Lock file JSON parse failed, skipping removal:", err);
         }
       }
-    } catch {
+    } catch (err) {
+      console.debug("[EmbeddingsIndex] Filesystem error during lock cleanup:", err);
     }
   }
   /**
@@ -32025,9 +31038,9 @@ var EmbeddingsIndex = class {
    */
   getEmbeddingProfile() {
     return {
-      provider: "ollama",
-      modelId: this.plugin.settings.relayEmbeddingModel,
-      dimensions: this.dim || 768,
+      provider: "external",
+      modelId: this.plugin.settings.externalEmbeddingModel ?? "text-embedding-3-small",
+      dimensions: this.dim || 0,
       normalize: true,
       chunkingVersion: 2,
       schemaVersion: 2
@@ -32062,7 +31075,7 @@ var EmbeddingsIndex = class {
   }
   profilesMatch(other) {
     const mine = this.getEmbeddingProfile();
-    return mine.provider === other.provider && mine.modelId === other.modelId && mine.dimensions === other.dimensions && mine.normalize === other.normalize && mine.chunkingVersion === other.chunkingVersion && mine.schemaVersion === other.schemaVersion;
+    return mine.provider === other.provider && mine.modelId === other.modelId && mine.normalize === other.normalize && mine.chunkingVersion === other.chunkingVersion && mine.schemaVersion === other.schemaVersion;
   }
   async validateManifest(dir) {
     const manifestPath = `${dir}/index.manifest.json`;
@@ -32193,7 +31206,7 @@ var EmbeddingsIndex = class {
       if (await this.vault.adapter.exists(migrationMarker)) {
         return true;
       }
-      console.log("[EmbeddingsIndex] Starting atomic migration from legacy to overt folder...");
+      console.debug("[EmbeddingsIndex] Starting atomic migration from legacy to overt folder...");
       if (!await this.vault.adapter.exists(overtDir)) {
         const parts = overtDir.split("/");
         let current = "";
@@ -32234,7 +31247,7 @@ var EmbeddingsIndex = class {
       if (await this.vault.adapter.exists(legacyManifest)) {
         await this.vault.adapter.rename(legacyManifest, `${legacyManifest}.migrated`);
       }
-      console.log("[EmbeddingsIndex] \u2713 Atomic migration completed successfully.");
+      console.debug("[EmbeddingsIndex] Atomic migration completed successfully.");
       return true;
     } catch (err) {
       console.warn("[EmbeddingsIndex] Legacy migration failed; falling back to isolated.", err);
@@ -32245,7 +31258,8 @@ var EmbeddingsIndex = class {
         if (await this.vault.adapter.exists(`${overtDir}/index.manifest.json.tmp`)) {
           await this.vault.adapter.remove(`${overtDir}/index.manifest.json.tmp`);
         }
-      } catch {
+      } catch (err2) {
+        console.debug("[EmbeddingsIndex] Temp file cleanup failed (non-critical):", err2);
       }
       return false;
     }
@@ -32299,10 +31313,6 @@ var EmbeddingsIndex = class {
       const parsed = JSON.parse(raw);
       if (parsed?.version !== 1 || !Array.isArray(parsed.chunks))
         return;
-      if (parsed.backend && parsed.backend !== this.backend) {
-        this.enqueueFullRescan();
-        return;
-      }
       if (typeof parsed.dim === "number") {
         this.dim = parsed.dim;
       }
@@ -32316,7 +31326,8 @@ var EmbeddingsIndex = class {
           continue;
         this._setChunk(chunk);
       }
-    } catch {
+    } catch (err) {
+      console.warn("[EmbeddingsIndex] Corrupt index data detected, rebuilding from scratch:", err);
       this.chunksByKey.clear();
       this.chunkKeysByPath.clear();
     }
@@ -32403,13 +31414,7 @@ var EmbeddingsIndex = class {
   async _runWorker() {
     await this.ensureLoaded();
     if (this.isReadOnly) {
-      console.log("[EmbeddingsIndex] Shared index locked; operating read-only.");
-      this.workerRunning = false;
-      return;
-    }
-    if (!await this.embeddingProvider.isAvailable()) {
-      console.warn("[EmbeddingsIndex] Ollama not available; skipping semantic indexing");
-      new import_obsidian16.Notice("\u26A0\uFE0F Ollama not available - indexing skipped");
+      console.debug("[EmbeddingsIndex] Shared index locked; operating read-only.");
       this.workerRunning = false;
       return;
     }
@@ -32422,7 +31427,7 @@ var EmbeddingsIndex = class {
     let skippedHashMatch = 0;
     let indexedCount = 0;
     if (totalFiles > 0) {
-      new import_obsidian16.Notice(`\u{1F50D} Starting index scan (${totalFiles} files)...`);
+      new import_obsidian14.Notice(`Starting index scan (${totalFiles} files)...`);
       relayEventBus.emit("index:start", { totalFiles });
     }
     while (this.queue.size > 0 && indexedCount < policy.MAX_REBUILDS_PER_BATCH) {
@@ -32432,7 +31437,7 @@ var EmbeddingsIndex = class {
       this.queue.delete(next);
       processedCount++;
       if (processedCount % 10 === 0) {
-        new import_obsidian16.Notice(`Indexing... ${processedCount}/${totalFiles} files`);
+        new import_obsidian14.Notice(`Indexing... ${processedCount}/${totalFiles} files`);
         relayEventBus.emit("index:progress", { processed: processedCount, total: totalFiles, currentFile: next });
       }
       if (this.plugin.vaultService.isExcludedPath(next)) {
@@ -32443,7 +31448,7 @@ var EmbeddingsIndex = class {
         continue;
       }
       const file = this.vault.getAbstractFileByPath(next);
-      if (!(file instanceof import_obsidian16.TFile) || file.extension !== "md") {
+      if (!(file instanceof import_obsidian14.TFile) || file.extension !== "md") {
         skippedNotMarkdown++;
         this._removePath(next);
         this._schedulePersist();
@@ -32480,8 +31485,8 @@ var EmbeddingsIndex = class {
     const duration = (Date.now() - startTime) / 1e3;
     const totalSkipped = skippedExcluded + skippedNotMarkdown + skippedHashMatch;
     if (processedCount > 0) {
-      console.log(`[EmbeddingsIndex] Processed ${processedCount} files: ${indexedCount} indexed, ${skippedExcluded} excluded, ${skippedNotMarkdown} not markdown, ${skippedHashMatch} hash match (already indexed)`);
-      new import_obsidian16.Notice(`\u2705 Indexed ${indexedCount} files in ${duration.toFixed(1)}s (${this.chunksByKey.size} chunks total)`);
+      console.debug(`[EmbeddingsIndex] Processed ${processedCount} files: ${indexedCount} indexed, ${skippedExcluded} excluded, ${skippedNotMarkdown} not markdown, ${skippedHashMatch} hash match (already indexed)`);
+      new import_obsidian14.Notice(`Indexed ${indexedCount} files in ${duration.toFixed(1)}s (${this.chunksByKey.size} chunks total)`);
       relayEventBus.emit("index:complete", {
         indexed: indexedCount,
         chunks: this.chunksByKey.size,
@@ -32494,83 +31499,26 @@ var EmbeddingsIndex = class {
   }
   async _reindexFile(path, content) {
     this._removePath(path);
-    if (!await this.embeddingProvider.isAvailable()) {
-      console.warn(`[EmbeddingsIndex] Ollama not available; skipping file: ${path}`);
-      return;
-    }
     if (!content || content.trim().length === 0) {
       console.warn(`[EmbeddingsIndex] Skipping empty file: ${path}`);
       return;
     }
     const cfg = chunkingKey(this.plugin);
-    console.log(`[EmbeddingsIndex] Processing file: ${path}`);
-    console.log(`  - Backend: ${this.backend}`);
-    console.log(`  - Content length: ${content.length} chars, ${content.split(/\s+/).length} words`);
-    console.log(`  - Chunking config: headingLevel=${cfg.headingLevel}, targetWords=${cfg.targetWords}, overlapWords=${cfg.overlapWords}`);
     const chunks = buildIndexChunks({
       text: content,
       headingLevel: cfg.headingLevel,
       targetWords: cfg.targetWords,
       overlapWords: cfg.overlapWords
     });
-    console.log(`  - Chunks created: ${chunks.length}`);
-    if (chunks.length > 0) {
-      console.log(`  - First chunk preview: ${chunks[0].text.substring(0, 100)}...`);
-    }
     if (chunks.length === 0) {
       console.warn(`[EmbeddingsIndex] No chunks created for ${path} - file too short or no headings match chunking config`);
       return;
     }
-    let successfulChunks = 0;
-    let firstError = null;
     for (let i = 0; i < chunks.length; i++) {
       const ch = chunks[i];
       const normalizedText = normalizeChunkText(ch.text);
       const textHash = await sha256(normalizedText);
       const key = `chunk:${path}:${i}`;
-      let vector;
-      try {
-        console.log(`  - Generating embedding for chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words)...`);
-        const embedStart = Date.now();
-        vector = await this.embeddingProvider.getEmbedding(normalizedText);
-        this.aiErrorStreak = 0;
-        if (!Array.isArray(vector) || vector.length === 0) {
-          throw new Error("Empty embedding returned from Ollama");
-        }
-        if (this.dim === 0) {
-          this.dim = vector.length;
-        }
-        const embedDuration = Date.now() - embedStart;
-        console.log(`  - \u2713 Ollama embedding generated in ${embedDuration}ms: ${vector.length} dimensions`);
-      } catch (err) {
-        this.aiErrorStreak++;
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        const errorStack = err instanceof Error ? err.stack : void 0;
-        const context = `File: ${path}, Chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words, ${ch.text.length} chars)`;
-        this.logError("_reindexFile.embedChunk", context, err);
-        console.error(`  - \u2717 Embedding generation failed for chunk ${i + 1}/${chunks.length}:`, errorMsg);
-        if (this.aiErrorStreak >= 3) {
-          console.warn("[EmbeddingsIndex] Embedding breaker triggered: paused 15s and cleared queue after 3 consecutive failures.");
-          this.queue.clear();
-          this.aiErrorStreak = 0;
-          await new Promise((r) => setTimeout(r, 15e3));
-          throw new Error("Embedding breaker triggered; batch aborted.");
-        }
-        if (errorStack) {
-          console.error(`    Stack: ${errorStack.split("\n").slice(0, 3).join("\n    ")}`);
-        }
-        if (err instanceof Error) {
-          console.error(`    Error type: ${err.constructor.name}`);
-          if ("cause" in err) {
-            console.error(`    Cause: ${err.cause}`);
-          }
-        }
-        if (i === 0) {
-          console.warn(`  - Warning: First chunk failed for ${path}. Attempting subsequent chunks.`);
-          firstError = err instanceof Error ? err : new Error(String(err));
-        }
-        continue;
-      }
       const excerpt = excerptOf(ch.text, 2500);
       this._setChunk({
         key,
@@ -32579,25 +31527,11 @@ var EmbeddingsIndex = class {
         startWord: ch.startWord,
         endWord: ch.endWord,
         textHash,
-        vector,
+        vector: [],
         excerpt
       });
-      successfulChunks++;
     }
-    if (successfulChunks === 0 && chunks.length > 0) {
-      const criticalContext = `File: ${path}, All ${chunks.length} chunks failed`;
-      if (firstError) {
-        this.logError("_reindexFile.allChunksFailed", criticalContext, firstError);
-        console.error(`[EmbeddingsIndex] CRITICAL: All ${chunks.length} chunks failed for ${path} - file not indexed`);
-        console.error(`  Root cause: ${firstError.message}`);
-      } else {
-        this.logError("_reindexFile.allChunksFailed", criticalContext, new Error("All chunks failed but no first error captured"));
-      }
-    } else if (successfulChunks < chunks.length) {
-      console.warn(`[EmbeddingsIndex] Partial success for ${path}: ${successfulChunks}/${chunks.length} chunks indexed`);
-    } else {
-      console.log(`[EmbeddingsIndex] \u2713 Successfully indexed ${path}: ${successfulChunks} chunks`);
-    }
+    console.debug(`[EmbeddingsIndex] Indexed ${path}: ${chunks.length} chunks`);
   }
   _setChunk(chunk) {
     this.chunksByKey.set(chunk.key, chunk);
@@ -32643,7 +31577,7 @@ var EmbeddingsIndex = class {
     if (!state)
       return false;
     const file = this.vault.getAbstractFileByPath(path);
-    if (!(file instanceof import_obsidian16.TFile))
+    if (!(file instanceof import_obsidian14.TFile))
       return true;
     if (!state.updatedAt)
       return false;
@@ -32664,15 +31598,8 @@ var EmbeddingsIndex = class {
     return ch?.vector ?? null;
   }
   buildQueryVector(queryText) {
-    console.warn("[EmbeddingsIndex] buildQueryVector called; returning empty vector. Use embedQueryVector instead.");
+    console.warn("[EmbeddingsIndex] buildQueryVector called; returning empty vector. Use ExternalEmbeddingsProvider for query embedding.");
     return [];
-  }
-  async embedQueryVector(queryText) {
-    const vec = await this.embeddingProvider.getEmbedding(queryText);
-    if (!Array.isArray(vec) || vec.length === 0) {
-      throw new Error("Empty embedding returned from Ollama");
-    }
-    return vec;
   }
   _schedulePersist() {
     if (this.persistTimer)
@@ -32685,7 +31612,7 @@ var EmbeddingsIndex = class {
   }
   async _persistNow() {
     if (this.isReadOnly) {
-      console.log("[EmbeddingsIndex] Skipping persistence: Read-Only mode");
+      console.debug("[EmbeddingsIndex] Skipping persistence: Read-Only mode");
       return;
     }
     const dir = await this.resolveIndexDir();
@@ -32702,12 +31629,13 @@ var EmbeddingsIndex = class {
           }
         }
       }
-    } catch {
+    } catch (err) {
+      console.warn("[EmbeddingsIndex] Failed to create index directory:", err);
     }
     const payload = {
       version: 1,
       dim: this.dim,
-      backend: this.backend,
+      backend: "external",
       chunking: chunkingKey(this.plugin),
       chunks: this.getAllChunks()
     };
@@ -32733,7 +31661,8 @@ var EmbeddingsIndex = class {
   }
 };
 
-// services/retrieval/LocalEmbeddingsProvider.ts
+// services/retrieval/ExternalEmbeddingsProvider.ts
+var import_obsidian15 = require("obsidian");
 function dot2(a, b) {
   const n = Math.min(a.length, b.length);
   let s = 0;
@@ -32741,12 +31670,246 @@ function dot2(a, b) {
     s += a[i] * b[i];
   return s;
 }
-var LocalEmbeddingsProvider = class {
-  constructor(index, isEnabled, isAllowedPath) {
-    this.id = "semantic";
-    this.index = index;
+var ExternalEmbeddingsProvider = class {
+  constructor(plugin, embeddingsIndex, isEnabled, isAllowedPath) {
+    this.id = "external-embeddings";
+    // Cache for embedding vectors (query text -> vector)
+    this.embeddingCache = /* @__PURE__ */ new Map();
+    this.cacheTtl = 36e5;
+    // 1 hour
+    // Rate limiting infrastructure
+    this.requestQueue = [];
+    this.requestInFlight = false;
+    this.maxConcurrentRequests = 1;
+    // Serialize requests to avoid bursts
+    this.minRequestInterval = 100;
+    // Minimum 100ms between requests
+    this.lastRequestTime = 0;
+    this.retryConfig = {
+      maxRetries: 3,
+      baseDelay: 1e3,
+      // 1 second
+      maxDelay: 1e4,
+      // 10 seconds
+      backoffMultiplier: 2
+    };
+    this.plugin = plugin;
+    this.embeddingsIndex = embeddingsIndex;
     this.isEnabled = isEnabled;
     this.isAllowedPath = isAllowedPath;
+  }
+  async getQueryEmbedding(query) {
+    const cached = this.embeddingCache.get(query);
+    if (cached && Date.now() - cached.timestamp < this.cacheTtl) {
+      return cached.vector;
+    }
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    if (timeSinceLastRequest < this.minRequestInterval) {
+      await new Promise((resolve) => setTimeout(resolve, this.minRequestInterval - timeSinceLastRequest));
+    }
+    const settings = this.plugin.settings;
+    const provider = settings.externalEmbeddingProvider;
+    const apiKey = settings.externalEmbeddingApiKey;
+    const model = settings.externalEmbeddingModel || this.getDefaultModel(provider);
+    const apiUrl = settings.externalEmbeddingApiUrl;
+    if (!provider || !apiKey) {
+      throw new Error("External embedding provider or API key not configured");
+    }
+    let lastError = null;
+    for (let attempt = 0; attempt <= this.retryConfig.maxRetries; attempt++) {
+      try {
+        this.lastRequestTime = Date.now();
+        let vector;
+        if (provider === "openai") {
+          vector = await this.callOpenAIEmbedding(apiKey, model, query);
+        } else if (provider === "cohere") {
+          vector = await this.callCohereEmbedding(apiKey, model, query);
+        } else if (provider === "google") {
+          vector = await this.callGoogleEmbedding(apiKey, model, query, settings.externalEmbeddingUseBatch || false);
+        } else if (provider === "custom" && apiUrl) {
+          vector = await this.callCustomEmbedding(apiUrl, query);
+        } else {
+          throw new Error(`Unsupported embedding provider: ${provider}`);
+        }
+        this.embeddingCache.set(query, { vector, timestamp: Date.now() });
+        return vector;
+      } catch (error2) {
+        lastError = error2 instanceof Error ? error2 : new Error(String(error2));
+        const isRateLimit = lastError.message.includes("429") || lastError.message.includes("rate limit") || lastError.message.includes("too many requests");
+        if (isRateLimit && attempt < this.retryConfig.maxRetries) {
+          const delay = Math.min(
+            this.retryConfig.baseDelay * Math.pow(this.retryConfig.backoffMultiplier, attempt),
+            this.retryConfig.maxDelay
+          );
+          console.warn(`[ExternalEmbeddingsProvider] Rate limited (429), retrying in ${delay}ms (attempt ${attempt + 1}/${this.retryConfig.maxRetries + 1})`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+        if (!isRateLimit || attempt >= this.retryConfig.maxRetries) {
+          break;
+        }
+      }
+    }
+    console.error(`[ExternalEmbeddingsProvider] Failed to get embedding after ${this.retryConfig.maxRetries + 1} attempts:`, lastError);
+    throw lastError || new Error("Failed to get embedding");
+  }
+  getDefaultModel(provider) {
+    switch (provider) {
+      case "openai":
+        return "text-embedding-3-small";
+      case "cohere":
+        return "embed-english-v3.0";
+      case "google":
+        return "gemini-embedding-001";
+      default:
+        return "";
+    }
+  }
+  async callOpenAIEmbedding(apiKey, model, query) {
+    const response = await (0, import_obsidian15.requestUrl)({
+      url: "https://api.openai.com/v1/embeddings",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        input: query
+      })
+    });
+    if (response.status !== 200) {
+      const errorText = response.text || "";
+      if (response.status === 429) {
+        const retryAfter = response.headers["retry-after"] || response.headers["Retry-After"];
+        throw new Error(`OpenAI rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : "Please wait before retrying."}`);
+      }
+      throw new Error(`OpenAI embedding API error: ${response.status} ${errorText}`);
+    }
+    const data = typeof response.json === "object" ? response.json : JSON.parse(response.text);
+    if (data.data && data.data[0] && data.data[0].embedding) {
+      return data.data[0].embedding;
+    }
+    throw new Error("Invalid OpenAI embedding response format");
+  }
+  async callCohereEmbedding(apiKey, model, query) {
+    const response = await (0, import_obsidian15.requestUrl)({
+      url: "https://api.cohere.ai/v1/embed",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        texts: [query]
+      })
+    });
+    if (response.status !== 200) {
+      const errorText = response.text || "";
+      if (response.status === 429) {
+        const retryAfter = response.headers["retry-after"] || response.headers["Retry-After"];
+        throw new Error(`Cohere rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : "Please wait before retrying."}`);
+      }
+      throw new Error(`Cohere embedding API error: ${response.status} ${errorText}`);
+    }
+    const data = typeof response.json === "object" ? response.json : JSON.parse(response.text);
+    if (data.embeddings && data.embeddings[0]) {
+      return data.embeddings[0];
+    }
+    throw new Error("Invalid Cohere embedding response format");
+  }
+  async callGoogleEmbedding(apiKey, model, query, useBatch) {
+    if (useBatch) {
+      const response = await (0, import_obsidian15.requestUrl)({
+        url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents?key=${apiKey}`,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          requests: [{
+            content: {
+              parts: [{ text: query }]
+            }
+          }]
+        })
+      });
+      if (response.status !== 200) {
+        const errorText = response.text || "";
+        if (response.status === 429) {
+          const retryAfter = response.headers["retry-after"] || response.headers["Retry-After"];
+          throw new Error(`Google Gemini rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : "Please wait before retrying."}`);
+        }
+        throw new Error(`Google Gemini batch embedding API error: ${response.status} ${errorText}`);
+      }
+      const data = typeof response.json === "object" ? response.json : JSON.parse(response.text);
+      if (data.embeddings && data.embeddings[0] && data.embeddings[0].values) {
+        return data.embeddings[0].values;
+      }
+      throw new Error("Invalid Google Gemini batch embedding response format");
+    } else {
+      const response = await (0, import_obsidian15.requestUrl)({
+        url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${apiKey}`,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          content: {
+            parts: [{ text: query }]
+          }
+        })
+      });
+      if (response.status !== 200) {
+        const errorText = response.text || "";
+        if (response.status === 429) {
+          const retryAfter = response.headers["retry-after"] || response.headers["Retry-After"];
+          throw new Error(`Google Gemini rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : "Please wait before retrying."}`);
+        }
+        throw new Error(`Google Gemini embedding API error: ${response.status} ${errorText}`);
+      }
+      const data = typeof response.json === "object" ? response.json : JSON.parse(response.text);
+      if (data.embedding && data.embedding.values) {
+        return data.embedding.values;
+      }
+      throw new Error("Invalid Google Gemini embedding response format");
+    }
+  }
+  async callCustomEmbedding(apiUrl, query) {
+    const response = await (0, import_obsidian15.requestUrl)({
+      url: apiUrl,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        text: query
+      })
+    });
+    if (response.status !== 200) {
+      const errorText = response.text || "";
+      if (response.status === 429) {
+        const retryAfter = response.headers["retry-after"] || response.headers["Retry-After"];
+        throw new Error(`Custom embedding API rate limit (429). ${retryAfter ? `Retry after ${retryAfter} seconds.` : "Please wait before retrying."}`);
+      }
+      throw new Error(`Custom embedding API error: ${response.status} ${errorText}`);
+    }
+    const data = typeof response.json === "object" ? response.json : JSON.parse(response.text);
+    if (Array.isArray(data)) {
+      return data;
+    }
+    if (data.embedding && Array.isArray(data.embedding)) {
+      return data.embedding;
+    }
+    if (data.vector && Array.isArray(data.vector)) {
+      return data.vector;
+    }
+    if (data.values && Array.isArray(data.values)) {
+      return data.values;
+    }
+    throw new Error("Invalid custom embedding API response format");
   }
   async search(query, opts) {
     if (!this.isEnabled())
@@ -32754,17 +31917,26 @@ var LocalEmbeddingsProvider = class {
     const q = (query.text ?? "").trim();
     if (!q)
       return [];
-    await this.index.ensureLoaded();
+    await this.embeddingsIndex.ensureLoaded();
     let qVec;
     try {
-      qVec = await this.index.embedQueryVector(q);
-    } catch {
+      qVec = await this.getQueryEmbedding(q);
+    } catch (error2) {
+      console.error(`[ExternalEmbeddingsProvider] Failed to get query embedding:`, error2);
       return [];
     }
-    const chunks = this.index.getAllChunks().filter((c) => this.isAllowedPath(c.path));
+    const chunks = this.embeddingsIndex.getAllChunks().filter((c) => this.isAllowedPath(c.path));
     if (chunks.length === 0)
       return [];
-    const scored = chunks.map((c) => ({ chunk: c, score: dot2(qVec, c.vector) })).sort((a, b) => b.score - a.score).slice(0, Math.max(1, Math.min(200, opts.limit * 6)));
+    const scored = chunks.map((c) => {
+      const localVec = c.vector;
+      const qNorm = Math.sqrt(qVec.reduce((sum, v) => sum + v * v, 0)) || 1;
+      const localNorm = Math.sqrt(localVec.reduce((sum, v) => sum + v * v, 0)) || 1;
+      const normalizedQ = qVec.map((v) => v / qNorm);
+      const normalizedLocal = localVec.map((v) => v / localNorm);
+      const score = dot2(normalizedQ, normalizedLocal);
+      return { chunk: c, score };
+    }).sort((a, b) => b.score - a.score).slice(0, Math.max(1, Math.min(200, opts.limit * 6)));
     const results = [];
     for (const { chunk, score } of scored) {
       results.push({
@@ -32774,818 +31946,10 @@ var LocalEmbeddingsProvider = class {
         excerpt: chunk.excerpt,
         score: Math.max(0, Math.min(1, (score + 1) / 2)),
         source: this.id,
-        reasonTags: ["semantic"],
-        isStale: this.index.isStale(chunk.path)
+        reasonTags: ["external-embeddings"]
       });
     }
     return results.slice(0, opts.limit);
-  }
-};
-
-// services/retrieval/CpuReranker.ts
-function clamp01(x) {
-  if (!Number.isFinite(x))
-    return 0;
-  return Math.max(0, Math.min(1, x));
-}
-function normalizeText(s) {
-  return (s || "").replace(/\s+/g, " ").trim();
-}
-var TransformersCrossEncoder = class {
-  constructor() {
-    this.id = "cross-encoder-msmarco-minilm";
-    this.pipeline = null;
-    this.loading = null;
-  }
-  async ensureLoaded() {
-    if (this.pipeline)
-      return;
-    if (this.loading !== null)
-      return this.loading;
-    this.loading = (async () => {
-      console.log(`[CpuReranker] === STARTING RERANKER LOAD ===`);
-      console.log(`[CpuReranker] Timestamp: ${new Date().toISOString()}`);
-      console.log(`[CpuReranker] [STEP 1] Importing transformers.js module...`);
-      let transformersModule;
-      try {
-        transformersModule = await import("./lib/transformers.js");
-        console.log(`[CpuReranker] [STEP 1] \u2713 Module imported successfully`);
-      } catch (importErr) {
-        console.error(`[CpuReranker] [STEP 1] \u2717 Module import failed:`, importErr);
-        throw new Error(`Failed to import transformers.js: ${importErr instanceof Error ? importErr.message : String(importErr)}`);
-      }
-      console.log(`[CpuReranker] [STEP 2] Locating environment structure...`);
-      let env = null;
-      let envSource = "none";
-      if (transformersModule.env) {
-        console.log(`[CpuReranker] [STEP 2] \u2713 Found env via transformersModule.env`);
-        env = transformersModule.env;
-        envSource = "transformersModule.env";
-      } else if (transformersModule.default?.env) {
-        console.log(`[CpuReranker] [STEP 2] \u2713 Found env via transformersModule.default.env`);
-        env = transformersModule.default.env;
-        envSource = "transformersModule.default.env";
-      }
-      if (env) {
-        console.log(`[CpuReranker] [STEP 2] env.backends exists:`, "backends" in env);
-        console.log(`[CpuReranker] [STEP 2] env.backends.onnx exists:`, env.backends?.onnx !== void 0);
-        console.log(`[CpuReranker] [STEP 2] env.useWasm exists:`, typeof env.useWasm === "function");
-      } else {
-        console.warn(`[CpuReranker] [STEP 2] \u2717 Could not find env structure`);
-      }
-      console.log(`[CpuReranker] [STEP 3] Attempting to configure WASM paths...`);
-      const wasmBasePath = "./lib/";
-      if (env) {
-        let onnxBackendEnv = null;
-        let onnxBackendPath = "none";
-        if (transformersModule?.ONNX) {
-          console.log(`[CpuReranker] [STEP 3] \u2713 Found ONNX export in module`);
-          const onnx = transformersModule.ONNX;
-          if (onnx?.env?.wasm) {
-            onnxBackendEnv = onnx.env.wasm;
-            onnxBackendPath = "transformersModule.ONNX.env.wasm";
-            console.log(`[CpuReranker] [STEP 3] \u2713 Found ONNX env.wasm via transformersModule.ONNX`);
-          } else if (onnx?.env) {
-            onnxBackendEnv = onnx.env;
-            onnxBackendPath = "transformersModule.ONNX.env";
-            console.log(`[CpuReranker] [STEP 3] \u2713 Found ONNX env via transformersModule.ONNX`);
-          }
-        }
-        if (!onnxBackendEnv && env.backends?.onnx) {
-          const onnxBackend = env.backends.onnx;
-          console.log(`[CpuReranker] [STEP 3] \u2713 ONNX backend found via env.backends.onnx`);
-          if (onnxBackend.env?.wasm) {
-            onnxBackendEnv = onnxBackend.env.wasm;
-            onnxBackendPath = "env.backends.onnx.env.wasm";
-          } else if (onnxBackend.wasm) {
-            onnxBackendEnv = onnxBackend.wasm;
-            onnxBackendPath = "onnxBackend.wasm";
-          } else if (onnxBackend.env) {
-            onnxBackendEnv = onnxBackend.env;
-            onnxBackendPath = "onnxBackend.env";
-          }
-        }
-        if (onnxBackendEnv) {
-          console.log(`[CpuReranker] [STEP 3] Configuring WASM paths at: ${onnxBackendPath}`);
-          try {
-            if ("wasmPaths" in onnxBackendEnv) {
-              onnxBackendEnv.wasmPaths = wasmBasePath;
-              console.log(`[CpuReranker] [STEP 3] \u2713 Updated wasmPaths to: ${wasmBasePath}`);
-            } else {
-              Object.defineProperty(onnxBackendEnv, "wasmPaths", {
-                value: wasmBasePath,
-                writable: true,
-                enumerable: true,
-                configurable: true
-              });
-              console.log(`[CpuReranker] [STEP 3] \u2713 Created and set wasmPaths to: ${wasmBasePath}`);
-            }
-          } catch (pathErr) {
-            console.warn(`[CpuReranker] [STEP 3] Failed to set wasmPaths at ${onnxBackendPath}:`, pathErr);
-          }
-        } else {
-          console.warn(`[CpuReranker] [STEP 3] \u26A0 ONNX backend environment not found - may initialize lazily`);
-        }
-        try {
-          if ("wasmPaths" in env) {
-            env.wasmPaths = wasmBasePath;
-            console.log(`[CpuReranker] [STEP 3] \u2713 Also set env.wasmPaths to: ${wasmBasePath}`);
-          }
-        } catch (envPathErr) {
-          console.warn(`[CpuReranker] [STEP 3] Failed to set top-level env.wasmPaths:`, envPathErr);
-        }
-      } else {
-        console.warn(`[CpuReranker] [STEP 3] \u2717 Cannot configure WASM paths - env not found`);
-      }
-      console.log(`[CpuReranker] [STEP 4] Locating pipeline function...`);
-      const pipeline = transformersModule.pipeline || transformersModule.default?.pipeline;
-      console.log(`[CpuReranker] [STEP 4] Pipeline found:`, pipeline !== void 0 && pipeline !== null);
-      console.log(`[CpuReranker] [STEP 4] Pipeline type:`, typeof pipeline);
-      if (!pipeline || typeof pipeline !== "function") {
-        console.error(`[CpuReranker] [STEP 4] \u2717 Pipeline not found or not a function`);
-        throw new Error("Transformers pipeline is unavailable");
-      }
-      console.log(`[CpuReranker] [STEP 4] \u2713 Pipeline function found`);
-      console.log(`[CpuReranker] [STEP 5] Creating cross-encoder pipeline...`);
-      console.log(`[CpuReranker] [STEP 5] Model: Xenova/cross-encoder-ms-marco-MiniLM-L-6-v2`);
-      try {
-        const pipeUnknown = await pipeline(
-          "text-classification",
-          "Xenova/cross-encoder-ms-marco-MiniLM-L-6-v2",
-          { quantized: true }
-        );
-        const pipe = pipeUnknown;
-        this.pipeline = async (input) => await pipe(input);
-        console.log(`[CpuReranker] [STEP 5] \u2713 Pipeline created successfully`);
-        console.log(`[CpuReranker] === RERANKER LOAD COMPLETE ===`);
-      } catch (pipeErr) {
-        console.error(`[CpuReranker] [STEP 5] \u2717 Pipeline creation failed:`, pipeErr);
-        throw pipeErr;
-      }
-    })().finally(() => {
-      this.loading = null;
-    });
-    return this.loading;
-  }
-  async rerankPair(query, document2) {
-    const q = normalizeText(query);
-    const d = normalizeText(document2);
-    if (!q || !d)
-      return { score: 0 };
-    await this.ensureLoaded();
-    if (!this.pipeline)
-      throw new Error("Reranker pipeline unavailable");
-    let out;
-    try {
-      out = await this.pipeline([{ text: q, text_pair: d }]);
-    } catch {
-      out = await this.pipeline(`${q}
-
-${d}`);
-    }
-    const first = Array.isArray(out) ? out[0] : out;
-    const obj = first;
-    const score = typeof obj?.score === "number" ? obj.score : 0;
-    return { score: clamp01(score) };
-  }
-};
-var CpuReranker = class {
-  constructor(model) {
-    // queryHash -> itemKey -> score
-    this.cache = /* @__PURE__ */ new Map();
-    this.model = model ?? new TransformersCrossEncoder();
-  }
-  hashQuery(q) {
-    return fnv1a32(normalizeText(q));
-  }
-  warm(query, items, opts) {
-    const shortlist = Math.max(1, Math.min(120, Math.floor(opts?.shortlist ?? 40)));
-    const qh = this.hashQuery(query);
-    const map2 = this.cache.get(qh) ?? /* @__PURE__ */ new Map();
-    this.cache.set(qh, map2);
-    const toScore = items.slice(0, shortlist).filter((it) => !map2.has(it.key));
-    if (toScore.length === 0)
-      return;
-    void (async () => {
-      for (const it of toScore) {
-        try {
-          const doc = `${it.path}
-${it.excerpt}`;
-          const res = await this.model.rerankPair(query, doc);
-          map2.set(it.key, res.score);
-        } catch {
-          break;
-        }
-      }
-    })().catch(() => {
-    });
-  }
-  async rerank(query, items, opts) {
-    try {
-      const limit = Math.max(1, Math.min(200, Math.floor(opts.limit)));
-      const shortlist = Math.max(limit, Math.min(120, Math.floor(opts.shortlist ?? 60)));
-      const qh = this.hashQuery(query);
-      const map2 = this.cache.get(qh) ?? /* @__PURE__ */ new Map();
-      this.cache.set(qh, map2);
-      const scored = [];
-      const slice = items.slice(0, shortlist);
-      for (const it of slice) {
-        const cached = map2.get(it.key);
-        if (typeof cached === "number") {
-          scored.push({ item: it, score: cached });
-          continue;
-        }
-        try {
-          const doc = `${it.path}
-${it.excerpt}`;
-          const res = await this.model.rerankPair(query, doc);
-          map2.set(it.key, res.score);
-          scored.push({ item: it, score: res.score });
-        } catch (err) {
-          console.warn(`[CpuReranker] Failed to rerank item ${it.key}, using original score:`, err);
-          scored.push({ item: it, score: it.score });
-        }
-      }
-      const out = scored.sort((a, b) => b.score - a.score || b.item.score - a.item.score).slice(0, limit).map((s) => ({
-        ...s.item,
-        // Keep the score field as the rerank score so formatting reflects true order.
-        score: s.score,
-        source: "rerank",
-        reasonTags: Array.from(/* @__PURE__ */ new Set([...s.item.reasonTags ?? [], "rerank"]))
-      }));
-      return out;
-    } catch (err) {
-      console.warn("[CpuReranker] Reranking failed, returning original results:", err);
-      return items.slice(0, opts.limit);
-    }
-  }
-};
-
-// services/retrieval/OllamaEmbeddingProvider.ts
-var import_obsidian17 = require("obsidian");
-var OllamaEmbeddingProvider = class {
-  constructor(app, baseUrl = "http://127.0.0.1:11434", model = "nomic-embed-text") {
-    this.app = app;
-    this.baseUrl = baseUrl;
-    this.model = model;
-  }
-  async isAvailable() {
-    try {
-      const res = await (0, import_obsidian17.requestUrl)({ url: `${this.baseUrl}/api/tags`, method: "GET" });
-      return res.status === 200;
-    } catch (e) {
-      console.warn("[Ollama] Not detected. Ensure 'ollama serve' is running.");
-      return false;
-    }
-  }
-  /**
-   * Check if a specific model is present in the local Ollama registry.
-   */
-  async hasModel(modelName = this.model) {
-    const modelLower = modelName.toLowerCase().trim();
-    const normalize3 = (val) => (val || "").split(":")[0].toLowerCase().trim();
-    try {
-      const res = await (0, import_obsidian17.requestUrl)({ url: `${this.baseUrl}/api/tags`, method: "GET" });
-      if (res.status !== 200)
-        return false;
-      const tags = res.json?.models || res.json?.modelsList || res.json?.data;
-      if (!Array.isArray(tags))
-        return false;
-      return tags.some((m) => {
-        const candidates = [
-          typeof m === "string" ? m : void 0,
-          m?.name,
-          m?.model
-        ].filter(Boolean);
-        return candidates.some((c) => {
-          if (!c)
-            return false;
-          const cLower = c.toLowerCase().trim();
-          return cLower === modelLower || cLower === `${modelLower}:latest` || cLower.startsWith(`${modelLower}:`) || normalize3(cLower) === modelLower;
-        });
-      });
-    } catch {
-      return false;
-    }
-  }
-  async getEmbedding(text2) {
-    const { text: defanged, count: defangCount } = this.defang(text2, 100);
-    const sandwiched = this.sandwich(defanged);
-    try {
-      return await this._executeEmbed(sandwiched, {
-        originalLength: text2.length,
-        finalLength: sandwiched.length,
-        defangCount,
-        hadRetry: false
-      });
-    } catch (err) {
-      if (err?.status === 400 || String(err).includes("400")) {
-        const { text: defanged2, count: defangCount2 } = this.defang(text2, 60);
-        const sandwiched2 = this.sandwich(defanged2);
-        return await this._executeEmbed(sandwiched2, {
-          originalLength: text2.length,
-          finalLength: sandwiched2.length,
-          defangCount: defangCount2,
-          hadRetry: true
-        });
-      }
-      throw err;
-    }
-  }
-  defang(text2, cap) {
-    let count = 0;
-    const tokens = text2.split(/(\s+)/);
-    const processed = tokens.map((token) => {
-      if (token.trim().length > cap) {
-        count++;
-        const len = token.length;
-        return token.slice(0, 30) + `\u2026<snip:len=${len}>\u2026` + token.slice(-30);
-      }
-      return token;
-    });
-    return { text: processed.join(""), count };
-  }
-  sandwich(text2) {
-    if (text2.length <= 6e3)
-      return text2;
-    const start = text2.slice(0, 2e3);
-    const end = text2.slice(-2e3);
-    const middleStart = Math.max(0, Math.floor(text2.length / 2) - 1e3);
-    const middle = text2.slice(middleStart, middleStart + 2e3);
-    return `${start}
-
-[...snip...]
-
-${middle}
-
-[...snip...]
-
-${end}`;
-  }
-  async _executeEmbed(text2, meta) {
-    let res;
-    try {
-      res = await (0, import_obsidian17.requestUrl)({
-        url: `${this.baseUrl}/api/embed`,
-        method: "POST",
-        body: JSON.stringify({
-          model: this.model,
-          input: text2
-        })
-      });
-    } catch (err) {
-      if (err?.status === 404) {
-        res = await (0, import_obsidian17.requestUrl)({
-          url: `${this.baseUrl}/api/embeddings`,
-          method: "POST",
-          body: JSON.stringify({
-            model: this.model,
-            prompt: text2
-          })
-        });
-      } else {
-        throw err;
-      }
-    }
-    console.log(`[Ollama] Embed call: original=${meta.originalLength}, final=${meta.finalLength}, defangs=${meta.defangCount}, retry=${meta.hadRetry}, status=${res.status}`);
-    if (res.status !== 200) {
-      const err = new Error(`[Ollama] Embed failed with status ${res.status}`);
-      err.status = res.status;
-      throw err;
-    }
-    const vec = res.json?.embeddings?.[0] || res.json?.embedding;
-    if (!Array.isArray(vec) || vec.length === 0) {
-      throw new Error("[Ollama] Invalid embedding response");
-    }
-    return vec;
-  }
-};
-
-// services/retrieval/OllamaGenerationProvider.ts
-var import_obsidian18 = require("obsidian");
-var OllamaGenerationProvider = class {
-  constructor(plugin) {
-    this.queue = [];
-    this.isProcessing = false;
-    this.plugin = plugin;
-  }
-  get baseUrl() {
-    return this.plugin.settings.ollamaBaseUrl || "http://127.0.0.1:11434";
-  }
-  /**
-   * Enqueues a generation task with priority.
-   * Priority: 10 (WRITE), 5 (AUDIT), 3 (STITCH), 1 (METADATA).
-   * taskKey is used for deduplication (latest wins).
-   */
-  async enqueue(priority, taskKey, task, abortController) {
-    if (taskKey) {
-      const existingIdx = this.queue.findIndex((item) => item.taskKey === taskKey);
-      if (existingIdx !== -1) {
-        const existing = this.queue[existingIdx];
-        existing.abortController?.abort();
-        this.queue.splice(existingIdx, 1);
-      }
-    }
-    if (this.queue.length >= 20) {
-      const stitchIdx = this.queue.findIndex((item) => item.priority === 3);
-      if (stitchIdx !== -1) {
-        const dropped = this.queue.splice(stitchIdx, 1)[0];
-        dropped.abortController?.abort();
-      }
-    }
-    return new Promise((resolve, reject) => {
-      this.queue.push({
-        priority,
-        taskKey,
-        task: async (signal) => {
-          try {
-            if (signal?.aborted) {
-              reject(new Error("Task aborted before execution"));
-              return;
-            }
-            const result = await task(signal);
-            resolve(result);
-          } catch (err) {
-            reject(err);
-          }
-        },
-        abortController
-      });
-      this.queue.sort((a, b) => b.priority - a.priority);
-      this.processQueue();
-    });
-  }
-  async processQueue() {
-    if (this.isProcessing || this.queue.length === 0)
-      return;
-    this.isProcessing = true;
-    while (this.queue.length > 0) {
-      const item = this.queue.shift();
-      await item.task(item.abortController?.signal);
-    }
-    this.isProcessing = false;
-  }
-  /**
-   * Cancels all pending tasks in the queue.
-   */
-  cancelAll() {
-    this.queue.forEach((item) => item.abortController?.abort());
-    this.queue = [];
-  }
-  /**
-   * Generates text based on a prompt and parameters.
-   */
-  async generate(prompt, params, signal) {
-    console.log(`[OllamaGen] \u{1F4E1} Sending request to model: ${params.model} (Temp: ${params.temperature}, num_ctx: ${params.num_ctx || "default"})`);
-    try {
-      const options = {
-        temperature: params.temperature,
-        num_predict: params.max_tokens || 2048,
-        stop: params.stop || [],
-        seed: params.seed || 42
-        // Deterministic seed
-      };
-      if (params.num_ctx && params.num_ctx > 0) {
-        options.num_ctx = params.num_ctx;
-      }
-      const response = await (0, import_obsidian18.requestUrl)({
-        url: `${this.baseUrl}/api/generate`,
-        method: "POST",
-        body: JSON.stringify({
-          model: params.model,
-          prompt,
-          stream: false,
-          options,
-          format: params.format === "json" ? "json" : void 0
-        })
-      });
-      if (signal?.aborted)
-        throw new Error("Aborted");
-      if (response.status !== 200) {
-        throw new Error(`Ollama returned status ${response.status}: ${response.text}`);
-      }
-      const result = response.json;
-      if (!result || !result.response) {
-        throw new Error("Invalid response format from Ollama.");
-      }
-      return result.response;
-    } catch (err) {
-      console.error("[OllamaGen] \u274C Generation failed:", err);
-      throw err;
-    }
-  }
-  /**
-   * Specialized method for generating and parsing JSON blocks.
-   * Enforces JSON fencing and retry logic.
-   */
-  async generateJson(prompt, model) {
-    const enhancedPrompt = `${prompt}
-
-IMPORTANT: Output ONLY a single valid JSON block. Do not include any other text or explanations.`;
-    const rawResponse = await this.generate(enhancedPrompt, {
-      model,
-      temperature: 0,
-      // Force determinism for JSON
-      format: "json"
-    });
-    try {
-      const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
-      const jsonString = jsonMatch ? jsonMatch[0] : rawResponse;
-      return JSON.parse(jsonString);
-    } catch (err) {
-      console.error("[OllamaGen] \u274C JSON Parse Error. Raw response:", rawResponse);
-      throw new Error("Failed to parse JSON response from LLM.");
-    }
-  }
-  /**
-   * Generates text with token-safe streaming.
-   * Flushes complete units at punctuation or sentence-end (150-250ms throttled).
-   */
-  async generateStream(prompt, params, onToken, signal) {
-    console.log(`[OllamaGen] \u{1F4E1} Sending streaming request to model: ${params.model} (num_ctx: ${params.num_ctx || "default"})`);
-    let fullResponse = "";
-    let buffer = "";
-    let lastFlush = Date.now();
-    const options = {
-      temperature: params.temperature,
-      num_predict: params.max_tokens || 2048,
-      seed: params.seed || 42
-    };
-    if (params.num_ctx && params.num_ctx > 0) {
-      options.num_ctx = params.num_ctx;
-    }
-    try {
-      const response = await fetch(`${this.baseUrl}/api/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: params.model,
-          prompt,
-          stream: true,
-          options
-        }),
-        signal
-        // Use the abort signal here
-      });
-      if (!response.body)
-        throw new Error("No response body");
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done)
-          break;
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
-        for (const line of lines) {
-          if (!line.trim())
-            continue;
-          try {
-            const json = JSON.parse(line);
-            const token = json.response || "";
-            fullResponse += token;
-            buffer += token;
-            const now = Date.now();
-            const timeSinceFlush = now - lastFlush;
-            if (/[.!?\n]/.test(token) || timeSinceFlush > 200 && buffer.length > 50 || buffer.length > 400) {
-              onToken(buffer);
-              buffer = "";
-              lastFlush = now;
-            }
-          } catch {
-          }
-        }
-      }
-      if (buffer)
-        onToken(buffer);
-      return fullResponse;
-    } catch (err) {
-      console.error("[OllamaGen] \u274C Streaming failed:", err);
-      throw err;
-    }
-  }
-  /**
-   * Checks if Ollama is running.
-   */
-  async isOllamaRunning() {
-    try {
-      const response = await (0, import_obsidian18.requestUrl)({
-        url: `${this.baseUrl}/api/tags`,
-        method: "GET"
-      });
-      return response.status === 200;
-    } catch (e) {
-      return false;
-    }
-  }
-  async isAvailable() {
-    return this.isOllamaRunning();
-  }
-  /**
-   * Returns the current version of the Ollama server.
-   */
-  async getOllamaVersion() {
-    try {
-      const response = await (0, import_obsidian18.requestUrl)({
-        url: `${this.baseUrl}/api/version`,
-        method: "GET"
-      });
-      return response.json?.version;
-    } catch {
-      return void 0;
-    }
-  }
-};
-
-// services/OllamaModelManager.ts
-var import_obsidian19 = require("obsidian");
-var OllamaModelManager = class {
-  constructor(plugin) {
-    this.catalog = [];
-    this.plugin = plugin;
-    this.catalog = [
-      { id: "llama3.1:70b", role: "WRITE", sizeTier: "large" },
-      { id: "llama3.1:8b", role: "FAST", sizeTier: "small" },
-      { id: "nomic-embed-text", role: "EMBED", sizeTier: "tiny" }
-    ];
-  }
-  get baseUrl() {
-    return this.plugin.settings.ollamaBaseUrl || "http://127.0.0.1:11434";
-  }
-  /**
-   * Fetches all models (Installed + Catalog).
-   */
-  async getModels() {
-    const installed = await this.fetchInstalledModels();
-    const merged = /* @__PURE__ */ new Map();
-    this.catalog.forEach((c) => {
-      merged.set(c.id, {
-        ...c,
-        id: c.id,
-        name: c.id,
-        status: "installable"
-      });
-    });
-    installed.forEach((i) => {
-      const catalogEntry = this.catalog.find((c) => c.id === i.id);
-      merged.set(i.id, {
-        ...catalogEntry,
-        ...i,
-        status: "ready"
-      });
-    });
-    return Array.from(merged.values());
-  }
-  /**
-   * Fetches only installed models from the Ollama API.
-   */
-  async fetchInstalledModels() {
-    try {
-      const response = await (0, import_obsidian19.requestUrl)({
-        url: `${this.baseUrl}/api/tags`,
-        method: "GET"
-      });
-      if (response.status === 200 && response.json && Array.isArray(response.json.models)) {
-        return response.json.models.map((m) => ({
-          id: m.name,
-          digest: m.digest,
-          size: m.size
-        }));
-      }
-      return [];
-    } catch (e) {
-      console.warn("[ModelManager] Ollama not reachable for tag fetch.");
-      return [];
-    }
-  }
-  /**
-   * Gets the specific digest for a model by name.
-   * Smart matching: handles ':latest' tags and case-insensitivity.
-   */
-  async getModelDigest(name) {
-    const models = await this.fetchInstalledModels();
-    const searchLower = name.toLowerCase().trim();
-    const searchBase = searchLower.split(":")[0];
-    const exact = models.find((m) => m.id?.toLowerCase() === searchLower);
-    if (exact)
-      return exact.digest;
-    const baseMatch = models.find((m) => {
-      const idLower = (m.id || "").toLowerCase();
-      return idLower === `${searchLower}:latest` || idLower.split(":")[0] === searchBase;
-    });
-    return baseMatch?.digest;
-  }
-  /**
-   * Gets the model's actual context limit from Ollama /api/show.
-   * Returns null if model is not loaded or Ollama is unreachable.
-   */
-  async getModelContextLimit(modelName) {
-    try {
-      const response = await (0, import_obsidian19.requestUrl)({
-        url: `${this.baseUrl}/api/show`,
-        method: "POST",
-        body: JSON.stringify({ name: modelName })
-      });
-      if (response.status !== 200) {
-        console.warn(`[ModelManager] /api/show returned ${response.status} for ${modelName}`);
-        return null;
-      }
-      const info = response.json;
-      const numCtx = info?.model_info?.["context_length"] || info?.model_info?.["llama.context_length"] || info?.parameters?.num_ctx || info?.details?.context_length || null;
-      if (numCtx && typeof numCtx === "number") {
-        console.log(`[ModelManager] Model ${modelName} context limit: ${numCtx}`);
-        return numCtx;
-      }
-      if (info?.template || info?.modelfile) {
-        const templateStr = info.template || info.modelfile || "";
-        const ctxMatch = templateStr.match(/num_ctx\s+(\d+)/i);
-        if (ctxMatch) {
-          const parsed = parseInt(ctxMatch[1], 10);
-          console.log(`[ModelManager] Model ${modelName} context limit (from template): ${parsed}`);
-          return parsed;
-        }
-      }
-      console.warn(`[ModelManager] Could not determine context limit for ${modelName}`);
-      return null;
-    } catch (e) {
-      console.warn(`[ModelManager] Failed to get context limit for ${modelName}:`, e);
-      return null;
-    }
-  }
-  /**
-   * Returns the current version of the Ollama server.
-   */
-  async getOllamaVersion() {
-    try {
-      const response = await (0, import_obsidian19.requestUrl)({
-        url: `${this.baseUrl}/api/version`,
-        method: "GET"
-      });
-      return response.json?.version;
-    } catch {
-      return void 0;
-    }
-  }
-  /**
-   * Pulls a model from the Ollama library.
-   * Uses the /api/pull endpoint and emits progress events.
-   */
-  async pullModel(modelId, onProgress) {
-    console.log(`[ModelManager] \u{1F4E5} Pulling model: ${modelId}`);
-    try {
-      const response = await fetch(`${this.baseUrl}/api/pull`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: modelId, stream: true })
-      });
-      if (!response.body)
-        throw new Error("No response body");
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done)
-          break;
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
-        for (const line of lines) {
-          if (!line.trim())
-            continue;
-          try {
-            const json = JSON.parse(line);
-            onProgress(json);
-          } catch {
-          }
-        }
-      }
-      console.log(`[ModelManager] \u2705 Pull complete: ${modelId}`);
-    } catch (err) {
-      console.error("[ModelManager] \u274C Pull failed:", err);
-      throw err;
-    }
-  }
-  /**
-   * Performs a tiny warmup generation to catch initialization errors.
-   */
-  async warmup(modelId) {
-    const start = Date.now();
-    try {
-      const prompt = '{"test": true}';
-      const result = await this.plugin.ollamaGen.generateJson(
-        'Output a JSON object: {"test": true}',
-        modelId
-      );
-      return {
-        success: result?.test === true,
-        latency: Date.now() - start
-      };
-    } catch (err) {
-      return {
-        success: false,
-        latency: Date.now() - start,
-        error: err.message
-      };
-    }
   }
 };
 
@@ -33659,7 +32023,7 @@ function sortPatchOps(ops) {
 }
 
 // services/ContextManager.ts
-var import_obsidian20 = require("obsidian");
+var import_obsidian16 = require("obsidian");
 var ContextManager = class {
   // Locked entities/relations
   constructor(vault, initialState) {
@@ -33771,7 +32135,7 @@ var ContextManager = class {
     });
     this.state.redirectRegistryVersion = (this.state.redirectRegistryVersion || 0) + 1;
     this.state.canonVersion++;
-    console.log(`[ContextManager] \u{1F91D} Merged ${fromId} into ${resolvedTo}. v${this.state.canonVersion} (Registry v${this.state.redirectRegistryVersion})`);
+    console.debug(`[ContextManager] \u{1F91D} Merged ${fromId} into ${resolvedTo}. v${this.state.canonVersion} (Registry v${this.state.redirectRegistryVersion})`);
   }
   /**
    * Pins a fact to the context for future iterations.
@@ -33780,7 +32144,7 @@ var ContextManager = class {
     this.pinnedFactIds.add(factId);
     this.pinnedTtl[factId] = CO_AUTHORING_POLICY.SPONTANEITY.PIN_TTL_CHUNKS;
     this.pinnedExtensions[factId] = 0;
-    console.log(`[ContextManager] \u{1F4CC} Pinned fact ${factId}`);
+    console.debug(`[ContextManager] \u{1F4CC} Pinned fact ${factId}`);
   }
   /**
    * Unpins a fact.
@@ -33801,13 +32165,13 @@ var ContextManager = class {
         if (this.pinnedExtensions[id] < policy.MAX_PIN_EXTENSIONS) {
           this.pinnedTtl[id] = policy.PIN_TTL_CHUNKS;
           this.pinnedExtensions[id]++;
-          console.log(`[ContextManager] \u{1F504} Refreshed TTL for pinned fact ${id} (Extension ${this.pinnedExtensions[id]})`);
+          console.debug(`[ContextManager] \u{1F504} Refreshed TTL for pinned fact ${id} (Extension ${this.pinnedExtensions[id]})`);
         }
       } else {
         this.pinnedTtl[id]--;
         if (this.pinnedTtl[id] <= 0) {
           this.unpinFact(id);
-          console.log(`[ContextManager] \u23F0 Pin expired for fact ${id}`);
+          console.debug(`[ContextManager] \u23F0 Pin expired for fact ${id}`);
         }
       }
     });
@@ -33864,7 +32228,7 @@ var ContextManager = class {
    */
   deferMutation(acceptance) {
     this.state.pendingMutations.push(acceptance);
-    console.log(`[ContextManager] \u23F3 Mutation ${acceptance.id} deferred.`);
+    console.debug(`[ContextManager] \u23F3 Mutation ${acceptance.id} deferred.`);
   }
   /**
    * Accepts a proposed mutation, signing the record and bumping canonVersion.
@@ -33880,7 +32244,7 @@ var ContextManager = class {
     this.state.mutationHistory.push(acceptance);
     this.state.pendingMutations = this.state.pendingMutations.filter((m) => m.id !== acceptance.id);
     this.state.canonVersion++;
-    console.log(`[ContextManager] \u2705 Canon version bumped to ${this.state.canonVersion}`);
+    console.debug(`[ContextManager] \u2705 Canon version bumped to ${this.state.canonVersion}`);
   }
   updateFactVersioned(newFact) {
     const index = this.state.canonFacts.findIndex((f) => f.id === newFact.id);
@@ -33942,14 +32306,14 @@ var ContextManager = class {
    */
   async seedFromStoryBible(path) {
     const file = this.vault.getAbstractFileByPath(path);
-    if (!(file instanceof import_obsidian20.TFile))
+    if (!(file instanceof import_obsidian16.TFile))
       return { updated: false, hash: "" };
     const content = await this.vault.read(file);
     const hash = await sha256(content);
     if (hash === this.lastStoryBibleHash) {
       return { updated: false, hash };
     }
-    console.log(`[ContextManager] \u{1F4DA} Seeding canon from story bible (Hash: ${hash})`);
+    console.debug(`[ContextManager] \u{1F4DA} Seeding canon from story bible (Hash: ${hash})`);
     const proposals = [
       {
         id: "char_alice",
@@ -33980,10 +32344,10 @@ var ContextManager = class {
       if (prop.confidence >= 0.85 && !hasCollision && this.shouldAutoPromote(mockFact)) {
         this.state.entities.push(prop.entity);
         this.state.canonFacts.push({ ...mockFact, lifecycleState: "CANON" });
-        console.log(`[ContextManager] \u2705 Auto-accepted seeding: ${prop.entity.name}`);
+        console.debug(`[ContextManager] \u2705 Auto-accepted seeding: ${prop.entity.name}`);
       } else {
         seedProposals.push(prop);
-        console.log(`[ContextManager] \u26A0\uFE0F Seeding proposal quarantined: ${prop.entity.name} (Conf: ${prop.confidence}, Collision: ${hasCollision})`);
+        console.debug(`[ContextManager] \u26A0\uFE0F Seeding proposal quarantined: ${prop.entity.name} (Conf: ${prop.confidence}, Collision: ${hasCollision})`);
       }
     });
     this.lastStoryBibleHash = hash;
@@ -33994,7 +32358,7 @@ var ContextManager = class {
    */
   lockSemanticEntity(id, type, value, scope = "GLOBAL") {
     this.semanticLockMap.set(id, { type, value, scope });
-    console.log(`[ContextManager] \u{1F512} Locked semantic entity: ${id} (${type})`);
+    console.debug(`[ContextManager] \u{1F512} Locked semantic entity: ${id} (${type})`);
   }
   /**
    * Checks if a semantic entity is locked.
@@ -34138,7 +32502,7 @@ var ContextManager = class {
   }
   async saveSnapshot(path) {
     const existingFile = this.vault.getAbstractFileByPath(path);
-    if (existingFile instanceof import_obsidian20.TFile) {
+    if (existingFile instanceof import_obsidian16.TFile) {
       await this.vault.modify(existingFile, JSON.stringify(this.state, null, 2));
     } else {
       const folderPath = path.substring(0, path.lastIndexOf("/"));
@@ -34242,7 +32606,7 @@ var AuditService = class {
    */
   getNarrationSpans(text2) {
     const spans = [];
-    const dialogueRegex = /["“].*?["”]|['‘].*?['’]|—.*$/gm;
+    const dialogueRegex = /(?:[""].*?[""])|(?:[''].*?[''])|(?:—.*$)/gm;
     let lastIndex = 0;
     let match2;
     while ((match2 = dialogueRegex.exec(text2)) !== null) {
@@ -34267,7 +32631,7 @@ var AuditService = class {
    */
   checkPOV(text2, targetPov, globalOffset) {
     const firstPersonProngs = /\b(I|me|my|mine|we|us|our)\b/i;
-    const match2 = text2.match(firstPersonProngs);
+    const match2 = firstPersonProngs.exec(text2);
     if (targetPov.includes("third") && match2) {
       const start = globalOffset + (match2.index || 0);
       return {
@@ -34287,7 +32651,7 @@ var AuditService = class {
     const presentIndicators = /\b(is|are|am|goes|looks|sees|thinks)\b/i;
     const pastIndicators = /\b(was|were|went|looked|saw|thought)\b/i;
     if (targetTense === "past") {
-      const match2 = text2.match(presentIndicators);
+      const match2 = presentIndicators.exec(text2);
       if (match2) {
         const start = globalOffset + (match2.index || 0);
         return {
@@ -34300,7 +32664,7 @@ var AuditService = class {
       }
     }
     if (targetTense === "present") {
-      const match2 = text2.match(pastIndicators);
+      const match2 = pastIndicators.exec(text2);
       if (match2) {
         const start = globalOffset + (match2.index || 0);
         return {
@@ -34353,12 +32717,7 @@ Hard Attributes: ${AttributeRegistry.join(", ")}
 
 Respond ONLY with valid JSON.`;
     try {
-      const response = await this.plugin.ollamaGen.generate(prompt, {
-        model: this.plugin.settings.relaySmartModel,
-        temperature: 0.1,
-        max_tokens: 1024,
-        format: "json"
-      });
+      const response = await this.plugin.aiClient.generate(prompt, { ...this.plugin.settings, generationMode: "single" });
       const parsed = JSON.parse(response);
       if (!Array.isArray(parsed))
         return [];
@@ -34444,12 +32803,7 @@ Max churn: ${STITCH_CONFIG.MAX_CHARS_CHANGED_PCT * 100}%`;
       try {
         if (signal?.aborted)
           throw new Error("Aborted");
-        const res = await this.plugin.ollamaGen.generate(prompt, {
-          model: this.plugin.settings.relaySmartModel,
-          temperature: temp,
-          max_tokens: 1024,
-          format: "json"
-        }, signal);
+        const res = await this.plugin.aiClient.generate(prompt, { ...this.plugin.settings, generationMode: "single" });
         const result = JSON.parse(res);
         if (result.patchOps.length > STITCH_CONFIG.MAX_PATCH_OPS)
           throw new Error("BUDGET");
@@ -34502,7 +32856,7 @@ Max churn: ${STITCH_CONFIG.MAX_CHARS_CHANGED_PCT * 100}%`;
       response = await attemptStitch(0.1);
     }
     if (!response) {
-      console.log(`[ProseStitcher] All attempts failed for ${routing.seamId}. Skipping silently.`);
+      console.debug(`[ProseStitcher] All attempts failed for ${routing.seamId}. Skipping silently.`);
       return null;
     }
     return response;
@@ -34568,10 +32922,10 @@ var ParagraphIdentityService = class {
 };
 
 // services/SequentialGenerator.ts
-var import_obsidian24 = require("obsidian");
+var import_obsidian20 = require("obsidian");
 
 // ui/InterventionModal.tsx
-var import_obsidian21 = require("obsidian");
+var import_obsidian17 = require("obsidian");
 function showInterventionModal(app, opts) {
   return new Promise((resolve) => {
     let settled = false;
@@ -34581,7 +32935,7 @@ function showInterventionModal(app, opts) {
       settled = true;
       resolve(value);
     };
-    const modal = new class extends import_obsidian21.Modal {
+    const modal = new class extends import_obsidian17.Modal {
       onOpen() {
         const title = opts.triggerReason === "FAIL_MATRIX_SEVERITY" ? "Intervention Required: Lore Violation" : "Intervention Required: Repair Cap Exceeded";
         this.titleEl.setText(title);
@@ -34605,31 +32959,31 @@ function showInterventionModal(app, opts) {
           defaultAvoid = "Complex nested clauses, multiple simultaneous actions, unclear references";
           starterPrompt = `The prose requires simplification due to excessive repair attempts. Please rewrite the paragraph with clearer structure and reduced complexity while maintaining the narrative intent.`;
         }
-        new import_obsidian21.Setting(content).setName("Goal").setDesc("What you want the AI to achieve").addTextArea((text2) => {
+        new import_obsidian17.Setting(content).setName("Goal").setDesc("What you want the AI to achieve").addTextArea((text2) => {
           this.goalInput = text2;
           text2.setValue(defaultGoal);
           text2.inputEl.rows = 2;
           text2.inputEl.style.width = "100%";
         });
-        new import_obsidian21.Setting(content).setName("Must Preserve").setDesc("Anchors/canon tuples that must be preserved (comma-separated)").addTextArea((text2) => {
+        new import_obsidian17.Setting(content).setName("Must Preserve").setDesc("Anchors/canon tuples that must be preserved (comma-separated)").addTextArea((text2) => {
           this.mustPreserveInput = text2;
           text2.setValue(defaultPreserve);
           text2.inputEl.rows = 2;
           text2.inputEl.style.width = "100%";
         });
-        new import_obsidian21.Setting(content).setName("Must Avoid").setDesc("Forbidden claims/domains (comma-separated)").addTextArea((text2) => {
+        new import_obsidian17.Setting(content).setName("Must Avoid").setDesc("Forbidden claims/domains (comma-separated)").addTextArea((text2) => {
           this.mustAvoidInput = text2;
           text2.setValue(defaultAvoid);
           text2.inputEl.rows = 2;
           text2.inputEl.style.width = "100%";
         });
-        new import_obsidian21.Setting(content).setName("Your Guidance").setDesc("Provide specific instructions for the AI").addTextArea((text2) => {
+        new import_obsidian17.Setting(content).setName("Your Guidance").setDesc("Provide specific instructions for the AI").addTextArea((text2) => {
           this.userPromptInput = text2;
           text2.setValue(starterPrompt);
           text2.inputEl.rows = 4;
           text2.inputEl.style.width = "100%";
         });
-        new import_obsidian21.Setting(content).addButton((btn) => {
+        new import_obsidian17.Setting(content).addButton((btn) => {
           btn.setButtonText("Cancel (Stop Run)");
           btn.onClick(() => {
             settle(null);
@@ -34662,7 +33016,7 @@ function showInterventionModal(app, opts) {
 }
 
 // services/LoreHarvestService.ts
-var import_obsidian22 = require("obsidian");
+var import_obsidian18 = require("obsidian");
 var LoreHarvestService = class {
   constructor(plugin) {
     this.plugin = plugin;
@@ -34681,21 +33035,12 @@ var LoreHarvestService = class {
         existingEntities: existingEntityIds
       });
       try {
-        const result = await this.plugin.ollamaGen.enqueue(
-          3,
-          `${runId}__harvest__${chunk.chunkId}`,
-          (signal) => this.plugin.ollamaGen.generate(prompt, {
-            model: this.plugin.settings.relaySmartModel,
-            temperature: 0.1,
-            max_tokens: 1024,
-            format: "json"
-          }, signal)
-        );
+        const result = await this.plugin.aiClient.generate(prompt, { ...this.plugin.settings, generationMode: "single" });
         if (result && typeof result === "string") {
           const parsed = JSON.parse(result);
           if (parsed && parsed.candidates) {
             for (const c of parsed.candidates) {
-              const harvestId = `harvest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+              const harvestId = `harvest-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
               const proposedFact = {
                 id: `fact-harvest-${Date.now()}`,
                 entityId: c.entityId,
@@ -34715,7 +33060,7 @@ var LoreHarvestService = class {
                 if (text2.length <= maxLen)
                   return text2;
                 let trimmed = text2.slice(-maxLen);
-                const match2 = trimmed.match(/^[\s\.,;:!?]*/);
+                const match2 = /^[\s.,;:!?]*/.exec(trimmed);
                 if (match2) {
                   const prefix = match2[0];
                   trimmed = text2.slice(-maxLen + prefix.length);
@@ -34734,11 +33079,12 @@ var LoreHarvestService = class {
               let sourceFileHashAtRun = "";
               try {
                 const sourceFile = this.plugin.app.vault.getAbstractFileByPath(sourceFilePath);
-                if (sourceFile instanceof import_obsidian22.TFile) {
+                if (sourceFile instanceof import_obsidian18.TFile) {
                   const fileContent = await this.plugin.app.vault.read(sourceFile);
                   sourceFileHashAtRun = await sha256(fileContent);
                 }
               } catch (err) {
+                console.warn("[LoreHarvestService] Source file not available for hash:", err);
               }
               const evidenceSpan = {
                 // Required fields
@@ -34916,14 +33262,14 @@ var LoreHarvestService = class {
       if (localCandidate) {
         localCandidate.confidence = 1;
         localCandidate.appearanceCount += 1;
-        console.log(`[LoreHarvestService] \u2705 Model-local agreement: ${modelTuple.entityId}.${modelTuple.attribute}`);
+        console.debug(`[LoreHarvestService] Model-local agreement: ${modelTuple.entityId}.${modelTuple.attribute}`);
       }
     }
   }
 };
 
 // ui/HarvestChecklistModal.tsx
-var import_obsidian23 = require("obsidian");
+var import_obsidian19 = require("obsidian");
 function showHarvestChecklistModal(app, opts) {
   return new Promise((resolve) => {
     let settled = false;
@@ -34943,7 +33289,7 @@ function showHarvestChecklistModal(app, opts) {
         runLocalIds.add(item.harvestId);
       }
     });
-    const modal = new class extends import_obsidian23.Modal {
+    const modal = new class extends import_obsidian19.Modal {
       onOpen() {
         this.titleEl.setText("Lore Harvest Review");
         const content = this.contentEl;
@@ -34962,7 +33308,7 @@ function showHarvestChecklistModal(app, opts) {
             const staleBanner = itemDiv.createDiv({ cls: "harvest-stale-warning" });
             staleBanner.createSpan({ text: "\u26A0\uFE0F Evidence may be stale - manuscript may have changed since extraction", cls: "stale-banner" });
           }
-          new import_obsidian23.Setting(itemDiv).setName(`${item.proposedFact.attribute} of ${item.proposedFact.entityId}`).setDesc(this.formatItemDescription(item)).addDropdown((dropdown) => {
+          new import_obsidian19.Setting(itemDiv).setName(`${item.proposedFact.attribute} of ${item.proposedFact.entityId}`).setDesc(this.formatItemDescription(item)).addDropdown((dropdown) => {
             dropdown.addOption("none", "Reject");
             dropdown.addOption("run-local", "Accept Run-Local");
             dropdown.addOption("promote", staleEvidence ? "Promote (Stale Evidence Override)" : "Promote to Story Bible");
@@ -35009,7 +33355,7 @@ function showHarvestChecklistModal(app, opts) {
             occurrencesDiv.createSpan({ text: `${item.appearanceCount} occurrence(s) in run`, cls: "occurrences-count" });
           }
         });
-        new import_obsidian23.Setting(content).addButton((btn) => {
+        new import_obsidian19.Setting(content).addButton((btn) => {
           btn.setButtonText("Cancel");
           btn.onClick(() => {
             settle(null);
@@ -35415,11 +33761,15 @@ ${JSON.stringify(schema, null, 2)}`;
    * Safe JSON recovery - only safe transforms
    */
   safeJsonRecovery(jsonText) {
+    let isValidJson = false;
     try {
       JSON.parse(jsonText);
-      return jsonText;
-    } catch (e) {
+      isValidJson = true;
+    } catch {
+      isValidJson = false;
     }
+    if (isValidJson)
+      return jsonText;
     let trimmed = jsonText.trim();
     const lastBrace = Math.max(trimmed.lastIndexOf("}"), trimmed.lastIndexOf("]"));
     if (lastBrace > 0) {
@@ -35451,7 +33801,8 @@ ${JSON.stringify(schema, null, 2)}`;
         try {
           JSON.parse(recovered);
           return recovered;
-        } catch {
+        } catch (e22) {
+          console.warn("[CloudRelay] JSON brace-closure recovery failed:", e22);
         }
       }
     }
@@ -35669,54 +34020,23 @@ var SequentialGenerator = class {
   getTaskProfile(stageType) {
     const isMechanical = ["PLAN", "RETRIEVE", "AUDIT", "UPDATE", "REPAIR", "STITCH", "HARVEST"].includes(stageType);
     return {
-      model: this.plugin.settings.relaySmartModel,
+      model: this.plugin.settings.model,
       temperature: isMechanical ? 0.1 : 0.7,
       max_tokens: isMechanical ? 1024 : 4096,
       format: isMechanical ? "json" : void 0
     };
   }
-  /**
-   * Main entry point to generate a chapter in stages.
-   */
-  async generateChapter(targetWordCount, opts) {
-    if (this.state === "RUNNING" || this.state === "PAUSED_FOR_INTERVENTION" || this.state === "RESUMING") {
-      new import_obsidian24.Notice("Generation is already running.");
-      return;
-    }
-    this.dryRun = !!opts?.dryRun;
-    if (this.dryRun) {
-      new import_obsidian24.Notice("\u{1F680} Running in DRY-RUN mode. No changes will be saved.");
-    }
-    this.currentRunKey = `run-${Date.now()}`;
-    this.currentRunId = globalThis.crypto?.randomUUID?.() || `uuid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    this.state = "RUNNING";
-    this.abortController = new AbortController();
-    this.interventionCount = 0;
-    this.interventionCountPerChunk.clear();
-    await this.acquireRunLock(this.currentRunKey);
-    const smartModel = this.plugin.settings.relaySmartModel;
-    const smartProfile = this.getTaskProfile("WRITE");
-    const mechanicalProfile = this.getTaskProfile("MECHANICAL");
-    const ramTier = this.plugin.settings.ramTier;
-    if (ramTier !== void 0 && isModelBlocked(ramTier, smartModel)) {
-      const errorMsg = getBlockedModelError(ramTier, smartModel);
-      this.failRun(errorMsg);
-      new import_obsidian24.Notice(`\u274C ${errorMsg}`, 8e3);
-      return;
-    }
-    const ollamaVer = await this.plugin.ollamaGen.getOllamaVersion();
-    if (!ollamaVer) {
-      this.failRun("Ollama not reachable. Please ensure Ollama is running.");
-      return;
-    }
-    const smartDigest = await this.plugin.ollamaModels.getModelDigest(smartModel);
-    const policyHash = await sha256(JSON.stringify(CO_AUTHORING_POLICY));
-    const indexStatus = this.plugin.embeddingsIndex.getStatus();
-    const corpusHash = await this.plugin.embeddingsIndex.getCorpusHash();
-    if (!smartDigest) {
-      new import_obsidian24.Notice("Warning: Smart model digest is missing. Strict Replay will be disabled.");
-    }
-    const initialState = {
+  // ---------------------------------------------------------------------------
+  // generateChapter helpers
+  // ---------------------------------------------------------------------------
+  _isGenerationRunning() {
+    return this.state === "RUNNING" || this.state === "PAUSED_FOR_INTERVENTION" || this.state === "RESUMING";
+  }
+  _isRamBlocked(_smartModel) {
+    return false;
+  }
+  _buildInitialChapterState() {
+    return {
       chapterId: `chapter-${Date.now()}`,
       canonVersion: 1,
       entities: [],
@@ -35731,37 +34051,35 @@ var SequentialGenerator = class {
         forbidden: []
       }
     };
-    const contextManager = new ContextManager(this.plugin.app.vault, initialState);
-    this.contextManager = contextManager;
-    this.verifySchemaDrift(initialState);
-    const seedResult = await contextManager.seedFromStoryBible(this.plugin.settings.storyBiblePath);
+  }
+  async _buildEnvironmentMeta(smartModel, policyHash, corpusHash) {
     const pluginVersion = this.plugin.manifest.version || "1.0.3";
-    const generatorVersion = `${pluginVersion}+policy-${policyHash.slice(0, 8)}`;
-    const environment = {
+    const indexStatus = this.plugin.embeddingsIndex.getStatus();
+    return {
       pluginVersion,
       policyHash,
       promptTemplateHash: await sha256(JSON.stringify(this.plugin.promptEngine)),
-      // Simplified - would hash actual templates
       scoringProfileHash: policyHash,
-      // Simplified - would hash scoring profile
-      modelBackend: "ollama",
+      modelBackend: "cloud",
       modelId: smartModel,
       vaultSnapshotHash: corpusHash,
       indexVersion: indexStatus.indexedChunks,
       timestamp: Date.now()
     };
+  }
+  async _initManifest(smartModel, smartModelDigest, policyHash, corpusHash, initialState, storyBibleHash, environment) {
+    const pluginVersion = this.plugin.manifest.version || "1.0.3";
     this.manifest = {
       runId: this.currentRunId,
       runKey: this.currentRunKey,
       chapterId: initialState.chapterId,
       startTime: Date.now(),
-      ollamaVersion: ollamaVer,
-      storyBibleHash: seedResult.hash,
+      storyBibleHash,
       initialStateHash: await sha256(JSON.stringify(initialState)),
       stages: [],
       config: {
         smartModel,
-        smartModelDigest: smartDigest,
+        smartModelDigest,
         maxChunkWords: this.plugin.settings.maxChunkWords || 500,
         temperature: 0.7,
         policyHash,
@@ -35770,189 +34088,164 @@ var SequentialGenerator = class {
       },
       environment,
       replayable: false,
-      // Can be set to true if user requests replayability
       interventions: [],
       continuations: [],
       plotMemorySnapshots: []
     };
-    relayEventBus.emit("run:start", { runId: this.currentRunId, chapterId: initialState.chapterId });
-    let totalWords = 0;
-    let iteration = 1;
-    try {
-      while (totalWords < targetWordCount && (this.state === "RUNNING" || this.state === "RESUMING")) {
-        if (this.checkControlFlow())
-          break;
-        console.log(`[SequentialGenerator] --- Iteration ${iteration} ---`);
-        const sliderValue = this.plugin.settings.spontaneitySlider || 50;
-        const rawParams = this.getSpontaneityParams(sliderValue);
-        const risk = iteration > 1 ? this.calculateContinuityRisk(iteration - 1, contextManager) : 0;
-        const effectiveNovelty = this.applySmoothClamp(rawParams.novelty, risk);
-        this.manifest.config.spontaneityProfile = {
-          sliderValue,
-          temp: rawParams.temp,
-          novelty: effectiveNovelty,
-          stickyMin: rawParams.stickyMin
-        };
-        const planResult = await this.runStage("PLAN", smartProfile.model, async () => {
-          const prompt = `Plan the next ${this.manifest.config.maxChunkWords} words for chapter ${initialState.chapterId}.`;
-          return await this.plugin.ollamaGen.enqueue(
-            3,
-            `${this.currentRunId}__plan__${iteration}`,
-            (signal) => this.plugin.ollamaGen.generate(prompt, { ...mechanicalProfile, model: smartProfile.model }, signal)
-          );
-        }, void 0, await sha256(`Plan the next ${this.manifest.config.maxChunkWords} words for chapter ${initialState.chapterId}.`));
-        if (!planResult)
-          break;
-        const retrieveResult = await this.runStage("RETRIEVE", smartProfile.model, async () => {
-          const query = {
-            text: planResult.data.summary || "next scene",
-            mode: "chapter",
-            hints: planResult.data.hints,
-            intents: planResult.data.retrievalIntents
-            // New
-          };
-          const searchResult = await this.plugin.retrievalService.search(query, {
-            limit: 8,
-            strictMode: true,
-            noveltyBias: effectiveNovelty,
-            stickyMin: rawParams.stickyMin,
-            fallbackSet: contextManager.getStickyFallbackSet(contextManager.getState().lastChunkId),
-            scoringVersion: 1
-          });
-          const intents = query.intents || [];
-          intents.forEach((intent) => {
-            if (intent.hardness === "HARD") {
-              const fulfilled = searchResult.some(
-                (hit) => hit.intentType === intent.type && hit.relevance && hit.relevance.finalScore >= hit.relevance.threshold
-              );
-              if (!fulfilled) {
-                console.warn(`[SequentialGenerator] HARD intent miss: ${intent.type}`);
-                relayEventBus.emit("pilot:miss", { type: intent.type, runId: this.currentRunId });
-              }
-            }
-          });
-          return searchResult;
-        }, void 0, await sha256(JSON.stringify(planResult.data)));
-        if (!retrieveResult)
-          break;
-        const missedHardIntents = (planResult.data.retrievalIntents || []).filter((intent) => intent.hardness === "HARD" && !retrieveResult.data.some((hit) => hit.intentType === intent.type));
-        const restrictedDomains = missedHardIntents.map((i) => i.domain || i.type);
-        const isDegraded = restrictedDomains.length > 0;
-        const writeResult = await this.runStage("WRITE", smartProfile.model, async () => {
-          const stateCard = contextManager.renderStateCard();
-          const retrieved = retrieveResult.data.map((r) => r.excerpt).join("\n\n");
-          const plotMemory = contextManager.getState().plotMemory?.denseSummary || "";
-          const plotMemoryBlock = plotMemory ? `
+  }
+  _getSpontaneityAndRisk(iteration, contextManager) {
+    const sliderValue = this.plugin.settings.spontaneitySlider || 50;
+    const rawParams = this.getSpontaneityParams(sliderValue);
+    const risk = iteration > 1 ? this.calculateContinuityRisk(iteration - 1, contextManager) : 0;
+    const effectiveNovelty = this.applySmoothClamp(rawParams.novelty, risk);
+    return { sliderValue, rawParams, effectiveNovelty };
+  }
+  _updateSpontaneityProfile(sliderValue, rawParams, effectiveNovelty) {
+    this.manifest.config.spontaneityProfile = {
+      sliderValue,
+      temp: rawParams.temp,
+      novelty: effectiveNovelty,
+      stickyMin: rawParams.stickyMin
+    };
+  }
+  async _runPlanStage(smartProfile, mechanicalProfile, initialState, iteration) {
+    const prompt = `Plan the next ${this.manifest.config.maxChunkWords} words for chapter ${initialState.chapterId}.`;
+    return this.runStage("PLAN", smartProfile.model, async () => {
+      return await this.plugin.aiClient.generate(prompt, { ...this.plugin.settings, generationMode: "single" });
+    }, void 0, await sha256(prompt));
+  }
+  async _runRetrieveStage(smartProfile, planResult, contextManager, effectiveNovelty, rawParams, iteration) {
+    return this.runStage("RETRIEVE", smartProfile.model, async () => {
+      const query = {
+        text: planResult.data.summary || "next scene",
+        mode: "chapter",
+        hints: planResult.data.hints,
+        intents: planResult.data.retrievalIntents
+      };
+      const searchResult = await this.plugin.retrievalService.search(query, {
+        limit: 8,
+        strictMode: true,
+        noveltyBias: effectiveNovelty,
+        stickyMin: rawParams.stickyMin,
+        fallbackSet: contextManager.getStickyFallbackSet(contextManager.getState().lastChunkId),
+        scoringVersion: 1
+      });
+      const intents = query.intents || [];
+      this._emitHardIntentMisses(intents, searchResult);
+      return searchResult;
+    }, void 0, await sha256(JSON.stringify(planResult.data)));
+  }
+  _emitHardIntentMisses(intents, searchResult) {
+    intents.forEach((intent) => {
+      if (intent.hardness !== "HARD")
+        return;
+      const fulfilled = searchResult.some(
+        (hit) => hit.intentType === intent.type && hit.relevance && hit.relevance.finalScore >= hit.relevance.threshold
+      );
+      if (!fulfilled) {
+        console.warn(`[SequentialGenerator] HARD intent miss: ${intent.type}`);
+        relayEventBus.emit("pilot:miss", { type: intent.type, runId: this.currentRunId });
+      }
+    });
+  }
+  _computeDegradedDomains(planResult, retrieveResult) {
+    const missedHardIntents = (planResult.data.retrievalIntents || []).filter((intent) => intent.hardness === "HARD" && !retrieveResult.data.some((hit) => hit.intentType === intent.type));
+    const restrictedDomains = missedHardIntents.map((i) => i.domain || i.type);
+    return { missedHardIntents, restrictedDomains, isDegraded: restrictedDomains.length > 0 };
+  }
+  async _runWriteStage(smartProfile, planResult, retrieveResult, contextManager, iteration, rawParams, isDegraded, restrictedDomains) {
+    const stateCard = contextManager.renderStateCard();
+    const retrieved = retrieveResult.data.map((r) => r.excerpt).join("\n\n");
+    const plotMemory = contextManager.getState().plotMemory?.denseSummary || "";
+    const plotMemoryBlock = plotMemory ? `
 PLOT MEMORY: ${plotMemory}
 (Use this for plot trajectory and high-level continuity.)` : "";
-          const constraintBlock = isDegraded ? `
+    const constraintBlock = isDegraded ? `
 [DEGRADED MODE] Restricted Domains: ${restrictedDomains.join(", ")}
 Constraint: Do not assert new canonical facts about these domains.` : "";
-          const prompt = `
+    const prompt = `
                         ${stateCard}${plotMemoryBlock}
                         PLAN: ${JSON.stringify(planResult.data)}
                         CONTEXT: ${retrieved}${constraintBlock}
-                        
-                        INSTRUCTION: Write the next prose chunk. 
+
+                        INSTRUCTION: Write the next prose chunk.
                         Use 
 
  to separate paragraphs.
                         For every paragraph, you MUST also generate a sidecar entry with a unique "p_id" (c${iteration}-p{index}).
                         ${isDegraded ? "Flag missingHardIntent: true if relevant." : ""}
                     `;
-          return await this.plugin.ollamaGen.enqueue(
-            10,
-            `${this.currentRunId}__write__${iteration}`,
-            (signal) => this.plugin.ollamaGen.generateStream(
-              prompt,
-              { ...smartProfile, model: smartProfile.model, temperature: rawParams.temp },
-              (token) => relayEventBus.emit("chunk:buffer:update", { content: token }),
-              signal
-            ),
-            this.abortController
-          );
-        }, await (async () => {
-          const stateCard = contextManager.renderStateCard();
-          const retrieved = retrieveResult.data.map((r) => r.excerpt).join("\n\n");
-          const prompt = `
-                        ${stateCard}
-                        PLAN: ${JSON.stringify(planResult.data)}
-                        CONTEXT: ${retrieved}
-                        
-                        INSTRUCTION: Write the next prose chunk. 
-                        Use 
-
- to separate paragraphs.
-                        For every paragraph, you MUST also generate a sidecar entry with a unique "p_id" (c${iteration}-p{index}).
-                    `;
-          const manifest = contextManager.generateManifest(retrieveResult.data, [], prompt);
-          manifest.promptHash = await sha256(prompt);
-          return manifest;
-        })());
-        if (!writeResult)
-          break;
-        if (isDegraded && writeResult.metadata) {
-          writeResult.metadata.forEach((m) => {
-            if (m.newFactsProposed) {
-              m.newFactsProposed.forEach((f) => {
-                if (restrictedDomains.some((d) => f.type === d || f.attribute === d)) {
-                  f.lifecycleState = "QUARANTINED";
-                  console.log(`[SequentialGenerator] Auto-quarantined fact in restricted domain: ${f.attribute}`);
-                }
-              });
-            }
-          });
+    const stageManifest = await (async () => {
+      const manifest = contextManager.generateManifest(retrieveResult.data, [], prompt);
+      manifest.promptHash = await sha256(prompt);
+      return manifest;
+    })();
+    return this.runStage("WRITE", smartProfile.model, async () => {
+      return await this.plugin.aiClient.generate(prompt, { ...this.plugin.settings, generationMode: "single" });
+    }, stageManifest);
+  }
+  _quarantineDegradedFacts(writeResult, restrictedDomains) {
+    if (!writeResult.metadata)
+      return;
+    writeResult.metadata.forEach((m) => {
+      if (!m.newFactsProposed)
+        return;
+      m.newFactsProposed.forEach((f) => {
+        if (restrictedDomains.some((d) => f.type === d || f.attribute === d)) {
+          f.lifecycleState = "QUARANTINED";
+          console.log(`[SequentialGenerator] Auto-quarantined fact in restricted domain: ${f.attribute}`);
         }
-        const { text: chunkText, metadata: recoveredMeta } = this.segmentAndRecover(writeResult.data, []);
-        writeResult.data = chunkText;
-        writeResult.metadata = recoveredMeta;
-        const auditResult = await this.runStage("AUDIT", smartProfile.model, async () => {
-          const prompt = this.plugin.promptEngine.buildAuditPrompt(contextManager.getState(), chunkText, contextManager.getState());
-          const res = await this.plugin.ollamaGen.enqueue(
-            3,
-            `${this.currentRunId}__audit__${iteration}`,
-            (signal) => this.plugin.ollamaGen.generate(prompt, { ...mechanicalProfile, model: smartProfile.model }, signal)
-          );
-          return JSON.parse(res);
-        }, void 0, await sha256(chunkText));
-        if (!auditResult)
-          break;
-        let auditData = auditResult.data;
-        const chunkId = `chunk-${iteration}`;
-        const matrixCheck = this.shouldTriggerIntervention(auditData, chunkId);
-        let interventionGuidance = null;
-        if (matrixCheck.trigger) {
-          interventionGuidance = await this.handleIntervention(
-            matrixCheck.trigger,
-            matrixCheck.violationSummary,
-            chunkId,
-            auditData.overallSeverity,
-            contextManager
-          );
-          if (!interventionGuidance) {
-            break;
-          }
-        }
-        if (auditData.overallSeverity >= 4) {
-          const repairCapCheck = this.checkRepairCap();
-          if (repairCapCheck.trigger) {
-            interventionGuidance = await this.handleIntervention(
-              repairCapCheck.trigger,
-              repairCapCheck.violationSummary,
-              chunkId,
-              auditData.overallSeverity,
-              contextManager
-            );
-            if (!interventionGuidance) {
-              break;
-            }
-          }
-          const repairResult = await this.runStage("REPAIR", smartProfile.model, async () => {
-            let prompt = `Repair the following prose chunk to resolve these violations: ${JSON.stringify(auditData.violations)}
+      });
+    });
+  }
+  async _runAuditStage(smartProfile, mechanicalProfile, contextManager, chunkText, iteration) {
+    return this.runStage("AUDIT", smartProfile.model, async () => {
+      const prompt = this.plugin.promptEngine.buildAuditPrompt(contextManager.getState(), chunkText, contextManager.getState());
+      const res = await this.plugin.aiClient.generate(prompt, { ...this.plugin.settings, generationMode: "single" });
+      return JSON.parse(res);
+    }, void 0, await sha256(chunkText));
+  }
+  async _runRepairStageIfNeeded(smartProfile, auditData, chunkText, writeResult, interventionGuidance, iteration, chunkId, contextManager) {
+    if (auditData.overallSeverity < 4) {
+      return { interventionGuidance, cancelled: false };
+    }
+    const repairCapCheck = this.checkRepairCap();
+    if (repairCapCheck.trigger) {
+      const updated = await this.handleIntervention(
+        repairCapCheck.trigger,
+        repairCapCheck.violationSummary,
+        chunkId,
+        auditData.overallSeverity,
+        contextManager
+      );
+      if (!updated) {
+        return { interventionGuidance: null, cancelled: true };
+      }
+      interventionGuidance = updated;
+    }
+    const repairResult = await this._runRepairStage(
+      smartProfile,
+      auditData,
+      chunkText,
+      interventionGuidance,
+      iteration
+    );
+    if (repairResult) {
+      const patches = repairResult.data;
+      writeResult.data = this.applyPatches(writeResult.data, patches);
+    }
+    return { interventionGuidance, cancelled: false };
+  }
+  async _runRepairStage(smartProfile, auditData, chunkText, interventionGuidance, iteration) {
+    return this.runStage("REPAIR", smartProfile.model, async () => {
+      const prompt = interventionGuidance ? this._buildRepairPromptWithGuidance(interventionGuidance) : `Repair the following prose chunk to resolve these violations: ${JSON.stringify(auditData.violations)}
 
 Chunk: ${chunkText}`;
-            if (interventionGuidance) {
-              prompt = `
+      return await this.plugin.aiClient.generate(prompt, { ...this.plugin.settings, generationMode: "single" });
+    }, void 0, await sha256(chunkText + JSON.stringify(auditData)));
+  }
+  _buildRepairPromptWithGuidance(interventionGuidance) {
+    return `
 USER_INTERVENTION_GUIDANCE:
 Goal: ${interventionGuidance.goal}
 Must Preserve: ${interventionGuidance.mustPreserve.join(", ")}
@@ -35967,44 +34260,130 @@ Constraints:
 - Must resolve violation safely
 - Must respect truth matrix and anchors
 `;
-            }
-            return await this.plugin.ollamaGen.enqueue(
-              10,
-              `${this.currentRunId}__repair__${iteration}`,
-              (signal) => this.plugin.ollamaGen.generateStream(
-                prompt,
-                { ...smartProfile, model: smartProfile.model, temperature: 0.3 },
-                // Slightly lower temp for repair
-                (token) => relayEventBus.emit("chunk:buffer:update", { content: token }),
-                signal
-              ),
-              this.abortController
-            );
-          }, void 0, await sha256(chunkText + JSON.stringify(auditData)));
-          if (repairResult) {
-            const patches = repairResult.data;
-            writeResult.data = this.applyPatches(writeResult.data, patches);
-          }
+  }
+  async _runUpdateStage(smartProfile, contextManager, writeResult, iteration) {
+    return this.runStage("UPDATE", smartProfile.model, async () => {
+      const newFacts = [];
+      contextManager.updateState(newFacts, {
+        chunkId: `chunk-${iteration}`,
+        summary: `Generated chunk ${iteration}`
+      });
+      const citedFactIds = writeResult.metadata?.flatMap((m) => m.factIds) || [];
+      contextManager.refreshPins(citedFactIds);
+      const state = contextManager.getState();
+      const mentionedEntities = /* @__PURE__ */ new Set();
+      citedFactIds.forEach((id) => {
+        const fact = state.canonFacts.find((f) => f.id === id);
+        if (fact)
+          mentionedEntities.add(fact.entityId);
+      });
+      this.entitiesMentionedHistory.set(`chunk-${iteration}`, Array.from(mentionedEntities));
+      return { status: "success", version: contextManager.getState().canonVersion };
+    }, void 0, await sha256(`Generated chunk ${iteration}`));
+  }
+  async _finalizeSuccessfulRun(totalWords, contextManager) {
+    this.state = "COMPLETED";
+    this.manifest.endTime = Date.now();
+    const health = this.calculateHealth();
+    relayEventBus.emit("run:end", {
+      runId: this.currentRunId,
+      totalWords,
+      health
+    });
+    await this.performPostRunHarvest(contextManager);
+    this.manifest.replayPrereqs = await this.computeReplayPrereqs();
+    await this.saveManifest();
+    await this.cleanupOldRuns();
+  }
+  /**
+   * Main entry point to generate a chapter in stages.
+   */
+  async generateChapter(targetWordCount, opts) {
+    if (this._isGenerationRunning()) {
+      new import_obsidian20.Notice("Generation is already running.");
+      return;
+    }
+    this.dryRun = !!opts?.dryRun;
+    if (this.dryRun) {
+      new import_obsidian20.Notice("Running in DRY-RUN mode. No changes will be saved.");
+    }
+    this.currentRunKey = `run-${Date.now()}`;
+    this.currentRunId = globalThis.crypto?.randomUUID?.() || `uuid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    this.state = "RUNNING";
+    this.abortController = new AbortController();
+    this.interventionCount = 0;
+    this.interventionCountPerChunk.clear();
+    await this.acquireRunLock(this.currentRunKey);
+    const smartModel = this.plugin.settings.model;
+    const smartProfile = this.getTaskProfile("WRITE");
+    const mechanicalProfile = this.getTaskProfile("MECHANICAL");
+    const policyHash = await sha256(JSON.stringify(CO_AUTHORING_POLICY));
+    const corpusHash = await this.plugin.embeddingsIndex.getCorpusHash();
+    const initialState = this._buildInitialChapterState();
+    const contextManager = new ContextManager(this.plugin.app.vault, initialState);
+    this.contextManager = contextManager;
+    this.verifySchemaDrift(initialState);
+    const seedResult = await contextManager.seedFromStoryBible(this.plugin.settings.storyBiblePath);
+    const environment = await this._buildEnvironmentMeta(smartModel, policyHash, corpusHash);
+    await this._initManifest(smartModel, null, policyHash, corpusHash, initialState, seedResult.hash, environment);
+    relayEventBus.emit("run:start", { runId: this.currentRunId, chapterId: initialState.chapterId });
+    let totalWords = 0;
+    let iteration = 1;
+    try {
+      while (totalWords < targetWordCount && (this.state === "RUNNING" || this.state === "RESUMING")) {
+        if (this.checkControlFlow())
+          break;
+        console.log(`[SequentialGenerator] --- Iteration ${iteration} ---`);
+        const { sliderValue, rawParams, effectiveNovelty } = this._getSpontaneityAndRisk(iteration, contextManager);
+        this._updateSpontaneityProfile(sliderValue, rawParams, effectiveNovelty);
+        const planResult = await this._runPlanStage(smartProfile, mechanicalProfile, initialState, iteration);
+        if (!planResult)
+          break;
+        const retrieveResult = await this._runRetrieveStage(smartProfile, planResult, contextManager, effectiveNovelty, rawParams, iteration);
+        if (!retrieveResult)
+          break;
+        const { restrictedDomains, isDegraded } = this._computeDegradedDomains(planResult, retrieveResult);
+        const writeResult = await this._runWriteStage(smartProfile, planResult, retrieveResult, contextManager, iteration, rawParams, isDegraded, restrictedDomains);
+        if (!writeResult)
+          break;
+        if (isDegraded) {
+          this._quarantineDegradedFacts(writeResult, restrictedDomains);
         }
+        const { text: chunkText, metadata: recoveredMeta } = this.segmentAndRecover(writeResult.data, []);
+        writeResult.data = chunkText;
+        writeResult.metadata = recoveredMeta;
+        const auditResult = await this._runAuditStage(smartProfile, mechanicalProfile, contextManager, chunkText, iteration);
+        if (!auditResult)
+          break;
+        const auditData = auditResult.data;
+        const chunkId = `chunk-${iteration}`;
+        const matrixCheck = this.shouldTriggerIntervention(auditData, chunkId);
+        let interventionGuidance = null;
+        if (matrixCheck.trigger) {
+          interventionGuidance = await this.handleIntervention(
+            matrixCheck.trigger,
+            matrixCheck.violationSummary,
+            chunkId,
+            auditData.overallSeverity,
+            contextManager
+          );
+          if (!interventionGuidance)
+            break;
+        }
+        const repairOutcome = await this._runRepairStageIfNeeded(
+          smartProfile,
+          auditData,
+          chunkText,
+          writeResult,
+          interventionGuidance,
+          iteration,
+          chunkId,
+          contextManager
+        );
+        if (repairOutcome.cancelled)
+          break;
         await this.commitChunk(iteration, writeResult.data, writeResult.metadata);
-        const updateResult = await this.runStage("UPDATE", smartProfile.model, async () => {
-          const newFacts = [];
-          contextManager.updateState(newFacts, {
-            chunkId: `chunk-${iteration}`,
-            summary: `Generated chunk ${iteration}`
-          });
-          const citedFactIds = writeResult.metadata?.flatMap((m) => m.factIds) || [];
-          contextManager.refreshPins(citedFactIds);
-          const state = contextManager.getState();
-          const mentionedEntities = /* @__PURE__ */ new Set();
-          citedFactIds.forEach((id) => {
-            const fact = state.canonFacts.find((f) => f.id === id);
-            if (fact)
-              mentionedEntities.add(fact.entityId);
-          });
-          this.entitiesMentionedHistory.set(`chunk-${iteration}`, Array.from(mentionedEntities));
-          return { status: "success", version: contextManager.getState().canonVersion };
-        }, void 0, await sha256(`Generated chunk ${iteration}`));
+        const updateResult = await this._runUpdateStage(smartProfile, contextManager, writeResult, iteration);
         if (!updateResult)
           break;
         this.checkQualityFloors(iteration);
@@ -36017,18 +34396,7 @@ Constraints:
         await this.saveManifest();
       }
       if (this.state === "RUNNING" || this.state === "RESUMING") {
-        this.state = "COMPLETED";
-        this.manifest.endTime = Date.now();
-        const health = this.calculateHealth();
-        relayEventBus.emit("run:end", {
-          runId: this.currentRunId,
-          totalWords,
-          health
-        });
-        await this.performPostRunHarvest(contextManager);
-        this.manifest.replayPrereqs = await this.computeReplayPrereqs();
-        await this.saveManifest();
-        await this.cleanupOldRuns();
+        await this._finalizeSuccessfulRun(totalWords, contextManager);
       }
     } catch (err) {
       this.state = "error";
@@ -36048,7 +34416,7 @@ Constraints:
       return;
     const relayMode = this.plugin.settings.relayMode || "local";
     if (relayMode !== "cloud") {
-      new import_obsidian24.Notice("Edit mode is currently only supported in Cloud Relay mode.");
+      new import_obsidian20.Notice("Edit mode is currently only supported in Cloud Relay mode.");
       return;
     }
     this.currentRunKey = `edit-${Date.now()}`;
@@ -36062,7 +34430,6 @@ Constraints:
       const contextPack = await this.contextPacker.buildContextPack(
         this.contextManager.getState(),
         [],
-        // No new hits for edit usually
         this.plugin.settings.relayStyleSignature,
         opts.editInstructions
       );
@@ -36081,7 +34448,7 @@ Constraints:
       const fullEditedProse = output.resultParagraphs.map((p) => p.text).join("\n\n");
       const auditResult = await this.auditService.auditFullChapter(fullEditedProse, this.contextManager.getState());
       if (auditResult.overallSeverity >= 4) {
-        new import_obsidian24.Notice(`Edit completed with ${auditResult.violations.length} violations.`);
+        new import_obsidian20.Notice(`Edit completed with ${auditResult.violations.length} violations.`);
       }
       relayEventBus.emit("chunk:committed", {
         runId: this.currentRunId,
@@ -36181,7 +34548,6 @@ Constraints:
     const seqNo = (this.seamTaskCounters.get(seamId) || 0) + 1;
     this.seamTaskCounters.set(seamId, seqNo);
     const taskKey = `${this.currentRunId}__${this.sessionId}__${seamId}`;
-    const smartModel = this.manifest.config.smartModel;
     const leftParas = this.rollingWindow.find((chunk) => chunk[0]?.id.startsWith(`chunk-${leftIdx}`));
     const rightParas = this.rollingWindow.find((chunk) => chunk[0]?.id.startsWith(`chunk-${rightIdx}`));
     if (!leftParas || !rightParas) {
@@ -36192,38 +34558,57 @@ Constraints:
     const cleanRight = rightParas.filter((p) => p.status === "FINALIZED");
     if (cleanLeft.length === 0 || cleanRight.length === 0)
       return;
-    void this.plugin.ollamaGen.enqueue(3, taskKey, async (signal) => {
-      if (signal?.aborted)
-        return;
-      const startTime = Date.now();
+    (async () => {
       try {
         const state = this.contextManager.getState();
         const context = await this.contextPacker.packContext(this.plugin, state);
         const stablePrefix = this.plugin.promptEngine.buildStablePrefix(context);
-        const mechanicalProfile = this.getTaskProfile("STITCH");
         const response = await this.proseStitcher.stitch(
           cleanLeft,
           cleanRight,
           state,
           { runId: this.currentRunId, sessionId: this.sessionId, seamId, seqNo },
-          stablePrefix,
-          signal
+          stablePrefix
         );
         if (response && response.patchOps.length > 0) {
           if (this.currentRunId !== response.runId || this.sessionId !== response.sessionId)
             return;
           relayEventBus.emit("chunk:patch", response);
-          console.log(`[SequentialGenerator] Stitch success: ${seamId} (seq ${seqNo})`);
+          console.debug(`[SequentialGenerator] Stitch success: ${seamId} (seq ${seqNo})`);
         }
       } catch (err) {
         console.error(`[SequentialGenerator] Stitch task failed for ${seamId}:`, err);
       }
-    });
+    })();
   }
   /**
    * Handles intervention: pauses run, shows modal, resumes with user guidance.
    */
   async handleIntervention(triggerReason, violationSummary, chunkId, severity, contextManager) {
+    this._enforceInterventionCaps(chunkId);
+    this.state = "PAUSED_FOR_INTERVENTION";
+    await this.saveManifest();
+    const result = await showInterventionModal(this.plugin.app, {
+      triggerReason,
+      violationSummary,
+      chunkId,
+      severity
+    });
+    if (!result?.proceed) {
+      this.state = "STOPPED_FATAL";
+      return null;
+    }
+    const continuation = await this._buildContinuation(contextManager);
+    this._recordIntervention(chunkId, triggerReason, severity, violationSummary, result, continuation);
+    const chunkCount = this.interventionCountPerChunk.get(chunkId) || 0;
+    this.interventionCount++;
+    this.interventionCountPerChunk.set(chunkId, chunkCount + 1);
+    this.state = "RESUMING";
+    relayEventBus.emit("control:resumed", { runId: this.currentRunId });
+    this.state = "RUNNING";
+    return result.guidance;
+  }
+  _enforceInterventionCaps(chunkId) {
     const policy = CO_AUTHORING_POLICY.INTERVENTION;
     if (this.interventionCount >= policy.MAX_INTERVENTIONS_PER_RUN) {
       this.state = "STOPPED_FATAL";
@@ -36234,18 +34619,8 @@ Constraints:
       this.state = "STOPPED_FATAL";
       throw new Error(`FAIL_INTERVENTION_CAP: Maximum interventions per chunk (${policy.MAX_INTERVENTIONS_PER_CHUNK}) exceeded for chunk ${chunkId}.`);
     }
-    this.state = "PAUSED_FOR_INTERVENTION";
-    await this.saveManifest();
-    const result = await showInterventionModal(this.plugin.app, {
-      triggerReason,
-      violationSummary,
-      chunkId,
-      severity
-    });
-    if (!result || !result.proceed) {
-      this.state = "STOPPED_FATAL";
-      return null;
-    }
+  }
+  async _buildContinuation(contextManager) {
     const continuationId = `cont-${String((this.manifest.continuations?.length || 0) + 1).padStart(3, "0")}`;
     const snapshotHash = await sha256(JSON.stringify(contextManager.getState()));
     const parentContId = this.manifest.continuations?.length ? this.manifest.continuations[this.manifest.continuations.length - 1].continuationId : void 0;
@@ -36259,20 +34634,21 @@ Constraints:
       status: "ACTIVE",
       resumePlan: {
         rerunRetrieval: false,
-        // Default: reuse hits
         reuseHits: true,
         reusePlotMemory: true,
         reuseAnchors: true,
         reusePromptBodies: true,
         reusePromptTemplates: true,
         resumeStage: "WRITE"
-        // Default resume at WRITE stage
       }
     };
     if (!this.manifest.continuations) {
       this.manifest.continuations = [];
     }
     this.manifest.continuations.push(continuation);
+    return continuation;
+  }
+  _recordIntervention(chunkId, triggerReason, severity, violationSummary, result, continuation) {
     const interventionEvent = {
       eventId: continuation.pauseEventId,
       runId: this.currentRunId,
@@ -36292,21 +34668,24 @@ Constraints:
       this.manifest.interventions = [];
     }
     this.manifest.interventions.push(interventionEvent);
-    this.interventionCount++;
-    this.interventionCountPerChunk.set(chunkId, chunkCount + 1);
-    this.state = "RESUMING";
-    relayEventBus.emit("control:resumed", { runId: this.currentRunId });
-    this.state = "RUNNING";
-    return result.guidance;
   }
   /**
    * Determines if telescoping should be triggered based on adaptive criteria.
    */
   shouldTriggerTelescoping(iteration, contextManager) {
     const policy = CO_AUTHORING_POLICY.TELESCOPING;
-    if (iteration % policy.CHUNK_CADENCE === 0) {
+    if (this._isTelescopingTriggeredByChunkCadence(iteration, policy))
       return true;
-    }
+    if (this._isTelescopingTriggeredByContextPressure(policy))
+      return true;
+    if (this._isTelescopingTriggeredByEntityDensity(policy))
+      return true;
+    return false;
+  }
+  _isTelescopingTriggeredByChunkCadence(iteration, policy) {
+    return iteration % policy.CHUNK_CADENCE === 0;
+  }
+  _isTelescopingTriggeredByContextPressure(policy) {
     let lastWriteStage;
     for (let i = (this.manifest?.stages.length || 0) - 1; i >= 0; i--) {
       if (this.manifest.stages[i].stageType === "WRITE") {
@@ -36314,25 +34693,28 @@ Constraints:
         break;
       }
     }
-    if (lastWriteStage?.manifest) {
-      const contextLimit = this.plugin.settings.contextTokenLimit || 128e3;
-      const usage = lastWriteStage.manifest.tokenEstimate / contextLimit;
-      if (usage > policy.CONTEXT_PRESSURE_THRESHOLD) {
-        console.log(`[SequentialGenerator] \u{1F680} Telescoping triggered by context pressure: ${Math.round(usage * 100)}%`);
-        return true;
-      }
+    if (!lastWriteStage?.manifest)
+      return false;
+    const contextLimit = getContextLimit(this.plugin.settings);
+    const usage = lastWriteStage.manifest.tokenEstimate / contextLimit;
+    if (usage > policy.CONTEXT_PRESSURE_THRESHOLD) {
+      console.debug(`[SequentialGenerator] Telescoping triggered by context pressure: ${Math.round(usage * 100)}%`);
+      return true;
     }
-    const window2 = policy.ENTITY_DENSITY_WINDOW;
-    const recentChunks = Array.from(this.entitiesMentionedHistory.keys()).slice(-window2);
-    if (recentChunks.length >= window2) {
-      const uniqueEntities = /* @__PURE__ */ new Set();
-      recentChunks.forEach((id) => {
-        this.entitiesMentionedHistory.get(id)?.forEach((e) => uniqueEntities.add(e));
-      });
-      if (uniqueEntities.size > policy.HIGH_ENTITY_DENSITY_THRESHOLD) {
-        console.log(`[SequentialGenerator] \u{1F680} Telescoping triggered by high entity density: ${uniqueEntities.size} entities in last ${window2} chunks`);
-        return true;
-      }
+    return false;
+  }
+  _isTelescopingTriggeredByEntityDensity(policy) {
+    const windowSize = policy.ENTITY_DENSITY_WINDOW;
+    const recentChunks = Array.from(this.entitiesMentionedHistory.keys()).slice(-windowSize);
+    if (recentChunks.length < windowSize)
+      return false;
+    const uniqueEntities = /* @__PURE__ */ new Set();
+    recentChunks.forEach((id) => {
+      this.entitiesMentionedHistory.get(id)?.forEach((e) => uniqueEntities.add(e));
+    });
+    if (uniqueEntities.size > policy.HIGH_ENTITY_DENSITY_THRESHOLD) {
+      console.debug(`[SequentialGenerator] Telescoping triggered by high entity density: ${uniqueEntities.size} entities in last ${windowSize} chunks`);
+      return true;
     }
     return false;
   }
@@ -36356,12 +34738,8 @@ Constraints:
       recentChunks,
       currentPlotMemory: state.plotMemory?.denseSummary
     });
-    const telescopeResult = await this.runStage("TELESCOPE", this.plugin.settings.relaySmartModel, async () => {
-      return await this.plugin.ollamaGen.enqueue(
-        10,
-        `${this.currentRunId}__telescope__${iteration}`,
-        (signal) => this.plugin.ollamaGen.generateJson(prompt, this.plugin.settings.relaySmartModel)
-      );
+    const telescopeResult = await this.runStage("TELESCOPE", this.plugin.settings.model, async () => {
+      return await this.plugin.aiClient.generate(prompt, { ...this.plugin.settings, generationMode: "single" });
     });
     if (!telescopeResult)
       return;
@@ -36393,32 +34771,22 @@ Constraints:
       sourceChunkIds,
       timestamp: plotMemory.timestamp
     });
-    console.log(`[SequentialGenerator] \u{1F4CA} Telescoped plot memory v${plotMemory.version} from chunks ${sourceChunkIds.join(", ")}`);
+    console.debug(`[SequentialGenerator] Telescoped plot memory v${plotMemory.version} from chunks ${sourceChunkIds.join(", ")}`);
   }
-  /**
-   * Post-run lore harvesting workflow.
-   */
-  async performPostRunHarvest(contextManager) {
+  // ---------------------------------------------------------------------------
+  // performPostRunHarvest helpers
+  // ---------------------------------------------------------------------------
+  _getProseChunksFromManifest() {
     if (!this.manifest)
-      return;
-    const proseChunks = this.manifest.stages.filter((s) => s.stageType === "WRITE" && typeof s.data === "string").map((s) => ({
+      return [];
+    return this.manifest.stages.filter((s) => s.stageType === "WRITE" && typeof s.data === "string").map((s) => ({
       chunkId: s.stageId,
-      // Or map back to iteration
       text: s.data,
       metadata: s.metadata
     }));
-    if (proseChunks.length === 0)
-      return;
-    const candidates = await this.loreHarvestService.extractCandidates(
-      proseChunks,
-      contextManager.getState(),
-      this.currentRunId
-    );
-    if (candidates.length === 0) {
-      console.log("[SequentialGenerator] \u{1F33E} No lore candidates found for harvesting.");
-      return;
-    }
-    this.manifest.harvestSummary = {
+  }
+  _buildHarvestSummary(candidates) {
+    return {
       totalCandidates: candidates.length,
       clusteredCount: candidates.length,
       approvedIds: [],
@@ -36430,68 +34798,94 @@ Constraints:
         conflictingFactIds: c.conflictCheckResult.conflictingFactIds || []
       }))
     };
+  }
+  _applySceneOnlyAutoAccepts(candidates, contextManager) {
     const sceneOnlyItems = candidates.filter((c) => c.recommendedAction === "AUTO_ACCEPT_SCENE_ONLY");
-    if (sceneOnlyItems.length > 0) {
-      sceneOnlyItems.forEach((item) => {
-        const fact = { ...item.proposedFact, lifecycleState: "CANON" };
-        contextManager.updateState([fact]);
-        this.manifest.harvestSummary.autoAcceptedSceneOnly.push(item.harvestId);
-        console.log(`[SequentialGenerator] \u2705 Auto-accepted run-local lore: ${item.proposedFact.attribute} of ${item.proposedFact.entityId}`);
-      });
+    sceneOnlyItems.forEach((item) => {
+      const fact = { ...item.proposedFact, lifecycleState: "CANON" };
+      contextManager.updateState([fact]);
+      this.manifest.harvestSummary.autoAcceptedSceneOnly.push(item.harvestId);
+      console.debug(`[SequentialGenerator] Auto-accepted run-local lore: ${item.proposedFact.attribute} of ${item.proposedFact.entityId}`);
+    });
+  }
+  _applyRunLocalItems(runLocalIds, resolutionActions, candidates, contextManager) {
+    if (runLocalIds.length === 0)
+      return;
+    const runLocalItems = candidates.filter((c) => runLocalIds.includes(c.harvestId));
+    runLocalItems.forEach((item) => {
+      item.resolutionAction = resolutionActions[item.harvestId] || "SCOPE_TO_SCENE";
+      const fact = { ...item.proposedFact, lifecycleState: "CANON", scope: "SCENE" };
+      contextManager.updateState([fact]);
+      this.manifest.harvestSummary.autoAcceptedSceneOnly.push(item.harvestId);
+      console.debug(`[SequentialGenerator] Accepted run-local lore: ${item.proposedFact.attribute} of ${item.proposedFact.entityId}`);
+    });
+  }
+  async _mergeApprovedIntoStoryBible(approvedIds, resolutionActions, candidates, contextManager) {
+    if (approvedIds.length === 0)
+      return;
+    approvedIds.forEach((id) => {
+      const item = candidates.find((c) => c.harvestId === id);
+      if (item && resolutionActions[id]) {
+        item.resolutionAction = resolutionActions[id];
+      }
+    });
+    const approvedItems = candidates.filter((c) => approvedIds.includes(c.harvestId));
+    const mergeResult = await this.plugin.vaultService.mergeHarvestIntoStoryBible(
+      this.plugin.settings.storyBiblePath,
+      approvedItems,
+      contextManager.getState().canonVersion
+    );
+    if (!mergeResult.success)
+      return;
+    this.manifest.harvestSummary.canonVersionAfterMerge = mergeResult.canonVersionAfterMerge;
+    const promotedFacts = approvedItems.map((item) => ({
+      ...item.proposedFact,
+      lifecycleState: "CANON",
+      origin: "BIBLE"
+    }));
+    contextManager.updateState(promotedFacts);
+    await this.writeProtectionIndex({
+      code: "PROMOTION_TO_BIBLE",
+      createdAt: Date.now(),
+      sourceEventId: `harvest-${this.currentRunId}`,
+      canonVersion: mergeResult.canonVersionAfterMerge,
+      factIds: approvedIds
+    });
+    relayEventBus.emit("state:updated", {
+      runId: this.currentRunId,
+      chapterId: this.manifest.chapterId,
+      diffSummary: `Canon version updated to ${mergeResult.canonVersionAfterMerge}`
+    });
+    new import_obsidian20.Notice(`Successfully merged ${approvedIds.length} items into Story Bible.`);
+  }
+  /**
+   * Post-run lore harvesting workflow.
+   */
+  async performPostRunHarvest(contextManager) {
+    if (!this.manifest)
+      return;
+    const proseChunks = this._getProseChunksFromManifest();
+    if (proseChunks.length === 0)
+      return;
+    const candidates = await this.loreHarvestService.extractCandidates(
+      proseChunks,
+      contextManager.getState(),
+      this.currentRunId
+    );
+    if (candidates.length === 0) {
+      console.debug("[SequentialGenerator] No lore candidates found for harvesting.");
+      return;
     }
+    this.manifest.harvestSummary = this._buildHarvestSummary(candidates);
+    this._applySceneOnlyAutoAccepts(candidates, contextManager);
     const reviewItems = candidates.filter((c) => c.recommendedAction === "REVIEW" || c.recommendedAction === "QUARANTINE");
     if (reviewItems.length > 0) {
       const result = await showHarvestChecklistModal(this.plugin.app, { items: reviewItems });
       if (result) {
         this.manifest.harvestSummary.approvedIds = result.approvedIds;
         this.manifest.harvestSummary.rejectedIds = result.rejectedIds;
-        if (result.runLocalIds.length > 0) {
-          const runLocalItems = candidates.filter((c) => result.runLocalIds.includes(c.harvestId));
-          runLocalItems.forEach((item) => {
-            item.resolutionAction = result.resolutionActions[item.harvestId] || "SCOPE_TO_SCENE";
-            const fact = { ...item.proposedFact, lifecycleState: "CANON", scope: "SCENE" };
-            contextManager.updateState([fact]);
-            this.manifest.harvestSummary.autoAcceptedSceneOnly.push(item.harvestId);
-            console.log(`[SequentialGenerator] \u2705 Accepted run-local lore: ${item.proposedFact.attribute} of ${item.proposedFact.entityId}`);
-          });
-        }
-        if (result.approvedIds.length > 0) {
-          result.approvedIds.forEach((id) => {
-            const item = candidates.find((c) => c.harvestId === id);
-            if (item && result.resolutionActions[id]) {
-              item.resolutionAction = result.resolutionActions[id];
-            }
-          });
-          const approvedItems = candidates.filter((c) => result.approvedIds.includes(c.harvestId));
-          const mergeResult = await this.plugin.vaultService.mergeHarvestIntoStoryBible(
-            this.plugin.settings.storyBiblePath,
-            approvedItems,
-            contextManager.getState().canonVersion
-          );
-          if (mergeResult.success) {
-            this.manifest.harvestSummary.canonVersionAfterMerge = mergeResult.canonVersionAfterMerge;
-            const promotedFacts = approvedItems.map((item) => ({
-              ...item.proposedFact,
-              lifecycleState: "CANON",
-              origin: "BIBLE"
-              // Promoted to bible
-            }));
-            contextManager.updateState(promotedFacts);
-            await this.writeProtectionIndex({
-              code: "PROMOTION_TO_BIBLE",
-              createdAt: Date.now(),
-              sourceEventId: `harvest-${this.currentRunId}`,
-              canonVersion: mergeResult.canonVersionAfterMerge,
-              factIds: result.approvedIds
-            });
-            relayEventBus.emit("state:updated", {
-              runId: this.currentRunId,
-              chapterId: this.manifest.chapterId,
-              diffSummary: `Canon version updated to ${mergeResult.canonVersionAfterMerge}`
-            });
-            new import_obsidian24.Notice(`Successfully merged ${result.approvedIds.length} items into Story Bible.`);
-          }
-        }
+        this._applyRunLocalItems(result.runLocalIds, result.resolutionActions, candidates, contextManager);
+        await this._mergeApprovedIntoStoryBible(result.approvedIds, result.resolutionActions, candidates, contextManager);
       }
     }
     await this.saveManifest();
@@ -36509,7 +34903,7 @@ Constraints:
    * Triggers a lightweight re-evaluation of grounding after a mutation is accepted.
    */
   async reGround(contextManager) {
-    console.log("[SequentialGenerator] \u{1F504} Post-mutation re-grounding triggered.");
+    console.debug("[SequentialGenerator] Post-mutation re-grounding triggered.");
   }
   /**
    * Verifies the current environment against a manifest for strict replay.
@@ -36600,6 +34994,54 @@ Constraints:
     }
     return { trigger: null, violationSummary: "" };
   }
+  // ---------------------------------------------------------------------------
+  // calculateContinuityRisk helpers
+  // ---------------------------------------------------------------------------
+  _calcDormancyRisk(iteration, state, windows) {
+    const keyFacts = state.canonFacts.filter((f) => AttributeRegistry.includes(f.attribute));
+    if (keyFacts.length === 0)
+      return 0;
+    const dormantCount = keyFacts.filter((f) => {
+      const lastUsed = f.chunkId ? Number.parseInt(f.chunkId.replace("chunk-", "")) : 0;
+      return iteration - lastUsed >= windows.DORMANCY_CHUNKS;
+    }).length;
+    return dormantCount / keyFacts.length;
+  }
+  _calcDensityDropRisk() {
+    const writeStages = this.manifest.stages.filter((s) => s.stageType === "WRITE");
+    if (writeStages.length < 2)
+      return 0;
+    const last2 = writeStages.slice(-2);
+    const scores = last2.map((s) => {
+      const metadata = s.metadata || [];
+      const grounded = metadata.filter((m) => !m.isSpeculative).length;
+      return metadata.length > 0 ? grounded / metadata.length : 0;
+    });
+    return Math.max(0, scores[0] - scores[1]);
+  }
+  _calcRepairRisk(windows) {
+    const recentStages = this.manifest.stages.slice(-windows.REPAIR_RATE_CHUNKS * 5);
+    const auditStages = recentStages.filter((s) => s.stageType === "AUDIT");
+    if (auditStages.length === 0)
+      return 0;
+    const repairs = recentStages.filter((s) => s.stageType === "REPAIR").length;
+    return Math.min(1, repairs / auditStages.length);
+  }
+  _calcRelianceRisk() {
+    const writeStages = this.manifest.stages.filter((s) => s.stageType === "WRITE");
+    const lastWrite = writeStages[writeStages.length - 1];
+    if (!lastWrite?.metadata)
+      return 0;
+    const factCounts = {};
+    lastWrite.metadata.forEach((m) => {
+      m.factIds.forEach((id) => {
+        factCounts[id] = (factCounts[id] || 0) + 1;
+      });
+    });
+    const totalParas = lastWrite.metadata.length;
+    const maxFactCount = Math.max(0, ...Object.values(factCounts));
+    return totalParas > 0 ? maxFactCount / totalParas : 0;
+  }
   /**
    * Calculates the continuity risk score for the current iteration.
    * weighted sum: dormancy (35%) + drop (25%) + repairs (25%) + reliance (15%)
@@ -36608,48 +35050,10 @@ Constraints:
     const policy = CO_AUTHORING_POLICY.CONTINUITY_RISK;
     const weights = policy.WEIGHTS;
     const windows = policy.WINDOWS;
-    let dormancyRisk = 0;
-    const state = contextManager.getState();
-    const keyFacts = state.canonFacts.filter((f) => AttributeRegistry.includes(f.attribute));
-    if (keyFacts.length > 0) {
-      const dormantCount = keyFacts.filter((f) => {
-        const lastUsed = f.chunkId ? parseInt(f.chunkId.replace("chunk-", "")) : 0;
-        return iteration - lastUsed >= windows.DORMANCY_CHUNKS;
-      }).length;
-      dormancyRisk = dormantCount / keyFacts.length;
-    }
-    let densityDropRisk = 0;
-    const writeStages = this.manifest.stages.filter((s) => s.stageType === "WRITE");
-    if (writeStages.length >= 2) {
-      const last2 = writeStages.slice(-2);
-      const scores = last2.map((s) => {
-        const metadata = s.metadata || [];
-        const grounded = metadata.filter((m) => !m.isSpeculative).length;
-        return metadata.length > 0 ? grounded / metadata.length : 0;
-      });
-      const drop = Math.max(0, scores[0] - scores[1]);
-      densityDropRisk = drop;
-    }
-    let repairRisk = 0;
-    const recentStages = this.manifest.stages.slice(-windows.REPAIR_RATE_CHUNKS * 5);
-    const auditStages = recentStages.filter((s) => s.stageType === "AUDIT");
-    if (auditStages.length > 0) {
-      const repairs = recentStages.filter((s) => s.stageType === "REPAIR").length;
-      repairRisk = Math.min(1, repairs / auditStages.length);
-    }
-    let relianceRisk = 0;
-    const lastWrite = writeStages[writeStages.length - 1];
-    if (lastWrite && lastWrite.metadata) {
-      const factCounts = {};
-      lastWrite.metadata.forEach((m) => {
-        m.factIds.forEach((id) => {
-          factCounts[id] = (factCounts[id] || 0) + 1;
-        });
-      });
-      const totalParas = lastWrite.metadata.length;
-      const maxFactCount = Math.max(0, ...Object.values(factCounts));
-      relianceRisk = totalParas > 0 ? maxFactCount / totalParas : 0;
-    }
+    const dormancyRisk = this._calcDormancyRisk(iteration, contextManager.getState(), windows);
+    const densityDropRisk = this._calcDensityDropRisk();
+    const repairRisk = this._calcRepairRisk(windows);
+    const relianceRisk = this._calcRelianceRisk();
     const totalRisk = dormancyRisk * weights.DORMANCY + densityDropRisk * weights.DENSITY_DROP + repairRisk * weights.REPAIR_RATE + relianceRisk * weights.OVER_RELIANCE;
     if (!this.manifest.continuityRisks)
       this.manifest.continuityRisks = {};
@@ -36695,7 +35099,7 @@ Constraints:
     let hasViolation = false;
     if (speculativeRatio > policy.MAX_SPECULATIVE_RATIO) {
       hasViolation = true;
-      console.warn(`[SequentialGenerator] \u26A0\uFE0F Quality Floor Violation: Speculative Ratio too high.`);
+      console.warn(`[SequentialGenerator] Quality Floor Violation: Speculative Ratio too high.`);
     }
     let consecutiveLite = 0;
     for (let i = writeStages.length - 1; i >= 0; i--) {
@@ -36711,13 +35115,11 @@ Constraints:
     if (hasViolation) {
       this.consecutiveViolations++;
       if (this.consecutiveViolations === 1) {
-        new import_obsidian24.Notice("\u26A0\uFE0F Quality Warning: grounding density low. Auto-refreshing context next chunk.");
+        new import_obsidian20.Notice("Quality Warning: grounding density low. Auto-refreshing context next chunk.");
       } else if (this.consecutiveViolations >= 2) {
         this.state = "PAUSED_FOR_INTERVENTION";
-        relayEventBus.emit("control:paused", {
-          runId: this.currentRunId
-        });
-        new import_obsidian24.Notice("\u23F8 Generation paused: multiple quality violations. Review lore/context.");
+        relayEventBus.emit("control:paused", { runId: this.currentRunId });
+        new import_obsidian20.Notice("Generation paused: multiple quality violations. Review lore/context.");
       }
     } else {
       this.consecutiveViolations = 0;
@@ -36727,7 +35129,7 @@ Constraints:
     const policy = CO_AUTHORING_POLICY.SEGMENTATION;
     let paragraphs = text2.split("\n\n").filter((p) => p.trim());
     if (paragraphs.length <= 1 && text2.length > policy.HARD_MAX_CHARS_PER_PARA) {
-      console.log("[SequentialGenerator] \u26A0\uFE0F Segmentation drift detected. Recovering...");
+      console.debug("[SequentialGenerator] Segmentation drift detected. Recovering...");
       paragraphs = this.fallbackSegment(text2);
     }
     const oldParas = oldMetadata.map((m) => ({ p_id: m.p_id, text: "" }));
@@ -36740,7 +35142,6 @@ Constraints:
         factIds: [],
         sourceChunkIds: [],
         isSpeculative: true
-        // Default for recovered
       }))
     };
   }
@@ -36812,7 +35213,7 @@ Constraints:
   failRun(error2) {
     this.state = "error";
     relayEventBus.emit("run:error", { runId: this.currentRunId || "unknown", error: error2 });
-    new import_obsidian24.Notice(`Generation failed: ${error2}`);
+    new import_obsidian20.Notice(`Generation failed: ${error2}`);
   }
   async saveManifest() {
     if (!this.manifest || !this.currentRunKey)
@@ -36857,10 +35258,10 @@ Constraints:
       continuationId: contId,
       parentRunId: this.manifest.runId,
       runKey: this.currentRunKey,
-      stages: this.manifest.stages.filter((s) => {
+      stages: this.manifest.stages.filter((_s) => {
         return true;
       }),
-      interventions: this.manifest.interventions?.filter((i) => {
+      interventions: this.manifest.interventions?.filter((_i) => {
         return true;
       }) || [],
       timestamp: Date.now()
@@ -36881,9 +35282,6 @@ Constraints:
     await this.plugin.vaultService.writeFile(contPath, JSON.stringify(contWithMetadata, null, 2));
     if (!this.manifest.continuations) {
       this.manifest.continuations = [];
-    }
-    const cont = this.manifest.continuations.find((c) => c.continuationId === contId);
-    if (cont) {
     }
   }
   /**
@@ -36920,7 +35318,6 @@ Constraints:
         runKey,
         contentHash: await contentHash(snapshot),
         schemaVersion: ArtifactSchemaVersions.DECISIONS,
-        // Use DECISIONS version for policy snapshot
         generatorVersion: `${pluginVersion}+policy-${policyHash.slice(0, 8)}`,
         timestamp: Date.now()
       }
@@ -36941,11 +35338,9 @@ Constraints:
       runId: this.manifest.runId,
       health: healthResult.health,
       healthCodes: healthResult.codes,
-      // Array of health codes
       stagesCompleted: this.manifest.stages.map((s) => s.stageType),
       artifacts: {},
       requiredArtifactsByStage: RequiredArtifactsByStage,
-      // Type assertion for readonly arrays
       metrics: {
         repairs: this.manifest.stages.filter((s) => s.stageType === "REPAIR").length,
         misses: auditViolations,
@@ -36979,8 +35374,6 @@ Constraints:
     const codes = [];
     if (this.manifest.stages.some((s) => !s.data)) {
       codes.push("MISSING_PROMPT_BODY");
-    }
-    if (this.manifest.harvestSummary) {
     }
     if (this.manifest.continuations) {
       const contIds = new Set(this.manifest.continuations.map((c) => c.continuationId));
@@ -37032,7 +35425,7 @@ Constraints:
     const lockPath = `.gwriter/locks/${runKey}.lock`;
     try {
       const lockFile = this.plugin.app.vault.getAbstractFileByPath(lockPath);
-      if (lockFile instanceof import_obsidian24.TFile) {
+      if (lockFile instanceof import_obsidian20.TFile) {
         await this.plugin.app.vault.delete(lockFile);
       }
     } catch (err) {
@@ -37062,11 +35455,12 @@ Constraints:
     let index = {};
     try {
       const existingFile = this.plugin.app.vault.getAbstractFileByPath(indexPath);
-      if (existingFile instanceof import_obsidian24.TFile) {
+      if (existingFile instanceof import_obsidian20.TFile) {
         const content = await this.plugin.app.vault.read(existingFile);
         index = JSON.parse(content);
       }
     } catch (err) {
+      console.error(`[SequentialGenerator] Could not read protection index:`, err);
     }
     if (!index[runId]) {
       index[runId] = [];
@@ -37075,62 +35469,67 @@ Constraints:
     await this.plugin.vaultService.ensureParentFolder(indexPath);
     await this.plugin.vaultService.writeFile(indexPath, JSON.stringify(index, null, 2));
   }
+  // ---------------------------------------------------------------------------
+  // computeProtectionClosure helpers
+  // ---------------------------------------------------------------------------
+  async _buildRunIdToKeyMap(outputRoot) {
+    const runIdToKey = /* @__PURE__ */ new Map();
+    for (const child of outputRoot.children) {
+      if (!(child instanceof import_obsidian20.TFolder) || !child.name.startsWith("run-"))
+        continue;
+      const manifestFile = child.children.find((f) => f.name === "run.json");
+      if (!(manifestFile instanceof import_obsidian20.TFile))
+        continue;
+      try {
+        const content = await this.plugin.app.vault.read(manifestFile);
+        const manifest = JSON.parse(content);
+        runIdToKey.set(manifest.runId, child.name);
+      } catch (err) {
+        console.error(`[SequentialGenerator] Could not read manifest for ${child.name}:`, err);
+      }
+    }
+    return runIdToKey;
+  }
+  async _expandContinuationEdges(manifest, closure, queue, runIdToKey) {
+    if (!manifest.continuations)
+      return;
+    manifest.continuations.forEach((cont) => {
+      if (!cont.parentRunId)
+        return;
+      const parentKey = runIdToKey.get(cont.parentRunId);
+      if (parentKey && !closure.has(parentKey)) {
+        closure.add(parentKey);
+        queue.push(parentKey);
+      }
+    });
+  }
   /**
    * Computes transitive closure of protected runs via BFS over provenance graph.
-   * Graph Edges:
-   * - AcceptedRun -> EvidenceRuns (from citations in harvestSummary)
-   * - ContinuationRun -> ParentRun
-   * - MigrationRun -> PreviousMigrationRuns (via mutationHistory)
    */
   async computeProtectionClosure(protectedRunKeys) {
     const MAX_CLOSURE_NODES = 1e4;
     const closure = new Set(protectedRunKeys);
     const queue = Array.from(protectedRunKeys);
     const visited = /* @__PURE__ */ new Set();
-    const runIdToKey = /* @__PURE__ */ new Map();
     const outputRoot = this.plugin.app.vault.getAbstractFileByPath(".gwriter/output");
-    if (!(outputRoot instanceof import_obsidian24.TFolder))
+    if (!(outputRoot instanceof import_obsidian20.TFolder))
       return closure;
-    for (const child of outputRoot.children) {
-      if (!(child instanceof import_obsidian24.TFolder) || !child.name.startsWith("run-"))
-        continue;
-      const manifestFile = child.children.find((f) => f.name === "run.json");
-      if (manifestFile instanceof import_obsidian24.TFile) {
-        try {
-          const content = await this.plugin.app.vault.read(manifestFile);
-          const manifest = JSON.parse(content);
-          runIdToKey.set(manifest.runId, child.name);
-        } catch (err) {
-        }
-      }
-    }
+    const runIdToKey = await this._buildRunIdToKeyMap(outputRoot);
     while (queue.length > 0 && closure.size < MAX_CLOSURE_NODES) {
       const runKey = queue.shift();
       if (visited.has(runKey))
         continue;
       visited.add(runKey);
       const runFolder = outputRoot.children.find((f) => f.name === runKey);
-      if (!(runFolder instanceof import_obsidian24.TFolder))
+      if (!(runFolder instanceof import_obsidian20.TFolder))
         continue;
       const manifestFile = runFolder.children.find((f) => f.name === "run.json");
-      if (!(manifestFile instanceof import_obsidian24.TFile))
+      if (!(manifestFile instanceof import_obsidian20.TFile))
         continue;
       try {
         const manifestContent = await this.plugin.app.vault.read(manifestFile);
         const manifest = JSON.parse(manifestContent);
-        if (manifest.continuations) {
-          manifest.continuations.forEach((cont) => {
-            if (cont.parentRunId) {
-              const parentKey = runIdToKey.get(cont.parentRunId);
-              if (parentKey && !closure.has(parentKey)) {
-                closure.add(parentKey);
-                queue.push(parentKey);
-              }
-            }
-          });
-        }
-        if (manifest.harvestSummary?.approvedIds) {
-        }
+        await this._expandContinuationEdges(manifest, closure, queue, runIdToKey);
       } catch (err) {
         console.warn(`[SequentialGenerator] Failed to read manifest for ${runKey}:`, err);
       }
@@ -37140,35 +35539,24 @@ Constraints:
     }
     return closure;
   }
-  /**
-   * Identifies and cleans up old runs, preserving "protected" ones.
-   */
-  async cleanupOldRuns() {
-    const outputRoot = ".gwriter/output";
-    const abstractRoot = this.plugin.app.vault.getAbstractFileByPath(outputRoot);
-    if (!(abstractRoot instanceof import_obsidian24.TFolder))
-      return;
+  // ---------------------------------------------------------------------------
+  // cleanupOldRuns helpers
+  // ---------------------------------------------------------------------------
+  async _loadProtectedRunKeys(abstractRoot) {
     const protectedRunKeys = /* @__PURE__ */ new Set();
-    const globalIndexPath = ".gwriter/protection-index.json";
-    try {
-      const globalIndexFile = this.plugin.app.vault.getAbstractFileByPath(globalIndexPath);
-      if (globalIndexFile instanceof import_obsidian24.TFile) {
-        const content = await this.plugin.app.vault.read(globalIndexFile);
-        const index = JSON.parse(content);
-      }
-    } catch (err) {
-    }
     for (const child of abstractRoot.children) {
-      if (!(child instanceof import_obsidian24.TFolder) || !child.name.startsWith("run-"))
+      if (!(child instanceof import_obsidian20.TFolder) || !child.name.startsWith("run-"))
         continue;
       const protectedFile = child.children.find((f) => f.name === "protected.json");
       if (protectedFile) {
         protectedRunKeys.add(child.name);
       }
     }
-    const closure = await this.computeProtectionClosure(protectedRunKeys);
-    const runFolders = abstractRoot.children.filter((f) => f instanceof import_obsidian24.TFolder && f.name.startsWith("run-")).sort((a, b) => b.name.localeCompare(a.name));
+    return protectedRunKeys;
+  }
+  _selectRunsToTrash(abstractRoot, closure) {
     const MAX_RUNS_TO_KEEP = 10;
+    const runFolders = abstractRoot.children.filter((f) => f instanceof import_obsidian20.TFolder && f.name.startsWith("run-")).sort((a, b) => b.name.localeCompare(a.name));
     const toTrash = [];
     let unprotectedCount = 0;
     for (const folder of runFolders) {
@@ -37181,13 +35569,133 @@ Constraints:
         toTrash.push(folder);
       }
     }
+    return toTrash;
+  }
+  async _trashRuns(toTrash) {
     for (const folder of toTrash) {
       try {
         await this.plugin.trashService.trashRun(folder.name, folder.path, "Automatic cleanup: exceeded keep limit");
-        console.log(`[SequentialGenerator] \u{1F9F9} Moved run to trash: ${folder.name}`);
+        console.debug(`[SequentialGenerator] Moved run to trash: ${folder.name}`);
       } catch (err) {
         console.warn(`[SequentialGenerator] Failed to trash run ${folder.name}:`, err);
       }
+    }
+  }
+  /**
+   * Identifies and cleans up old runs, preserving "protected" ones.
+   */
+  async cleanupOldRuns() {
+    const abstractRoot = this.plugin.app.vault.getAbstractFileByPath(".gwriter/output");
+    if (!(abstractRoot instanceof import_obsidian20.TFolder))
+      return;
+    const protectedRunKeys = await this._loadProtectedRunKeys(abstractRoot);
+    const closure = await this.computeProtectionClosure(protectedRunKeys);
+    const toTrash = this._selectRunsToTrash(abstractRoot, closure);
+    await this._trashRuns(toTrash);
+  }
+  // ---------------------------------------------------------------------------
+  // runMonolithicCloudPath helpers
+  // ---------------------------------------------------------------------------
+  _buildInitialStateForCloud() {
+    return {
+      chapterId: `chapter-${Date.now()}`,
+      canonVersion: 1,
+      entities: [],
+      canonFacts: [],
+      mutationHistory: [],
+      timeline: [],
+      openLoops: [],
+      constraints: {
+        pov: this.plugin.settings.defaultPOV || "third-person-limited",
+        tense: this.plugin.settings.defaultTense || "past",
+        tone: ["noir"],
+        forbidden: []
+      }
+    };
+  }
+  async _buildCloudManifest(initialState, policyHash, corpusHash, storyBibleHash, targetWordCount) {
+    const pluginVersion = this.plugin.manifest.version || "1.0.3";
+    const indexStatus = this.plugin.embeddingsIndex.getStatus();
+    const environment = {
+      pluginVersion,
+      policyHash,
+      promptTemplateHash: await sha256(JSON.stringify(this.plugin.promptEngine)),
+      scoringProfileHash: policyHash,
+      modelBackend: this.plugin.settings.apiProvider,
+      modelId: this.plugin.settings.relayCloudSmartModel || this.plugin.settings.model,
+      vaultSnapshotHash: corpusHash,
+      indexVersion: indexStatus.indexedChunks,
+      timestamp: Date.now()
+    };
+    this.manifest = {
+      runId: this.currentRunId,
+      runKey: this.currentRunKey,
+      chapterId: initialState.chapterId,
+      startTime: Date.now(),
+      storyBibleHash,
+      initialStateHash: await sha256(JSON.stringify(initialState)),
+      stages: [],
+      config: {
+        smartModel: this.plugin.settings.relayCloudSmartModel || this.plugin.settings.model,
+        smartModelDigest: this.plugin.settings.relayCloudSmartModel || this.plugin.settings.model,
+        fastModel: this.plugin.settings.relayCloudFastModel || this.plugin.settings.model,
+        fastModelDigest: this.plugin.settings.relayCloudFastModel || this.plugin.settings.model,
+        maxChunkWords: targetWordCount,
+        temperature: 0.7,
+        policyHash,
+        corpusHash,
+        pluginVersion
+      },
+      environment,
+      replayable: false,
+      interventions: [],
+      continuations: [],
+      plotMemorySnapshots: []
+    };
+  }
+  _startContinuityPulse(cloudStartTime) {
+    const pulseMessages = [
+      "Traversing 128k context window...",
+      "Integrating retrieval hits...",
+      "Respecting locked bible facts...",
+      "Matching author voice signature...",
+      "Stitching narrative threads...",
+      "Polishing prose flow..."
+    ];
+    let pulseIdx = 0;
+    return setInterval(() => {
+      const msg = pulseMessages[pulseIdx % pulseMessages.length];
+      relayEventBus.emit("run:pulse", {
+        runId: this.currentRunId,
+        message: msg,
+        detail: `Elapsed: ${Math.floor((Date.now() - cloudStartTime) / 1e3)}s`
+      });
+      pulseIdx++;
+    }, 3e3);
+  }
+  _buildViolationSummary(auditResult, tupleViolations, citationViolations) {
+    return [
+      auditResult.summary,
+      tupleViolations.length > 0 ? `${tupleViolations.length} locked fact violations` : "",
+      citationViolations.length > 0 ? `${citationViolations.length} citation mismatches` : ""
+    ].filter(Boolean).join("; ");
+  }
+  _hasCloudFatalViolations(auditResult, tupleViolations, citationViolations) {
+    return auditResult.overallSeverity >= 5 || tupleViolations.length > 0 || citationViolations.length > 0;
+  }
+  async _verifyCloudReplayArtifacts() {
+    const contextPackPath = RunPaths.baseDir(this.currentRunKey) + "/context/context-pack.json";
+    const policyPath = RunPaths.policySnapshotPath(this.currentRunKey);
+    const manifestPath = RunPaths.manifestPath(this.currentRunKey);
+    try {
+      const contextPackFile = this.plugin.app.vault.getAbstractFileByPath(contextPackPath);
+      const policyFile = this.plugin.app.vault.getAbstractFileByPath(policyPath);
+      const manifestFile = this.plugin.app.vault.getAbstractFileByPath(manifestPath);
+      if (contextPackFile && policyFile && manifestFile) {
+        this.manifest.replayable = true;
+      }
+    } catch (err) {
+      console.warn("[SequentialGenerator] Failed to verify replay artifacts:", err);
     }
   }
   /**
@@ -37204,23 +35712,8 @@ Constraints:
       return;
     }
     const policyHash = await sha256(JSON.stringify(CO_AUTHORING_POLICY));
-    const indexStatus = this.plugin.embeddingsIndex.getStatus();
     const corpusHash = await this.plugin.embeddingsIndex.getCorpusHash();
-    const initialState = {
-      chapterId: `chapter-${Date.now()}`,
-      canonVersion: 1,
-      entities: [],
-      canonFacts: [],
-      mutationHistory: [],
-      timeline: [],
-      openLoops: [],
-      constraints: {
-        pov: this.plugin.settings.defaultPOV || "third-person-limited",
-        tense: this.plugin.settings.defaultTense || "past",
-        tone: ["noir"],
-        forbidden: []
-      }
-    };
+    const initialState = this._buildInitialStateForCloud();
     const contextManager = new ContextManager(this.plugin.app.vault, initialState);
     this.contextManager = contextManager;
     const seedResult = await contextManager.seedFromStoryBible(this.plugin.settings.storyBiblePath);
@@ -37256,43 +35749,7 @@ Constraints:
       this.failRun(`Estimated cost ($${estimatedCost.high.toFixed(2)}) exceeds hard budget ($${this.plugin.settings.relayCostHardBudget}).`);
       return;
     }
-    const pluginVersion = this.plugin.manifest.version || "1.0.3";
-    const environment = {
-      pluginVersion,
-      policyHash,
-      promptTemplateHash: await sha256(JSON.stringify(this.plugin.promptEngine)),
-      scoringProfileHash: policyHash,
-      modelBackend: this.plugin.settings.apiProvider,
-      modelId: this.plugin.settings.relayCloudSmartModel || this.plugin.settings.model,
-      vaultSnapshotHash: corpusHash,
-      indexVersion: indexStatus.indexedChunks,
-      timestamp: Date.now()
-    };
-    this.manifest = {
-      runId: this.currentRunId,
-      runKey: this.currentRunKey,
-      chapterId: initialState.chapterId,
-      startTime: Date.now(),
-      storyBibleHash: seedResult.hash,
-      initialStateHash: await sha256(JSON.stringify(initialState)),
-      stages: [],
-      config: {
-        smartModel: this.plugin.settings.relayCloudSmartModel || this.plugin.settings.model,
-        smartModelDigest: this.plugin.settings.relayCloudSmartModel || this.plugin.settings.model,
-        fastModel: this.plugin.settings.relayCloudFastModel || this.plugin.settings.model,
-        fastModelDigest: this.plugin.settings.relayCloudFastModel || this.plugin.settings.model,
-        maxChunkWords: targetWordCount,
-        temperature: 0.7,
-        policyHash,
-        corpusHash,
-        pluginVersion
-      },
-      environment,
-      replayable: false,
-      interventions: [],
-      continuations: [],
-      plotMemorySnapshots: []
-    };
+    await this._buildCloudManifest(initialState, policyHash, corpusHash, seedResult.hash, targetWordCount);
     relayEventBus.emit("run:start", { runId: this.currentRunId, chapterId: initialState.chapterId });
     try {
       relayEventBus.emit("stage:progress", {
@@ -37307,24 +35764,7 @@ Constraints:
         wordCount: targetWordCount,
         lockMap
       };
-      const pulseMessages = [
-        "Traversing 128k context window...",
-        "Integrating retrieval hits...",
-        "Respecting locked bible facts...",
-        "Matching author voice signature...",
-        "Stitching narrative threads...",
-        "Polishing prose flow..."
-      ];
-      let pulseIdx = 0;
-      const pulseInterval = setInterval(() => {
-        const msg = pulseMessages[pulseIdx % pulseMessages.length];
-        relayEventBus.emit("run:pulse", {
-          runId: this.currentRunId,
-          message: msg,
-          detail: `Elapsed: ${Math.floor((Date.now() - cloudStartTime) / 1e3)}s`
-        });
-        pulseIdx++;
-      }, 3e3);
+      const pulseInterval = this._startContinuityPulse(cloudStartTime);
       let cloudOutput;
       try {
         cloudOutput = await this.cloudRelay.writeChapter(
@@ -37354,12 +35794,8 @@ Constraints:
         cloudOutput.paragraphs,
         contextPack.retrievalHits
       );
-      if (auditResult.overallSeverity >= 5 || tupleViolations.length > 0 || citationViolations.length > 0) {
-        const violationSummary = [
-          auditResult.summary,
-          tupleViolations.length > 0 ? `${tupleViolations.length} locked fact violations` : "",
-          citationViolations.length > 0 ? `${citationViolations.length} citation mismatches` : ""
-        ].filter(Boolean).join("; ");
+      if (this._hasCloudFatalViolations(auditResult, tupleViolations, citationViolations)) {
+        const violationSummary = this._buildViolationSummary(auditResult, tupleViolations, citationViolations);
         const interventionGuidance = await this.handleIntervention(
           "FAIL_MATRIX_SEVERITY",
           violationSummary,
@@ -37377,26 +35813,13 @@ Constraints:
         tokensIn: contextPack.tokenEstimate.total,
         tokensOut: estimateTokens(fullProse),
         requestId: void 0,
-        // Would come from provider response
         estimatedCost
       });
       this.state = "COMPLETED";
       this.manifest.endTime = Date.now();
       await this.contextPacker.saveContextPack(contextPack, this.currentRunKey, this.plugin.vaultService);
       await this.writePolicySnapshot(this.currentRunKey);
-      const contextPackPath = RunPaths.baseDir(this.currentRunKey) + "/context/context-pack.json";
-      const policyPath = RunPaths.policySnapshotPath(this.currentRunKey);
-      const manifestPath = RunPaths.manifestPath(this.currentRunKey);
-      try {
-        const contextPackFile = this.plugin.app.vault.getAbstractFileByPath(contextPackPath);
-        const policyFile = this.plugin.app.vault.getAbstractFileByPath(policyPath);
-        const manifestFile = this.plugin.app.vault.getAbstractFileByPath(manifestPath);
-        if (contextPackFile && policyFile && manifestFile) {
-          this.manifest.replayable = true;
-        }
-      } catch (err) {
-        console.warn("[SequentialGenerator] Failed to verify replay artifacts:", err);
-      }
+      await this._verifyCloudReplayArtifacts();
       relayEventBus.emit("run:end", {
         runId: this.currentRunId,
         totalWords: fullProse.split(/\s+/).length,
@@ -37524,13 +35947,52 @@ Constraints:
         path: this.plugin.settings.book2Path
       });
     } else {
-      console.log(`[SequentialGenerator] [DRY-RUN] Would have committed monolithic chapter to ${this.plugin.settings.book2Path}`);
+      console.debug(`[SequentialGenerator] [DRY-RUN] Would have committed monolithic chapter to ${this.plugin.settings.book2Path}`);
     }
     contextManager.updateState([], {
       chunkId: "monolithic-chapter",
       summary: `Cloud generated full chapter (${fullProse.split(/\s+/).length} words)`
     });
     await this.performCloudHarvest(contextManager, fullProse, output.paragraphs, output.extractedTuples);
+  }
+  // ---------------------------------------------------------------------------
+  // performCloudHarvest helpers
+  // ---------------------------------------------------------------------------
+  _applyCloudRunLocalItems(runLocalIds, resolutionActions, harvestResult, contextManager) {
+    if (runLocalIds.length === 0)
+      return;
+    const runLocalItems = harvestResult.filter((c) => runLocalIds.includes(c.harvestId));
+    runLocalItems.forEach((item) => {
+      item.resolutionAction = resolutionActions[item.harvestId] || "SCOPE_TO_SCENE";
+      const fact = { ...item.proposedFact, lifecycleState: "CANON", scope: "SCENE" };
+      contextManager.updateState([fact]);
+      this.manifest.harvestSummary.autoAcceptedSceneOnly.push(item.harvestId);
+    });
+  }
+  async _mergeCloudApprovedItems(approvedIds, resolutionActions, harvestResult, contextManager) {
+    if (approvedIds.length === 0)
+      return;
+    approvedIds.forEach((id) => {
+      const item = harvestResult.find((c) => c.harvestId === id);
+      if (item && resolutionActions[id]) {
+        item.resolutionAction = resolutionActions[id];
+      }
+    });
+    const approvedItems = harvestResult.filter((c) => approvedIds.includes(c.harvestId));
+    const mergeResult = await this.plugin.vaultService.mergeHarvestIntoStoryBible(
+      this.plugin.settings.storyBiblePath,
+      approvedItems,
+      contextManager.getState().canonVersion
+    );
+    if (!mergeResult.success)
+      return;
+    this.manifest.harvestSummary.canonVersionAfterMerge = mergeResult.canonVersionAfterMerge;
+    const promotedFacts = approvedItems.map((item) => ({
+      ...item.proposedFact,
+      lifecycleState: "CANON",
+      origin: "BIBLE"
+    }));
+    contextManager.updateState(promotedFacts);
   }
   /**
    * Perform lore harvesting for cloud-generated chapters
@@ -37554,74 +36016,30 @@ Constraints:
       await this.loreHarvestService.mergeModelTuples(harvestResult, modelExtractedTuples);
     }
     if (harvestResult.length === 0) {
-      console.log("[SequentialGenerator] \u{1F33E} No lore candidates found for cloud harvest.");
+      console.debug("[SequentialGenerator] No lore candidates found for cloud harvest.");
       return;
     }
-    this.manifest.harvestSummary = {
-      totalCandidates: harvestResult.length,
-      clusteredCount: harvestResult.length,
-      approvedIds: [],
-      rejectedIds: [],
-      autoAcceptedSceneOnly: [],
-      conflicts: harvestResult.filter((c) => c.conflictCheckResult.hasConflict).map((c) => ({
-        harvestId: c.harvestId,
-        conflictReason: "Lore conflict detected",
-        conflictingFactIds: c.conflictCheckResult.conflictingFactIds || []
-      }))
-    };
+    this.manifest.harvestSummary = this._buildHarvestSummary(harvestResult);
     const sceneOnlyItems = harvestResult.filter((c) => c.recommendedAction === "AUTO_ACCEPT_SCENE_ONLY");
-    if (sceneOnlyItems.length > 0) {
-      sceneOnlyItems.forEach((item) => {
-        const fact = { ...item.proposedFact, lifecycleState: "CANON" };
-        contextManager.updateState([fact]);
-        this.manifest.harvestSummary.autoAcceptedSceneOnly.push(item.harvestId);
-      });
-    }
+    sceneOnlyItems.forEach((item) => {
+      const fact = { ...item.proposedFact, lifecycleState: "CANON" };
+      contextManager.updateState([fact]);
+      this.manifest.harvestSummary.autoAcceptedSceneOnly.push(item.harvestId);
+    });
     const reviewItems = harvestResult.filter((c) => c.recommendedAction === "REVIEW" || c.recommendedAction === "QUARANTINE");
-    if (reviewItems.length > 0) {
-      const result = await showHarvestChecklistModal(this.plugin.app, { items: reviewItems });
-      if (result) {
-        this.manifest.harvestSummary.approvedIds = result.approvedIds;
-        this.manifest.harvestSummary.rejectedIds = result.rejectedIds;
-        if (result.runLocalIds.length > 0) {
-          const runLocalItems = harvestResult.filter((c) => result.runLocalIds.includes(c.harvestId));
-          runLocalItems.forEach((item) => {
-            item.resolutionAction = result.resolutionActions[item.harvestId] || "SCOPE_TO_SCENE";
-            const fact = { ...item.proposedFact, lifecycleState: "CANON", scope: "SCENE" };
-            contextManager.updateState([fact]);
-            this.manifest.harvestSummary.autoAcceptedSceneOnly.push(item.harvestId);
-          });
-        }
-        if (result.approvedIds.length > 0) {
-          result.approvedIds.forEach((id) => {
-            const item = harvestResult.find((c) => c.harvestId === id);
-            if (item && result.resolutionActions[id]) {
-              item.resolutionAction = result.resolutionActions[id];
-            }
-          });
-          const approvedItems = harvestResult.filter((c) => result.approvedIds.includes(c.harvestId));
-          const mergeResult = await this.plugin.vaultService.mergeHarvestIntoStoryBible(
-            this.plugin.settings.storyBiblePath,
-            approvedItems,
-            contextManager.getState().canonVersion
-          );
-          if (mergeResult.success) {
-            this.manifest.harvestSummary.canonVersionAfterMerge = mergeResult.canonVersionAfterMerge;
-            const promotedFacts = approvedItems.map((item) => ({
-              ...item.proposedFact,
-              lifecycleState: "CANON",
-              origin: "BIBLE"
-            }));
-            contextManager.updateState(promotedFacts);
-          }
-        }
-      }
-    }
+    if (reviewItems.length === 0)
+      return;
+    const result = await showHarvestChecklistModal(this.plugin.app, { items: reviewItems });
+    if (!result)
+      return;
+    this.manifest.harvestSummary.approvedIds = result.approvedIds;
+    this.manifest.harvestSummary.rejectedIds = result.rejectedIds;
+    this._applyCloudRunLocalItems(result.runLocalIds, result.resolutionActions, harvestResult, contextManager);
+    await this._mergeCloudApprovedItems(result.approvedIds, result.resolutionActions, harvestResult, contextManager);
   }
   async abort() {
     this.state = "aborted";
     this.abortController?.abort();
-    this.plugin.ollamaGen.cancelAll();
     if (this.currentRunKey) {
       await this.releaseRunLock(this.currentRunKey);
     }
@@ -37630,7 +36048,7 @@ Constraints:
 };
 
 // services/TrashService.ts
-var import_obsidian25 = require("obsidian");
+var import_obsidian21 = require("obsidian");
 var TrashService = class {
   constructor(vault, plugin) {
     this.trashRoot = ".gwriter/trash";
@@ -37644,7 +36062,7 @@ var TrashService = class {
   async trashRun(runId, fromPath, reason = "Manual cleanup") {
     await this.ensureTrashFolder();
     const sourceFolder = this.vault.getAbstractFileByPath(fromPath);
-    if (!(sourceFolder instanceof import_obsidian25.TFolder)) {
+    if (!(sourceFolder instanceof import_obsidian21.TFolder)) {
       throw new Error(`Run folder not found: ${fromPath}`);
     }
     const sizeBytes = await this.calculateFolderSize(sourceFolder);
@@ -37726,14 +36144,14 @@ var TrashService = class {
   }
   async ensureTrashFolder() {
     const trashFolder = this.vault.getAbstractFileByPath(this.trashRoot);
-    if (!(trashFolder instanceof import_obsidian25.TFolder)) {
+    if (!(trashFolder instanceof import_obsidian21.TFolder)) {
       await this.vault.adapter.mkdir(this.trashRoot);
     }
   }
   async readTrashIndex() {
     try {
       const file = this.vault.getAbstractFileByPath(this.indexPath);
-      if (file instanceof import_obsidian25.TFile) {
+      if (file instanceof import_obsidian21.TFile) {
         const content = await this.vault.read(file);
         return JSON.parse(content);
       }
@@ -37755,9 +36173,9 @@ var TrashService = class {
   async calculateFolderSize(folder) {
     let total = 0;
     for (const child of folder.children) {
-      if (child instanceof import_obsidian25.TFile) {
+      if (child instanceof import_obsidian21.TFile) {
         total += child.stat.size;
-      } else if (child instanceof import_obsidian25.TFolder) {
+      } else if (child instanceof import_obsidian21.TFolder) {
         total += await this.calculateFolderSize(child);
       }
     }
@@ -37906,7 +36324,7 @@ var HeuristicProvider = class {
 };
 
 // services/GenerationLogService.ts
-var import_obsidian26 = require("obsidian");
+var import_obsidian22 = require("obsidian");
 function normalizeFolder(folder) {
   const f = (folder || "").replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
   return f.length ? f : "Generation logs";
@@ -37934,7 +36352,7 @@ var GenerationLogService = class {
       return false;
     }
     const existing = this.app.vault.getAbstractFileByPath(folderPath);
-    if (existing instanceof import_obsidian26.TFolder)
+    if (existing instanceof import_obsidian22.TFolder)
       return true;
     try {
       await this.app.vault.createFolder(folderPath);
@@ -37993,7 +36411,7 @@ ${escapeFenceContent(params.finalPrompt)}
       await this.app.vault.create(path, body);
       return path;
     } catch {
-      new import_obsidian26.Notice("Failed to write generation log.");
+      new import_obsidian22.Notice("Failed to write generation log.");
       return null;
     }
   }
@@ -38001,7 +36419,7 @@ ${escapeFenceContent(params.finalPrompt)}
     if (!path)
       return;
     const file = this.app.vault.getAbstractFileByPath(path);
-    if (!(file instanceof import_obsidian26.TFile))
+    if (!(file instanceof import_obsidian22.TFile))
       return;
     const appendix = `## Result
 
@@ -38015,7 +36433,8 @@ ${escapeFenceContent(params.outputText)}
       const existing = await this.app.vault.read(file);
       await this.app.vault.modify(file, `${existing}
 ${appendix}`);
-    } catch {
+    } catch (err) {
+      console.warn("[GenerationLog] Failed to append result to log file:", err);
     }
   }
 };
@@ -38038,23 +36457,18 @@ var DiagnosticsService = class {
     this.plugin = plugin;
   }
   async runDiagnostics() {
-    const relayMode = this.plugin.settings.relayMode || "local";
     const results = [];
     await this.checkIndexSanity(results);
-    if (relayMode === "local") {
-      await this.runLocalDiagnostics(results);
-    } else {
-      await this.runCloudDiagnostics(results);
-    }
+    await this.runCloudDiagnostics(results);
     const overallStatus = this.determineOverallStatus(results);
     const report = {
       timestamp: Date.now(),
       overallStatus,
       results,
       environment: {
-        relayMode,
+        relayMode: "cloud",
         pluginVersion: this.plugin.manifest.version,
-        models: [this.plugin.settings.relaySmartModel]
+        models: [this.plugin.settings.model]
       }
     };
     await this.writeArtifacts(report);
@@ -38083,63 +36497,6 @@ var DiagnosticsService = class {
       });
     }
   }
-  async runLocalDiagnostics(results) {
-    const version = await this.plugin.ollamaGen.getOllamaVersion();
-    if (!version) {
-      results.push({
-        status: "FAIL",
-        code: "OLLAMA_UNREACHABLE",
-        message: "Cannot reach Ollama.",
-        suggestedFix: REMEDIATION_MAPPING["OLLAMA_UNREACHABLE"]
-      });
-      return;
-    }
-    results.push({ status: "PASS", message: `Ollama reachable (v${version})` });
-    const smartModel = this.plugin.settings.relaySmartModel;
-    const smartDigest = await this.plugin.ollamaModels.getModelDigest(smartModel);
-    if (!smartDigest) {
-      results.push({
-        status: "FAIL",
-        code: "MODEL_MISSING",
-        message: `Model '${smartModel}' not found in Ollama.`,
-        suggestedFix: REMEDIATION_MAPPING["MODEL_MISSING"]
-      });
-    } else {
-      results.push({ status: "PASS", message: `Model '${smartModel}' available.` });
-    }
-    const embedModel = this.plugin.settings.relayEmbeddingModel;
-    const embedDigest = await this.plugin.ollamaModels.getModelDigest(embedModel);
-    if (!embedDigest) {
-      results.push({
-        status: "FAIL",
-        code: "MODEL_MISSING",
-        message: `Embedding model '${embedModel}' not found in Ollama. Retrieval will be limited to BM25.`,
-        suggestedFix: `Pull '${embedModel}' using the button in the Writing Dashboard settings tab.`
-      });
-    } else {
-      results.push({ status: "PASS", message: `Embedding model '${embedModel}' available.` });
-    }
-    try {
-      const testPrompt = 'Respond with "pong" in JSON format: { "result": "pong" }';
-      const response = await this.plugin.ollamaGen.generate(testPrompt, {
-        model: smartModel,
-        temperature: 0.1,
-        max_tokens: 128,
-        format: "json"
-      });
-      const parsed = JSON.parse(response);
-      if (parsed.result === "pong") {
-        results.push({ status: "PASS", message: "Local generation test successful." });
-      } else {
-        throw new Error("Unexpected response content.");
-      }
-    } catch (e) {
-      results.push({
-        status: "FAIL",
-        message: `Local generation test failed: ${e.message}`
-      });
-    }
-  }
   async runCloudDiagnostics(results) {
     const apiKey = this.plugin.settings.apiKey;
     if (!apiKey) {
@@ -38151,31 +36508,26 @@ var DiagnosticsService = class {
       });
       return;
     }
-    const smartModel = this.plugin.settings.relaySmartModel;
-    if (smartModel.includes(":") || !["gpt", "claude", "gemini"].some((m) => smartModel.toLowerCase().includes(m))) {
+    results.push({ status: "PASS", message: "API key is present." });
+    const apiProvider = this.plugin.settings.apiProvider;
+    if (!apiProvider) {
       results.push({
-        status: "WARN",
-        code: "CLOUD_MODEL_MISMATCH",
-        message: `Model '${smartModel}' appears to be a local model name.`,
-        suggestedFix: REMEDIATION_MAPPING["CLOUD_MODEL_MISMATCH"]
+        status: "FAIL",
+        code: "CLOUD_AUTH_FAIL",
+        message: "API provider is not set.",
+        suggestedFix: REMEDIATION_MAPPING["CLOUD_AUTH_FAIL"]
       });
+      return;
     }
+    results.push({ status: "PASS", message: `API provider set: ${apiProvider}.` });
     try {
       results.push({ status: "PASS", message: "Cloud provider connectivity verified (mock)." });
     } catch (e) {
       results.push({
         status: "FAIL",
         code: "CLOUD_AUTH_FAIL",
-        message: `Cloud connectivity failed: ${e.message}`,
+        message: `Cloud connectivity failed: ${e instanceof Error ? e.message : String(e)}`,
         suggestedFix: REMEDIATION_MAPPING["CLOUD_AUTH_FAIL"]
-      });
-    }
-    try {
-      results.push({ status: "PASS", message: "Cloud generation test successful (mock)." });
-    } catch (e) {
-      results.push({
-        status: "FAIL",
-        message: `Cloud generation test failed: ${e.message}`
       });
     }
   }
@@ -38187,7 +36539,7 @@ var DiagnosticsService = class {
     return "PASS";
   }
   async writeArtifacts(report) {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const timestamp = new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-");
     const diagDir = `.gwriter/diagnostics/diag-${timestamp}`;
     try {
       await this.plugin.vaultService.ensureParentFolder(`${diagDir}/report.json`);
@@ -38200,8 +36552,8 @@ var DiagnosticsService = class {
 };
 
 // ui/BookMainSelectorModal.ts
-var import_obsidian27 = require("obsidian");
-var BookMainSelectorModal = class extends import_obsidian27.Modal {
+var import_obsidian23 = require("obsidian");
+var BookMainSelectorModal = class extends import_obsidian23.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.plugin = plugin;
@@ -38225,11 +36577,11 @@ var BookMainSelectorModal = class extends import_obsidian27.Modal {
 // ui/PublishWizardModal.tsx
 var import_react11 = __toESM(require_react());
 var import_client6 = __toESM(require_client());
-var import_obsidian31 = require("obsidian");
+var import_obsidian27 = require("obsidian");
 
 // ui/FolderPickerModal.ts
-var import_obsidian28 = require("obsidian");
-var FolderPickerModal = class extends import_obsidian28.FuzzySuggestModal {
+var import_obsidian24 = require("obsidian");
+var FolderPickerModal = class extends import_obsidian24.FuzzySuggestModal {
   constructor(opts) {
     super(opts.app);
     this.folders = opts.folders;
@@ -38249,8 +36601,8 @@ var FolderPickerModal = class extends import_obsidian28.FuzzySuggestModal {
 };
 
 // ui/BinaryFilePickerModal.ts
-var import_obsidian29 = require("obsidian");
-var BinaryFilePickerModal = class extends import_obsidian29.FuzzySuggestModal {
+var import_obsidian25 = require("obsidian");
+var BinaryFilePickerModal = class extends import_obsidian25.FuzzySuggestModal {
   constructor(opts) {
     super(opts.app);
     this.files = opts.files;
@@ -38270,7 +36622,7 @@ var BinaryFilePickerModal = class extends import_obsidian29.FuzzySuggestModal {
 };
 
 // services/publish/MarkdownCompile.ts
-var import_obsidian30 = require("obsidian");
+var import_obsidian26 = require("obsidian");
 function trimBom(s) {
   return s.charCodeAt(0) === 65279 ? s.slice(1) : s;
 }
@@ -38355,13 +36707,13 @@ function resolveLinkToFilePath(app, linkTarget, fromPath) {
   if (!t)
     return null;
   const direct = app.vault.getAbstractFileByPath(t);
-  if (direct instanceof import_obsidian30.TFile)
+  if (direct instanceof import_obsidian26.TFile)
     return direct.path;
   const directMd = app.vault.getAbstractFileByPath(`${t}.md`);
-  if (directMd instanceof import_obsidian30.TFile)
+  if (directMd instanceof import_obsidian26.TFile)
     return directMd.path;
   const dest = app.metadataCache.getFirstLinkpathDest(t, fromPath);
-  if (dest instanceof import_obsidian30.TFile)
+  if (dest instanceof import_obsidian26.TFile)
     return dest.path;
   return null;
 }
@@ -38371,7 +36723,7 @@ var MarkdownCompile = class {
   }
   async compileFromBookMain(sourcePath) {
     const file = this.app.vault.getAbstractFileByPath(sourcePath);
-    if (!(file instanceof import_obsidian30.TFile)) {
+    if (!(file instanceof import_obsidian26.TFile)) {
       throw new Error(`Book main file not found: ${sourcePath}`);
     }
     const text2 = await this.app.vault.read(file);
@@ -38380,7 +36732,7 @@ var MarkdownCompile = class {
   }
   async compileFromTocNote(tocPath) {
     const file = this.app.vault.getAbstractFileByPath(tocPath);
-    if (!(file instanceof import_obsidian30.TFile))
+    if (!(file instanceof import_obsidian26.TFile))
       throw new Error(`TOC note not found: ${tocPath}`);
     const text2 = await this.app.vault.read(file);
     const lines = trimBom(text2).split(/\r?\n/);
@@ -38396,7 +36748,7 @@ var MarkdownCompile = class {
       if (!destPath)
         continue;
       const dest = this.app.vault.getAbstractFileByPath(destPath);
-      if (!(dest instanceof import_obsidian30.TFile))
+      if (!(dest instanceof import_obsidian26.TFile))
         continue;
       const md2 = await this.app.vault.read(dest);
       const title = (() => {
@@ -41989,7 +40341,13 @@ function linkify2(state, silent) {
   let url = link2.url;
   if (url.length <= proto.length)
     return false;
-  url = url.replace(/\*+$/, "");
+  let urlEnd = url.length;
+  while (urlEnd > 0 && url.charCodeAt(urlEnd - 1) === 42) {
+    urlEnd--;
+  }
+  if (urlEnd !== url.length) {
+    url = url.slice(0, urlEnd);
+  }
   const fullUrl = state.md.normalizeLink(url);
   if (!state.md.validateLink(fullUrl))
     return false;
@@ -44503,7 +42861,7 @@ function sanitizeFileName2(name) {
 function ensureEpubExt2(name) {
   return name.toLowerCase().endsWith(".epub") ? name : `${name}.epub`;
 }
-var PublishWizardModal = class extends import_obsidian31.Modal {
+var PublishWizardModal = class extends import_obsidian27.Modal {
   constructor(plugin) {
     super(plugin.app);
     this.reactRoot = null;
@@ -44615,7 +42973,7 @@ var PublishWizardComponent = ({
     modal.open();
   };
   const pickFolder = (onPick) => {
-    const folders = plugin.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian31.TFolder);
+    const folders = plugin.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian27.TFolder);
     const modal = new FolderPickerModal({
       app: plugin.app,
       folders,
@@ -44717,7 +43075,7 @@ ${markdownToPlainText(c.markdown || "")}
         outputPath = out;
       }
       setProgress("");
-      new import_obsidian31.Notice(`Exported: ${outputPath}`);
+      new import_obsidian27.Notice(`Exported: ${outputPath}`);
       onClose();
     } catch (e) {
       const message = e instanceof Error ? e.message : (() => {
@@ -44785,77 +43143,6 @@ ${markdownToPlainText(c.markdown || "")}
   )), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Copyright year"), /* @__PURE__ */ import_react11.default.createElement("input", { value: copyrightYear, onChange: (e) => setCopyrightYear(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Copyright holder"), /* @__PURE__ */ import_react11.default.createElement("input", { value: copyrightHolder, onChange: (e) => setCopyrightHolder(e.target.value), disabled: isExporting }))), step === 4 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Typography"), /* @__PURE__ */ import_react11.default.createElement("p", null, "Default styling uses Literata if available on the reader device. You can embed your own font files to guarantee the look."), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("label", null, /* @__PURE__ */ import_react11.default.createElement("input", { type: "checkbox", checked: embedFonts, onChange: (e) => setEmbedFonts(e.target.checked), disabled: isExporting }), "Embed custom fonts")), embedFonts && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Regular (required)"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontRegular, onChange: (e) => setFontRegular(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontRegular(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Bold"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontBold, onChange: (e) => setFontBold(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBold(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Italic"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontItalic, onChange: (e) => setFontItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontItalic(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Bold italic"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontBoldItalic, onChange: (e) => setFontBoldItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBoldItalic(f.path)), disabled: isExporting }, "Browse"))))), step === 5 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Output"), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Format"), /* @__PURE__ */ import_react11.default.createElement("select", { value: outputFormat, onChange: (e) => setOutputFormat(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react11.default.createElement("option", { value: "epub" }, "Epub"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "docx" }, "Docx"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "rtf" }, "Rtf"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "copy" }, "Plain text"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Export subset"), /* @__PURE__ */ import_react11.default.createElement("select", { value: subsetMode, onChange: (e) => setSubsetMode(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react11.default.createElement("option", { value: "all" }, "All chapters"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "first-chapters" }, "First N chapters"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "first-words" }, "First N words"))), subsetMode === "first-chapters" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Chapters"), /* @__PURE__ */ import_react11.default.createElement("input", { value: subsetChaptersCount, onChange: (e) => setSubsetChaptersCount(e.target.value), disabled: isExporting })), subsetMode === "first-words" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Words"), /* @__PURE__ */ import_react11.default.createElement("input", { value: subsetWordsCount, onChange: (e) => setSubsetWordsCount(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Folder"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: outputFolder, onChange: (e) => setOutputFolder(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFolder((f) => setOutputFolder(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "File name"), /* @__PURE__ */ import_react11.default.createElement("input", { value: outputFileName, onChange: (e) => setOutputFileName(e.target.value), disabled: isExporting }))), step === 6 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Export"), /* @__PURE__ */ import_react11.default.createElement("p", null, "When you click Export, the plugin will compile your notes and write the output into your vault."), progress && /* @__PURE__ */ import_react11.default.createElement("div", { className: "generation-status" }, progress), error2 && /* @__PURE__ */ import_react11.default.createElement("div", { className: "error-message" }, "\u274C ", error2)), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 16 } }, /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("button", { onClick: onClose, className: "mod-secondary", disabled: isExporting }, "Close")), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ import_react11.default.createElement("button", { onClick: goBack, disabled: isExporting || step === 1 }, "Back"), step < 6 && /* @__PURE__ */ import_react11.default.createElement("button", { onClick: goNext, disabled: isExporting || !canNext, className: "mod-cta" }, "Next"), step === 6 && /* @__PURE__ */ import_react11.default.createElement("button", { onClick: doExport, disabled: isExporting, className: "mod-cta" }, "Export"))));
 };
 
-// ui/RamTierModal.ts
-var import_obsidian32 = require("obsidian");
-var RamTierModal = class extends import_obsidian32.Modal {
-  constructor(app, plugin, onComplete) {
-    super(app);
-    this.selectedTier = 32;
-    this.plugin = plugin;
-    this.onComplete = onComplete;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.empty();
-    contentEl.addClass("ram-tier-modal");
-    contentEl.createEl("h2", { text: "Welcome to GWriter" });
-    const desc = contentEl.createDiv({ cls: "ram-tier-description" });
-    desc.createEl("p", {
-      text: "To prevent system freezes, GWriter needs to know how much RAM your machine has."
-    });
-    desc.createEl("p", {
-      text: "This helps us set safe context limits for AI generation. You can change this later in Settings.",
-      cls: "setting-item-description"
-    });
-    new import_obsidian32.Setting(contentEl).setName("How much RAM does this machine have?").setDesc("Select the closest option. When in doubt, choose lower.").addDropdown((dropdown) => {
-      const tierLabels = {
-        8: "8 GB (entry-level)",
-        16: "16 GB (standard)",
-        24: "24 GB (power user)",
-        32: "32 GB (workstation)",
-        64: "64 GB (high-end)",
-        128: "128 GB+ (professional)"
-      };
-      for (const tier of RAM_TIERS) {
-        dropdown.addOption(String(tier), tierLabels[tier]);
-      }
-      dropdown.setValue(String(this.selectedTier));
-      dropdown.onChange((value) => {
-        this.selectedTier = parseInt(value);
-      });
-    });
-    const infoBox = contentEl.createDiv({ cls: "ram-tier-info" });
-    infoBox.createEl("strong", { text: "Why does this matter?" });
-    infoBox.createEl("p", {
-      text: 'Large language models need RAM for both their weights and their "working memory" (context window). A 70B model at 128k context needs 100GB+ RAM. If we try to use more than your machine has, it will freeze.',
-      cls: "setting-item-description"
-    });
-    const buttonContainer = contentEl.createDiv({ cls: "ram-tier-buttons" });
-    const confirmBtn = buttonContainer.createEl("button", {
-      text: "Continue",
-      cls: "mod-cta"
-    });
-    confirmBtn.addEventListener("click", async () => {
-      await this.saveAndClose();
-    });
-  }
-  async saveAndClose() {
-    this.plugin.settings.ramTier = this.selectedTier;
-    if (!this.plugin.settings.riskProfile) {
-      this.plugin.settings.riskProfile = "safe";
-    }
-    await this.plugin.saveSettings();
-    if (this.onComplete) {
-      this.onComplete(this.selectedTier);
-    }
-    this.close();
-  }
-  onClose() {
-    const { contentEl } = this;
-    contentEl.empty();
-  }
-};
-
 // main.ts
 var DEFAULT_MODE_STATE = {
   chapter: {
@@ -44883,7 +43170,7 @@ var DEFAULT_MODE_STATE = {
     }
   }
 };
-var WritingDashboardPlugin = class extends import_obsidian33.Plugin {
+var WritingDashboardPlugin = class extends import_obsidian28.Plugin {
   constructor() {
     super(...arguments);
     this.guidedDemoStartRequested = false;
@@ -44891,18 +43178,6 @@ var WritingDashboardPlugin = class extends import_obsidian33.Plugin {
   }
   async onload() {
     await this.loadSettings();
-    if (typeof process !== "undefined" && true) {
-      try {
-        runInvariantChecks();
-      } catch (e) {
-        console.error("[WritingDashboard] Context safety invariant failed:", e);
-      }
-    }
-    if (this.settings.ramTier === void 0) {
-      this.app.workspace.onLayoutReady(() => {
-        new RamTierModal(this.app, this).open();
-      });
-    }
     this.vaultService = new VaultService(this.app.vault, this);
     this.contextAggregator = new ContextAggregator(this.app.vault, this, this.vaultService);
     this.promptEngine = new PromptEngine();
@@ -44915,22 +43190,19 @@ var WritingDashboardPlugin = class extends import_obsidian33.Plugin {
       this.vaultService
     );
     this.queryBuilder = new QueryBuilder();
-    this.ollama = new OllamaEmbeddingProvider(this.app, this.settings.ollamaBaseUrl, this.settings.relayEmbeddingModel);
-    this.ollamaGen = new OllamaGenerationProvider(this);
-    this.ollamaModels = new OllamaModelManager(this);
     this.auditService = new AuditService();
     this.trashService = new TrashService(this.app.vault, this);
     this.sequentialGenerator = new SequentialGenerator(this.app, this);
-    this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this, this.ollama);
-    this.cpuReranker = new CpuReranker();
+    this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this);
     this.diagnosticsService = new DiagnosticsService(this);
     this.generationLogService = new GenerationLogService(this.app, this);
     await this.writeHandshake();
     const providers = [
       new HeuristicProvider(this.app.vault, this.vaultService),
-      new LocalEmbeddingsProvider(
+      new ExternalEmbeddingsProvider(
+        this,
         this.embeddingsIndex,
-        () => Boolean(this.settings?.retrievalEnableSemanticIndex ?? true),
+        () => Boolean(this.settings?.externalEmbeddingsEnabled ?? false),
         (path) => !this.vaultService.isExcludedPath(path)
       )
     ];
@@ -45007,7 +43279,7 @@ var WritingDashboardPlugin = class extends import_obsidian33.Plugin {
     const { workspace } = this.app;
     let leaf = workspace.getLeavesOfType(VIEW_TYPE_DASHBOARD)[0];
     if (!leaf) {
-      leaf = workspace.getRightLeaf(false);
+      leaf = workspace.getRightLeaf(false) ?? workspace.getLeaf(true);
       await leaf.setViewState({ type: VIEW_TYPE_DASHBOARD, active: true });
     }
     workspace.revealLeaf(leaf);
@@ -45015,8 +43287,28 @@ var WritingDashboardPlugin = class extends import_obsidian33.Plugin {
   async loadSettings() {
     const loaded = await this.loadData() || {};
     if (loaded.relayFastModel) {
-      console.log("[WritingDashboard] Migrating to single-model mode: removing legacy relayFastModel setting.");
+      console.debug("[WritingDashboard] Migrating to single-model mode: removing legacy relayFastModel setting.");
       delete loaded.relayFastModel;
+      await this.saveData(loaded);
+    }
+    const legacyFields = [
+      "ollamaBaseUrl",
+      "ramTier",
+      "riskProfile",
+      "contextSliderValue",
+      "verifiedModelContextLimit",
+      "relaySmartModel",
+      "relayEmbeddingModel",
+      "relayMode"
+    ];
+    let needsSave = false;
+    for (const field of legacyFields) {
+      if (field in loaded) {
+        delete loaded[field];
+        needsSave = true;
+      }
+    }
+    if (needsSave) {
       await this.saveData(loaded);
     }
     this.settings = Object.assign(
@@ -45051,7 +43343,7 @@ var WritingDashboardPlugin = class extends import_obsidian33.Plugin {
         characterExtractionSourcePath: void 0,
         characterExtractionChunkSize: 2500,
         defaultCharacterExtractionInstructions: "",
-        characterExtractionBackend: "ollama",
+        characterExtractionBackend: "cloud",
         worldFolder: "World",
         guidedDemoDismissed: false,
         guidedDemoShownOnce: false,
@@ -45059,28 +43351,17 @@ var WritingDashboardPlugin = class extends import_obsidian33.Plugin {
         retrievalProfiles: [],
         retrievalActiveProfileId: void 0,
         retrievalIncludedFolders: [],
-        relaySmartModel: "llama3.1:70b",
-        relayEmbeddingModel: "nomic-embed-text",
-        relayMode: "local",
         relayCloudModel: "gpt-4o",
         relayMaxContextWindow: 128e3,
         relayCostHardBudget: 1,
         // $1 max per run
-        ollamaBaseUrl: "http://127.0.0.1:11434",
         maxChunkWords: 500,
         maxRepairAttempts: 1,
         retrievalTokenBudget: 3e3,
         helpDensity: "LITE",
         verifiedModelsCatalog: [],
         embeddingStorageMode: "isolated",
-        manualSharedPath: "",
-        // RAM-Aware Context Control - defaults
-        ramTier: void 0,
-        // Triggers first-run modal
-        riskProfile: "safe",
-        contextSliderValue: void 0,
-        // Uses derived max
-        verifiedModelContextLimit: void 0
+        manualSharedPath: ""
       },
       loaded
     );
@@ -45092,7 +43373,8 @@ var WritingDashboardPlugin = class extends import_obsidian33.Plugin {
   notifyUi(eventName) {
     try {
       window.dispatchEvent(new CustomEvent(eventName));
-    } catch {
+    } catch (err) {
+      console.debug("[WritingDashboard] UI event dispatch failed:", err);
     }
   }
   showPublishWizard() {
@@ -45105,25 +43387,16 @@ var WritingDashboardPlugin = class extends import_obsidian33.Plugin {
   recreateRetrievalService() {
     const providers = [
       new HeuristicProvider(this.app.vault, this.vaultService),
-      new LocalEmbeddingsProvider(
+      new ExternalEmbeddingsProvider(
+        this,
         this.embeddingsIndex,
-        () => Boolean(this.settings?.retrievalEnableSemanticIndex ?? true),
+        () => Boolean(this.settings?.externalEmbeddingsEnabled ?? false),
         (path) => !this.vaultService.isExcludedPath(path)
       )
     ];
     this.retrievalService = new RetrievalService(providers, {
       getVector: (key) => this.embeddingsIndex.getVectorForKey(key)
     });
-  }
-  recreateEmbeddingProvider() {
-    this.ollama = new OllamaEmbeddingProvider(
-      this.app,
-      this.settings.ollamaBaseUrl,
-      this.settings.relayEmbeddingModel
-    );
-    if (this.embeddingsIndex) {
-      this.embeddingsIndex.updateProvider(this.ollama);
-    }
   }
 };
 /*! Bundled license information:

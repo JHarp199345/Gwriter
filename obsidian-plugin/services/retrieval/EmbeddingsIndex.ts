@@ -2,8 +2,7 @@ import type { Vault } from 'obsidian';
 import { TFile, Notice } from 'obsidian';
 import WritingDashboardPlugin from '../../main';
 import { buildIndexChunks } from './Chunking';
-import { fnv1a32, sha256 } from '../ContentHash';
-import { OllamaEmbeddingProvider } from './OllamaEmbeddingProvider';
+import { sha256 } from '../ContentHash';
 import { CO_AUTHORING_POLICY } from '../policy';
 import { relayEventBus } from '../EventBus';
 
@@ -24,15 +23,15 @@ export interface IndexedChunk {
 export function normalizeChunkText(text: string): string {
 	return text
 		.trim()
-		.replace(/\r\n/g, '\n') // Normalize newlines
-		.replace(/\r/g, '\n')
+		.replaceAll('\r\n', '\n') // Normalize newlines
+		.replaceAll('\r', '\n')
 		.replace(/[ \t]+/g, ' '); // Normalize spaces/tabs
 }
 
 interface PersistedIndexV1 {
 	version: 1;
 	dim: number;
-	backend: 'ollama';
+	backend: 'external' | 'hash';
 	chunking?: { headingLevel: 'h1' | 'h2' | 'h3' | 'none'; targetWords: number; overlapWords: number };
 	chunks: IndexedChunk[];
 }
@@ -69,8 +68,6 @@ export class EmbeddingsIndex {
 	private readonly vault: Vault;
 	private readonly plugin: WritingDashboardPlugin;
 	private dim: number;
-	private readonly backend: 'ollama';
-	private embeddingProvider: OllamaEmbeddingProvider;
 
 	private loaded = false;
 	private chunksByKey = new Map<string, IndexedChunk>();
@@ -85,11 +82,6 @@ export class EmbeddingsIndex {
 	// Error tracking
 	private readonly errorLog: ErrorLogEntry[] = [];
 	private readonly maxStoredErrors = 100;
-	
-	// Circuit breaker for AI embedding failures
-	private aiErrorStreak = 0;
-	private readonly AI_ERROR_STREAK_THRESHOLD = 3;
-	private readonly AI_PAUSE_DURATION_MS = 15000;
 
 	// Shared Brain state
 	private isReadOnly = false;
@@ -97,19 +89,10 @@ export class EmbeddingsIndex {
 	private currentStorageMode: 'isolated' | 'auto' | 'manual' | null = null;
 	private lockAcquiredAt: number | null = null; // Preserve for heartbeat
 
-	constructor(vault: Vault, plugin: WritingDashboardPlugin, embeddingProvider: OllamaEmbeddingProvider) {
+	constructor(vault: Vault, plugin: WritingDashboardPlugin) {
 		this.vault = vault;
 		this.plugin = plugin;
-		this.backend = 'ollama';
-		this.embeddingProvider = embeddingProvider;
 		this.dim = 0;
-	}
-
-	/**
-	 * Hot-swaps the embedding provider (e.g. when user changes models).
-	 */
-	updateProvider(provider: OllamaEmbeddingProvider) {
-		this.embeddingProvider = provider;
 	}
 
 	async onunload() {
@@ -141,9 +124,9 @@ export class EmbeddingsIndex {
 	 */
 	getEmbeddingProfile() {
 		return {
-			provider: 'ollama' as const,
-			modelId: this.plugin.settings.relayEmbeddingModel,
-			dimensions: this.dim || 768,
+			provider: 'external' as const,
+			modelId: this.plugin.settings.externalEmbeddingModel ?? 'text-embedding-3-small',
+			dimensions: this.dim || 0,
 			normalize: true,
 			chunkingVersion: 2,
 			schemaVersion: 2
@@ -187,7 +170,6 @@ export class EmbeddingsIndex {
 		return (
 			mine.provider === other.provider &&
 			mine.modelId === other.modelId &&
-			mine.dimensions === other.dimensions &&
 			mine.normalize === other.normalize &&
 			mine.chunkingVersion === other.chunkingVersion &&
 			mine.schemaVersion === other.schemaVersion
@@ -403,7 +385,7 @@ export class EmbeddingsIndex {
 				await this.vault.adapter.rename(legacyManifest, `${legacyManifest}.migrated`);
 			}
 
-			console.debug('[EmbeddingsIndex] ✓ Atomic migration completed successfully.');
+			console.debug('[EmbeddingsIndex] Atomic migration completed successfully.');
 			return true;
 		} catch (err) {
 			console.warn('[EmbeddingsIndex] Legacy migration failed; falling back to isolated.', err);
@@ -484,11 +466,6 @@ export class EmbeddingsIndex {
 			const raw = await this.vault.adapter.read(path);
 			const parsed = JSON.parse(raw) as PersistedIndexV1;
 			if (parsed?.version !== 1 || !Array.isArray(parsed.chunks)) return;
-			if (parsed.backend && parsed.backend !== this.backend) {
-				// Backend mismatch: ignore persisted index and rebuild.
-				this.enqueueFullRescan();
-				return;
-			}
 			if (typeof parsed.dim === 'number') {
 				this.dim = parsed.dim;
 			}
@@ -544,7 +521,7 @@ export class EmbeddingsIndex {
 		const errorMsg = error instanceof Error ? error.message : String(error);
 		const errorStack = error instanceof Error ? error.stack : undefined;
 		const errorType = error instanceof Error ? error.constructor.name : typeof error;
-		
+
 		const entry: ErrorLogEntry = {
 			timestamp: new Date().toISOString(),
 			location,
@@ -553,12 +530,12 @@ export class EmbeddingsIndex {
 			stack: errorStack,
 			errorType
 		};
-		
+
 		this.errorLog.push(entry);
 		if (this.errorLog.length > this.maxStoredErrors) {
 			this.errorLog.shift();
 		}
-		
+
 		// Also log to console for debugging
 		console.error(`[EmbeddingsIndex] ERROR [${location}] ${context}:`, errorMsg);
 		if (errorStack) {
@@ -612,14 +589,6 @@ export class EmbeddingsIndex {
 			return;
 		}
 
-		// If Ollama is not available, skip semantic indexing to avoid failures.
-		if (!(await this.embeddingProvider.isAvailable())) {
-			console.warn('[EmbeddingsIndex] Ollama not available; skipping semantic indexing');
-			new Notice('⚠️ Ollama not available - indexing skipped');
-			this.workerRunning = false;
-			return;
-		}
-
 		const policy = CO_AUTHORING_POLICY.PERFORMANCE;
 		const startTime = Date.now();
 		const totalFiles = this.queue.size;
@@ -631,10 +600,10 @@ export class EmbeddingsIndex {
 
 		// Emit start event and notification
 		if (totalFiles > 0) {
-			new Notice(`🔍 Starting index scan (${totalFiles} files)...`);
+			new Notice(`Starting index scan (${totalFiles} files)...`);
 			relayEventBus.emit('index:start', { totalFiles });
 		}
-		
+
 		while (this.queue.size > 0 && indexedCount < policy.MAX_REBUILDS_PER_BATCH) {
 			if (this.plugin.settings.retrievalIndexPaused) break;
 			const next = this.queue.values().next().value as string;
@@ -672,7 +641,7 @@ export class EmbeddingsIndex {
 				const fileHash = await sha256(normalizedContent);
 				const prev = this.plugin.settings.retrievalIndexState?.[next];
 				const isCurrentlyIndexed = this.chunkKeysByPath.has(next);
-				
+
 				// Skip only if: hash matches AND file is already indexed
 				// If hash matches but file is NOT indexed, re-index it (might have been removed)
 				if (prev?.hash === fileHash && isCurrentlyIndexed) {
@@ -706,12 +675,12 @@ export class EmbeddingsIndex {
 		const totalSkipped = skippedExcluded + skippedNotMarkdown + skippedHashMatch;
 
 		// Log indexing stats for debugging
-	if (processedCount > 0) {
-		console.debug(`[EmbeddingsIndex] Processed ${processedCount} files: ${indexedCount} indexed, ${skippedExcluded} excluded, ${skippedNotMarkdown} not markdown, ${skippedHashMatch} hash match (already indexed)`);
-			new Notice(`✅ Indexed ${indexedCount} files in ${duration.toFixed(1)}s (${this.chunksByKey.size} chunks total)`);
-			relayEventBus.emit('index:complete', { 
-				indexed: indexedCount, 
-				chunks: this.chunksByKey.size, 
+		if (processedCount > 0) {
+			console.debug(`[EmbeddingsIndex] Processed ${processedCount} files: ${indexedCount} indexed, ${skippedExcluded} excluded, ${skippedNotMarkdown} not markdown, ${skippedHashMatch} hash match (already indexed)`);
+			new Notice(`Indexed ${indexedCount} files in ${duration.toFixed(1)}s (${this.chunksByKey.size} chunks total)`);
+			relayEventBus.emit('index:complete', {
+				indexed: indexedCount,
+				chunks: this.chunksByKey.size,
 				duration,
 				skipped: totalSkipped
 			});
@@ -724,85 +693,34 @@ export class EmbeddingsIndex {
 	private async _reindexFile(path: string, content: string): Promise<void> {
 		this._removePath(path);
 
-		// If Ollama is not available, skip semantic indexing for this file.
-		if (!(await this.embeddingProvider.isAvailable())) {
-			console.warn(`[EmbeddingsIndex] Ollama not available; skipping file: ${path}`);
-			return;
-		}
-
 		// Skip empty files
 		if (!content || content.trim().length === 0) {
 			console.warn(`[EmbeddingsIndex] Skipping empty file: ${path}`);
 			return;
 		}
 
-	const cfg = chunkingKey(this.plugin);
-	const chunks = buildIndexChunks({
-		text: content,
-		headingLevel: cfg.headingLevel,
-		targetWords: cfg.targetWords,
-		overlapWords: cfg.overlapWords
-	});
-		
+		const cfg = chunkingKey(this.plugin);
+		const chunks = buildIndexChunks({
+			text: content,
+			headingLevel: cfg.headingLevel,
+			targetWords: cfg.targetWords,
+			overlapWords: cfg.overlapWords
+		});
+
 		// If no chunks created, skip this file (might be too short or have no headings)
 		if (chunks.length === 0) {
 			console.warn(`[EmbeddingsIndex] No chunks created for ${path} - file too short or no headings match chunking config`);
 			return;
 		}
 
-		let successfulChunks = 0;
-		let firstError: Error | null = null;
 		for (let i = 0; i < chunks.length; i++) {
 			const ch = chunks[i];
 			const normalizedText = normalizeChunkText(ch.text);
 			const textHash = await sha256(normalizedText);
 			const key = `chunk:${path}:${i}`;
-			let vector: number[];
-		try {
-			vector = await this.embeddingProvider.getEmbedding(normalizedText);
-			this.aiErrorStreak = 0; // Success: reset streak
-			if (!Array.isArray(vector) || vector.length === 0) {
-				throw new Error('Empty embedding returned from Ollama');
-			}
-			if (this.dim === 0) {
-				this.dim = vector.length;
-			}
-		} catch (err) {
-				this.aiErrorStreak++;
-				const errorMsg = err instanceof Error ? err.message : String(err);
-				const errorStack = err instanceof Error ? err.stack : undefined;
-				const context = `File: ${path}, Chunk ${i + 1}/${chunks.length} (${ch.text.split(/\s+/).length} words, ${ch.text.length} chars)`;
-				this.logError('_reindexFile.embedChunk', context, err);
-				
-				console.error(`  - ✗ Embedding generation failed for chunk ${i + 1}/${chunks.length}:`, errorMsg);
-				
-				if (this.aiErrorStreak >= 3) {
-					console.warn('[EmbeddingsIndex] Embedding breaker triggered: paused 15s and cleared queue after 3 consecutive failures.');
-					this.queue.clear();
-					this.aiErrorStreak = 0;
-					// Yield and wait 15s
-					await new Promise(r => setTimeout(r, 15000));
-					throw new Error('Embedding breaker triggered; batch aborted.');
-				}
 
-				if (errorStack) {
-					console.error(`    Stack: ${errorStack.split('\n').slice(0, 3).join('\n    ')}`);
-				}
-				if (err instanceof Error) {
-					console.error(`    Error type: ${err.constructor.name}`);
-					if ('cause' in err) {
-						console.error(`    Cause: ${err.cause}`);
-					}
-				}
-				// If ALL chunks fail for a file, the file won't be indexed
-				// This is a critical failure that should be logged
-				if (i === 0) {
-					console.warn(`  - Warning: First chunk failed for ${path}. Attempting subsequent chunks.`);
-					firstError = err instanceof Error ? err : new Error(String(err));
-				}
-				// Skip this chunk if embedding fails, but continue with others
-				continue;
-			}
+			// Store chunks with an empty vector; external embeddings are resolved at query time
+			// by ExternalEmbeddingsProvider, not pre-computed here.
 			const excerpt = excerptOf(ch.text, 2500);
 			this._setChunk({
 				key,
@@ -811,24 +729,12 @@ export class EmbeddingsIndex {
 				startWord: ch.startWord,
 				endWord: ch.endWord,
 				textHash,
-				vector,
+				vector: [],
 				excerpt
 			});
-			successfulChunks++;
 		}
-		
-		if (successfulChunks === 0 && chunks.length > 0) {
-			const criticalContext = `File: ${path}, All ${chunks.length} chunks failed`;
-			if (firstError) {
-				this.logError('_reindexFile.allChunksFailed', criticalContext, firstError);
-				console.error(`[EmbeddingsIndex] CRITICAL: All ${chunks.length} chunks failed for ${path} - file not indexed`);
-				console.error(`  Root cause: ${firstError.message}`);
-			} else {
-				this.logError('_reindexFile.allChunksFailed', criticalContext, new Error('All chunks failed but no first error captured'));
-			}
-	} else if (successfulChunks < chunks.length) {
-		console.warn(`[EmbeddingsIndex] Partial success for ${path}: ${successfulChunks}/${chunks.length} chunks indexed`);
-	}
+
+		console.debug(`[EmbeddingsIndex] Indexed ${path}: ${chunks.length} chunks`);
 	}
 
 	private _setChunk(chunk: IndexedChunk): void {
@@ -878,16 +784,16 @@ export class EmbeddingsIndex {
 	isStale(path: string): boolean {
 		const state = this.plugin.settings.retrievalIndexState?.[path];
 		if (!state) return false;
-		
+
 		const file = this.vault.getAbstractFileByPath(path);
 		if (!(file instanceof TFile)) return true; // Missing file is effectively stale
-		
+
 		// If updatedAt is not set, we can't be sure, assume not stale for now
 		if (!state.updatedAt) return false;
-		
+
 		const fileMtime = file.stat.mtime;
 		const indexTime = new Date(state.updatedAt).getTime();
-		
+
 		return fileMtime > indexTime;
 	}
 
@@ -905,16 +811,8 @@ export class EmbeddingsIndex {
 	}
 
 	buildQueryVector(queryText: string): number[] {
-		console.warn('[EmbeddingsIndex] buildQueryVector called; returning empty vector. Use embedQueryVector instead.');
+		console.warn('[EmbeddingsIndex] buildQueryVector called; returning empty vector. Use ExternalEmbeddingsProvider for query embedding.');
 		return [];
-	}
-
-	async embedQueryVector(queryText: string): Promise<number[]> {
-		const vec = await this.embeddingProvider.getEmbedding(queryText);
-		if (!Array.isArray(vec) || vec.length === 0) {
-			throw new Error('Empty embedding returned from Ollama');
-		}
-		return vec;
 	}
 
 	private _schedulePersist(): void {
@@ -954,7 +852,7 @@ export class EmbeddingsIndex {
 		const payload: PersistedIndexV1 = {
 			version: 1,
 			dim: this.dim,
-			backend: this.backend,
+			backend: 'external',
 			chunking: chunkingKey(this.plugin),
 			chunks: this.getAllChunks()
 		};
@@ -981,7 +879,4 @@ export class EmbeddingsIndex {
 			});
 		}, 1000);
 	}
-	
 }
-
-

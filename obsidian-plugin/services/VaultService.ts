@@ -7,8 +7,8 @@ import { sha256 } from './ContentHash';
 import { SpanConfidence } from './Schemas';
 
 export class VaultService {
-	private vault: Vault;
-	private plugin: WritingDashboardPlugin;
+	private readonly vault: Vault;
+	private readonly plugin: WritingDashboardPlugin;
 
 	constructor(vault: Vault, plugin: WritingDashboardPlugin) {
 		this.vault = vault;
@@ -52,7 +52,7 @@ export class VaultService {
 	 * Handles root-level files (no parent folder needed).
 	 */
 	async ensureParentFolder(filePath: string): Promise<void> {
-		const normalized = filePath.replace(/\\/g, '/');
+		const normalized = filePath.replaceAll('\\', '/');
 		const lastSlash = normalized.lastIndexOf('/');
 		if (lastSlash === -1) {
 			// Root-level file, no parent folder needed
@@ -78,7 +78,7 @@ export class VaultService {
 		for (const child of folder.children) {
 			if (child instanceof TFile && child.extension === 'md') {
 				// Match pattern like "Story bible - YYYY-MM-DD.md" or "Story bible - merged YYYY-MM-DD.md"
-				if (child.basename.match(/^Story bible/i)) {
+				if (/^Story bible/i.exec(child.basename)) {
 					storyBibleFiles.push(child);
 				}
 			}
@@ -148,23 +148,23 @@ export class VaultService {
 		// Extract base filename without extension
 		const baseName = sourceFilePath.replace(/\.md$/, '').replace(/\.\w+$/, '');
 		const chunkedFolderName = `${baseName}-Chunked`;
-		
+
 		const chunks = TextChunker.chunkText(text, wordsPerChunk);
-		
+
 		// Ensure chunked folder exists
 		await this.createFolderIfNotExists(chunkedFolderName);
-		
+
 		const filePaths: string[] = [];
 		let created = 0;
 		let overwrittenCount = 0;
 		let skipped = 0;
-		
+
 		// Create chunk files
 		for (let i = 0; i < chunks.length; i++) {
 			const chunkNumber = String(i + 1).padStart(3, '0');
 			const chunkFileName = `${baseName}-CHUNK-${chunkNumber}.md`;
 			const chunkFilePath = `${chunkedFolderName}/${chunkFileName}`;
-			
+
 			const existing = this.vault.getAbstractFileByPath(chunkFilePath);
 			if (overwrite) {
 				// Overwrite if exists, otherwise create
@@ -196,9 +196,9 @@ export class VaultService {
 				const regex = new RegExp(`^${this._escapeRegExp(baseName)}-CHUNK-(\\d{3})\\.md$`);
 				for (const child of folder.children) {
 					if (!(child instanceof TFile) || child.extension !== 'md') continue;
-					const match = child.name.match(regex);
+					const match = regex.exec(child.name);
 					if (!match) continue;
-					const idx = parseInt(match[1], 10);
+					const idx = Number.parseInt(match[1], 10);
 					if (Number.isFinite(idx) && idx > maxIndex) {
 						await this.vault.delete(child);
 						deletedExtra++;
@@ -206,7 +206,7 @@ export class VaultService {
 				}
 			}
 		}
-		
+
 		return {
 			folder: chunkedFolderName,
 			totalChunks: chunks.length,
@@ -229,10 +229,10 @@ export class VaultService {
 		const characterFolder = folderOverride || this.plugin.settings.characterFolder;
 		const resolver = new CharacterNameResolver(this.vault, characterFolder);
 		const sessionResolutions = new Map<string, string>(); // proposed -> resolved
-		
+
 		// Ensure folder exists
 		await this.createFolderIfNotExists(characterFolder);
-		
+
 		for (const { character, update } of updates) {
 			const proposed = (character || '').trim();
 			if (!proposed) continue;
@@ -260,13 +260,13 @@ export class VaultService {
 
 			const characterPath = `${characterFolder}/${resolvedName}.md`;
 			let existingContent = '';
-			
+
 			try {
 				existingContent = await this.readFile(characterPath);
 			} catch {
 				existingContent = '';
 			}
-			
+
 			// Generate readable timestamp
 			const now = new Date();
 			const timestamp = now.toLocaleString('en-US', {
@@ -277,21 +277,21 @@ export class VaultService {
 				minute: '2-digit',
 				hour12: true
 			});
-			
-			const newContent = existingContent 
+
+			const newContent = existingContent
 				? `${existingContent}\n\n## ${timestamp} - Update\n\n${update}\n`
 				: `# ${resolvedName}\n\n## ${timestamp} - Update\n\n${update}\n`;
-			
+
 			await this.writeFile(characterPath, newContent);
 		}
 	}
 
 	getVaultStructure(): Array<{ name: string; path: string; type: 'file' | 'folder' }> {
 		const structure: Array<{ name: string; path: string; type: 'file' | 'folder' }> = [];
-		
+
 		const root = this.vault.getRoot();
 		this._traverseFolder(root, structure, '');
-		
+
 		return structure;
 	}
 
@@ -309,22 +309,22 @@ export class VaultService {
 	 * `.obsidian/` is always excluded from retrieval/indexing.
 	 */
 	isExcludedPath(path: string): boolean {
-		const normalized = path.replace(/\\/g, '/');
+		const normalized = path.replaceAll('\\', '/');
 		// Obsidian's config folder is user-configurable; use vault.configDir.
-		const configDir = this.vault.configDir.replace(/\\/g, '/');
+		const configDir = this.vault.configDir.replaceAll('\\', '/');
 
 		// Always exclude Obsidian config + plugin data.
 		if (normalized === configDir || normalized.startsWith(`${configDir}/`)) return true;
 
 		// Always exclude generation logs (to prevent retrieval feedback loops).
-		const logsFolder = (this.plugin.settings.generationLogsFolder || '').replace(/\\/g, '/').replace(/\/+$/, '');
+		const logsFolder = (this.plugin.settings.generationLogsFolder || '').replaceAll('\\', '/').replace(/\/+$/, '');
 		if (logsFolder) {
 			if (normalized === logsFolder || normalized.startsWith(`${logsFolder}/`)) return true;
 		}
 
 		// Included folders: selected via profile picker. If empty, fall back to active-note-only.
 		const includes = (this.plugin.settings.retrievalIncludedFolders || [])
-			.map((p) => (p || '').replace(/\\/g, '/').replace(/\/+$/, ''))
+			.map((p) => (p || '').replaceAll('\\', '/').replace(/\/+$/, ''))
 			.filter((p) => p.length > 0);
 		if (includes.length > 0) {
 			const allowed = includes.some((inc) => normalized === inc || normalized.startsWith(`${inc}/`));
@@ -333,14 +333,14 @@ export class VaultService {
 			// No includes defined: restrict to the current active note only.
 			const activeFile = this.plugin.lastOpenedMarkdownPath || this.plugin.app.workspace.getActiveFile()?.path;
 			if (activeFile) {
-				const normalizedActive = activeFile.replace(/\\/g, '/');
+				const normalizedActive = activeFile.replaceAll('\\', '/');
 				if (normalized !== normalizedActive) return true;
 			}
 		}
 
 		const excluded = this.plugin.settings.retrievalExcludedFolders || [];
 		for (const folder of excluded) {
-			const f = folder.replace(/\\/g, '/').replace(/\/+$/, '');
+			const f = folder.replaceAll('\\', '/').replace(/\/+$/, '');
 			if (!f) continue;
 			if (normalized === f || normalized.startsWith(`${f}/`)) return true;
 		}
@@ -360,12 +360,12 @@ export class VaultService {
 	 * 5. Content hash match.
 	 */
 	async relocateFile(
-		path: string, 
-		expectedHash?: string, 
+		path: string,
+		expectedHash?: string,
 		aliases: string[] = []
 	): Promise<{ path: string; confidence: SpanConfidence }> {
-		const normalizedPath = path.replace(/\\/g, '/');
-		
+		const normalizedPath = path.replaceAll('\\', '/');
+
 		// 1. Exact path match
 		const exact = this.vault.getAbstractFileByPath(normalizedPath);
 		if (exact instanceof TFile) {
@@ -394,8 +394,8 @@ export class VaultService {
 
 		// 3. Fuzzy name match in the vault (case-insensitive)
 		const allFiles = this.vault.getMarkdownFiles();
-		const fuzzyMatches = allFiles.filter(f => 
-			f.name.toLowerCase() === fileName.toLowerCase() || 
+		const fuzzyMatches = allFiles.filter(f =>
+			f.name.toLowerCase() === fileName.toLowerCase() ||
 			f.basename.toLowerCase() === baseName.toLowerCase()
 		);
 		if (fuzzyMatches.length === 1) {
@@ -415,7 +415,7 @@ export class VaultService {
 
 		// 4. Alias match
 		if (aliases.length > 0) {
-			const aliasMatches = allFiles.filter(f => 
+			const aliasMatches = allFiles.filter(f =>
 				aliases.some(a => f.basename.toLowerCase() === a.toLowerCase())
 			);
 			if (aliasMatches.length === 1) {
@@ -444,7 +444,7 @@ export class VaultService {
 	): void {
 		for (const child of folder.children) {
 			const path = basePath ? `${basePath}/${child.name}` : child.name;
-			
+
 			if (child instanceof TFolder) {
 				structure.push({ name: child.name, path, type: 'folder' });
 				this._traverseFolder(child, structure, path);
@@ -499,7 +499,7 @@ export class VaultService {
 			if (fact.type === 'IDENTITY' || fact.type === 'TRAIT') section = 'Characters';
 			else if (fact.type === 'RELATIONSHIP') section = 'Characters';
 			else if (fact.type === 'TIMELINE') section = 'Timeline';
-			
+
 			// Format as a stable bullet: "- [entityId] attribute: value"
 			const valueStr = typeof fact.value === 'string' ? fact.value : JSON.stringify(fact.value);
 			sections[section].push(`- [${fact.entityId}] ${fact.attribute}: ${valueStr}`);
@@ -507,7 +507,7 @@ export class VaultService {
 
 		// 2. Parse existing content and merge
 		let updatedContent = existingContent;
-		
+
 		for (const [sectionName, newBullets] of Object.entries(sections)) {
 			if (newBullets.length === 0) continue;
 
@@ -520,7 +520,7 @@ export class VaultService {
 				if (nextHeaderIndex === -1) nextHeaderIndex = updatedContent.length;
 
 				const sectionContent = updatedContent.substring(headerIndex, nextHeaderIndex);
-				
+
 				// Add new bullets, avoiding duplicates
 				const lines = sectionContent.split('\n');
 				newBullets.forEach(nb => {
@@ -532,13 +532,14 @@ export class VaultService {
 				// Sort bullets within section for determinism (skipping header)
 				const headerLine = lines[0];
 				const contentLines = lines.slice(1).filter(l => l.trim());
-				contentLines.sort();
-				
+				contentLines.sort((a, b) => a.localeCompare(b));
+
 				const newSectionContent = [headerLine, ...contentLines].join('\n');
 				updatedContent = updatedContent.substring(0, headerIndex) + newSectionContent + '\n' + updatedContent.substring(nextHeaderIndex);
 			} else {
 				// Section doesn't exist, append to end
-				updatedContent += `\n\n## ${sectionName}\n${newBullets.sort().join('\n')}\n`;
+				const sortedBullets = [...newBullets].sort((a, b) => a.localeCompare(b));
+				updatedContent += `\n\n## ${sectionName}\n${sortedBullets.join('\n')}\n`;
 			}
 		}
 
@@ -561,8 +562,7 @@ export class VaultService {
 		const file = this.vault.getAbstractFileByPath(storyBiblePath);
 		if (file instanceof TFile) {
 			await this.vault.modify(file, reversePatch);
-			console.debug(`[VaultService] 🔄 Rolled back Story Bible to previous state.`);
+			console.debug(`[VaultService] Rolled back Story Bible to previous state.`);
 		}
 	}
 }
-

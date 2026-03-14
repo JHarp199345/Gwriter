@@ -34,7 +34,7 @@ export function parseCharacterRoster(text: string): CharacterRosterEntry[] {
 
 		const entry: CharacterRosterEntry = { name: namePart };
 		if (right) {
-			const m = right.match(/aliases?\s*:\s*(.+)$/i);
+			const m = /aliases?\s*:\s*(.+)$/i.exec(right);
 			if (m?.[1]) {
 				const aliases = m[1].split(',').map(a => normalizeName(a)).filter(Boolean);
 				if (aliases.length) entry.aliases = aliases;

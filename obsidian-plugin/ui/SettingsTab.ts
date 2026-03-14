@@ -2,20 +2,8 @@ import { App, PluginSettingTab, Setting, TFolder, Notice, TFile } from 'obsidian
 import WritingDashboardPlugin from '../main';
 import { SetupWizardModal } from './SetupWizard';
 import { TreePickerModal } from './TreePickerModal';
-import { FilePickerModal } from './FilePickerModal';
-import { StressTestService } from '../services/StressTestService';
 import { HelpDensity } from './HelpRegistry';
 import { relayEventBus } from '../services/EventBus';
-import { 
-	RamTier, 
-	RiskProfile, 
-	RAM_TIERS, 
-	RISK_PROFILES,
-	getSafeContextLimit,
-	getSliderBounds,
-	getUsageWarning,
-	detectModelTier
-} from '../services/ContextSafety';
 
 // Model lists for each provider
 const OPENAI_MODELS = [
@@ -78,24 +66,6 @@ const OPENROUTER_MODELS = [
 	{ value: 'google/gemini-pro', label: 'Google Gemini Pro' }
 ];
 
-const MAJOR_OLLAMA_MODELS = [
-	'llama3.1',
-	'llama3.1:70b',
-	'llama3.1:8b',
-	'mistral',
-	'gemma2',
-	'gemma2:27b',
-	'gemma2:9b',
-	'phi3',
-	'phi3:medium',
-	'phi3:mini',
-	'qwen2',
-	'codellama',
-	'starcoder2',
-	'nomic-embed-text',
-	'brokenbread'
-];
-
 function getModelsForProvider(provider: string): Array<{ value: string; label: string }> {
 	switch (provider) {
 		case 'openai':
@@ -112,7 +82,7 @@ function getModelsForProvider(provider: string): Array<{ value: string; label: s
 }
 
 export class SettingsTab extends PluginSettingTab {
-	plugin: WritingDashboardPlugin;
+	readonly plugin: WritingDashboardPlugin;
 
 	constructor(app: App, plugin: WritingDashboardPlugin) {
 		super(app, plugin);
@@ -210,204 +180,6 @@ export class SettingsTab extends PluginSettingTab {
 				});
 			});
 
-		// Local AI Setup (Ollama)
-		addSection('Local AI (Ollama)', 'Local generation and embedding settings.');
-		
-		new Setting(containerEl)
-			.setName('Ollama Base URL')
-			.setDesc('The URL where your local Ollama server is running.')
-			.addText(text => text
-				.setPlaceholder('http://127.0.0.1:11434')
-				.setValue(this.plugin.settings.ollamaBaseUrl)
-				.onChange(async (value) => {
-					this.plugin.settings.ollamaBaseUrl = value;
-					await this.plugin.saveSettings();
-				}));
-
-		// --- MEMORY & PERFORMANCE ---
-		this.renderMemorySection(containerEl, addSection);
-
-		// --- CO-AUTHORING RELAY (Phase 5-6) ---
-		addSection('Co-Authoring Relay', 'Advanced settings for Phases 5 and 6.');
-
-		new Setting(containerEl)
-			.setName('Generation Mode')
-			.setDesc('Local uses chunked multi-stage pipeline. Cloud uses monolithic single-call primitive.')
-			.addDropdown(dropdown => dropdown
-				.addOption('local', 'Local (Ollama)')
-				.addOption('cloud', 'Cloud (API)')
-				.setValue(this.plugin.settings.relayMode || 'local')
-				.onChange(async (value: 'local' | 'cloud') => {
-					this.plugin.settings.relayMode = value;
-					await this.plugin.saveSettings();
-					this.display();
-				}));
-
-		if (this.plugin.settings.relayMode === 'cloud') {
-			new Setting(containerEl)
-				.setName('Cloud Model')
-				.setDesc('Single heavyweight model for monolithic generation (one model, one prompt, one output).')
-				.addText(text => text
-					.setPlaceholder('gpt-4o')
-					.setValue(this.plugin.settings.relayCloudModel || '')
-					.onChange(async (value) => {
-						this.plugin.settings.relayCloudModel = value;
-						await this.plugin.saveSettings();
-					}));
-
-			new Setting(containerEl)
-				.setName('Max Context Window')
-				.setDesc('Maximum tokens to pack into the cloud prompt.')
-				.addText(text => text
-					.setPlaceholder('128000')
-					.setValue(String(this.plugin.settings.relayMaxContextWindow || 128000))
-					.onChange(async (value) => {
-						this.plugin.settings.relayMaxContextWindow = Number(value);
-						await this.plugin.saveSettings();
-					}));
-
-			new Setting(containerEl)
-				.setName('Hard Budget (USD)')
-				.setDesc('Max estimated cost per run before blocking.')
-				.addText(text => text
-					.setPlaceholder('1.00')
-					.setValue(String(this.plugin.settings.relayCostHardBudget || 1.00))
-					.onChange(async (value) => {
-						this.plugin.settings.relayCostHardBudget = Number(value);
-						await this.plugin.saveSettings();
-					}));
-
-			new Setting(containerEl)
-				.setName('Style Signature')
-				.setDesc('Add "Golden Paragraphs" that define your voice (one per line).')
-				.addTextArea(text => text
-					.setPlaceholder('The rain lashed against the windows like a desperate lover...')
-					.setValue((this.plugin.settings.relayStyleSignature || []).join('\n\n'))
-					.onChange(async (value) => {
-						this.plugin.settings.relayStyleSignature = value.split('\n\n').filter(p => p.trim());
-						await this.plugin.saveSettings();
-					}));
-		}
-
-		new Setting(containerEl)
-			.setName('Relay Smart Model (Primary)')
-			.setDesc('Local AI model for writing and analysis. Single-model mode keeps Ollama warm; mechanical tasks run in strict low-token mode.')
-			.addDropdown(async (dropdown) => {
-				const installed = await this.plugin.ollamaModels.getModels().catch(() => []);
-				const catalog = this.plugin.settings.verifiedModelsCatalog || [];
-				
-				const allOptions = new Set([
-					...MAJOR_OLLAMA_MODELS,
-					...installed.map(m => m.id),
-					...catalog
-				]);
-
-				allOptions.forEach(id => dropdown.addOption(id, id));
-				
-				dropdown.setValue(this.plugin.settings.relaySmartModel)
-					.onChange(async (value) => {
-						this.plugin.settings.relaySmartModel = value;
-						await this.plugin.saveSettings();
-					});
-			})
-			.addButton(btn => btn
-				.setButtonText('Pull')
-				.setTooltip('Download this model to Ollama')
-				.onClick(async () => {
-					await this.pullModelWithProgress(this.plugin.settings.relaySmartModel, btn);
-				}));
-
-		new Setting(containerEl)
-			.setName('Relay Embedding Model (Semantic)')
-			.setDesc('Model used for local vector indexing (e.g., nomic-embed-text).')
-			.addDropdown(async (dropdown) => {
-				const installed = await this.plugin.ollamaModels.getModels().catch(() => []);
-				const catalog = this.plugin.settings.verifiedModelsCatalog || [];
-				
-				const allOptions = new Set([
-					'nomic-embed-text',
-					...installed.map(m => m.id),
-					...catalog
-				]);
-
-				allOptions.forEach(id => dropdown.addOption(id, id));
-				
-				dropdown.setValue(this.plugin.settings.relayEmbeddingModel)
-					.onChange(async (value) => {
-						this.plugin.settings.relayEmbeddingModel = value;
-						await this.plugin.saveSettings();
-						// Re-init the provider with the new model
-						this.plugin.recreateEmbeddingProvider();
-					});
-			})
-			.addButton(btn => btn
-				.setButtonText('Pull')
-				.onClick(async () => {
-					await this.pullModelWithProgress(this.plugin.settings.relayEmbeddingModel, btn);
-				}));
-
-		let customModelToAdd = '';
-		new Setting(containerEl)
-			.setName('Add Custom Ollama Model')
-			.setDesc('Enter a model name to verify and add to your persistent catalog.')
-			.addText(text => text
-				.setPlaceholder('e.g., hermes-pro-3')
-				.onChange(v => customModelToAdd = v))
-			.addButton(btn => btn
-				.setButtonText('Verify & Add')
-				.onClick(async () => {
-					if (!customModelToAdd) return;
-					const normalizedId = customModelToAdd.toLowerCase().trim();
-					btn.setDisabled(true);
-					btn.setButtonText('Verifying...');
-					
-					try {
-						// Verification logic: try to get model info from Ollama
-						const installed = await this.plugin.ollamaModels.getModels();
-					const isInstalled = installed.some(m => {
-						const installedId = m.id.toLowerCase();
-						const normalizedBase = normalizedId.split(':')[0];
-						const installedBase = installedId.split(':')[0];
-						return (
-							installedId === normalizedId ||
-							installedId.startsWith(normalizedId + ':') ||
-							normalizedId.startsWith(installedId + ':') ||
-							installedBase === normalizedBase
-						);
-					});
-						
-						if (isInstalled) {
-							const catalog = this.plugin.settings.verifiedModelsCatalog || [];
-							if (!catalog.includes(normalizedId)) {
-								this.plugin.settings.verifiedModelsCatalog = [...catalog, normalizedId];
-								await this.plugin.saveSettings();
-								new Notice(`✅ Verified and added ${normalizedId} to catalog.`);
-								this.display(); // Refresh dropdowns
-							} else {
-								new Notice('Model already in catalog.');
-							}
-						} else {
-							// Allow adding if it looks like a valid model name, even if not yet seen in tags
-							if (normalizedId.length > 2) {
-								const catalog = this.plugin.settings.verifiedModelsCatalog || [];
-								if (!catalog.includes(normalizedId)) {
-									this.plugin.settings.verifiedModelsCatalog = [...catalog, normalizedId];
-									await this.plugin.saveSettings();
-									new Notice(`⚠️ Added '${normalizedId}' to catalog (not yet seen in your library).`);
-									this.display();
-								}
-							} else {
-								new Notice(`❌ Invalid model name: ${normalizedId}`);
-							}
-						}
-				} catch (e) {
-					new Notice(`❌ Verification failed: ${e instanceof Error ? e.message : String(e)}`);
-					} finally {
-						btn.setDisabled(false);
-						btn.setButtonText('Verify & Add');
-					}
-				}));
-
 		new Setting(containerEl)
 			.setName('Max words per chunk')
 			.setDesc('Target word count for each relay iteration.')
@@ -415,7 +187,7 @@ export class SettingsTab extends PluginSettingTab {
 				.setPlaceholder('500')
 				.setValue(String(this.plugin.settings.maxChunkWords))
 				.onChange(async (value) => {
-					const parsed = parseInt(value, 10);
+					const parsed = Number.parseInt(value, 10);
 					if (Number.isFinite(parsed)) {
 						this.plugin.settings.maxChunkWords = Math.max(100, Math.min(2000, parsed));
 						await this.plugin.saveSettings();
@@ -424,7 +196,7 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Test Now (Diagnostics)')
-			.setDesc('Run a comprehensive check of all systems based on your current settings (Local or Cloud).')
+			.setDesc('Run a comprehensive check of all systems based on your current settings.')
 			.addButton((btn) =>
 				btn
 					.setButtonText('Run Diagnostics')
@@ -432,40 +204,27 @@ export class SettingsTab extends PluginSettingTab {
 					.onClick(async () => {
 						btn.setDisabled(true);
 						btn.setButtonText('Testing...');
-						
+
 						try {
 							const report = await this.plugin.diagnosticsService.runDiagnostics();
-							
+
 							if (report.overallStatus === 'PASS') {
-								new Notice('✅ All systems PASS! Your configuration is healthy.');
+								new Notice('All systems PASS! Your configuration is healthy.');
 							} else if (report.overallStatus === 'WARN') {
 								const warnings = report.results.filter(r => r.status === 'WARN');
-								new Notice(`⚠️ Systems healthy with ${warnings.length} warnings. Check console/artifacts for details.`);
+								new Notice(`Systems healthy with ${warnings.length} warnings. Check console/artifacts for details.`);
 							} else {
 								const fails = report.results.filter(r => r.status === 'FAIL');
-								new Notice(`❌ ${fails.length} systems FAILED. Generation is blocked. Check console/artifacts.`);
+								new Notice(`${fails.length} systems FAILED. Generation is blocked. Check console/artifacts.`);
 							}
 
 							console.debug('[Diagnostics] Full Report:', report);
 						} catch (err) {
-							new Notice(`❌ Diagnostics failed: ${err instanceof Error ? err.message : String(err)}`);
+							new Notice(`Diagnostics failed: ${err instanceof Error ? err.message : String(err)}`);
 						} finally {
 							btn.setDisabled(false);
 							btn.setButtonText('Run Diagnostics');
 						}
-					})
-			);
-
-		new Setting(containerEl)
-			.setName('Open Ollama setup wizard')
-			.setDesc('Step-by-step instructions to install Ollama, pull the model, and verify connectivity.')
-			.addButton((btn) =>
-				btn
-					.setButtonText('Open wizard')
-					.onClick(() => {
-						const { OllamaSetupWizardModal } = require('./OllamaSetupWizardModal');
-						const modal = new OllamaSetupWizardModal(this.app, this.plugin);
-						modal.open();
 					})
 			);
 
@@ -486,9 +245,9 @@ export class SettingsTab extends PluginSettingTab {
 
 		// Add status line first
 		const status = this.plugin.embeddingsIndex.getStatus();
-		const statusEl = containerEl.createEl('div', { 
+		const statusEl = containerEl.createEl('div', {
 			cls: 'setting-item-description',
-			text: `📊 Index Status: ${status.indexedChunks} chunks across ${status.indexedFiles} files${status.queued > 0 ? ` | Queued: ${status.queued}` : ''}`
+			text: `Index Status: ${status.indexedChunks} chunks across ${status.indexedFiles} files${status.queued > 0 ? ` | Queued: ${status.queued}` : ''}`
 		});
 		statusEl.style.marginBottom = '10px';
 		statusEl.style.padding = '8px';
@@ -499,9 +258,9 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Semantic Index Management')
 			.setDesc('Manually trigger a full rescan of your vault or clear the local index.')
 			.addButton(btn => {
-				let reindexBtn = btn;
+				const reindexBtn = btn;
 				reindexBtn.setButtonText('Re-index Vault');
-				
+
 				// Subscribe to indexing events for dynamic button updates
 				const onStart = (data: { totalFiles: number }) => {
 					reindexBtn.setDisabled(true);
@@ -515,7 +274,7 @@ export class SettingsTab extends PluginSettingTab {
 					reindexBtn.setButtonText('Re-index Vault');
 					// Refresh status display
 					const newStatus = this.plugin.embeddingsIndex.getStatus();
-					statusEl.textContent = `📊 Index Status: ${newStatus.indexedChunks} chunks across ${newStatus.indexedFiles} files`;
+					statusEl.textContent = `Index Status: ${newStatus.indexedChunks} chunks across ${newStatus.indexedFiles} files`;
 				};
 
 				relayEventBus.on('index:start', onStart);
@@ -532,7 +291,7 @@ export class SettingsTab extends PluginSettingTab {
 				.setButtonText('Clear Index')
 				.setWarning()
 				.onClick(async () => {
-					if (confirm('Are you sure? This will delete your entire local semantic index and require a full rebuild.')) {
+					if (globalThis.confirm('Are you sure? This will delete your entire local semantic index and require a full rebuild.')) {
 						await this.plugin.embeddingsIndex.clearIndex();
 						new Notice('Index cleared successfully.');
 						this.display();
@@ -589,16 +348,6 @@ export class SettingsTab extends PluginSettingTab {
 		}
 
 		new Setting(containerEl)
-			.setName('Enable reranking (experimental)')
-			.setDesc('Use a local CPU reranker to improve the ordering of retrieved snippets. Experimental feature - may fail if model files cannot be downloaded. If disabled, retrieval will work without reranking.')
-			.addToggle((toggle) =>
-				toggle.setValue(Boolean(this.plugin.settings.retrievalEnableReranker)).onChange(async (value) => {
-					this.plugin.settings.retrievalEnableReranker = value;
-					await this.plugin.saveSettings();
-				})
-			);
-
-		new Setting(containerEl)
 			.setName('Retrieved items (limit)')
 			.setDesc('Maximum number of retrieved snippets to include in prompts.')
 			.addText((text) =>
@@ -606,7 +355,7 @@ export class SettingsTab extends PluginSettingTab {
 					.setPlaceholder('24')
 					.setValue(String(this.plugin.settings.retrievalTopK ?? 24))
 					.onChange(async (value) => {
-						const parsed = parseInt(value, 10);
+						const parsed = Number.parseInt(value, 10);
 						if (Number.isFinite(parsed)) {
 							this.plugin.settings.retrievalTopK = Math.max(1, Math.min(100, parsed));
 							await this.plugin.saveSettings();
@@ -618,7 +367,7 @@ export class SettingsTab extends PluginSettingTab {
 		addSection('External embeddings (optional)', 'Use a remote embedding API instead of local hash/BM25.');
 		new Setting(containerEl)
 			.setName('Enable external embeddings')
-			.setDesc('⚠️ WARNING: Enabling this will make API calls during retrieval. Keep disabled to use only local hash/BM25 search (recommended).')
+			.setDesc('WARNING: Enabling this will make API calls during retrieval. Keep disabled to use only local hash/BM25 search (recommended).')
 			.addToggle((toggle) => {
 				toggle.setValue(Boolean(this.plugin.settings.externalEmbeddingsEnabled ?? false));
 				toggle.onChange(async (value) => {
@@ -775,7 +524,7 @@ export class SettingsTab extends PluginSettingTab {
 					.setPlaceholder('500')
 					.setValue(String(this.plugin.settings.retrievalChunkWords ?? 500))
 					.onChange(async (value) => {
-						const parsed = parseInt(value, 10);
+						const parsed = Number.parseInt(value, 10);
 						if (Number.isFinite(parsed)) {
 							this.plugin.settings.retrievalChunkWords = Math.max(200, Math.min(2000, parsed));
 							await this.plugin.saveSettings();
@@ -791,7 +540,7 @@ export class SettingsTab extends PluginSettingTab {
 					.setPlaceholder('100')
 					.setValue(String(this.plugin.settings.retrievalChunkOverlapWords ?? 100))
 					.onChange(async (value) => {
-						const parsed = parseInt(value, 10);
+						const parsed = Number.parseInt(value, 10);
 						if (Number.isFinite(parsed)) {
 							this.plugin.settings.retrievalChunkOverlapWords = Math.max(0, Math.min(500, parsed));
 							await this.plugin.saveSettings();
@@ -834,7 +583,7 @@ export class SettingsTab extends PluginSettingTab {
 				toggle.setValue(Boolean(this.plugin.settings.generationLogsEnabled)).onChange(async (value) => {
 					this.plugin.settings.generationLogsEnabled = value;
 					await this.plugin.saveSettings();
-					
+
 					// If enabling logs, check if folder is set and exists
 					if (value) {
 						const folderPath = this.plugin.settings.generationLogsFolder || '';
@@ -857,7 +606,7 @@ export class SettingsTab extends PluginSettingTab {
 				})
 			);
 
-		const generationLogsFolderSetting = new Setting(containerEl)
+		new Setting(containerEl)
 			.setName('Generation logs folder')
 			.setDesc(`Current: ${this.plugin.settings.generationLogsFolder || '(none selected)'}`)
 			.addButton(button => button
@@ -999,7 +748,6 @@ export class SettingsTab extends PluginSettingTab {
 			}
 		}
 
-
 		addSection('Paths & setup', 'Setup wizard and guided demo.');
 
 		new Setting(containerEl)
@@ -1035,7 +783,8 @@ export class SettingsTab extends PluginSettingTab {
 			);
 
 		addSection('Manuscript & characters', 'Core paths for manuscript, story bible, and character notes.');
-		const characterFolderSetting = new Setting(containerEl)
+
+		new Setting(containerEl)
 			.setName('Character folder')
 			.setDesc(`Current: ${this.plugin.settings.characterFolder || '(none selected)'}`)
 			.addButton(button => button
@@ -1074,7 +823,7 @@ export class SettingsTab extends PluginSettingTab {
 					}).open();
 				}));
 
-		const storyBibleSetting = new Setting(containerEl)
+		new Setting(containerEl)
 			.setName('Story bible path')
 			.setDesc(`Current: ${this.plugin.settings.storyBiblePath || '(none selected)'}`)
 			.addButton(button => button
@@ -1094,18 +843,6 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		addSection('Character extraction & safeguards', 'Defaults for character processing and prompt-size warnings.');
-		
-		new Setting(containerEl)
-			.setName('Character extraction AI backend')
-			.setDesc('Use Ollama (local) or Cloud API for character extraction.')
-			.addDropdown(dropdown => dropdown
-				.addOption('ollama', 'Ollama (local)')
-				.addOption('cloud', 'Cloud API')
-				.setValue(this.plugin.settings.characterExtractionBackend || 'ollama')
-				.onChange(async value => {
-					this.plugin.settings.characterExtractionBackend = value as 'ollama' | 'cloud';
-					await this.plugin.saveSettings();
-				}));
 
 		new Setting(containerEl)
 			.setName('Character extraction chunk size (words)')
@@ -1114,7 +851,7 @@ export class SettingsTab extends PluginSettingTab {
 				.setPlaceholder('2500')
 				.setValue(String(this.plugin.settings.characterExtractionChunkSize ?? 2500))
 				.onChange(async (value) => {
-					const parsed = parseInt(value, 10);
+					const parsed = Number.parseInt(value, 10);
 					// Clamp to a sane range to prevent accidental extreme values
 					const clamped = Number.isFinite(parsed) ? Math.min(10000, Math.max(250, parsed)) : 2500;
 					this.plugin.settings.characterExtractionChunkSize = clamped;
@@ -1139,231 +876,10 @@ export class SettingsTab extends PluginSettingTab {
 				.setPlaceholder('128000')
 				.setValue(String(this.plugin.settings.contextTokenLimit ?? 128000))
 				.onChange(async (value) => {
-					const parsed = parseInt(value, 10);
+					const parsed = Number.parseInt(value, 10);
 					const clamped = Number.isFinite(parsed) ? Math.min(2000000, Math.max(1000, parsed)) : 128000;
 					this.plugin.settings.contextTokenLimit = clamped;
 					await this.plugin.saveSettings();
 				}));
-
-		// Stress Test Section
-		addSection('Developer tools', 'Diagnostics and end-to-end stress test.');
-
-		new Setting(containerEl)
-			.setName('Run Stress Test')
-			.setDesc('Comprehensive test of all plugin features. Creates temporary test files, runs all operations, then cleans up automatically. Log is saved as a note in your vault.')
-			.addButton(button => button
-				.setButtonText('Start Stress Test')
-				.setCta()
-				.onClick(async () => {
-					button.setDisabled(true);
-					button.setButtonText('Running...');
-					
-					try {
-						const stressTest = new StressTestService(this.plugin);
-						const logContent = await stressTest.runFullStressTest();
-						
-						// Save log as a note in the vault
-						const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-						const logFileName = `Stress Test Log - ${timestamp}.md`;
-						const logPath = logFileName;
-						
-						await this.plugin.app.vault.create(logPath, logContent);
-						
-						new Notice(`Stress test completed! Log saved to: ${logFileName}`);
-						
-						// Open the log file
-						const logFile = this.plugin.app.vault.getAbstractFileByPath(logPath);
-						if (logFile instanceof TFile) {
-							await this.app.workspace.openLinkText(logPath, '', true);
-						}
-						
-					} catch (error) {
-						new Notice(`Stress test failed: ${error instanceof Error ? error.message : String(error)}`);
-						console.error('Stress test error:', error);
-					} finally {
-						button.setDisabled(false);
-						button.setButtonText('Start Stress Test');
-					}
-				}));
-	}
-
-	/**
-	 * Render the Memory & Performance section for RAM-aware context control.
-	 */
-	private renderMemorySection(
-		containerEl: HTMLElement, 
-		addSection: (title: string, description: string) => void
-	): void {
-		addSection('Memory & Performance', 'RAM-aware context window management to prevent system freezes.');
-
-		const settings = this.plugin.settings;
-		const ramTier = (settings.ramTier ?? 32) as RamTier;
-		const riskProfile = (settings.riskProfile ?? 'safe') as RiskProfile;
-		const modelName = settings.relaySmartModel || 'llama3.1:8b';
-
-		// Get the derived safe limit for display
-		const safetyResult = getSafeContextLimit(
-			ramTier,
-			modelName,
-			riskProfile,
-			settings.verifiedModelContextLimit ?? null,
-			settings.contextSliderValue
-		);
-
-		// RAM Tier dropdown
-		new Setting(containerEl)
-			.setName('RAM Tier')
-			.setDesc('How much RAM does this machine have? This determines safe context limits.')
-			.addDropdown(dropdown => {
-				const tierLabels: Record<RamTier, string> = {
-					8: '8 GB',
-					16: '16 GB',
-					24: '24 GB',
-					32: '32 GB',
-					64: '64 GB',
-					128: '128 GB+'
-				};
-
-				for (const tier of RAM_TIERS) {
-					dropdown.addOption(String(tier), tierLabels[tier]);
-				}
-
-				dropdown.setValue(String(ramTier))
-					.onChange(async (value) => {
-						this.plugin.settings.ramTier = parseInt(value) as RamTier;
-						// Reset slider when RAM tier changes
-						this.plugin.settings.contextSliderValue = undefined;
-						await this.plugin.saveSettings();
-						this.display();
-					});
-			});
-
-		// Risk Profile dropdown
-		new Setting(containerEl)
-			.setName('Risk Profile')
-			.setDesc('Safe = conservative, Moderate = balanced, Aggressive = maximum performance (higher freeze risk).')
-			.addDropdown(dropdown => {
-				const profileLabels: Record<RiskProfile, string> = {
-					safe: 'Safe (recommended)',
-					moderate: 'Moderate',
-					aggressive: 'Aggressive'
-				};
-
-				for (const profile of RISK_PROFILES) {
-					dropdown.addOption(profile, profileLabels[profile]);
-				}
-
-				dropdown.setValue(riskProfile)
-					.onChange(async (value) => {
-						this.plugin.settings.riskProfile = value as RiskProfile;
-						// Reset slider when profile changes
-						this.plugin.settings.contextSliderValue = undefined;
-						await this.plugin.saveSettings();
-						this.display();
-					});
-			});
-
-		// Context Window Slider (only if not blocked)
-		if (!safetyResult.isBlocked) {
-			const bounds = getSliderBounds(safetyResult.cap);
-			const currentValue = settings.contextSliderValue ?? safetyResult.cap;
-			const warning = getUsageWarning(currentValue, safetyResult.cap);
-
-			const sliderSetting = new Setting(containerEl)
-				.setName('Context Window')
-				.setDesc(`Range: ${(bounds.min / 1024).toFixed(0)}k - ${(bounds.max / 1024).toFixed(0)}k tokens`);
-
-			// Add the slider
-			sliderSetting.addSlider(slider => {
-				slider
-					.setLimits(bounds.min, bounds.max, 1024)
-					.setValue(currentValue)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
-						this.plugin.settings.contextSliderValue = value;
-						await this.plugin.saveSettings();
-						// Update display without full refresh
-						const newWarning = getUsageWarning(value, safetyResult.cap);
-						if (statusEl) {
-							statusEl.textContent = `${(value / 1024).toFixed(0)}k tokens`;
-							statusEl.className = `context-status context-${newWarning}`;
-						}
-					});
-			});
-
-			// Add status display
-			const statusEl = sliderSetting.controlEl.createEl('span', {
-				cls: `context-status context-${warning}`,
-				text: `${(currentValue / 1024).toFixed(0)}k tokens`
-			});
-		}
-
-		// Status display
-		const statusText = safetyResult.isBlocked 
-			? `⛔ Model blocked for ${ramTier}GB RAM`
-			: safetyResult.isVerified
-				? `✅ Safe limit: ${(safetyResult.cap / 1024).toFixed(0)}k tokens (model verified)`
-				: `⚠️ Safe limit: ${(safetyResult.cap / 1024).toFixed(0)}k tokens (model unverified)`;
-
-		new Setting(containerEl)
-			.setName('Status')
-			.setDesc(statusText);
-
-		// Verify Model button (to query actual context limit)
-		new Setting(containerEl)
-			.setName('Verify Model Context')
-			.setDesc('Query Ollama to get the model\'s actual context limit.')
-			.addButton(btn => btn
-				.setButtonText(settings.verifiedModelContextLimit ? 'Re-verify' : 'Verify')
-				.onClick(async () => {
-					btn.setDisabled(true);
-					btn.setButtonText('Querying...');
-					try {
-						const limit = await this.plugin.ollamaModels.getModelContextLimit(modelName);
-						if (limit !== null) {
-							this.plugin.settings.verifiedModelContextLimit = limit;
-							await this.plugin.saveSettings();
-							new Notice(`✅ Model context limit: ${(limit / 1024).toFixed(0)}k tokens`);
-						} else {
-							new Notice('⚠️ Could not determine model context limit');
-						}
-					} catch (e) {
-						new Notice('❌ Failed to query model');
-					} finally {
-						btn.setDisabled(false);
-						btn.setButtonText('Verify');
-						this.display();
-					}
-				}));
-	}
-
-	private async pullModelWithProgress(modelId: string, btn: any) {
-		const isRunning = await this.plugin.ollamaGen.isAvailable();
-		if (!isRunning) {
-			new Notice('❌ Cannot pull: Ollama Offline');
-			return;
-		}
-		
-		btn.setDisabled(true);
-		btn.setButtonText('Pulling...');
-		
-		try {
-			await this.plugin.ollamaModels.pullModel(modelId, (p) => {
-				if (p.status === 'downloading' && p.completed) {
-					const pct = (p.completed / (p.total || 1) * 100).toFixed(0);
-					btn.setButtonText(`Pulling: ${pct}%`);
-				} else {
-					btn.setButtonText(`Pulling: ${p.status}`);
-				}
-			});
-			new Notice(`✅ Successfully pulled ${modelId}`);
-			this.display(); // Refresh to update "installed" status in dropdowns
-		} catch (err) {
-			new Notice(`❌ Pull failed: ${err.message}`);
-		} finally {
-			btn.setDisabled(false);
-			btn.setButtonText('Pull');
-		}
 	}
 }
-

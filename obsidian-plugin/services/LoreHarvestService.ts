@@ -22,7 +22,7 @@ import { TFile } from 'obsidian';
  * and prepares them for user review and Story Bible merge.
  */
 export class LoreHarvestService {
-    private plugin: WritingDashboardPlugin;
+    private readonly plugin: WritingDashboardPlugin;
 
     constructor(plugin: WritingDashboardPlugin) {
         this.plugin = plugin;
@@ -50,20 +50,13 @@ export class LoreHarvestService {
             });
 
             try {
-                const result = await this.plugin.ollamaGen.enqueue(3, `${runId}__harvest__${chunk.chunkId}`, (signal) => 
-                    this.plugin.ollamaGen.generate(prompt, { 
-                        model: this.plugin.settings.relaySmartModel,
-                        temperature: 0.1,
-                        max_tokens: 1024,
-                        format: 'json'
-                    }, signal)
-                );
+                const result = await this.plugin.aiClient.generate(prompt, { ...this.plugin.settings, generationMode: 'single' as const });
 
                 if (result && typeof result === 'string') {
                     const parsed = JSON.parse(result);
                     if (parsed && parsed.candidates) {
                         for (const c of parsed.candidates) {
-                        const harvestId = `harvest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                        const harvestId = `harvest-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
                         const proposedFact: CanonFact = {
                             id: `fact-harvest-${Date.now()}`,
                             entityId: c.entityId,
@@ -87,7 +80,7 @@ export class LoreHarvestService {
                             if (text.length <= maxLen) return text;
                             let trimmed = text.slice(-maxLen);
                             // Expand backward to nearest whitespace/punctuation
-                            const match = trimmed.match(/^[\s\.,;:!?]*/);
+                            const match = /^[\s.,;:!?]*/.exec(trimmed);
                             if (match) {
                                 const prefix = match[0];
                                 trimmed = text.slice(-maxLen + prefix.length);
@@ -121,7 +114,7 @@ export class LoreHarvestService {
                                 sourceFileHashAtRun = await sha256(fileContent);
                             }
                         } catch (err) {
-                            // File not available, leave empty for now
+                            console.warn('[LoreHarvestService] Source file not available for hash:', err);
                         }
                         
                         const evidenceSpan: EvidenceSpan = {
@@ -342,9 +335,9 @@ export class LoreHarvestService {
             const localCandidate = localMap.get(key);
             if (localCandidate) {
                 // Match found: boost confidence to "Tier A" (max confidence)
-                localCandidate.confidence = 1.0;
+                localCandidate.confidence = 1;
                 localCandidate.appearanceCount += 1; // Reward agreement
-                console.debug(`[LoreHarvestService] ✅ Model-local agreement: ${modelTuple.entityId}.${modelTuple.attribute}`);
+                console.debug(`[LoreHarvestService] Model-local agreement: ${modelTuple.entityId}.${modelTuple.attribute}`);
             }
         }
     }

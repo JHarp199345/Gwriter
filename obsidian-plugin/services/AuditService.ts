@@ -14,8 +14,8 @@ export interface AnchorSet {
  * AuditService performs a two-pass validation on generated prose chunks.
  * Pass 1: Heuristic (Non-LLM) checks for POV and Tense shifts.
  * Pass 2: LLM-based comparison against the CanonFactsList.
- * 
- * INVARIANT: This service's validation rules and schema are mathematically 
+ *
+ * INVARIANT: This service's validation rules and schema are mathematically
  * invariant to the spontaneity dial to ensure lore integrity.
  */
 export class AuditService {
@@ -50,7 +50,7 @@ export class AuditService {
         // --- PASS 1: Heuristic Checks (Narration-only) ---
         // We get spans of narration text to keep offsets accurate
         const narrationSpans = this.getNarrationSpans(chunk);
-        
+
         for (const span of narrationSpans) {
             const povViolation = this.checkPOV(span.text, state.constraints.pov, span.start);
             if (povViolation) violations.push(povViolation);
@@ -65,14 +65,14 @@ export class AuditService {
             violations.push(...llmResult.violations);
         }
 
-        const overallSeverity = violations.length > 0 
-            ? Math.max(...violations.map(v => v.severity)) 
+        const overallSeverity = violations.length > 0
+            ? Math.max(...violations.map(v => v.severity))
             : 0;
 
         return {
             violations,
             overallSeverity,
-            summary: violations.length > 0 
+            summary: violations.length > 0
                 ? `Found ${violations.length} violations (Max Severity: ${overallSeverity}).`
                 : 'No violations detected.'
         };
@@ -84,33 +84,33 @@ export class AuditService {
      */
     async auditFullChapter(fullProse: string, state: ChapterState): Promise<AuditResult> {
         const violations: Violation[] = [];
-        
+
         // Segment by paragraph boundaries
         const paragraphs = fullProse.split(/\n\n+/).filter(p => p.trim());
         const segments: Array<{ text: string; startOffset: number }> = [];
-        
+
         let offset = 0;
         for (let i = 0; i < paragraphs.length; i++) {
             const para = paragraphs[i];
-            const segmentText = i > 0 
+            const segmentText = i > 0
                 ? paragraphs[i - 1] + '\n\n' + para // 1-paragraph overlap
                 : para;
-            
+
             segments.push({
                 text: segmentText,
                 startOffset: i > 0 ? offset - paragraphs[i - 1].length - 2 : offset
             });
-            
+
             offset += para.length + 2; // +2 for \n\n
         }
 
         // Parallel audit (max 4 workers)
         const maxWorkers = 4;
         const workers: Promise<Violation[]>[] = [];
-        
+
         for (let i = 0; i < segments.length; i += maxWorkers) {
             const batch = segments.slice(i, i + maxWorkers);
-            const batchPromises = batch.map(segment => 
+            const batchPromises = batch.map(segment =>
                 this.auditChunk(segment.text, state).then(result => result.violations)
             );
             workers.push(...batchPromises);
@@ -125,14 +125,14 @@ export class AuditService {
             return b.severity - a.severity; // Higher severity first
         });
 
-        const overallSeverity = violations.length > 0 
-            ? Math.max(...violations.map(v => v.severity)) 
+        const overallSeverity = violations.length > 0
+            ? Math.max(...violations.map(v => v.severity))
             : 0;
 
         return {
             violations,
             overallSeverity,
-            summary: violations.length > 0 
+            summary: violations.length > 0
                 ? `Found ${violations.length} violations across full chapter (Max Severity: ${overallSeverity}).`
                 : 'No violations detected in full chapter.'
         };
@@ -144,11 +144,12 @@ export class AuditService {
      */
     private getNarrationSpans(text: string): { text: string, start: number }[] {
         const spans: { text: string, start: number }[] = [];
-        const dialogueRegex = /["“].*?["”]|['‘].*?['’]|—.*$/gm;
-        
+        // Bug 2 fix: add explicit grouping around alternation to clarify precedence
+        const dialogueRegex = /(?:[""].*?[""])|(?:[''].*?[''])|(?:—.*$)/gm;
+
         let lastIndex = 0;
         let match;
-        
+
         while ((match = dialogueRegex.exec(text)) !== null) {
             if (match.index > lastIndex) {
                 const narration = text.slice(lastIndex, match.index);
@@ -158,14 +159,14 @@ export class AuditService {
             }
             lastIndex = dialogueRegex.lastIndex;
         }
-        
+
         if (lastIndex < text.length) {
             const finalNarration = text.slice(lastIndex);
             if (finalNarration.trim()) {
                 spans.push({ text: finalNarration, start: lastIndex });
             }
         }
-        
+
         return spans;
     }
 
@@ -174,8 +175,8 @@ export class AuditService {
      */
     private checkPOV(text: string, targetPov: string, globalOffset: number): Violation | null {
         const firstPersonProngs = /\b(I|me|my|mine|we|us|our)\b/i;
-        
-        const match = text.match(firstPersonProngs);
+
+        const match = firstPersonProngs.exec(text);
         if (targetPov.includes('third') && match) {
             const start = globalOffset + (match.index || 0);
             return {
@@ -197,7 +198,7 @@ export class AuditService {
         const pastIndicators = /\b(was|were|went|looked|saw|thought)\b/i;
 
         if (targetTense === 'past') {
-            const match = text.match(presentIndicators);
+            const match = presentIndicators.exec(text);
             if (match) {
                 const start = globalOffset + (match.index || 0);
                 return {
@@ -211,7 +212,7 @@ export class AuditService {
         }
 
         if (targetTense === 'present') {
-            const match = text.match(pastIndicators);
+            const match = pastIndicators.exec(text);
             if (match) {
                 const start = globalOffset + (match.index || 0);
                 return {

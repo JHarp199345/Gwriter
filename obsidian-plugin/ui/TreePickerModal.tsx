@@ -73,7 +73,7 @@ export const TreePickerComponent: React.FC<{
 	const [selected, setSelected] = useState<Set<string>>(() => {
 		const init = new Set<string>();
 		const list = Array.isArray(initialSelection) ? initialSelection : initialSelection ? [initialSelection] : [];
-		for (const p of list) init.add(p.replace(/\\/g, '/'));
+		for (const p of list) init.add(p.replaceAll('\\', '/'));
 		return init;
 	});
 	const [expanded, setExpanded] = useState<Set<string>>(() => {
@@ -143,7 +143,10 @@ export const TreePickerComponent: React.FC<{
 				>
 					{isFolder ? (
 						<span
+							role="button"
+							tabIndex={0}
 							onClick={() => toggleExpand(node.path)}
+							onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { toggleExpand(node.path); } }}
 							style={{ cursor: 'pointer', width: '16px', textAlign: 'center' }}
 							title={isExpanded ? 'Collapse' : 'Expand'}
 						>
@@ -159,7 +162,13 @@ export const TreePickerComponent: React.FC<{
 						style={{ margin: 0 }}
 						name="tree-picker"
 					/>
-					<span onClick={() => toggleSelect(node.path)} style={{ flex: 1 }}>
+					<span
+						role="button"
+						tabIndex={0}
+						onClick={() => toggleSelect(node.path)}
+						onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { toggleSelect(node.path); } }}
+						style={{ flex: 1 }}
+					>
 						{node.name}
 					</span>
 				</div>
@@ -172,7 +181,7 @@ export const TreePickerComponent: React.FC<{
 
 	const handleSubmit = () => {
 		const value = mode === 'single' ? Array.from(selected)[0] || '' : Array.from(selected);
-		void onSubmit(value);
+		onSubmit(value);
 		onClose();
 	};
 
@@ -197,5 +206,3 @@ export const TreePickerComponent: React.FC<{
 		</div>
 	);
 };
-
-

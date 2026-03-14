@@ -3,12 +3,12 @@ import WritingDashboardPlugin from '../main';
 import { Context } from './PromptEngine';
 import type { ContextItem, RetrievalQuery } from './retrieval/types';
 import { VaultService } from './VaultService';
-import { getSafeContextLimit, isModelBlocked, getBlockedModelError, RamTier } from './ContextSafety';
+import { getContextLimit } from './ContextSafety';
 
 export class ContextAggregator {
-	private vault: Vault;
-	private plugin: WritingDashboardPlugin;
-	private vaultService: VaultService;
+	private readonly vault: Vault;
+	private readonly plugin: WritingDashboardPlugin;
+	private readonly vaultService: VaultService;
 
 	private budgetToChars(tokens: number): number {
 		// estimateTokens uses ~4 chars per token; invert that here
@@ -38,51 +38,10 @@ export class ContextAggregator {
 	}
 
 	/**
-	 * Compute context budget using RAM-aware safety limits.
-	 * Falls back to legacy contextTokenLimit if ramTier is not set.
+	 * Compute context budget from the configured context token limit.
 	 */
 	private computeContextBudgetTokens(): { limit: number; reserveForOutput: number; reserveForNonContext: number; isBlocked: boolean } {
-		const settings = this.plugin.settings;
-		
-		// If RAM tier is set, use the RAM-aware safety system
-		if (settings.ramTier !== undefined) {
-			const modelName = settings.relaySmartModel || 'llama3.1:8b';
-			const ramTier = settings.ramTier as RamTier;
-			const riskProfile = settings.riskProfile || 'safe';
-			
-			// Check if model is blocked for this RAM tier
-			if (isModelBlocked(ramTier, modelName)) {
-				console.warn(`[ContextAggregator] Model blocked: ${getBlockedModelError(ramTier, modelName)}`);
-				return { limit: 0, reserveForOutput: 0, reserveForNonContext: 0, isBlocked: true };
-			}
-			
-			// Get safe context limit from the safety system
-			const safetyResult = getSafeContextLimit(
-				ramTier,
-				modelName,
-				riskProfile,
-				settings.verifiedModelContextLimit ?? null,
-				settings.contextSliderValue
-			);
-			
-			if (safetyResult.isBlocked) {
-				return { limit: 0, reserveForOutput: 0, reserveForNonContext: 0, isBlocked: true };
-			}
-			
-			const limit = safetyResult.cap;
-			
-			// Fixed reserves for multi-segment generation:
-			// - 700 tokens for ~500 word output per segment
-			// - 500 tokens for pinned context (style guide, lock map)
-			// - 300 tokens for buffer/overhead
-			const reserveForOutput = 700;
-			const reserveForNonContext = 800; // pinned + buffer
-			
-			return { limit, reserveForOutput, reserveForNonContext, isBlocked: false };
-		}
-		
-		// Legacy fallback: use hardcoded contextTokenLimit
-		const limit = settings.contextTokenLimit ?? 128000;
+		const limit = getContextLimit(this.plugin.settings);
 		const reserveForOutput = Math.min(20000, Math.max(6000, Math.floor(limit * 0.02)));
 		const reserveForNonContext = Math.min(20000, Math.max(4000, Math.floor(limit * 0.02)));
 		return { limit, reserveForOutput, reserveForNonContext, isBlocked: false };
@@ -102,14 +61,6 @@ export class ContextAggregator {
 		
 		// Budget context dynamically based on RAM-aware safety limits.
 		const budget = this.computeContextBudgetTokens();
-		
-		// Check if model is blocked for this RAM tier
-		if (budget.isBlocked) {
-			throw new Error(
-				`Model "${settings.relaySmartModel}" cannot run on ${settings.ramTier}GB RAM. ` +
-				`Please select a smaller model or increase your RAM tier in Settings.`
-			);
-		}
 		
 		// Defensive clamping: ensure budget is never negative
 		const contextBudget = Math.max(0, budget.limit - budget.reserveForOutput - budget.reserveForNonContext);
@@ -148,14 +99,6 @@ export class ContextAggregator {
 		
 		// Budget context dynamically based on RAM-aware safety limits.
 		const budget = this.computeContextBudgetTokens();
-		
-		// Check if model is blocked for this RAM tier
-		if (budget.isBlocked) {
-			throw new Error(
-				`Model "${settings.relaySmartModel}" cannot run on ${settings.ramTier}GB RAM. ` +
-				`Please select a smaller model or increase your RAM tier in Settings.`
-			);
-		}
 		
 		// Defensive clamping: ensure budget is never negative
 		const contextBudget = Math.max(0, budget.limit - budget.reserveForOutput - budget.reserveForNonContext);
@@ -235,13 +178,7 @@ export class ContextAggregator {
 			let results = await this.plugin.retrievalService.search(query, {
 				limit: Math.max(1, Math.min(200, limit))
 			});
-			if (this.plugin.settings.retrievalEnableReranker) {
-				try {
-					results = await this.plugin.cpuReranker.rerank(query.text || '', results, { limit: Math.max(1, Math.min(200, limit)) });
-				} catch (err) {
-					console.warn('[ContextAggregator] Reranker failed, keeping pre-rerank results:', err);
-				}
-			}
+			// Note: CPU reranker removed (local AI removed). Results use retrieval service scoring only.
 			return this.formatRetrievedItems(results);
 		} catch (err) {
 			console.warn('[ContextAggregator] Retrieval failed:', err);

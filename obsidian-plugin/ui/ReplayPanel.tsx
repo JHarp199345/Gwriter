@@ -112,13 +112,16 @@ export const ReplayPanel: React.FC<ReplayPanelProps> = ({ plugin }) => {
                         <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No runs found.</p>
                     ) : (
                         runs.map(run => (
-                            <div 
-                                key={run.key} 
+                            <div
+                                key={run.key}
                                 className={`run-item ${selectedRunKey === run.key ? 'is-selected' : ''}`}
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => setSelectedRunKey(run.key)}
-                                style={{ 
-                                    padding: '8px', 
-                                    cursor: 'pointer', 
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setSelectedRunKey(run.key); } }}
+                                style={{
+                                    padding: '8px',
+                                    cursor: 'pointer',
                                     borderBottom: '1px solid var(--background-modifier-border)',
                                     backgroundColor: selectedRunKey === run.key ? 'var(--background-modifier-hover)' : 'transparent'
                                 }}
@@ -147,8 +150,8 @@ export const ReplayPanel: React.FC<ReplayPanelProps> = ({ plugin }) => {
 
                             <h5 style={{ borderBottom: '1px solid var(--background-modifier-border)', paddingBottom: '4px' }}>Execution Stages</h5>
                             <div className="stage-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                                {selectedRun.manifest.stages.map((stage, i) => (
-                                    <div key={i} style={{ padding: '8px', backgroundColor: 'var(--background-secondary)', borderRadius: '4px', fontSize: '0.9em' }}>
+                                {selectedRun.manifest.stages.map((stage) => (
+                                    <div key={stage.stageType + stage.startTime} style={{ padding: '8px', backgroundColor: 'var(--background-secondary)', borderRadius: '4px', fontSize: '0.9em' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                             <span style={{ color: 'var(--text-accent)', fontWeight: 'bold' }}>{getStageLabel(stage)}</span>
                                             <span style={{ fontSize: '0.8em', color: 'var(--text-muted)' }}>{Math.round(stage.endTime - stage.startTime)}ms</span>

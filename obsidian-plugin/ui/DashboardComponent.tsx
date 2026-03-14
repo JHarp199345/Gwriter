@@ -1,60 +1,39 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Notice, TFolder } from 'obsidian';
-import WritingDashboardPlugin, { DashboardSettings } from '../main';
-import { VaultBrowser } from './VaultBrowser';
+import { Notice } from 'obsidian';
+import WritingDashboardPlugin from '../main';
 import { EditorPanel } from './EditorPanel';
-import { DirectorNotes } from './DirectorNotes';
-import { ModeSelector } from './ModeSelector';
-import { TextChunker } from '../services/TextChunker';
-import { fnv1a32 } from '../services/ContentHash';
-import { estimateTokens } from '../services/TokenEstimate';
-import type { MultiModelResult } from '../services/AIClient';
-import { FilePickerModal } from './FilePickerModal';
-import { FolderTreePickerModal } from './FolderTreePickerModal';
 import { FileTreePickerModal } from './FileTreePickerModal';
-import { parseCharacterRoster, rosterToBulletList } from '../services/CharacterRoster';
-import { showConfirmModal } from './ConfirmModal';
-import { PromptPreviewModal } from './PromptPreviewModal';
-import { ButtonHelpModal } from './ButtonHelpModal';
 import { FactInspector } from './FactInspector';
 import { ReplayPanel } from './ReplayPanel';
-import { PilotHealthPanel } from './PilotHealthPanel'; // New
+import { PilotHealthPanel } from './PilotHealthPanel';
+import { TextChunker } from '../services/TextChunker';
+import { fnv1a32 } from '../services/ContentHash';
 import { relayEventBus } from '../services/EventBus';
 import { PatchOp as StitchPatchOp, StitchResponse } from '../contracts/StitchContract';
 import { GenerationStep, StageResult } from '../services/Schemas';
 
 type Mode = 'chapter' | 'micro-edit' | 'character-update' | 'continuity-check';
-type DemoStep = 'off' | 'chapter' | 'micro-edit' | 'character-update' | 'done';
-
-const DEFAULT_REWRITE_INSTRUCTIONS =
-	'[INSTRUCTION: The Scene Summary is a rough summary OR directions. Rewrite it into a fully detailed dramatic scene. Include dialogue, sensory details, and action. Do not summarize; write the prose. Match the tone, rhythm, and pacing of the provided context.]';
 
 export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = ({ plugin }) => {
 	const [mode, setMode] = useState<Mode>('chapter');
-	const [demoStep, setDemoStep] = useState<DemoStep>('off');
-	const [apiKeyPresent, setApiKeyPresent] = useState<boolean>(Boolean(plugin.settings.apiKey));
 	const [modeState, setModeState] = useState(() => plugin.settings.modeState);
-	
+
 	const [generatedText, setGeneratedText] = useState<string>('');
 	const [generatedParagraphs, setGeneratedParagraphs] = useState<{ id: string, text: string, hash: string, metadata?: any, status: 'STREAMING' | 'FINALIZED' | 'USER_DIRTY', lastPatched?: number }[]>([]);
 	const [lastAppliedSeqNo, setLastAppliedSeqNo] = useState<Map<string, number>>(new Map());
 	const [undoStack, setUndoStack] = useState<Map<string, { beforeHash: string, text: string }[]>>(new Map());
-	
-    const [chunkBuffer, setChunkBuffer] = useState<string>('');
+
+	const [chunkBuffer, setChunkBuffer] = useState<string>('');
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [generationStage, setGenerationStage] = useState<string>('');
 	const [pulseMessage, setPulseMessage] = useState<string | null>(null);
 	const [pulseDetail, setPulseDetail] = useState<string | null>(null);
-	const [generationSteps, setGenerationSteps] = useState<GenerationStep[]>([]);
 	const [error, setError] = useState<string | null>(null);
-	const [mismatchReport, setMismatchReport] = useState<any[] | null>(null); // New
-	const [telemetry, setTelemetry] = useState<{ tps: number, model: string, digest: string } | null>(null);
-	const [costEstimate, setCostEstimate] = useState<{ low: number, high: number } | null>(null);
-	const [showFactInspector, setShowFactInspector] = useState(false);
+	const [mismatchReport, setMismatchReport] = useState<any[] | null>(null);
 	const [heatmapEnabled, setHeatmapEnabled] = useState(true);
 	const [spontaneity, setSpontaneity] = useState((plugin.settings as any).spontaneitySlider || 50);
-	const [misses, setMisses] = useState<any[]>([]); // New
-	const [rejections, setRejections] = useState<any[]>([]); // New
+	const [misses, setMisses] = useState<any[]>([]);
+	const [rejections, setRejections] = useState<any[]>([]);
 	const [proposedMutation, setProposedMutation] = useState<any | null>(null);
 	const [trustSummary, setTrustSummary] = useState<any | null>(null);
 	const [activeTab, setActiveTab] = useState<'editor' | 'lore' | 'replay' | 'signature' | 'characters'>('editor');
@@ -71,7 +50,6 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 	useEffect(() => {
 		const onStart = () => {
-			setGenerationSteps([]);
 			setChunkBuffer('');
 			setGeneratedText('');
 			setGeneratedParagraphs([]);
@@ -90,7 +68,6 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			setChunkBuffer(data.content);
 		};
 		const onCommitted = (data: { runId: string, chunkId: string, content: string, metadata?: any[], path: string }) => {
-			// Transactional commit to note and UI
 			if (commitLock.current) return;
 			commitLock.current = true;
 			try {
@@ -99,7 +76,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					return {
 						id: data.metadata?.[i]?.p_id || `${data.chunkId}-p${i}`,
 						text,
-						hash: fnv1a32(text.replace(/\s+/g, ' ').trim()),
+						hash: fnv1a32(text.replaceAll(/\s+/g, ' ').trim()),
 						metadata: data.metadata ? data.metadata[i] : undefined,
 						status: 'FINALIZED' as const
 					};
@@ -112,7 +89,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					setGeneratedParagraphs((prev) => [...prev, ...newParas]);
 					setGeneratedText((prev) => prev + (prev ? '\n\n' : '') + data.content);
 				}
-				
+
 				setChunkBuffer('');
 			} finally {
 				commitLock.current = false;
@@ -120,10 +97,8 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		};
 
 		const onPatch = (data: StitchResponse) => {
-			// 1. Route check
 			if (data.runId !== plugin.sequentialGenerator.getCurrentRunId?.()) return;
 
-			// 2. SeqNo Check
 			const lastSeq = lastAppliedSeqNo.get(data.seamId) || 0;
 			if (data.seqNo < lastSeq) return;
 
@@ -136,27 +111,23 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					if (idx === -1) continue;
 
 					const para = next[idx];
-					// 3. Status Check: Skip if USER_DIRTY
 					if (para.status === 'USER_DIRTY') continue;
 
-					// 4. Hash Check: Skip if text changed
-					const currentHash = fnv1a32(para.text.replace(/\s+/g, ' ').trim());
+					const currentHash = fnv1a32(para.text.replaceAll(/\s+/g, ' ').trim());
 					if (currentHash !== op.beforeHash) {
 						console.warn(`[Dashboard] Patch rejected: Hash mismatch for ${op.paragraphId}`);
 						continue;
 					}
 
-					// 5. Store Undo
 					const stack = undoStack.get(para.id) || [];
 					stack.push({ beforeHash: para.hash, text: para.text });
 					undoStack.set(para.id, stack);
 
-					// 6. Apply Patch
 					const newText = para.text.substring(0, op.start) + op.replacementText + para.text.substring(op.end);
 					next[idx] = {
 						...para,
 						text: newText,
-						hash: fnv1a32(newText.replace(/\s+/g, ' ').trim()),
+						hash: fnv1a32(newText.replaceAll(/\s+/g, ' ').trim()),
 						lastPatched: Date.now()
 					};
 					anyChanged = true;
@@ -164,7 +135,6 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 				if (anyChanged) {
 					setLastAppliedSeqNo(new Map(lastAppliedSeqNo).set(data.seamId, data.seqNo));
-					// Sync flat text
 					setGeneratedText(next.map(p => p.text).join('\n\n'));
 				}
 				return next;
@@ -256,7 +226,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 						...p,
 						text: last.text,
 						hash: last.beforeHash,
-						lastPatched: undefined // Reset highlight
+						lastPatched: undefined
 					};
 				}
 				return p;
@@ -266,7 +236,6 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		});
 	};
 
-	// Character Update mode handlers
 	const handleCharacterUpdate = async () => {
 		const text = characterInputText.trim();
 		if (!text) {
@@ -339,9 +308,18 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 	const handleGeneratedChange = (value: string) => {
 		setGeneratedText(value);
-		// Mark all paragraphs as USER_DIRTY when the user manually edits the flat text
-		// This is a defensive approach; a better one would be diffing
 		setGeneratedParagraphs(prev => prev.map(p => ({ ...p, status: 'USER_DIRTY' as const })));
+	};
+
+	const handleSpontaneityChange = (val: number) => {
+		setSpontaneity(val);
+		(plugin.settings as any).spontaneitySlider = val;
+		plugin.saveSettings();
+	};
+
+	const handleMismatchProceed = () => {
+		setMismatchReport(null);
+		new Notice('Proceeding in Best-Effort mode...');
 	};
 
 	return (
@@ -358,7 +336,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 				<div className="main-workspace">
 					<div className="tab-content-wrapper" style={{ flex: '1 1 auto', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
 						{activeTab === 'editor' && (
-							<EditorPanel 
+							<EditorPanel
 								plugin={plugin}
 								mode={mode}
 								selectedText={modeState.chapter.sceneSummary}
@@ -375,7 +353,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 						{activeTab === 'lore' && (
 							<div className="lore-tab">
-								<FactInspector 
+								<FactInspector
 									plugin={plugin}
 									state={plugin.sequentialGenerator.getContextManager()?.getState() || {
 										chapterId: 'temp',
@@ -390,13 +368,13 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 										timeline: [],
 										openLoops: [],
 										constraints: { pov: 'third', tense: 'past', tone: [], forbidden: [] }
-									}} 
+									}}
 								/>
-								<PilotHealthPanel 
-									plugin={plugin} 
-									misses={misses} 
-									rejections={rejections} 
-									quarantineCount={0} 
+								<PilotHealthPanel
+									plugin={plugin}
+									misses={misses}
+									rejections={rejections}
+									quarantineCount={0}
 								/>
 							</div>
 						)}
@@ -426,14 +404,14 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 								</div>
 
 								<div className="character-update-controls">
-									<button 
+									<button
 										onClick={handleCharacterUpdate}
 										disabled={isExtractingCharacters || !characterInputText.trim()}
 										className="generate-button mod-cta"
 									>
 										{isExtractingCharacters ? 'Extracting...' : 'Update Characters'}
 									</button>
-									
+
 									<div className="file-selection-row">
 										<span className="file-label">
 											Source file: {characterSourceFile?.split('/').pop() || 'None selected'}
@@ -445,8 +423,8 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 											Use book main
 										</button>
 									</div>
-									
-									<button 
+
+									<button
 										onClick={handleProcessEntireBook}
 										disabled={isExtractingCharacters || !characterSourceFile}
 										className="generate-button"
@@ -470,9 +448,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							{chunkBuffer && (
 								<div className={`buffer-preview ${heatmapEnabled ? 'heatmap' : ''}`}>
 									{chunkBuffer.split('\n').map((p, i) => {
-										const isSpeculative = p.length % 2 === 0; // Simulated rule
+										const isSpeculative = p.length % 2 === 0;
 										return (
-											<p key={i} className={isSpeculative ? 'speculative' : 'grounded'}>
+											<p key={`chunk-${i}`} className={isSpeculative ? 'speculative' : 'grounded'}>
 												{p}
 											</p>
 										);
@@ -506,16 +484,12 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					{mismatchReport && (
 						<div className="mismatch-report-banner">
 							<h3>⚠️ Strict Replay Mismatch</h3>
-							{mismatchReport.map((m, i) => (
-								<p key={i}><strong>{m.field}:</strong> Expected "{m.expected.slice(0, 8)}", Got "{m.actual.slice(0, 8)}" ({m.severity})</p>
+							{mismatchReport.map((m) => (
+								<p key={`${m.field}-${m.expected}`}><strong>{m.field}:</strong> Expected "{m.expected.slice(0, 8)}", Got "{m.actual.slice(0, 8)}" ({m.severity})</p>
 							))}
 							<div className="actions">
 								<button onClick={() => setMismatchReport(null)}>Cancel Replay</button>
-								<button className="mod-cta" onClick={() => {
-									// Proceed logic
-									setMismatchReport(null);
-									new Notice('Proceeding in Best-Effort mode...');
-								}}>Proceed Creative (Best-Effort)</button>
+								<button className="mod-cta" onClick={handleMismatchProceed}>Proceed Creative (Best-Effort)</button>
 							</div>
 						</div>
 					)}
@@ -527,32 +501,27 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 								<span>Spontaneity: {spontaneity}</span>
 								<span>Wild</span>
 							</div>
-							<input 
-								type="range" 
-								min="0" 
-								max="100" 
-								value={spontaneity} 
-								onChange={(e) => {
-									const val = parseInt(e.target.value);
-									setSpontaneity(val);
-									(plugin.settings as any).spontaneitySlider = val;
-									plugin.saveSettings();
-								}}
+							<input
+								type="range"
+								min="0"
+								max="100"
+								value={spontaneity}
+								onChange={(e) => handleSpontaneityChange(Number.parseInt(e.target.value, 10))}
 								className="spontaneity-slider"
 								title="Adjusts LLM temperature and novelty bias."
 							/>
 						</div>
 
-						<button 
-							onClick={handleGenerate} 
+						<button
+							onClick={handleGenerate}
 							disabled={isGenerating}
 							className="generate-button mod-cta"
 						>
 							{isGenerating ? 'Generating...' : 'Start Relay Generation'}
 						</button>
 
-						<button 
-							onClick={() => setHeatmapEnabled(!heatmapEnabled)} 
+						<button
+							onClick={() => setHeatmapEnabled(!heatmapEnabled)}
 							className={`heatmap-toggle ${heatmapEnabled ? 'active' : ''}`}
 						>
 							{heatmapEnabled ? 'Hide Heatmap' : 'Show Heatmap'}
@@ -575,14 +544,6 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							<div className="pulse-progress-bar">
 								<div className="pulse-progress-fill" />
 							</div>
-						</div>
-					)}
-
-					{telemetry && (
-						<div className="telemetry-bar">
-							<span>TPS: {telemetry.tps}</span>
-							<span>Model: {telemetry.model}</span>
-							<span>Digest: {telemetry.digest.slice(0, 8)}</span>
 						</div>
 					)}
 				</div>

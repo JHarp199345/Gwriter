@@ -60,12 +60,7 @@ Hard Attributes: ${AttributeRegistry.join(', ')}
 Respond ONLY with valid JSON.`;
 
         try {
-            const response = await this.plugin.ollamaGen.generate(prompt, { 
-                model: this.plugin.settings.relaySmartModel,
-                temperature: 0.1,
-                max_tokens: 1024,
-                format: 'json'
-            });
+            const response = await this.plugin.aiClient.generate(prompt, { ...this.plugin.settings, generationMode: 'single' as const });
             const parsed = JSON.parse(response);
             if (!Array.isArray(parsed)) return [];
             
@@ -184,12 +179,7 @@ Max churn: ${STITCH_CONFIG.MAX_CHARS_CHANGED_PCT * 100}%`;
         const attemptStitch = async (temp: number): Promise<StitchResponse | null> => {
             try {
                 if (signal?.aborted) throw new Error('Aborted');
-                const res = await this.plugin.ollamaGen.generate(prompt, {
-                    model: this.plugin.settings.relaySmartModel,
-                    temperature: temp,
-                    max_tokens: 1024,
-                    format: 'json'
-                }, signal);
+                const res = await this.plugin.aiClient.generate(prompt, { ...this.plugin.settings, generationMode: 'single' as const });
                 const result = JSON.parse(res) as StitchResponse;
                 
                 // 2. Fast Gate: Bounds and Budget

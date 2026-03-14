@@ -29,16 +29,19 @@ export const VaultBrowser: React.FC<{
 	const renderItem = (item: { name: string; path: string; type: 'file' | 'folder' }, depth: number = 0) => {
 		if (item.type === 'folder') {
 			const isExpanded = expandedFolders.has(item.path);
-			const children = structure.filter(s => 
-				s.path.startsWith(item.path + '/') && 
+			const children = structure.filter(s =>
+				s.path.startsWith(item.path + '/') &&
 				s.path.split('/').length === item.path.split('/').length + 1
 			);
-			
+
 			return (
 				<div key={item.path} className="vault-item folder" style={{ paddingLeft: `${depth * 20}px` }}>
-					<span 
+					<span
 						className="folder-toggle"
+						role="button"
+						tabIndex={0}
 						onClick={() => toggleFolder(item.path)}
+						onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { toggleFolder(item.path); } }}
 					>
 						{isExpanded ? '📂' : '📁'} {item.name}
 					</span>
@@ -78,4 +81,3 @@ export const VaultBrowser: React.FC<{
 		</div>
 	);
 };
-

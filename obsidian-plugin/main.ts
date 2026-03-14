@@ -10,11 +10,7 @@ import { CharacterUpdateService } from './services/CharacterUpdateService';
 import { RetrievalService } from './services/RetrievalService';
 import { QueryBuilder } from './services/QueryBuilder';
 import { EmbeddingsIndex } from './services/retrieval/EmbeddingsIndex';
-import { LocalEmbeddingsProvider } from './services/retrieval/LocalEmbeddingsProvider';
-import { CpuReranker } from './services/retrieval/CpuReranker';
-import { OllamaEmbeddingProvider } from './services/retrieval/OllamaEmbeddingProvider';
-import { OllamaGenerationProvider } from './services/retrieval/OllamaGenerationProvider';
-import { OllamaModelManager } from './services/OllamaModelManager';
+import { ExternalEmbeddingsProvider } from './services/retrieval/ExternalEmbeddingsProvider';
 import { SequentialGenerator } from './services/SequentialGenerator';
 import { ContextManager } from './services/ContextManager';
 import { AuditService } from './services/AuditService';
@@ -25,8 +21,6 @@ import { DiagnosticsService } from './services/DiagnosticsService';
 import { SetupWizardModal } from './ui/SetupWizard';
 import { BookMainSelectorModal } from './ui/BookMainSelectorModal';
 import { PublishWizardModal } from './ui/PublishWizardModal';
-import { RamTierModal } from './ui/RamTierModal';
-import { runInvariantChecks } from './services/ContextSafety';
 
 import { HelpDensity } from './ui/HelpRegistry';
 
@@ -94,20 +88,16 @@ export type DashboardSettings = {
 	characterExtractionSourcePath?: string;
 	characterExtractionChunkSize?: number;
 	defaultCharacterExtractionInstructions?: string;
-	characterExtractionBackend?: 'ollama' | 'cloud';
+	characterExtractionBackend?: 'cloud';
 	worldFolder?: string;
 	guidedDemoDismissed?: boolean;
 	guidedDemoShownOnce?: boolean;
 	setupCompleted?: boolean;
 	vaultPath?: string;
-	relaySmartModel: string;
-	relayEmbeddingModel: string;
-	relayMode?: 'local' | 'cloud';
 	relayCloudModel?: string;
 	relayMaxContextWindow?: number;
 	relayCostHardBudget?: number; // Max cost per run in dollars
 	relayStyleSignature?: string[]; // "Golden Paragraphs" for voice matching
-	ollamaBaseUrl: string;
 	maxChunkWords: number;
 	maxRepairAttempts: number;
 	retrievalTokenBudget: number;
@@ -115,20 +105,16 @@ export type DashboardSettings = {
 	verifiedModelsCatalog?: string[];
 	embeddingStorageMode?: 'isolated' | 'auto' | 'manual';
 	manualSharedPath?: string;
-	// RAM-Aware Context Control
-	ramTier?: 8 | 16 | 24 | 32 | 64 | 128;
-	riskProfile?: 'safe' | 'moderate' | 'aggressive';
-	contextSliderValue?: number;
-	verifiedModelContextLimit?: number;
 	[key: string]: any;
 };
 
 /**
- * Main plugin entrypoint. Slimmed to remove Smart Connections and template dependencies.
+ * Main plugin entrypoint. Slimmed to cloud-only AI (no local Ollama/WASM).
  * Settings are typed as `any` to stay resilient while we trim legacy fields.
  */
 export default class WritingDashboardPlugin extends Plugin {
 	settings: DashboardSettings;
+	// These fields are assigned in onload(), not in the constructor.
 	vaultService: VaultService;
 	contextAggregator: ContextAggregator;
 	promptEngine: PromptEngine;
@@ -138,12 +124,8 @@ export default class WritingDashboardPlugin extends Plugin {
 	queryBuilder: QueryBuilder;
 	retrievalService: RetrievalService;
 	embeddingsIndex: EmbeddingsIndex;
-	cpuReranker: CpuReranker;
 	diagnosticsService: DiagnosticsService;
 	generationLogService: GenerationLogService;
-	ollama: OllamaEmbeddingProvider;
-	ollamaGen: OllamaGenerationProvider;
-	ollamaModels: OllamaModelManager;
 	sequentialGenerator: SequentialGenerator;
 	auditService: AuditService;
 	trashService: TrashService;
@@ -152,23 +134,6 @@ export default class WritingDashboardPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
-
-		// Dev-only: Run context safety invariant checks
-		if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
-			try {
-				runInvariantChecks();
-			} catch (e) {
-				console.error('[WritingDashboard] Context safety invariant failed:', e);
-			}
-		}
-
-		// First-run: Show RAM tier selection if not set
-		if (this.settings.ramTier === undefined) {
-			// Defer to after layout is ready so the modal appears cleanly
-			this.app.workspace.onLayoutReady(() => {
-				new RamTierModal(this.app, this).open();
-			});
-		}
 
 		// Core services
 		this.vaultService = new VaultService(this.app.vault, this);
@@ -183,26 +148,23 @@ export default class WritingDashboardPlugin extends Plugin {
 			this.vaultService
 		);
 		this.queryBuilder = new QueryBuilder();
-		this.ollama = new OllamaEmbeddingProvider(this.app, this.settings.ollamaBaseUrl, this.settings.relayEmbeddingModel);
-		this.ollamaGen = new OllamaGenerationProvider(this);
-		this.ollamaModels = new OllamaModelManager(this);
 		this.auditService = new AuditService();
 		this.trashService = new TrashService(this.app.vault, this);
 		this.sequentialGenerator = new SequentialGenerator(this.app, this);
-		this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this, this.ollama);
-		this.cpuReranker = new CpuReranker();
+		this.embeddingsIndex = new EmbeddingsIndex(this.app.vault, this);
 		this.diagnosticsService = new DiagnosticsService(this);
 		this.generationLogService = new GenerationLogService(this.app, this);
 
 		// Write handshake for shared brain
 		await this.writeHandshake();
 
-		// Retrieval providers (hash/BM25 + optional local embeddings)
+		// Retrieval providers: heuristic (BM25/hash) + optional external cloud embeddings
 		const providers: Array<import('./services/retrieval/types').RetrievalProvider> = [
 			new HeuristicProvider(this.app.vault, this.vaultService),
-			new LocalEmbeddingsProvider(
+			new ExternalEmbeddingsProvider(
+				this,
 				this.embeddingsIndex,
-				() => Boolean(this.settings?.retrievalEnableSemanticIndex ?? true),
+				() => Boolean(this.settings?.externalEmbeddingsEnabled ?? false),
 				(path) => !this.vaultService.isExcludedPath(path)
 			)
 		];
@@ -296,11 +258,25 @@ export default class WritingDashboardPlugin extends Plugin {
 
 	async loadSettings() {
 		const loaded = (await this.loadData()) || {};
-		
+
 		// Migration: Remove legacy relayFastModel
 		if (loaded.relayFastModel) {
 			console.debug('[WritingDashboard] Migrating to single-model mode: removing legacy relayFastModel setting.');
 			delete loaded.relayFastModel;
+			await this.saveData(loaded);
+		}
+
+		// Migration: Remove legacy local AI fields from saved data
+		const legacyFields = ['ollamaBaseUrl', 'ramTier', 'riskProfile', 'contextSliderValue',
+			'verifiedModelContextLimit', 'relaySmartModel', 'relayEmbeddingModel', 'relayMode'];
+		let needsSave = false;
+		for (const field of legacyFields) {
+			if (field in loaded) {
+				delete loaded[field];
+				needsSave = true;
+			}
+		}
+		if (needsSave) {
 			await this.saveData(loaded);
 		}
 
@@ -336,7 +312,7 @@ export default class WritingDashboardPlugin extends Plugin {
 				characterExtractionSourcePath: undefined,
 				characterExtractionChunkSize: 2500,
 				defaultCharacterExtractionInstructions: '',
-				characterExtractionBackend: 'ollama',
+				characterExtractionBackend: 'cloud',
 				worldFolder: 'World',
 				guidedDemoDismissed: false,
 				guidedDemoShownOnce: false,
@@ -344,13 +320,9 @@ export default class WritingDashboardPlugin extends Plugin {
 				retrievalProfiles: [],
 				retrievalActiveProfileId: undefined,
 				retrievalIncludedFolders: [],
-				relaySmartModel: 'llama3.1:70b',
-				relayEmbeddingModel: 'nomic-embed-text',
-				relayMode: 'local',
 				relayCloudModel: 'gpt-4o',
 				relayMaxContextWindow: 128000,
 				relayCostHardBudget: 1.0, // $1 max per run
-				ollamaBaseUrl: 'http://127.0.0.1:11434',
 				maxChunkWords: 500,
 				maxRepairAttempts: 1,
 				retrievalTokenBudget: 3000,
@@ -358,11 +330,6 @@ export default class WritingDashboardPlugin extends Plugin {
 				verifiedModelsCatalog: [],
 				embeddingStorageMode: 'isolated',
 				manualSharedPath: '',
-				// RAM-Aware Context Control - defaults
-				ramTier: undefined,  // Triggers first-run modal
-				riskProfile: 'safe',
-				contextSliderValue: undefined,  // Uses derived max
-				verifiedModelContextLimit: undefined
 			},
 			loaded
 		);
@@ -395,9 +362,10 @@ export default class WritingDashboardPlugin extends Plugin {
 	recreateRetrievalService() {
 		const providers: Array<import('./services/retrieval/types').RetrievalProvider> = [
 			new HeuristicProvider(this.app.vault, this.vaultService),
-			new LocalEmbeddingsProvider(
+			new ExternalEmbeddingsProvider(
+				this,
 				this.embeddingsIndex,
-				() => Boolean(this.settings?.retrievalEnableSemanticIndex ?? true),
+				() => Boolean(this.settings?.externalEmbeddingsEnabled ?? false),
 				(path) => !this.vaultService.isExcludedPath(path)
 			)
 		];
@@ -406,18 +374,4 @@ export default class WritingDashboardPlugin extends Plugin {
 			getVector: (key) => this.embeddingsIndex.getVectorForKey(key)
 		});
 	}
-
-	recreateEmbeddingProvider() {
-		this.ollama = new OllamaEmbeddingProvider(
-			this.app, 
-			this.settings.ollamaBaseUrl, 
-			this.settings.relayEmbeddingModel
-		);
-		// Also update the index since it holds a reference to the provider
-		if (this.embeddingsIndex) {
-			this.embeddingsIndex.updateProvider(this.ollama);
-		}
-	}
 }
-
-

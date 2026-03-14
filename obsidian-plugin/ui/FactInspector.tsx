@@ -59,13 +59,16 @@ export const FactInspector: React.FC<FactInspectorProps> = ({ plugin, state }) =
                         <p className="empty-msg" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No facts found for this filter.</p>
                     ) : (
                         filteredFacts.map(fact => (
-                            <div 
-                                key={fact.id} 
+                            <div
+                                key={fact.id}
                                 className={`fact-item ${selectedFactId === fact.id ? 'is-selected' : ''}`}
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => setSelectedFactId(fact.id)}
-                                style={{ 
-                                    padding: '8px', 
-                                    cursor: 'pointer', 
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setSelectedFactId(fact.id); } }}
+                                style={{
+                                    padding: '8px',
+                                    cursor: 'pointer',
                                     borderBottom: '1px solid var(--background-modifier-border)',
                                     backgroundColor: selectedFactId === fact.id ? 'var(--background-modifier-hover)' : 'transparent'
                                 }}
@@ -126,8 +129,8 @@ export const FactInspector: React.FC<FactInspectorProps> = ({ plugin, state }) =
                     {state.timeline.length === 0 ? (
                         <p className="empty-msg" style={{ color: 'var(--text-muted)' }}>No timeline events yet.</p>
                     ) : (
-                        state.timeline.map((t, i) => (
-                            <div key={i} style={{ display: 'flex', gap: '12px', marginBottom: '4px' }}>
+                        state.timeline.map((t) => (
+                            <div key={t.chunkId} style={{ display: 'flex', gap: '12px', marginBottom: '4px' }}>
                                 <span style={{ color: 'var(--text-accent)', minWidth: '60px' }}>{t.chunkId}</span>
                                 <span>{t.summary}</span>
                             </div>
