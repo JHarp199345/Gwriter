@@ -311,10 +311,16 @@ export class SequentialGenerator {
             ? `\nCONTINUATION ANCHOR — your prose must flow naturally and directly from this existing text:\n"""${continuationAnchor}"""\n`
             : '';
 
+        // Golden paragraphs — inject the author's voice signature so every chunk sounds like them.
+        const styleSignature = this.plugin.settings.relayStyleSignature;
+        const styleBlock = (styleSignature && styleSignature.length > 0)
+            ? `\n\nAUTHOR'S VOICE REFERENCE — your prose must match this exact voice:\n"""\n${styleSignature.slice(0, 5).join('\n\n---\n\n')}\n"""\nMirror the sentence rhythm, diction, narrative distance, and emotional register shown above. Do not default to generic AI prose patterns.\n`
+            : '';
+
         const prompt = `
                         ${stateCard}${plotMemoryBlock}
                         PLAN: ${JSON.stringify(planResult.data)}
-                        CONTEXT: ${retrieved}${constraintBlock}${anchorBlock}
+                        CONTEXT: ${retrieved}${constraintBlock}${anchorBlock}${styleBlock}
 
                         INSTRUCTION: Write the next prose chunk.
                         Use \n\n to separate paragraphs.

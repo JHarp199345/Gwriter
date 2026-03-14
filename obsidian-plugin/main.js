@@ -28561,6 +28561,23 @@ var SettingsTab = class extends import_obsidian8.PluginSettingTab {
         }
       }).open();
     }));
+    addSection("Voice & style", "Golden paragraphs \u2014 your best prose shown to the AI as a voice anchor.");
+    new import_obsidian8.Setting(containerEl).setName("Golden paragraphs").setDesc(
+      'Paste 3\u20135 of your best paragraphs here. The AI will mirror this exact voice, rhythm, and style in every generation. Separate each paragraph with a line containing only "---". Pick paragraphs that show your most characteristic sentence structure and emotional register.'
+    ).addTextArea((text2) => {
+      text2.setPlaceholder(
+        "She walked into the room like she owned the silence...\n---\nThe rain had the kind of patience that made windows into mirrors of grey..."
+      ).setValue((this.plugin.settings.relayStyleSignature || []).join("\n---\n")).onChange(async (value) => {
+        const paragraphs = value.split(/\n---\n/).map((p) => p.trim()).filter((p) => p.length > 0);
+        this.plugin.settings.relayStyleSignature = paragraphs.length > 0 ? paragraphs : void 0;
+        await this.plugin.saveSettings();
+      });
+      text2.inputEl.rows = 14;
+      text2.inputEl.style.width = "100%";
+      text2.inputEl.style.fontFamily = "var(--font-text)";
+      text2.inputEl.style.fontSize = "0.9em";
+      return text2;
+    });
     addSection("Character extraction & safeguards", "Defaults for character processing and prompt-size warnings.");
     new import_obsidian8.Setting(containerEl).setName("Character extraction chunk size (words)").setDesc('Used by "process entire book" to batch character extraction. Larger chunks (e.g., 2000\u20133000) tend to improve character context.').addText((text2) => text2.setPlaceholder("2500").setValue(String(this.plugin.settings.characterExtractionChunkSize ?? 2500)).onChange(async (value) => {
       const parsed = Number.parseInt(value, 10);
@@ -34565,10 +34582,19 @@ Constraint: Do not assert new canonical facts about these domains.` : "";
 CONTINUATION ANCHOR \u2014 your prose must flow naturally and directly from this existing text:
 """${continuationAnchor}"""
 ` : "";
+    const styleSignature = this.plugin.settings.relayStyleSignature;
+    const styleBlock = styleSignature && styleSignature.length > 0 ? `
+
+AUTHOR'S VOICE REFERENCE \u2014 your prose must match this exact voice:
+"""
+${styleSignature.slice(0, 5).join("\n\n---\n\n")}
+"""
+Mirror the sentence rhythm, diction, narrative distance, and emotional register shown above. Do not default to generic AI prose patterns.
+` : "";
     const prompt = `
                         ${stateCard}${plotMemoryBlock}
                         PLAN: ${JSON.stringify(planResult.data)}
-                        CONTEXT: ${retrieved}${constraintBlock}${anchorBlock}
+                        CONTEXT: ${retrieved}${constraintBlock}${anchorBlock}${styleBlock}
 
                         INSTRUCTION: Write the next prose chunk.
                         Use 

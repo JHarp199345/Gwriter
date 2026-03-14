@@ -847,6 +847,37 @@ export class SettingsTab extends PluginSettingTab {
 					}).open();
 				}));
 
+		addSection('Voice & style', 'Golden paragraphs — your best prose shown to the AI as a voice anchor.');
+
+		new Setting(containerEl)
+			.setName('Golden paragraphs')
+			.setDesc(
+				'Paste 3–5 of your best paragraphs here. The AI will mirror this exact voice, rhythm, and style ' +
+				'in every generation. Separate each paragraph with a line containing only "---". ' +
+				'Pick paragraphs that show your most characteristic sentence structure and emotional register.'
+			)
+			.addTextArea(text => {
+				text
+					.setPlaceholder(
+						'She walked into the room like she owned the silence...\n---\n' +
+						'The rain had the kind of patience that made windows into mirrors of grey...'
+					)
+					.setValue((this.plugin.settings.relayStyleSignature || []).join('\n---\n'))
+					.onChange(async (value) => {
+						const paragraphs = value
+							.split(/\n---\n/)
+							.map(p => p.trim())
+							.filter(p => p.length > 0);
+						this.plugin.settings.relayStyleSignature = paragraphs.length > 0 ? paragraphs : undefined;
+						await this.plugin.saveSettings();
+					});
+				text.inputEl.rows = 14;
+				text.inputEl.style.width = '100%';
+				text.inputEl.style.fontFamily = 'var(--font-text)';
+				text.inputEl.style.fontSize = '0.9em';
+				return text;
+			});
+
 		addSection('Character extraction & safeguards', 'Defaults for character processing and prompt-size warnings.');
 
 		new Setting(containerEl)
