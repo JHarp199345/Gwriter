@@ -34577,10 +34577,31 @@ PLOT MEMORY: ${plotMemory}
     const constraintBlock = isDegraded ? `
 [DEGRADED MODE] Restricted Domains: ${restrictedDomains.join(", ")}
 Constraint: Do not assert new canonical facts about these domains.` : "";
-    const continuationAnchor = iteration === 0 ? await this._getExistingManuscriptTail(2) : this._getLastChunkTail();
-    const anchorBlock = continuationAnchor ? `
-CONTINUATION ANCHOR \u2014 your prose must flow naturally and directly from this existing text:
-"""${continuationAnchor}"""
+    const { previousChapter, currentChapter } = await this._getChapterContext();
+    const prevChapterBlock = previousChapter ? `
+
+PREVIOUS CHAPTER (full \u2014 read this to absorb tone, pacing, and where we just were):
+"""
+${previousChapter}
+"""
+` : "";
+    const currentChapterBlock = currentChapter ? `
+
+CURRENT CHAPTER \u2014 EVERYTHING WRITTEN SO FAR (continue from this; do NOT repeat any of it):
+"""
+${currentChapter}
+"""
+` : "";
+    const runAnchor = this._getLastChunkTail();
+    const runAnchorBlock = runAnchor ? `
+CONTINUATION ANCHOR \u2014 your first sentence must flow directly from:
+"""${runAnchor}"""
+` : "";
+    const characterLoreText = await this._getCharacterLore(planResult.data, currentChapter);
+    const characterLoreBlock = characterLoreText ? `
+
+CHARACTER LORE (only characters present in this scene):
+${characterLoreText}
 ` : "";
     const styleSignature = this.plugin.settings.relayStyleSignature;
     const styleBlock = styleSignature && styleSignature.length > 0 ? `
@@ -34594,7 +34615,7 @@ Mirror the sentence rhythm, diction, narrative distance, and emotional register 
     const prompt = `
                         ${stateCard}${plotMemoryBlock}
                         PLAN: ${JSON.stringify(planResult.data)}
-                        CONTEXT: ${retrieved}${constraintBlock}${anchorBlock}${styleBlock}
+                        RETRIEVED FACTS: ${retrieved}${constraintBlock}${prevChapterBlock}${currentChapterBlock}${runAnchorBlock}${characterLoreBlock}${styleBlock}
 
                         INSTRUCTION: Write the next prose chunk.
                         Use 
@@ -34647,6 +34668,66 @@ Mirror the sentence rhythm, diction, narrative distance, and emotional register 
     if (!lastChunk || lastChunk.length === 0)
       return "";
     return lastChunk[lastChunk.length - 1]?.text ?? "";
+  }
+  /**
+   * Word-First Context Strategy: reads the manuscript and returns the previous
+   * complete chapter and the current chapter (everything written so far).
+   *
+   * Splits on H1 headings (the convention used throughout the book).
+   * Previous chapter is capped at PREV_CHAPTER_WORD_CAP words so very long
+   * chapters don't crowd the context; current chapter is returned in full
+   * because the AI must know everything already written to avoid repetition.
+   */
+  async _getChapterContext() {
+    const PREV_CHAPTER_WORD_CAP = 8e3;
+    try {
+      const content = await this.plugin.vaultService.readFile(this.plugin.settings.book2Path);
+      if (!content)
+        return { previousChapter: "", currentChapter: "" };
+      const parts = content.split(/^(?=#\s)/m).filter((p) => p.trim().length > 100);
+      if (parts.length === 0) {
+        return { previousChapter: "", currentChapter: content };
+      }
+      const currentChapter = parts[parts.length - 1] ?? "";
+      const prevChapterFull = parts.length >= 2 ? parts[parts.length - 2] ?? "" : "";
+      const prevWords = prevChapterFull.split(/\s+/);
+      const previousChapter = prevWords.length > PREV_CHAPTER_WORD_CAP ? prevWords.slice(-PREV_CHAPTER_WORD_CAP).join(" ") : prevChapterFull;
+      return { previousChapter, currentChapter };
+    } catch {
+      return { previousChapter: "", currentChapter: "" };
+    }
+  }
+  /**
+   * Character Lore injection: reads character notes from the character folder
+   * and returns only those characters whose names appear in the plan data or
+   * current chapter text — so the AI gets targeted facts about the people
+   * actually in the scene, not a dump of every character in the book.
+   *
+   * Each note is capped at CHARS_PER_NOTE_CAP characters to stay token-sane.
+   */
+  async _getCharacterLore(planData, currentChapter) {
+    const CHARS_PER_NOTE_CAP = 2e3;
+    const MAX_CHARACTERS = 8;
+    const folder = this.plugin.settings.characterFolder || "Characters";
+    const haystack = `${JSON.stringify(planData)} ${currentChapter}`.toLowerCase();
+    try {
+      const files = this.plugin.app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(`${folder}/`));
+      const relevant = [];
+      for (const file of files) {
+        if (haystack.includes(file.basename.toLowerCase())) {
+          const content = await this.plugin.app.vault.cachedRead(file);
+          relevant.push({ name: file.basename, content: content.slice(0, CHARS_PER_NOTE_CAP) });
+          if (relevant.length >= MAX_CHARACTERS)
+            break;
+        }
+      }
+      if (relevant.length === 0)
+        return "";
+      return relevant.map((c) => `### ${c.name}
+${c.content}`).join("\n\n");
+    } catch {
+      return "";
+    }
   }
   _quarantineDegradedFacts(writeResult, restrictedDomains) {
     if (!writeResult.metadata)
