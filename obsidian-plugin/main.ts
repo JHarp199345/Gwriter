@@ -105,6 +105,8 @@ export type DashboardSettings = {
 	verifiedModelsCatalog?: string[];
 	embeddingStorageMode?: 'isolated' | 'auto' | 'manual';
 	manualSharedPath?: string;
+	/** Spontaneity/creativity slider value 0–100. Maps to temperature 0.3–1.0. Default 50. */
+	spontaneity?: number;
 	[key: string]: any;
 };
 

@@ -36,7 +36,15 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [rejections, setRejections] = useState<any[]>([]);
 	const [proposedMutation, setProposedMutation] = useState<any | null>(null);
 	const [trustSummary, setTrustSummary] = useState<any | null>(null);
-	const [activeTab, setActiveTab] = useState<'editor' | 'lore' | 'replay' | 'signature' | 'characters'>('editor');
+	const [activeTab, setActiveTab] = useState<'editor' | 'lore' | 'replay' | 'characters'>('editor');
+
+	// Suggestions ("What happens next?") state
+	const [suggestions, setSuggestions] = useState<string[]>([]);
+	const [isSuggestingDirections, setIsSuggestingDirections] = useState(false);
+	const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+
+	// Advanced tabs dropdown state
+	const [showAdvancedMenu, setShowAdvancedMenu] = useState(false);
 
 	// Character Update mode state
 	const [characterSourceFile, setCharacterSourceFile] = useState<string>(
@@ -322,14 +330,82 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		new Notice('Proceeding in Best-Effort mode...');
 	};
 
+	/** Parse a numbered list from AI output — works incrementally while streaming. */
+	const parseSuggestions = (text: string): string[] => {
+		const result: string[] = [];
+		let current = '';
+		for (const line of text.split('\n')) {
+			const trimmed = line.trim();
+			if (/^\d+[\.\)]/.test(trimmed)) {
+				if (current.trim()) result.push(current.trim());
+				current = trimmed.replace(/^\d+[\.\)]\s*/, '');
+			} else if (current) {
+				current += ' ' + trimmed;
+			}
+		}
+		if (current.trim()) result.push(current.trim());
+		return result;
+	};
+
+	const handleGetSuggestions = async () => {
+		setIsSuggestingDirections(true);
+		setSuggestions([]);
+		setSuggestionsOpen(true);
+		try {
+			// Read the last ~1500 words of the active manuscript
+			const content = await plugin.vaultService.readFile(plugin.settings.book2Path).catch(() => '');
+			const words = content.trim().split(/\s+/);
+			const tail = words.slice(-1500).join(' ');
+
+			// Read the story bible for tone and world grounding
+			const bible = await plugin.vaultService.readFile(plugin.settings.storyBiblePath).catch(() => '');
+
+			const prompt = plugin.promptEngine.buildDirectionSuggestionsPrompt(tail, bible);
+
+			await plugin.aiClient.generateStream(
+				prompt,
+				{ ...plugin.settings, generationMode: 'single' as const },
+				(accumulated) => {
+					setSuggestions(parseSuggestions(accumulated));
+				}
+			);
+		} catch (err: any) {
+			new Notice(`Suggestions failed: ${err.message}`);
+		} finally {
+			setIsSuggestingDirections(false);
+		}
+	};
+
 	return (
 		<div className="writing-dashboard">
 			<div className="dashboard-tabs">
-				<button className={activeTab === 'editor' ? 'active' : ''} onClick={() => setActiveTab('editor')}>Editor</button>
-				<button className={activeTab === 'lore' ? 'active' : ''} onClick={() => setActiveTab('lore')}>Lore</button>
-				<button className={activeTab === 'replay' ? 'active' : ''} onClick={() => setActiveTab('replay')}>Replay</button>
-				<button className={activeTab === 'signature' ? 'active' : ''} onClick={() => setActiveTab('signature')}>Signature</button>
-				<button className={activeTab === 'characters' ? 'active' : ''} onClick={() => setActiveTab('characters')}>Characters</button>
+				<button
+					className={activeTab === 'editor' ? 'active' : ''}
+					onClick={() => { setActiveTab('editor'); setShowAdvancedMenu(false); }}
+				>
+					Editor
+				</button>
+				<div className="advanced-dropdown-wrapper">
+					<button
+						className={`advanced-dropdown-trigger ${(['lore', 'replay', 'characters'] as const).includes(activeTab as any) ? 'active' : ''}`}
+						onClick={() => setShowAdvancedMenu(v => !v)}
+					>
+						⚙ Advanced {showAdvancedMenu ? '▲' : '▾'}
+					</button>
+					{showAdvancedMenu && (
+						<div className="advanced-dropdown-menu">
+							<button onClick={() => { setActiveTab('lore'); setShowAdvancedMenu(false); }}>
+								🔍 Lore Inspector
+							</button>
+							<button onClick={() => { setActiveTab('replay'); setShowAdvancedMenu(false); }}>
+								🔄 Replay History
+							</button>
+							<button onClick={() => { setActiveTab('characters'); setShowAdvancedMenu(false); }}>
+								👤 Characters
+							</button>
+						</div>
+					)}
+				</div>
 			</div>
 
 			<div className="dashboard-layout">
@@ -348,6 +424,15 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 								onCopy={() => navigator.clipboard.writeText(generatedText)}
 								onUndo={handleUndo}
 								chunkBuffer={chunkBuffer}
+								suggestions={suggestions}
+								isSuggestingDirections={isSuggestingDirections}
+								suggestionsOpen={suggestionsOpen}
+								onToggleSuggestions={() => setSuggestionsOpen(v => !v)}
+								onGetSuggestions={handleGetSuggestions}
+								onUseSuggestion={(text) => {
+									updateMainInput(text);
+									setSuggestionsOpen(false);
+								}}
 							/>
 						)}
 

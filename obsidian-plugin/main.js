@@ -26603,7 +26603,7 @@ var TextChunker = class {
 };
 
 // ui/EditorPanel.tsx
-var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, generatedParagraphs, heatmapEnabled, onGeneratedChange, onCopy, onUndo, chunkBuffer }) => {
+var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, generatedParagraphs, heatmapEnabled, onGeneratedChange, onCopy, onUndo, chunkBuffer, suggestions = [], isSuggestingDirections = false, suggestionsOpen = false, onToggleSuggestions, onGetSuggestions, onUseSuggestion }) => {
   const [hoveredPara, setHoveredPara] = (0, import_react.useState)(null);
   const [debugLevel, setDebugLevel] = (0, import_react.useState)("off");
   const [debugMode, setDebugMode] = (0, import_react.useState)("off");
@@ -26656,7 +26656,15 @@ var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, gener
       rows: 8,
       className: "editor-textarea"
     }
-  )), (generatedText || chunkBuffer) && /* @__PURE__ */ import_react.default.createElement("div", { className: "editor-section" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "generated-header" }, /* @__PURE__ */ import_react.default.createElement("div", { style: { display: "flex", flexDirection: "column" } }, /* @__PURE__ */ import_react.default.createElement("label", null, "Generated output:"), /* @__PURE__ */ import_react.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, outputWords.toLocaleString(), " words / ", outputChars.toLocaleString(), " chars")), /* @__PURE__ */ import_react.default.createElement("div", { style: { display: "flex", gap: 12, alignItems: "center" } }, heatmapEnabled && /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { className: "debug-mode-selector", style: { display: "flex", gap: 4 } }, /* @__PURE__ */ import_react.default.createElement(
+  )), mode === "chapter" && /* @__PURE__ */ import_react.default.createElement("div", { className: "suggestions-panel" }, /* @__PURE__ */ import_react.default.createElement("button", { className: "suggestions-toggle", onClick: onToggleSuggestions }, "\u{1F4A1} What happens next? ", suggestionsOpen ? "\u25B2" : "\u25BE"), suggestionsOpen && /* @__PURE__ */ import_react.default.createElement("div", { className: "suggestions-body" }, suggestions.length === 0 && !isSuggestingDirections && /* @__PURE__ */ import_react.default.createElement("button", { className: "suggestions-generate-btn", onClick: onGetSuggestions }, "Generate story directions from your manuscript"), isSuggestingDirections && suggestions.length === 0 && /* @__PURE__ */ import_react.default.createElement("div", { className: "suggestions-loading" }, "\u2728 Reading your story..."), suggestions.map((s, i) => /* @__PURE__ */ import_react.default.createElement("div", { key: i, className: "suggestion-card" }, /* @__PURE__ */ import_react.default.createElement("span", { className: "suggestion-number" }, i + 1), /* @__PURE__ */ import_react.default.createElement("p", { className: "suggestion-text" }, s), /* @__PURE__ */ import_react.default.createElement(
+    "button",
+    {
+      className: "suggestion-use-btn",
+      onClick: () => onUseSuggestion?.(s),
+      title: "Use this as your scene summary"
+    },
+    "Use this \u2192"
+  ))), suggestions.length > 0 && !isSuggestingDirections && /* @__PURE__ */ import_react.default.createElement("button", { className: "suggestions-refresh-btn", onClick: onGetSuggestions }, "\u21BB New suggestions"))), (generatedText || chunkBuffer) && /* @__PURE__ */ import_react.default.createElement("div", { className: "editor-section" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "generated-header" }, /* @__PURE__ */ import_react.default.createElement("div", { style: { display: "flex", flexDirection: "column" } }, /* @__PURE__ */ import_react.default.createElement("label", null, "Generated output:"), /* @__PURE__ */ import_react.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, outputWords.toLocaleString(), " words / ", outputChars.toLocaleString(), " chars")), /* @__PURE__ */ import_react.default.createElement("div", { style: { display: "flex", gap: 12, alignItems: "center" } }, heatmapEnabled && /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { className: "debug-mode-selector", style: { display: "flex", gap: 4 } }, /* @__PURE__ */ import_react.default.createElement(
     "button",
     {
       className: `btn-xs ${debugMode === "off" ? "mod-cta" : ""}`,
@@ -27290,6 +27298,10 @@ var DashboardComponent = ({ plugin }) => {
   const [proposedMutation, setProposedMutation] = (0, import_react6.useState)(null);
   const [trustSummary, setTrustSummary] = (0, import_react6.useState)(null);
   const [activeTab, setActiveTab] = (0, import_react6.useState)("editor");
+  const [suggestions, setSuggestions] = (0, import_react6.useState)([]);
+  const [isSuggestingDirections, setIsSuggestingDirections] = (0, import_react6.useState)(false);
+  const [suggestionsOpen, setSuggestionsOpen] = (0, import_react6.useState)(false);
+  const [showAdvancedMenu, setShowAdvancedMenu] = (0, import_react6.useState)(false);
   const [characterSourceFile, setCharacterSourceFile] = (0, import_react6.useState)(
     plugin.settings.characterExtractionSourcePath || plugin.settings.book2Path
   );
@@ -27549,7 +27561,74 @@ var DashboardComponent = ({ plugin }) => {
     setMismatchReport(null);
     new import_obsidian3.Notice("Proceeding in Best-Effort mode...");
   };
-  return /* @__PURE__ */ import_react6.default.createElement("div", { className: "writing-dashboard" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "dashboard-tabs" }, /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "editor" ? "active" : "", onClick: () => setActiveTab("editor") }, "Editor"), /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "lore" ? "active" : "", onClick: () => setActiveTab("lore") }, "Lore"), /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "replay" ? "active" : "", onClick: () => setActiveTab("replay") }, "Replay"), /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "signature" ? "active" : "", onClick: () => setActiveTab("signature") }, "Signature"), /* @__PURE__ */ import_react6.default.createElement("button", { className: activeTab === "characters" ? "active" : "", onClick: () => setActiveTab("characters") }, "Characters")), /* @__PURE__ */ import_react6.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "main-workspace" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "tab-content-wrapper", style: { flex: "1 1 auto", overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px" } }, activeTab === "editor" && /* @__PURE__ */ import_react6.default.createElement(
+  const parseSuggestions = (text2) => {
+    const result = [];
+    let current = "";
+    for (const line of text2.split("\n")) {
+      const trimmed = line.trim();
+      if (/^\d+[\.\)]/.test(trimmed)) {
+        if (current.trim())
+          result.push(current.trim());
+        current = trimmed.replace(/^\d+[\.\)]\s*/, "");
+      } else if (current) {
+        current += " " + trimmed;
+      }
+    }
+    if (current.trim())
+      result.push(current.trim());
+    return result;
+  };
+  const handleGetSuggestions = async () => {
+    setIsSuggestingDirections(true);
+    setSuggestions([]);
+    setSuggestionsOpen(true);
+    try {
+      const content = await plugin.vaultService.readFile(plugin.settings.book2Path).catch(() => "");
+      const words = content.trim().split(/\s+/);
+      const tail = words.slice(-1500).join(" ");
+      const bible = await plugin.vaultService.readFile(plugin.settings.storyBiblePath).catch(() => "");
+      const prompt = plugin.promptEngine.buildDirectionSuggestionsPrompt(tail, bible);
+      await plugin.aiClient.generateStream(
+        prompt,
+        { ...plugin.settings, generationMode: "single" },
+        (accumulated) => {
+          setSuggestions(parseSuggestions(accumulated));
+        }
+      );
+    } catch (err) {
+      new import_obsidian3.Notice(`Suggestions failed: ${err.message}`);
+    } finally {
+      setIsSuggestingDirections(false);
+    }
+  };
+  return /* @__PURE__ */ import_react6.default.createElement("div", { className: "writing-dashboard" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "dashboard-tabs" }, /* @__PURE__ */ import_react6.default.createElement(
+    "button",
+    {
+      className: activeTab === "editor" ? "active" : "",
+      onClick: () => {
+        setActiveTab("editor");
+        setShowAdvancedMenu(false);
+      }
+    },
+    "Editor"
+  ), /* @__PURE__ */ import_react6.default.createElement("div", { className: "advanced-dropdown-wrapper" }, /* @__PURE__ */ import_react6.default.createElement(
+    "button",
+    {
+      className: `advanced-dropdown-trigger ${["lore", "replay", "characters"].includes(activeTab) ? "active" : ""}`,
+      onClick: () => setShowAdvancedMenu((v) => !v)
+    },
+    "\u2699 Advanced ",
+    showAdvancedMenu ? "\u25B2" : "\u25BE"
+  ), showAdvancedMenu && /* @__PURE__ */ import_react6.default.createElement("div", { className: "advanced-dropdown-menu" }, /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => {
+    setActiveTab("lore");
+    setShowAdvancedMenu(false);
+  } }, "\u{1F50D} Lore Inspector"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => {
+    setActiveTab("replay");
+    setShowAdvancedMenu(false);
+  } }, "\u{1F504} Replay History"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => {
+    setActiveTab("characters");
+    setShowAdvancedMenu(false);
+  } }, "\u{1F464} Characters")))), /* @__PURE__ */ import_react6.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "main-workspace" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "tab-content-wrapper", style: { flex: "1 1 auto", overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px" } }, activeTab === "editor" && /* @__PURE__ */ import_react6.default.createElement(
     EditorPanel,
     {
       plugin,
@@ -27562,7 +27641,16 @@ var DashboardComponent = ({ plugin }) => {
       onGeneratedChange: handleGeneratedChange,
       onCopy: () => navigator.clipboard.writeText(generatedText),
       onUndo: handleUndo,
-      chunkBuffer
+      chunkBuffer,
+      suggestions,
+      isSuggestingDirections,
+      suggestionsOpen,
+      onToggleSuggestions: () => setSuggestionsOpen((v) => !v),
+      onGetSuggestions: handleGetSuggestions,
+      onUseSuggestion: (text2) => {
+        updateMainInput(text2);
+        setSuggestionsOpen(false);
+      }
     }
   ), activeTab === "lore" && /* @__PURE__ */ import_react6.default.createElement("div", { className: "lore-tab" }, /* @__PURE__ */ import_react6.default.createElement(
     FactInspector,
@@ -27915,60 +28003,62 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
 // ui/SettingsTab.ts
 init_TreePickerModal();
 var OPENAI_MODELS = [
-  { value: "gpt-5.2-pro", label: "GPT-5.2 Pro" },
-  { value: "gpt-5.2-thinking", label: "GPT-5.2 Thinking" },
-  { value: "gpt-5.2-instant", label: "GPT-5.2 Instant" },
+  // Current generation (2025–2026)
+  { value: "gpt-5", label: "GPT-5" },
+  { value: "gpt-4.1", label: "GPT-4.1" },
+  { value: "gpt-4.1-mini", label: "GPT-4.1 Mini" },
   { value: "gpt-4o", label: "GPT-4o" },
   { value: "gpt-4o-mini", label: "GPT-4o Mini" },
-  { value: "gpt-4-turbo", label: "GPT-4 Turbo" },
-  { value: "gpt-4", label: "GPT-4" },
-  { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" }
+  // Reasoning models
+  { value: "o3", label: "o3 (Reasoning)" },
+  { value: "o4-mini", label: "o4-mini (Reasoning, Fast)" }
 ];
 var ANTHROPIC_MODELS = [
-  { value: "claude-4-5-opus", label: "Claude 4.5 Opus" },
-  { value: "claude-4-5-sonnet", label: "Claude 4.5 Sonnet" },
-  { value: "claude-4-5-haiku", label: "Claude 4.5 Haiku" },
-  { value: "claude-3-5-sonnet", label: "Claude 3.5 Sonnet" },
-  { value: "claude-3-opus", label: "Claude 3 Opus" },
-  { value: "claude-3-sonnet", label: "Claude 3 Sonnet" },
-  { value: "claude-3-haiku", label: "Claude 3 Haiku" }
+  // Current generation — Claude 4.x (2025–2026)
+  { value: "claude-opus-4-6", label: "Claude Opus 4.6 \u2B50 Most capable" },
+  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 \u2B50 Recommended" },
+  { value: "claude-haiku-4-5", label: "Claude Haiku 4.5 (Fast & cheap)" },
+  // Previous generation — still active
+  { value: "claude-sonnet-4-5", label: "Claude Sonnet 4.5 (Legacy)" },
+  { value: "claude-opus-4-20250514", label: "Claude Opus 4 (Pinned, Legacy)" }
 ];
 var GEMINI_MODELS = [
-  { value: "gemini-3-pro-preview", label: "Gemini 3.0 Pro (Preview)" },
-  { value: "gemini-3-flash-preview", label: "Gemini 3.0 Flash (Preview)" },
-  { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-  { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-  { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
-  { value: "gemini-2.0-flash-exp", label: "Gemini 2.0 Flash Experimental" },
-  { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
-  { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
-  { value: "gemini-pro", label: "Gemini Pro" }
+  // Gemini 3.x — latest (2025–2026)
+  { value: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (Preview) \u2014 1M ctx" },
+  { value: "gemini-3-flash-preview", label: "Gemini 3 Flash (Preview) \u2014 1M ctx" },
+  // Gemini 2.5 — stable production
+  { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro \u2014 2M ctx" },
+  { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash \u2B50 Recommended \u2014 1M ctx" },
+  { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite (Cheapest)" },
+  // Gemini 2.0 — retiring June 2026
+  { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash (Retiring June 2026)" }
 ];
 var OPENROUTER_MODELS = [
-  { value: "openai/gpt-5.2-pro", label: "OpenAI GPT-5.2 Pro" },
-  { value: "openai/gpt-5.2-thinking", label: "OpenAI GPT-5.2 Thinking" },
-  { value: "openai/gpt-5.2-instant", label: "OpenAI GPT-5.2 Instant" },
-  { value: "openai/gpt-4o", label: "OpenAI GPT-4o" },
-  { value: "openai/gpt-4o-mini", label: "OpenAI GPT-4o Mini" },
-  { value: "openai/gpt-4-turbo", label: "OpenAI GPT-4 Turbo" },
-  { value: "openai/gpt-4", label: "OpenAI GPT-4" },
-  { value: "openai/gpt-3.5-turbo", label: "OpenAI GPT-3.5 Turbo" },
-  { value: "anthropic/claude-4-5-opus", label: "Anthropic Claude 4.5 Opus" },
-  { value: "anthropic/claude-4-5-sonnet", label: "Anthropic Claude 4.5 Sonnet" },
-  { value: "anthropic/claude-4-5-haiku", label: "Anthropic Claude 4.5 Haiku" },
-  { value: "anthropic/claude-3-5-sonnet", label: "Anthropic Claude 3.5 Sonnet" },
-  { value: "anthropic/claude-3-opus", label: "Anthropic Claude 3 Opus" },
-  { value: "anthropic/claude-3-sonnet", label: "Anthropic Claude 3 Sonnet" },
-  { value: "anthropic/claude-3-haiku", label: "Anthropic Claude 3 Haiku" },
-  { value: "google/gemini-3-pro-preview", label: "Google Gemini 3.0 Pro (Preview)" },
-  { value: "google/gemini-3-flash-preview", label: "Google Gemini 3.0 Flash (Preview)" },
-  { value: "google/gemini-2.5-pro", label: "Google Gemini 2.5 Pro" },
-  { value: "google/gemini-2.5-flash", label: "Google Gemini 2.5 Flash" },
-  { value: "google/gemini-2.5-flash-lite", label: "Google Gemini 2.5 Flash Lite" },
-  { value: "google/gemini-2.0-flash-exp", label: "Google Gemini 2.0 Flash Experimental" },
-  { value: "google/gemini-1.5-pro", label: "Google Gemini 1.5 Pro" },
-  { value: "google/gemini-1.5-flash", label: "Google Gemini 1.5 Flash" },
-  { value: "google/gemini-pro", label: "Google Gemini Pro" }
+  // ── Anthropic via OpenRouter ──────────────────────────────────
+  { value: "anthropic/claude-sonnet-4-6", label: "\u2605 Anthropic \u2014 Claude Sonnet 4.6" },
+  { value: "anthropic/claude-opus-4-6", label: "Anthropic \u2014 Claude Opus 4.6" },
+  { value: "anthropic/claude-haiku-4-5", label: "Anthropic \u2014 Claude Haiku 4.5 (Fast)" },
+  // ── OpenAI via OpenRouter ─────────────────────────────────────
+  { value: "openai/gpt-5", label: "OpenAI \u2014 GPT-5" },
+  { value: "openai/gpt-4.1", label: "OpenAI \u2014 GPT-4.1" },
+  { value: "openai/gpt-4.1-mini", label: "OpenAI \u2014 GPT-4.1 Mini" },
+  { value: "openai/gpt-4o", label: "OpenAI \u2014 GPT-4o" },
+  { value: "openai/o3", label: "OpenAI \u2014 o3 (Reasoning)" },
+  { value: "openai/o4-mini", label: "OpenAI \u2014 o4-mini (Reasoning, Fast)" },
+  // ── Google via OpenRouter ─────────────────────────────────────
+  { value: "google/gemini-3.1-pro-preview", label: "Google \u2014 Gemini 3.1 Pro (Preview)" },
+  { value: "google/gemini-3-flash-preview-20251217", label: "\u2605 Google \u2014 Gemini 3 Flash (Preview)" },
+  { value: "google/gemini-2.5-pro", label: "Google \u2014 Gemini 2.5 Pro" },
+  { value: "google/gemini-2.5-flash", label: "Google \u2014 Gemini 2.5 Flash" },
+  // ── Meta Llama via OpenRouter ─────────────────────────────────
+  { value: "meta-llama/llama-4-maverick", label: "Meta \u2014 Llama 4 Maverick (Best quality)" },
+  { value: "meta-llama/llama-4-scout", label: "Meta \u2014 Llama 4 Scout (10M ctx)" },
+  { value: "meta-llama/llama-4-maverick:free", label: "Meta \u2014 Llama 4 Maverick (Free tier)" },
+  { value: "meta-llama/llama-4-scout:free", label: "Meta \u2014 Llama 4 Scout (Free tier)" },
+  // ── Other top models via OpenRouter ──────────────────────────
+  { value: "mistralai/mistral-large-2512", label: "Mistral \u2014 Mistral Large 3 (Dec 2025)" },
+  { value: "deepseek/deepseek-v3.2-20251201", label: "DeepSeek \u2014 V3.2 (Top OSS)" },
+  { value: "minimax/minimax-m2.5", label: "MiniMax \u2014 M2.5 (Most used on OR)" }
 ];
 function getModelsForProvider(provider) {
   switch (provider) {
@@ -29808,6 +29898,38 @@ OUTPUT FORMAT (JSON):
   ]
 }`;
   }
+  /**
+   * Builds a prompt that asks the AI to suggest 3 narrative directions the story could
+   * take from where it currently ends. Used by the "What happens next?" feature to help
+   * authors overcome writer's block.
+   *
+   * @param manuscriptTail  The last ~1500 words of the active manuscript.
+   * @param storyBible      The story bible contents (world rules, tone, characters).
+   */
+  buildDirectionSuggestionsPrompt(manuscriptTail, storyBible) {
+    const bibleBlock = storyBible.trim() ? `STORY BIBLE (world rules, characters, tone):
+${storyBible.slice(0, 3e3)}
+
+` : "";
+    return `You are a creative writing collaborator helping an author who has writer's block.
+
+${bibleBlock}RECENT MANUSCRIPT (where the story currently ends):
+"""
+${manuscriptTail}
+"""
+
+Based on what has just happened in the story, generate exactly 3 distinct and compelling directions the narrative could take next. Each suggestion must:
+- Be specific and concrete \u2014 not generic advice like "the character grows"
+- Feel true to the established tone, voice, and world
+- Be 2\u20133 sentences describing exactly what happens next in the scene
+
+Format your response as a numbered list:
+1. [First direction]
+2. [Second direction]
+3. [Third direction]
+
+Write like a co-author who has read every word above. Be evocative and specific.`;
+  }
 };
 
 // services/AIClient.ts
@@ -29899,6 +30021,246 @@ var AIClient = class {
     } catch {
       return "";
     }
+  }
+  /**
+   * Map the spontaneity slider (0–100) to a model temperature (0.3–1.0).
+   * A value of 50 (default) maps to 0.65, which is a comfortable creative middle ground.
+   */
+  _computeTemperature(settings) {
+    const spontaneity = settings.spontaneity ?? 50;
+    return 0.3 + Math.max(0, Math.min(100, spontaneity)) / 100 * 0.7;
+  }
+  /**
+   * Streaming generation — emits accumulated text via onToken callback as tokens arrive.
+   * Falls back to non-streaming generate() for unsupported providers.
+   * Returns the complete generated text when done.
+   */
+  async generateStream(prompt, settings, onToken, signal) {
+    const provider = settings.apiProvider;
+    if (provider === "openai") {
+      return this._streamOpenAICompat(
+        prompt,
+        settings,
+        "https://api.openai.com/v1/chat/completions",
+        "OpenAI",
+        {},
+        onToken,
+        signal
+      );
+    } else if (provider === "openrouter") {
+      return this._streamOpenAICompat(
+        prompt,
+        settings,
+        "https://openrouter.ai/api/v1/chat/completions",
+        "OpenRouter",
+        {
+          "HTTP-Referer": "https://github.com/JHarp199345/Gwriter",
+          "X-Title": "Writing Dashboard"
+        },
+        onToken,
+        signal
+      );
+    } else if (provider === "anthropic") {
+      return this._streamAnthropic(prompt, settings, onToken, signal);
+    } else if (provider === "gemini") {
+      return this._streamGemini(prompt, settings, onToken, signal);
+    } else {
+      const result = await this.generateSingle(prompt, settings);
+      onToken(result);
+      return result;
+    }
+  }
+  /** SSE streaming for OpenAI-compatible endpoints (OpenAI, OpenRouter). */
+  async _streamOpenAICompat(prompt, settings, url, providerName, extraHeaders, onToken, signal) {
+    const temperature = this._computeTemperature(settings);
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${settings.apiKey}`,
+        ...extraHeaders
+      },
+      body: JSON.stringify({
+        model: settings.model,
+        messages: [
+          { role: "system", content: "You are a professional writing assistant." },
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 4e3,
+        temperature,
+        stream: true
+      }),
+      signal
+    });
+    if (!response.ok) {
+      const errText = await response.text().catch(() => String(response.status));
+      throw new Error(`${providerName} API error ${response.status}: ${errText.slice(0, 300)}`);
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let lineBuffer = "";
+    let accumulated = "";
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done)
+          break;
+        lineBuffer += decoder.decode(value, { stream: true });
+        const lines = lineBuffer.split("\n");
+        lineBuffer = lines.pop() ?? "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:"))
+            continue;
+          const payload = trimmed.slice(5).trim();
+          if (payload === "[DONE]")
+            break;
+          try {
+            const delta = JSON.parse(payload)?.choices?.[0]?.delta?.content;
+            if (typeof delta === "string" && delta.length > 0) {
+              accumulated += delta;
+              onToken(accumulated);
+            }
+          } catch {
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    if (accumulated.trim().length === 0) {
+      throw new Error(`${providerName} streaming returned empty content.`);
+    }
+    return accumulated;
+  }
+  /** SSE streaming for Anthropic Messages API. */
+  async _streamAnthropic(prompt, settings, onToken, signal) {
+    const temperature = this._computeTemperature(settings);
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": settings.apiKey,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify({
+        model: settings.model,
+        max_tokens: 4e3,
+        temperature,
+        stream: true,
+        messages: [{ role: "user", content: prompt }]
+      }),
+      signal
+    });
+    if (!response.ok) {
+      const errText = await response.text().catch(() => String(response.status));
+      throw new Error(`Anthropic API error ${response.status}: ${errText.slice(0, 300)}`);
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let lineBuffer = "";
+    let accumulated = "";
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done)
+          break;
+        lineBuffer += decoder.decode(value, { stream: true });
+        const lines = lineBuffer.split("\n");
+        lineBuffer = lines.pop() ?? "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:"))
+            continue;
+          const payload = trimmed.slice(5).trim();
+          try {
+            const parsed = JSON.parse(payload);
+            if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
+              const delta = parsed.delta.text;
+              if (typeof delta === "string" && delta.length > 0) {
+                accumulated += delta;
+                onToken(accumulated);
+              }
+            }
+          } catch {
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    if (accumulated.trim().length === 0) {
+      throw new Error("Anthropic streaming returned empty content.");
+    }
+    return accumulated;
+  }
+  /** SSE streaming for Gemini generateContent endpoint. */
+  async _streamGemini(prompt, settings, onToken, signal) {
+    const promptTokens = estimateTokens(prompt);
+    const limit = settings.contextTokenLimit ?? 128e3;
+    const reservedForOutput = 6e3;
+    if (promptTokens > limit - reservedForOutput) {
+      throw new Error(
+        `Prompt too large for configured context limit. Estimated input ~${promptTokens.toLocaleString()} tokens (limit: ${limit.toLocaleString()}). Reduce context or increase the warning limit.`
+      );
+    }
+    const maxOutputTokens = Math.max(512, Math.min(8192, limit - promptTokens - 1024));
+    const temperature = this._computeTemperature(settings);
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:streamGenerateContent?alt=sse&key=${settings.apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens, temperature }
+        }),
+        signal
+      }
+    );
+    if (!response.ok) {
+      const errText = await response.text().catch(() => String(response.status));
+      throw new Error(`Gemini API error ${response.status}: ${errText.slice(0, 300)}`);
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let lineBuffer = "";
+    let accumulated = "";
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done)
+          break;
+        lineBuffer += decoder.decode(value, { stream: true });
+        const lines = lineBuffer.split("\n");
+        lineBuffer = lines.pop() ?? "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:"))
+            continue;
+          const payload = trimmed.slice(5).trim();
+          try {
+            const parsed = JSON.parse(payload);
+            const parts = parsed?.candidates?.[0]?.content?.parts;
+            if (Array.isArray(parts)) {
+              for (const part of parts) {
+                if (typeof part.text === "string" && part.text.length > 0) {
+                  accumulated += part.text;
+                  onToken(accumulated);
+                }
+              }
+            }
+          } catch {
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    if (accumulated.trim().length === 0) {
+      throw new Error("Gemini streaming returned empty content.");
+    }
+    return accumulated;
   }
   async generate(prompt, settings) {
     if (settings.generationMode === "multi") {
@@ -30028,7 +30390,7 @@ ${alt}`).join("\n\n---\n\n")}`;
           { role: "user", content: prompt }
         ],
         max_tokens: 4e3,
-        temperature: 0.7
+        temperature: this._computeTemperature(settings)
       })
     });
     if (response.status >= 400) {
@@ -30129,7 +30491,7 @@ ${alt}`).join("\n\n---\n\n")}`;
         ],
         generationConfig: {
           maxOutputTokens,
-          temperature: 0.7
+          temperature: this._computeTemperature(settings)
         }
       })
     });
@@ -34163,10 +34525,15 @@ PLOT MEMORY: ${plotMemory}
     const constraintBlock = isDegraded ? `
 [DEGRADED MODE] Restricted Domains: ${restrictedDomains.join(", ")}
 Constraint: Do not assert new canonical facts about these domains.` : "";
+    const continuationAnchor = iteration === 0 ? await this._getExistingManuscriptTail(2) : this._getLastChunkTail();
+    const anchorBlock = continuationAnchor ? `
+CONTINUATION ANCHOR \u2014 your prose must flow naturally and directly from this existing text:
+"""${continuationAnchor}"""
+` : "";
     const prompt = `
                         ${stateCard}${plotMemoryBlock}
                         PLAN: ${JSON.stringify(planResult.data)}
-                        CONTEXT: ${retrieved}${constraintBlock}
+                        CONTEXT: ${retrieved}${constraintBlock}${anchorBlock}
 
                         INSTRUCTION: Write the next prose chunk.
                         Use 
@@ -34181,8 +34548,44 @@ Constraint: Do not assert new canonical facts about these domains.` : "";
       return manifest;
     })();
     return this.runStage("WRITE", smartProfile.model, async () => {
-      return await this.plugin.aiClient.generate(prompt, { ...this.plugin.settings, generationMode: "single" });
+      return await this.plugin.aiClient.generateStream(
+        prompt,
+        { ...this.plugin.settings, generationMode: "single" },
+        (accumulated) => {
+          relayEventBus.emit("chunk:buffer:update", { content: accumulated });
+        },
+        this.abortController?.signal
+      );
     }, stageManifest);
+  }
+  /**
+   * Returns the last `n` non-empty paragraphs from the active manuscript file.
+   * Used as a continuation anchor for the first generated chunk so that it
+   * flows seamlessly from wherever the existing text ends.
+   */
+  async _getExistingManuscriptTail(n) {
+    try {
+      const content = await this.plugin.vaultService.readFile(this.plugin.settings.book2Path);
+      if (!content)
+        return "";
+      const paragraphs = content.split(/\n{2,}/).map((p) => p.trim()).filter((p) => p.length > 20);
+      return paragraphs.slice(-n).join("\n\n");
+    } catch {
+      return "";
+    }
+  }
+  /**
+   * Returns the last paragraph of the most recently committed chunk from the rolling window.
+   * Used as a continuation anchor for all chunks after the first so each one picks up
+   * exactly where the previous left off.
+   */
+  _getLastChunkTail() {
+    if (this.rollingWindow.length === 0)
+      return "";
+    const lastChunk = this.rollingWindow[this.rollingWindow.length - 1];
+    if (!lastChunk || lastChunk.length === 0)
+      return "";
+    return lastChunk[lastChunk.length - 1]?.text ?? "";
   }
   _quarantineDegradedFacts(writeResult, restrictedDomains) {
     if (!writeResult.metadata)
@@ -34526,6 +34929,7 @@ Constraints:
           content,
           path: this.plugin.settings.book2Path
         });
+        relayEventBus.emit("chunk:buffer:update", { content: "" });
       }
       if (iteration > 1) {
         await this.enqueueStitchTask(iteration - 1, iteration);

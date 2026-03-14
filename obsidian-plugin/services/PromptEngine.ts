@@ -551,5 +551,37 @@ OUTPUT FORMAT (JSON):
   ]
 }`;
 	}
+
+	/**
+	 * Builds a prompt that asks the AI to suggest 3 narrative directions the story could
+	 * take from where it currently ends. Used by the "What happens next?" feature to help
+	 * authors overcome writer's block.
+	 *
+	 * @param manuscriptTail  The last ~1500 words of the active manuscript.
+	 * @param storyBible      The story bible contents (world rules, tone, characters).
+	 */
+	buildDirectionSuggestionsPrompt(manuscriptTail: string, storyBible: string): string {
+		const bibleBlock = storyBible.trim()
+			? `STORY BIBLE (world rules, characters, tone):\n${storyBible.slice(0, 3000)}\n\n`
+			: '';
+		return `You are a creative writing collaborator helping an author who has writer's block.
+
+${bibleBlock}RECENT MANUSCRIPT (where the story currently ends):
+"""
+${manuscriptTail}
+"""
+
+Based on what has just happened in the story, generate exactly 3 distinct and compelling directions the narrative could take next. Each suggestion must:
+- Be specific and concrete — not generic advice like "the character grows"
+- Feel true to the established tone, voice, and world
+- Be 2–3 sentences describing exactly what happens next in the scene
+
+Format your response as a numbered list:
+1. [First direction]
+2. [Second direction]
+3. [Third direction]
+
+Write like a co-author who has read every word above. Be evocative and specific.`;
+	}
 }
 

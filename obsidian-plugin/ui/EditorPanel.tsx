@@ -16,7 +16,14 @@ export const EditorPanel: React.FC<{
 	onCopy: () => void;
 	onUndo?: (paraId: string) => void;
 	chunkBuffer?: string;
-}> = ({ mode, selectedText, onSelectionChange, generatedText, generatedParagraphs, heatmapEnabled, onGeneratedChange, onCopy, onUndo, chunkBuffer }) => {
+	// Suggestions ("What happens next?") props
+	suggestions?: string[];
+	isSuggestingDirections?: boolean;
+	suggestionsOpen?: boolean;
+	onToggleSuggestions?: () => void;
+	onGetSuggestions?: () => void;
+	onUseSuggestion?: (text: string) => void;
+}> = ({ mode, selectedText, onSelectionChange, generatedText, generatedParagraphs, heatmapEnabled, onGeneratedChange, onCopy, onUndo, chunkBuffer, suggestions = [], isSuggestingDirections = false, suggestionsOpen = false, onToggleSuggestions, onGetSuggestions, onUseSuggestion }) => {
 	const [hoveredPara, setHoveredPara] = useState<number | null>(null);
 	const [debugLevel, setDebugLevel] = useState<'off' | 'summary' | 'raw'>('off');
 	const [debugMode, setDebugMode] = useState<DebugMode>('off');
@@ -89,6 +96,46 @@ export const EditorPanel: React.FC<{
 					className="editor-textarea"
 				/>
 			</div>
+
+			{/* "What happens next?" suggestions panel — chapter mode only */}
+			{mode === 'chapter' && (
+				<div className="suggestions-panel">
+					<button className="suggestions-toggle" onClick={onToggleSuggestions}>
+						💡 What happens next? {suggestionsOpen ? '▲' : '▾'}
+					</button>
+					{suggestionsOpen && (
+						<div className="suggestions-body">
+							{suggestions.length === 0 && !isSuggestingDirections && (
+								<button className="suggestions-generate-btn" onClick={onGetSuggestions}>
+									Generate story directions from your manuscript
+								</button>
+							)}
+							{isSuggestingDirections && suggestions.length === 0 && (
+								<div className="suggestions-loading">✨ Reading your story...</div>
+							)}
+							{suggestions.map((s, i) => (
+								<div key={i} className="suggestion-card">
+									<span className="suggestion-number">{i + 1}</span>
+									<p className="suggestion-text">{s}</p>
+									<button
+										className="suggestion-use-btn"
+										onClick={() => onUseSuggestion?.(s)}
+										title="Use this as your scene summary"
+									>
+										Use this →
+									</button>
+								</div>
+							))}
+							{suggestions.length > 0 && !isSuggestingDirections && (
+								<button className="suggestions-refresh-btn" onClick={onGetSuggestions}>
+									↻ New suggestions
+								</button>
+							)}
+						</div>
+					)}
+				</div>
+			)}
+
 			{(generatedText || chunkBuffer) && (
 				<div className="editor-section">
 					<div className="generated-header">

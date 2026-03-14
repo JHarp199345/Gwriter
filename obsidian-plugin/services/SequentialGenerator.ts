@@ -301,10 +301,20 @@ export class SequentialGenerator {
             ? `\n[DEGRADED MODE] Restricted Domains: ${restrictedDomains.join(', ')}\nConstraint: Do not assert new canonical facts about these domains.`
             : '';
 
+        // Build a continuation anchor so each chunk flows seamlessly from the previous one.
+        // For the first chunk we read the tail of the existing manuscript; for subsequent
+        // chunks we use the last paragraph of the most recently committed chunk.
+        const continuationAnchor = iteration === 0
+            ? await this._getExistingManuscriptTail(2)
+            : this._getLastChunkTail();
+        const anchorBlock = continuationAnchor
+            ? `\nCONTINUATION ANCHOR — your prose must flow naturally and directly from this existing text:\n"""${continuationAnchor}"""\n`
+            : '';
+
         const prompt = `
                         ${stateCard}${plotMemoryBlock}
                         PLAN: ${JSON.stringify(planResult.data)}
-                        CONTEXT: ${retrieved}${constraintBlock}
+                        CONTEXT: ${retrieved}${constraintBlock}${anchorBlock}
 
                         INSTRUCTION: Write the next prose chunk.
                         Use \n\n to separate paragraphs.
@@ -319,8 +329,44 @@ export class SequentialGenerator {
         })();
 
         return this.runStage('WRITE', smartProfile.model, async () => {
-            return await this.plugin.aiClient.generate(prompt, { ...this.plugin.settings, generationMode: 'single' as const });
+            return await this.plugin.aiClient.generateStream(
+                prompt,
+                { ...this.plugin.settings, generationMode: 'single' as const },
+                (accumulated) => {
+                    relayEventBus.emit('chunk:buffer:update', { content: accumulated });
+                },
+                this.abortController?.signal
+            );
         }, stageManifest);
+    }
+
+    /**
+     * Returns the last `n` non-empty paragraphs from the active manuscript file.
+     * Used as a continuation anchor for the first generated chunk so that it
+     * flows seamlessly from wherever the existing text ends.
+     */
+    private async _getExistingManuscriptTail(n: number): Promise<string> {
+        try {
+            const content = await this.plugin.vaultService.readFile(this.plugin.settings.book2Path);
+            if (!content) return '';
+            const paragraphs = content.split(/\n{2,}/).map(p => p.trim()).filter(p => p.length > 20);
+            return paragraphs.slice(-n).join('\n\n');
+        } catch {
+            return '';
+        }
+    }
+
+    /**
+     * Returns the last paragraph of the most recently committed chunk from the rolling window.
+     * Used as a continuation anchor for all chunks after the first so each one picks up
+     * exactly where the previous left off.
+     */
+    private _getLastChunkTail(): string {
+        if (this.rollingWindow.length === 0) return '';
+        const lastChunk = this.rollingWindow[this.rollingWindow.length - 1];
+        if (!lastChunk || lastChunk.length === 0) return '';
+        // Return the last paragraph of the last committed chunk
+        return lastChunk[lastChunk.length - 1]?.text ?? '';
     }
 
     private _quarantineDegradedFacts(writeResult: StageResult, restrictedDomains: string[]): void {
@@ -751,6 +797,8 @@ Constraints:
                     content,
                     path: this.plugin.settings.book2Path
                 });
+                // Clear the live streaming preview now that the chunk is committed
+                relayEventBus.emit('chunk:buffer:update', { content: '' });
             }
 
             if (iteration > 1) {

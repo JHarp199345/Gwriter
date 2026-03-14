@@ -91,6 +91,280 @@ export class AIClient {
 		}
 	}
 
+	/**
+	 * Map the spontaneity slider (0–100) to a model temperature (0.3–1.0).
+	 * A value of 50 (default) maps to 0.65, which is a comfortable creative middle ground.
+	 */
+	private _computeTemperature(settings: DashboardSettings): number {
+		const spontaneity = settings.spontaneity ?? 50;
+		return 0.3 + (Math.max(0, Math.min(100, spontaneity)) / 100) * 0.7;
+	}
+
+	/**
+	 * Streaming generation — emits accumulated text via onToken callback as tokens arrive.
+	 * Falls back to non-streaming generate() for unsupported providers.
+	 * Returns the complete generated text when done.
+	 */
+	async generateStream(
+		prompt: string,
+		settings: DashboardSettings,
+		onToken: (accumulated: string) => void,
+		signal?: AbortSignal
+	): Promise<string> {
+		const provider = settings.apiProvider;
+		if (provider === 'openai') {
+			return this._streamOpenAICompat(
+				prompt, settings,
+				'https://api.openai.com/v1/chat/completions',
+				'OpenAI', {}, onToken, signal
+			);
+		} else if (provider === 'openrouter') {
+			return this._streamOpenAICompat(
+				prompt, settings,
+				'https://openrouter.ai/api/v1/chat/completions',
+				'OpenRouter',
+				{
+					'HTTP-Referer': 'https://github.com/JHarp199345/Gwriter',
+					'X-Title': 'Writing Dashboard'
+				},
+				onToken, signal
+			);
+		} else if (provider === 'anthropic') {
+			return this._streamAnthropic(prompt, settings, onToken, signal);
+		} else if (provider === 'gemini') {
+			return this._streamGemini(prompt, settings, onToken, signal);
+		} else {
+			// Unknown provider — fall back to non-streaming
+			const result = await this.generateSingle(prompt, settings);
+			onToken(result);
+			return result;
+		}
+	}
+
+	/** SSE streaming for OpenAI-compatible endpoints (OpenAI, OpenRouter). */
+	private async _streamOpenAICompat(
+		prompt: string,
+		settings: DashboardSettings,
+		url: string,
+		providerName: string,
+		extraHeaders: Record<string, string>,
+		onToken: (accumulated: string) => void,
+		signal?: AbortSignal
+	): Promise<string> {
+		const temperature = this._computeTemperature(settings);
+		const response = await fetch(url, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'Authorization': `Bearer ${settings.apiKey}`,
+				...extraHeaders
+			},
+			body: JSON.stringify({
+				model: settings.model,
+				messages: [
+					{ role: 'system', content: 'You are a professional writing assistant.' },
+					{ role: 'user', content: prompt }
+				],
+				max_tokens: 4000,
+				temperature,
+				stream: true
+			}),
+			signal
+		});
+
+		if (!response.ok) {
+			const errText = await response.text().catch(() => String(response.status));
+			throw new Error(`${providerName} API error ${response.status}: ${errText.slice(0, 300)}`);
+		}
+
+		const reader = response.body!.getReader();
+		const decoder = new TextDecoder();
+		let lineBuffer = '';
+		let accumulated = '';
+
+		try {
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				lineBuffer += decoder.decode(value, { stream: true });
+				const lines = lineBuffer.split('\n');
+				lineBuffer = lines.pop() ?? '';
+				for (const line of lines) {
+					const trimmed = line.trim();
+					if (!trimmed.startsWith('data:')) continue;
+					const payload = trimmed.slice(5).trim();
+					if (payload === '[DONE]') break;
+					try {
+						const delta = (JSON.parse(payload) as any)?.choices?.[0]?.delta?.content;
+						if (typeof delta === 'string' && delta.length > 0) {
+							accumulated += delta;
+							onToken(accumulated);
+						}
+					} catch {
+						// Ignore malformed SSE lines
+					}
+				}
+			}
+		} finally {
+			reader.releaseLock();
+		}
+
+		if (accumulated.trim().length === 0) {
+			throw new Error(`${providerName} streaming returned empty content.`);
+		}
+		return accumulated;
+	}
+
+	/** SSE streaming for Anthropic Messages API. */
+	private async _streamAnthropic(
+		prompt: string,
+		settings: DashboardSettings,
+		onToken: (accumulated: string) => void,
+		signal?: AbortSignal
+	): Promise<string> {
+		const temperature = this._computeTemperature(settings);
+		const response = await fetch('https://api.anthropic.com/v1/messages', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'x-api-key': settings.apiKey,
+				'anthropic-version': '2023-06-01'
+			},
+			body: JSON.stringify({
+				model: settings.model,
+				max_tokens: 4000,
+				temperature,
+				stream: true,
+				messages: [{ role: 'user', content: prompt }]
+			}),
+			signal
+		});
+
+		if (!response.ok) {
+			const errText = await response.text().catch(() => String(response.status));
+			throw new Error(`Anthropic API error ${response.status}: ${errText.slice(0, 300)}`);
+		}
+
+		const reader = response.body!.getReader();
+		const decoder = new TextDecoder();
+		let lineBuffer = '';
+		let accumulated = '';
+
+		try {
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				lineBuffer += decoder.decode(value, { stream: true });
+				const lines = lineBuffer.split('\n');
+				lineBuffer = lines.pop() ?? '';
+				for (const line of lines) {
+					const trimmed = line.trim();
+					if (!trimmed.startsWith('data:')) continue;
+					const payload = trimmed.slice(5).trim();
+					try {
+						const parsed = JSON.parse(payload) as any;
+						if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
+							const delta = parsed.delta.text;
+							if (typeof delta === 'string' && delta.length > 0) {
+								accumulated += delta;
+								onToken(accumulated);
+							}
+						}
+					} catch {
+						// Ignore malformed SSE lines
+					}
+				}
+			}
+		} finally {
+			reader.releaseLock();
+		}
+
+		if (accumulated.trim().length === 0) {
+			throw new Error('Anthropic streaming returned empty content.');
+		}
+		return accumulated;
+	}
+
+	/** SSE streaming for Gemini generateContent endpoint. */
+	private async _streamGemini(
+		prompt: string,
+		settings: DashboardSettings,
+		onToken: (accumulated: string) => void,
+		signal?: AbortSignal
+	): Promise<string> {
+		const promptTokens = estimateTokens(prompt);
+		const limit = settings.contextTokenLimit ?? 128000;
+		const reservedForOutput = 6000;
+		if (promptTokens > limit - reservedForOutput) {
+			throw new Error(
+				`Prompt too large for configured context limit. ` +
+				`Estimated input ~${promptTokens.toLocaleString()} tokens (limit: ${limit.toLocaleString()}). ` +
+				`Reduce context or increase the warning limit.`
+			);
+		}
+		const maxOutputTokens = Math.max(512, Math.min(8192, limit - promptTokens - 1024));
+		const temperature = this._computeTemperature(settings);
+
+		const response = await fetch(
+			`https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:streamGenerateContent?alt=sse&key=${settings.apiKey}`,
+			{
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					contents: [{ parts: [{ text: prompt }] }],
+					generationConfig: { maxOutputTokens, temperature }
+				}),
+				signal
+			}
+		);
+
+		if (!response.ok) {
+			const errText = await response.text().catch(() => String(response.status));
+			throw new Error(`Gemini API error ${response.status}: ${errText.slice(0, 300)}`);
+		}
+
+		const reader = response.body!.getReader();
+		const decoder = new TextDecoder();
+		let lineBuffer = '';
+		let accumulated = '';
+
+		try {
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				lineBuffer += decoder.decode(value, { stream: true });
+				const lines = lineBuffer.split('\n');
+				lineBuffer = lines.pop() ?? '';
+				for (const line of lines) {
+					const trimmed = line.trim();
+					if (!trimmed.startsWith('data:')) continue;
+					const payload = trimmed.slice(5).trim();
+					try {
+						const parsed = JSON.parse(payload) as any;
+						const parts = parsed?.candidates?.[0]?.content?.parts;
+						if (Array.isArray(parts)) {
+							for (const part of parts) {
+								if (typeof part.text === 'string' && part.text.length > 0) {
+									accumulated += part.text;
+									onToken(accumulated);
+								}
+							}
+						}
+					} catch {
+						// Ignore malformed SSE lines
+					}
+				}
+			}
+		} finally {
+			reader.releaseLock();
+		}
+
+		if (accumulated.trim().length === 0) {
+			throw new Error('Gemini streaming returned empty content.');
+		}
+		return accumulated;
+	}
+
 	async generate(prompt: string, settings: DashboardSettings & { generationMode: 'single' }): Promise<string>;
 	async generate(prompt: string, settings: DashboardSettings & { generationMode: 'multi' }): Promise<MultiModelResult>;
 	async generate(
@@ -260,7 +534,7 @@ export class AIClient {
 					{ role: 'user', content: prompt }
 				],
 				max_tokens: 4000,
-				temperature: 0.7
+				temperature: this._computeTemperature(settings)
 			})
 		});
 
@@ -375,7 +649,7 @@ export class AIClient {
 				],
 				generationConfig: {
 					maxOutputTokens,
-					temperature: 0.7
+					temperature: this._computeTemperature(settings)
 				}
 			})
 		});

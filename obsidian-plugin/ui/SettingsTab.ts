@@ -6,64 +6,69 @@ import { HelpDensity } from './HelpRegistry';
 import { relayEventBus } from '../services/EventBus';
 
 // Model lists for each provider
+// IDs verified against live API docs — March 2026
+// Sources: docs.anthropic.com, platform.openai.com, ai.google.dev, openrouter.ai/models
+
 const OPENAI_MODELS = [
-	{ value: 'gpt-5.2-pro', label: 'GPT-5.2 Pro' },
-	{ value: 'gpt-5.2-thinking', label: 'GPT-5.2 Thinking' },
-	{ value: 'gpt-5.2-instant', label: 'GPT-5.2 Instant' },
+	// Current generation (2025–2026)
+	{ value: 'gpt-5', label: 'GPT-5' },
+	{ value: 'gpt-4.1', label: 'GPT-4.1' },
+	{ value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
 	{ value: 'gpt-4o', label: 'GPT-4o' },
 	{ value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
-	{ value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-	{ value: 'gpt-4', label: 'GPT-4' },
-	{ value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
+	// Reasoning models
+	{ value: 'o3', label: 'o3 (Reasoning)' },
+	{ value: 'o4-mini', label: 'o4-mini (Reasoning, Fast)' }
 ];
 
 const ANTHROPIC_MODELS = [
-	{ value: 'claude-4-5-opus', label: 'Claude 4.5 Opus' },
-	{ value: 'claude-4-5-sonnet', label: 'Claude 4.5 Sonnet' },
-	{ value: 'claude-4-5-haiku', label: 'Claude 4.5 Haiku' },
-	{ value: 'claude-3-5-sonnet', label: 'Claude 3.5 Sonnet' },
-	{ value: 'claude-3-opus', label: 'Claude 3 Opus' },
-	{ value: 'claude-3-sonnet', label: 'Claude 3 Sonnet' },
-	{ value: 'claude-3-haiku', label: 'Claude 3 Haiku' }
+	// Current generation — Claude 4.x (2025–2026)
+	{ value: 'claude-opus-4-6', label: 'Claude Opus 4.6 ⭐ Most capable' },
+	{ value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 ⭐ Recommended' },
+	{ value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (Fast & cheap)' },
+	// Previous generation — still active
+	{ value: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (Legacy)' },
+	{ value: 'claude-opus-4-20250514', label: 'Claude Opus 4 (Pinned, Legacy)' }
 ];
 
 const GEMINI_MODELS = [
-	{ value: 'gemini-3-pro-preview', label: 'Gemini 3.0 Pro (Preview)' },
-	{ value: 'gemini-3-flash-preview', label: 'Gemini 3.0 Flash (Preview)' },
-	{ value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-	{ value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-	{ value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
-	{ value: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash Experimental' },
-	{ value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
-	{ value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
-	{ value: 'gemini-pro', label: 'Gemini Pro' }
+	// Gemini 3.x — latest (2025–2026)
+	{ value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (Preview) — 1M ctx' },
+	{ value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (Preview) — 1M ctx' },
+	// Gemini 2.5 — stable production
+	{ value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro — 2M ctx' },
+	{ value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash ⭐ Recommended — 1M ctx' },
+	{ value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (Cheapest)' },
+	// Gemini 2.0 — retiring June 2026
+	{ value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Retiring June 2026)' }
 ];
 
 const OPENROUTER_MODELS = [
-	{ value: 'openai/gpt-5.2-pro', label: 'OpenAI GPT-5.2 Pro' },
-	{ value: 'openai/gpt-5.2-thinking', label: 'OpenAI GPT-5.2 Thinking' },
-	{ value: 'openai/gpt-5.2-instant', label: 'OpenAI GPT-5.2 Instant' },
-	{ value: 'openai/gpt-4o', label: 'OpenAI GPT-4o' },
-	{ value: 'openai/gpt-4o-mini', label: 'OpenAI GPT-4o Mini' },
-	{ value: 'openai/gpt-4-turbo', label: 'OpenAI GPT-4 Turbo' },
-	{ value: 'openai/gpt-4', label: 'OpenAI GPT-4' },
-	{ value: 'openai/gpt-3.5-turbo', label: 'OpenAI GPT-3.5 Turbo' },
-	{ value: 'anthropic/claude-4-5-opus', label: 'Anthropic Claude 4.5 Opus' },
-	{ value: 'anthropic/claude-4-5-sonnet', label: 'Anthropic Claude 4.5 Sonnet' },
-	{ value: 'anthropic/claude-4-5-haiku', label: 'Anthropic Claude 4.5 Haiku' },
-	{ value: 'anthropic/claude-3-5-sonnet', label: 'Anthropic Claude 3.5 Sonnet' },
-	{ value: 'anthropic/claude-3-opus', label: 'Anthropic Claude 3 Opus' },
-	{ value: 'anthropic/claude-3-sonnet', label: 'Anthropic Claude 3 Sonnet' },
-	{ value: 'anthropic/claude-3-haiku', label: 'Anthropic Claude 3 Haiku' },
-	{ value: 'google/gemini-3-pro-preview', label: 'Google Gemini 3.0 Pro (Preview)' },
-	{ value: 'google/gemini-3-flash-preview', label: 'Google Gemini 3.0 Flash (Preview)' },
-	{ value: 'google/gemini-2.5-pro', label: 'Google Gemini 2.5 Pro' },
-	{ value: 'google/gemini-2.5-flash', label: 'Google Gemini 2.5 Flash' },
-	{ value: 'google/gemini-2.5-flash-lite', label: 'Google Gemini 2.5 Flash Lite' },
-	{ value: 'google/gemini-2.0-flash-exp', label: 'Google Gemini 2.0 Flash Experimental' },
-	{ value: 'google/gemini-1.5-pro', label: 'Google Gemini 1.5 Pro' },
-	{ value: 'google/gemini-1.5-flash', label: 'Google Gemini 1.5 Flash' },
-	{ value: 'google/gemini-pro', label: 'Google Gemini Pro' }
+	// ── Anthropic via OpenRouter ──────────────────────────────────
+	{ value: 'anthropic/claude-sonnet-4-6', label: '★ Anthropic — Claude Sonnet 4.6' },
+	{ value: 'anthropic/claude-opus-4-6', label: 'Anthropic — Claude Opus 4.6' },
+	{ value: 'anthropic/claude-haiku-4-5', label: 'Anthropic — Claude Haiku 4.5 (Fast)' },
+	// ── OpenAI via OpenRouter ─────────────────────────────────────
+	{ value: 'openai/gpt-5', label: 'OpenAI — GPT-5' },
+	{ value: 'openai/gpt-4.1', label: 'OpenAI — GPT-4.1' },
+	{ value: 'openai/gpt-4.1-mini', label: 'OpenAI — GPT-4.1 Mini' },
+	{ value: 'openai/gpt-4o', label: 'OpenAI — GPT-4o' },
+	{ value: 'openai/o3', label: 'OpenAI — o3 (Reasoning)' },
+	{ value: 'openai/o4-mini', label: 'OpenAI — o4-mini (Reasoning, Fast)' },
+	// ── Google via OpenRouter ─────────────────────────────────────
+	{ value: 'google/gemini-3.1-pro-preview', label: 'Google — Gemini 3.1 Pro (Preview)' },
+	{ value: 'google/gemini-3-flash-preview-20251217', label: '★ Google — Gemini 3 Flash (Preview)' },
+	{ value: 'google/gemini-2.5-pro', label: 'Google — Gemini 2.5 Pro' },
+	{ value: 'google/gemini-2.5-flash', label: 'Google — Gemini 2.5 Flash' },
+	// ── Meta Llama via OpenRouter ─────────────────────────────────
+	{ value: 'meta-llama/llama-4-maverick', label: 'Meta — Llama 4 Maverick (Best quality)' },
+	{ value: 'meta-llama/llama-4-scout', label: 'Meta — Llama 4 Scout (10M ctx)' },
+	{ value: 'meta-llama/llama-4-maverick:free', label: 'Meta — Llama 4 Maverick (Free tier)' },
+	{ value: 'meta-llama/llama-4-scout:free', label: 'Meta — Llama 4 Scout (Free tier)' },
+	// ── Other top models via OpenRouter ──────────────────────────
+	{ value: 'mistralai/mistral-large-2512', label: 'Mistral — Mistral Large 3 (Dec 2025)' },
+	{ value: 'deepseek/deepseek-v3.2-20251201', label: 'DeepSeek — V3.2 (Top OSS)' },
+	{ value: 'minimax/minimax-m2.5', label: 'MiniMax — M2.5 (Most used on OR)' }
 ];
 
 function getModelsForProvider(provider: string): Array<{ value: string; label: string }> {
