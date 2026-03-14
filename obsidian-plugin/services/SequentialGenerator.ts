@@ -186,7 +186,7 @@ export class SequentialGenerator {
             config: {
                 smartModel,
                 smartModelDigest,
-                maxChunkWords: this.plugin.settings.maxChunkWords || 500,
+                maxChunkWords: this.plugin.settings.maxChunkWords || 2500,
                 temperature: 0.7,
                 policyHash,
                 corpusHash,

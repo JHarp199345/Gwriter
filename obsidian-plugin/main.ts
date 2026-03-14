@@ -325,7 +325,7 @@ export default class WritingDashboardPlugin extends Plugin {
 				relayCloudModel: 'gpt-4o',
 				relayMaxContextWindow: 128000,
 				relayCostHardBudget: 1.0, // $1 max per run
-				maxChunkWords: 500,
+				maxChunkWords: 2500,
 				maxRepairAttempts: 1,
 				retrievalTokenBudget: 3000,
 				helpDensity: 'LITE',

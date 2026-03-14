@@ -28135,10 +28135,10 @@ var SettingsTab = class extends import_obsidian8.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian8.Setting(containerEl).setName("Max words per chunk").setDesc("Target word count for each relay iteration.").addText((text2) => text2.setPlaceholder("500").setValue(String(this.plugin.settings.maxChunkWords)).onChange(async (value) => {
+    new import_obsidian8.Setting(containerEl).setName("Words per chunk").setDesc("Target word count for each generation pass. Default 2500. Cloud AI handles 3000\u20138000 well \u2014 enter any value, there is no upper limit.").addText((text2) => text2.setPlaceholder("2500").setValue(String(this.plugin.settings.maxChunkWords)).onChange(async (value) => {
       const parsed = Number.parseInt(value, 10);
-      if (Number.isFinite(parsed)) {
-        this.plugin.settings.maxChunkWords = Math.max(100, Math.min(2e3, parsed));
+      if (Number.isFinite(parsed) && parsed >= 100) {
+        this.plugin.settings.maxChunkWords = parsed;
         await this.plugin.saveSettings();
       }
     }));
@@ -34494,7 +34494,7 @@ var SequentialGenerator = class {
       config: {
         smartModel,
         smartModelDigest,
-        maxChunkWords: this.plugin.settings.maxChunkWords || 500,
+        maxChunkWords: this.plugin.settings.maxChunkWords || 2500,
         temperature: 0.7,
         policyHash,
         corpusHash,
@@ -43901,7 +43901,7 @@ var WritingDashboardPlugin = class extends import_obsidian28.Plugin {
         relayMaxContextWindow: 128e3,
         relayCostHardBudget: 1,
         // $1 max per run
-        maxChunkWords: 500,
+        maxChunkWords: 2500,
         maxRepairAttempts: 1,
         retrievalTokenBudget: 3e3,
         helpDensity: "LITE",

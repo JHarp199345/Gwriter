@@ -186,15 +186,15 @@ export class SettingsTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName('Max words per chunk')
-			.setDesc('Target word count for each relay iteration.')
+			.setName('Words per chunk')
+			.setDesc('Target word count for each generation pass. Default 2500. Cloud AI handles 3000–8000 well — enter any value, there is no upper limit.')
 			.addText(text => text
-				.setPlaceholder('500')
+				.setPlaceholder('2500')
 				.setValue(String(this.plugin.settings.maxChunkWords))
 				.onChange(async (value) => {
 					const parsed = Number.parseInt(value, 10);
-					if (Number.isFinite(parsed)) {
-						this.plugin.settings.maxChunkWords = Math.max(100, Math.min(2000, parsed));
+					if (Number.isFinite(parsed) && parsed >= 100) {
+						this.plugin.settings.maxChunkWords = parsed;
 						await this.plugin.saveSettings();
 					}
 				}));
