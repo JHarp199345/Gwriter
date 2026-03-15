@@ -957,3 +957,134 @@
 	color: var(--text-accent);
 }
 
+
+/* ── Generation popup modal ───────────────────────────────────────────────── */
+
+.gw-gen-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.6);
+	z-index: 300;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 24px;
+}
+
+.gw-gen-modal {
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 10px;
+	width: 100%;
+	max-width: 860px;
+	max-height: 88vh;
+	display: flex;
+	flex-direction: column;
+	box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+	overflow: hidden;
+}
+
+.gw-gen-header {
+	padding: 14px 20px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+.gw-gen-title {
+	font-weight: 600;
+	font-size: 1em;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--text-normal);
+}
+
+.gw-gen-spinner {
+	animation: gw-spin 1.2s linear infinite;
+	display: inline-block;
+}
+
+@keyframes gw-spin {
+	from { transform: rotate(0deg); }
+	to   { transform: rotate(360deg); }
+}
+
+.gw-gen-wordcount {
+	font-size: 0.8em;
+	color: var(--text-muted);
+}
+
+.gw-gen-body {
+	flex: 1;
+	overflow-y: auto;
+	padding: 24px 28px;
+	font-family: var(--font-text);
+	font-size: var(--font-text-size, 1em);
+	line-height: 1.75;
+	color: var(--text-normal);
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.gw-gen-committed {
+	white-space: pre-wrap;
+}
+
+.gw-gen-streaming {
+	white-space: pre-wrap;
+	color: var(--text-muted);
+	margin-top: 0;
+}
+
+.gw-gen-cursor {
+	display: inline-block;
+	animation: gw-blink 0.8s step-end infinite;
+	color: var(--text-accent);
+	margin-left: 1px;
+}
+
+@keyframes gw-blink {
+	0%, 100% { opacity: 1; }
+	50%       { opacity: 0; }
+}
+
+.gw-gen-waiting {
+	color: var(--text-faint);
+	font-style: italic;
+}
+
+.gw-gen-footer {
+	padding: 12px 20px;
+	border-top: 1px solid var(--background-modifier-border);
+	display: flex;
+	gap: 10px;
+	justify-content: flex-end;
+	flex-shrink: 0;
+}
+
+.gw-btn {
+	padding: 8px 20px;
+	border: none;
+	border-radius: 6px;
+	font-size: 0.9em;
+	font-weight: 600;
+	cursor: pointer;
+	transition: filter 0.15s;
+}
+
+.gw-btn:hover {
+	filter: brightness(1.1);
+}
+
+.gw-btn-success {
+	background-color: var(--color-green, #3fb950);
+	color: #fff;
+}
+
+.gw-btn-danger {
+	background-color: var(--color-red, #f85149);
+	color: #fff;
+}

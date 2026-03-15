@@ -1104,11 +1104,11 @@ var require_react_development = __commonJS({
           var dispatcher = resolveDispatcher();
           return dispatcher.useReducer(reducer, initialArg, init);
         }
-        function useRef2(initialValue) {
+        function useRef3(initialValue) {
           var dispatcher = resolveDispatcher();
           return dispatcher.useRef(initialValue);
         }
-        function useEffect7(create, deps) {
+        function useEffect8(create, deps) {
           var dispatcher = resolveDispatcher();
           return dispatcher.useEffect(create, deps);
         }
@@ -1891,14 +1891,14 @@ var require_react_development = __commonJS({
         exports.useContext = useContext;
         exports.useDebugValue = useDebugValue;
         exports.useDeferredValue = useDeferredValue;
-        exports.useEffect = useEffect7;
+        exports.useEffect = useEffect8;
         exports.useId = useId;
         exports.useImperativeHandle = useImperativeHandle;
         exports.useInsertionEffect = useInsertionEffect;
         exports.useLayoutEffect = useLayoutEffect;
         exports.useMemo = useMemo3;
         exports.useReducer = useReducer;
-        exports.useRef = useRef2;
+        exports.useRef = useRef3;
         exports.useState = useState9;
         exports.useSyncExternalStore = useSyncExternalStore;
         exports.useTransition = useTransition;
@@ -2395,9 +2395,9 @@ var require_react_dom_development = __commonJS({
         if (typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ !== "undefined" && typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart === "function") {
           __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(new Error());
         }
-        var React13 = require_react();
+        var React14 = require_react();
         var Scheduler = require_scheduler();
-        var ReactSharedInternals = React13.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+        var ReactSharedInternals = React14.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
         var suppressWarning = false;
         function setSuppressWarning(newSuppressWarning) {
           {
@@ -4002,7 +4002,7 @@ var require_react_dom_development = __commonJS({
           {
             if (props.value == null) {
               if (typeof props.children === "object" && props.children !== null) {
-                React13.Children.forEach(props.children, function(child) {
+                React14.Children.forEach(props.children, function(child) {
                   if (child == null) {
                     return;
                   }
@@ -23565,11 +23565,11 @@ var require_client = __commonJS({
 });
 
 // ui/TreePickerModal.tsx
-var import_obsidian6, import_react9, import_client4, TreePickerModal, TreePickerComponent;
+var import_obsidian6, import_react10, import_client4, TreePickerModal, TreePickerComponent;
 var init_TreePickerModal = __esm({
   "ui/TreePickerModal.tsx"() {
     import_obsidian6 = require("obsidian");
-    import_react9 = __toESM(require_react());
+    import_react10 = __toESM(require_react());
     import_client4 = __toESM(require_client());
     TreePickerModal = class extends import_obsidian6.Modal {
       constructor(plugin, opts) {
@@ -23584,7 +23584,7 @@ var init_TreePickerModal = __esm({
         const container = this.contentEl.createDiv();
         this.reactRoot = (0, import_client4.createRoot)(container);
         this.reactRoot.render(
-          import_react9.default.createElement(TreePickerComponent, {
+          import_react10.default.createElement(TreePickerComponent, {
             plugin: this.plugin,
             title: this.opts.title,
             initialSelection: this.opts.initialSelection,
@@ -23604,15 +23604,15 @@ var init_TreePickerModal = __esm({
       }
     };
     TreePickerComponent = ({ plugin, initialSelection, mode, onSubmit, onClose, filter }) => {
-      const [nodes, setNodes] = (0, import_react9.useState)([]);
-      const [selected, setSelected] = (0, import_react9.useState)(() => {
+      const [nodes, setNodes] = (0, import_react10.useState)([]);
+      const [selected, setSelected] = (0, import_react10.useState)(() => {
         const init = /* @__PURE__ */ new Set();
         const list2 = Array.isArray(initialSelection) ? initialSelection : initialSelection ? [initialSelection] : [];
         for (const p of list2)
           init.add(p.replaceAll("\\", "/"));
         return init;
       });
-      const [expanded, setExpanded] = (0, import_react9.useState)(() => {
+      const [expanded, setExpanded] = (0, import_react10.useState)(() => {
         const exp = /* @__PURE__ */ new Set([""]);
         const list2 = Array.isArray(initialSelection) ? initialSelection : initialSelection ? [initialSelection] : [];
         for (const p of list2) {
@@ -23623,12 +23623,12 @@ var init_TreePickerModal = __esm({
         }
         return exp;
       });
-      (0, import_react9.useEffect)(() => {
+      (0, import_react10.useEffect)(() => {
         const structure = plugin.vaultService.getVaultStructure();
         const filtered = filter ? structure.filter(filter) : structure;
         setNodes(filtered);
       }, [plugin, filter]);
-      const childrenOf = (0, import_react9.useMemo)(() => {
+      const childrenOf = (0, import_react10.useMemo)(() => {
         const map2 = /* @__PURE__ */ new Map();
         for (const n of nodes) {
           const parent = n.path.includes("/") ? n.path.split("/").slice(0, -1).join("/") : "";
@@ -23665,7 +23665,7 @@ var init_TreePickerModal = __esm({
         const isExpanded = expanded.has(node.path);
         const isSelected = selected.has(node.path);
         const kids = childrenOf.get(node.path) || [];
-        return /* @__PURE__ */ import_react9.default.createElement("div", { key: node.path, style: { paddingLeft: `${depth * 18}px` } }, /* @__PURE__ */ import_react9.default.createElement(
+        return /* @__PURE__ */ import_react10.default.createElement("div", { key: node.path, style: { paddingLeft: `${depth * 18}px` } }, /* @__PURE__ */ import_react10.default.createElement(
           "div",
           {
             style: {
@@ -23678,7 +23678,7 @@ var init_TreePickerModal = __esm({
               backgroundColor: isSelected ? "var(--background-modifier-hover)" : "transparent"
             }
           },
-          isFolder ? /* @__PURE__ */ import_react9.default.createElement(
+          isFolder ? /* @__PURE__ */ import_react10.default.createElement(
             "span",
             {
               role: "button",
@@ -23693,8 +23693,8 @@ var init_TreePickerModal = __esm({
               title: isExpanded ? "Collapse" : "Expand"
             },
             isExpanded ? "\u{1F4C2}" : "\u{1F4C1}"
-          ) : /* @__PURE__ */ import_react9.default.createElement("span", { style: { width: "16px", textAlign: "center" } }, "\u{1F4C4}"),
-          /* @__PURE__ */ import_react9.default.createElement(
+          ) : /* @__PURE__ */ import_react10.default.createElement("span", { style: { width: "16px", textAlign: "center" } }, "\u{1F4C4}"),
+          /* @__PURE__ */ import_react10.default.createElement(
             "input",
             {
               type: mode === "single" ? "radio" : "checkbox",
@@ -23704,7 +23704,7 @@ var init_TreePickerModal = __esm({
               name: "tree-picker"
             }
           ),
-          /* @__PURE__ */ import_react9.default.createElement(
+          /* @__PURE__ */ import_react10.default.createElement(
             "span",
             {
               role: "button",
@@ -23727,7 +23727,7 @@ var init_TreePickerModal = __esm({
         onSubmit(value);
         onClose();
       };
-      return /* @__PURE__ */ import_react9.default.createElement("div", { style: { padding: "12px", maxHeight: "60vh", overflowY: "auto", minWidth: "360px" } }, /* @__PURE__ */ import_react9.default.createElement("div", { style: { marginBottom: "12px", color: "var(--text-muted)" } }, "Select folders and notes to include. If none are selected in some contexts, the active note is used."), roots.length === 0 ? /* @__PURE__ */ import_react9.default.createElement("div", { style: { padding: "12px", color: "var(--text-muted)" } }, "No items found") : roots.map((n) => renderNode(n)), /* @__PURE__ */ import_react9.default.createElement("div", { style: { marginTop: "16px", display: "flex", gap: "8px" } }, /* @__PURE__ */ import_react9.default.createElement("button", { className: "mod-cta", onClick: handleSubmit, style: { flex: 1 } }, "Save"), /* @__PURE__ */ import_react9.default.createElement("button", { className: "mod-secondary", onClick: onClose, style: { flex: 1 } }, "Cancel")));
+      return /* @__PURE__ */ import_react10.default.createElement("div", { style: { padding: "12px", maxHeight: "60vh", overflowY: "auto", minWidth: "360px" } }, /* @__PURE__ */ import_react10.default.createElement("div", { style: { marginBottom: "12px", color: "var(--text-muted)" } }, "Select folders and notes to include. If none are selected in some contexts, the active note is used."), roots.length === 0 ? /* @__PURE__ */ import_react10.default.createElement("div", { style: { padding: "12px", color: "var(--text-muted)" } }, "No items found") : roots.map((n) => renderNode(n)), /* @__PURE__ */ import_react10.default.createElement("div", { style: { marginTop: "16px", display: "flex", gap: "8px" } }, /* @__PURE__ */ import_react10.default.createElement("button", { className: "mod-cta", onClick: handleSubmit, style: { flex: 1 } }, "Save"), /* @__PURE__ */ import_react10.default.createElement("button", { className: "mod-secondary", onClick: onClose, style: { flex: 1 } }, "Cancel")));
     };
   }
 });
@@ -23737,11 +23737,11 @@ var ProfilePickerModal_exports = {};
 __export(ProfilePickerModal_exports, {
   ProfilePickerModal: () => ProfilePickerModal
 });
-var import_obsidian7, import_react10, import_client5, ProfilePickerModal;
+var import_obsidian7, import_react11, import_client5, ProfilePickerModal;
 var init_ProfilePickerModal = __esm({
   "ui/ProfilePickerModal.tsx"() {
     import_obsidian7 = require("obsidian");
-    import_react10 = __toESM(require_react());
+    import_react11 = __toESM(require_react());
     import_client5 = __toESM(require_client());
     init_TreePickerModal();
     ProfilePickerModal = class extends import_obsidian7.Modal {
@@ -23756,7 +23756,7 @@ var init_ProfilePickerModal = __esm({
         const container = this.contentEl.createDiv();
         this.reactRoot = (0, import_client5.createRoot)(container);
         this.reactRoot.render(
-          import_react10.default.createElement(TreePickerComponent, {
+          import_react11.default.createElement(TreePickerComponent, {
             plugin: this.plugin,
             initialSelection: this.plugin.settings.retrievalIncludedFolders || [],
             mode: "multi",
@@ -26493,10 +26493,10 @@ var import_obsidian28 = require("obsidian");
 // ui/DashboardView.ts
 var import_obsidian4 = require("obsidian");
 var import_client2 = __toESM(require_client());
-var import_react7 = __toESM(require_react());
+var import_react8 = __toESM(require_react());
 
 // ui/DashboardComponent.tsx
-var import_react6 = __toESM(require_react());
+var import_react7 = __toESM(require_react());
 var import_obsidian3 = require("obsidian");
 
 // ui/EditorPanel.tsx
@@ -26733,9 +26733,32 @@ var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, gener
   )));
 };
 
+// ui/GenerationModal.tsx
+var import_react2 = __toESM(require_react());
+var GenerationModal = ({
+  isGenerating,
+  generationStage,
+  chunkBuffer,
+  generatedText,
+  onApprove,
+  onDiscard,
+  onAbort
+}) => {
+  const bodyRef = (0, import_react2.useRef)(null);
+  (0, import_react2.useEffect)(() => {
+    const el = bodyRef.current;
+    if (el)
+      el.scrollTop = el.scrollHeight;
+  }, [chunkBuffer, generatedText]);
+  const committed = generatedText.trim();
+  const streaming = chunkBuffer.trim();
+  const wordCount = TextChunker.getWordCount((committed + " " + streaming).trim());
+  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-overlay" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-modal" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-header" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-title" }, isGenerating ? /* @__PURE__ */ import_react2.default.createElement(import_react2.default.Fragment, null, /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-gen-spinner" }, "\u23F3"), " ", generationStage || "Generating\u2026") : /* @__PURE__ */ import_react2.default.createElement(import_react2.default.Fragment, null, "\u2713 Done \u2014 ", wordCount.toLocaleString(), " words")), /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-wordcount" }, wordCount.toLocaleString(), " words")), /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-body", ref: bodyRef }, committed && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-committed" }, committed), streaming && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-streaming" }, streaming, /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-gen-cursor" }, "\u258C")), !committed && !streaming && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-waiting" }, "Waiting for output\u2026")), /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-footer" }, isGenerating ? /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-btn gw-btn-danger", onClick: onAbort }, "\u2715 Abort") : /* @__PURE__ */ import_react2.default.createElement(import_react2.default.Fragment, null, /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-btn gw-btn-danger", onClick: onDiscard }, "\u2715 Discard"), /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-btn gw-btn-success", onClick: onApprove }, "\u2713 Approve & Insert")))));
+};
+
 // ui/FileTreePickerModal.tsx
 var import_obsidian = require("obsidian");
-var import_react2 = __toESM(require_react());
+var import_react3 = __toESM(require_react());
 var import_client = __toESM(require_client());
 var FileTreePickerModal = class extends import_obsidian.Modal {
   constructor(plugin, opts) {
@@ -26752,7 +26775,7 @@ var FileTreePickerModal = class extends import_obsidian.Modal {
     const container = this.contentEl.createDiv();
     this.reactRoot = (0, import_client.createRoot)(container);
     this.reactRoot.render(
-      import_react2.default.createElement(FileTreePickerComponent, {
+      import_react3.default.createElement(FileTreePickerComponent, {
         plugin: this.plugin,
         currentPath: this.currentPath,
         onPick: (path) => {
@@ -26772,9 +26795,9 @@ var FileTreePickerModal = class extends import_obsidian.Modal {
   }
 };
 var FileTreePickerComponent = ({ plugin, currentPath, onPick, onClose }) => {
-  const [structure, setStructure] = (0, import_react2.useState)([]);
-  const [expandedFolders, setExpandedFolders] = (0, import_react2.useState)(/* @__PURE__ */ new Set([""]));
-  (0, import_react2.useEffect)(() => {
+  const [structure, setStructure] = (0, import_react3.useState)([]);
+  const [expandedFolders, setExpandedFolders] = (0, import_react3.useState)(/* @__PURE__ */ new Set([""]));
+  (0, import_react3.useEffect)(() => {
     const vaultStructure = plugin.vaultService.getVaultStructure();
     const filtered = vaultStructure.filter(
       (item) => item.type === "folder" || item.type === "file" && item.path.endsWith(".md")
@@ -26806,7 +26829,7 @@ var FileTreePickerComponent = ({ plugin, currentPath, onPick, onClose }) => {
       );
       if (children.length === 0)
         return null;
-      return /* @__PURE__ */ import_react2.default.createElement("div", { key: item.path, className: "vault-item folder", style: { paddingLeft: `${depth * 20}px` } }, /* @__PURE__ */ import_react2.default.createElement(
+      return /* @__PURE__ */ import_react3.default.createElement("div", { key: item.path, className: "vault-item folder", style: { paddingLeft: `${depth * 20}px` } }, /* @__PURE__ */ import_react3.default.createElement(
         "span",
         {
           className: "folder-toggle",
@@ -26826,7 +26849,7 @@ var FileTreePickerComponent = ({ plugin, currentPath, onPick, onClose }) => {
       ), isExpanded && children.map((child) => renderItem(child, depth + 1)));
     } else {
       const isSelected = item.path === currentPath;
-      return /* @__PURE__ */ import_react2.default.createElement(
+      return /* @__PURE__ */ import_react3.default.createElement(
         "div",
         {
           key: item.path,
@@ -26848,19 +26871,19 @@ var FileTreePickerComponent = ({ plugin, currentPath, onPick, onClose }) => {
         },
         "\u{1F4C4} ",
         item.name,
-        isSelected && /* @__PURE__ */ import_react2.default.createElement("span", { style: { marginLeft: "8px", color: "var(--text-accent)" } }, "\u2713")
+        isSelected && /* @__PURE__ */ import_react3.default.createElement("span", { style: { marginLeft: "8px", color: "var(--text-accent)" } }, "\u2713")
       );
     }
   };
   const rootItems = structure.filter((item) => !item.path.includes("/"));
-  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "file-tree-picker", style: { padding: "12px", maxHeight: "60vh", overflowY: "auto" } }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "vault-tree" }, rootItems.length === 0 ? /* @__PURE__ */ import_react2.default.createElement("div", { style: { padding: "12px", color: "var(--text-muted)" } }, "No markdown files found in vault") : rootItems.map((item) => renderItem(item))));
+  return /* @__PURE__ */ import_react3.default.createElement("div", { className: "file-tree-picker", style: { padding: "12px", maxHeight: "60vh", overflowY: "auto" } }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "vault-tree" }, rootItems.length === 0 ? /* @__PURE__ */ import_react3.default.createElement("div", { style: { padding: "12px", color: "var(--text-muted)" } }, "No markdown files found in vault") : rootItems.map((item) => renderItem(item))));
 };
 
 // ui/FactInspector.tsx
-var import_react3 = __toESM(require_react());
+var import_react4 = __toESM(require_react());
 
 // ui/HelpTooltip.tsx
-var React3 = __toESM(require_react());
+var React4 = __toESM(require_react());
 
 // ui/HelpRegistry.ts
 var HELP_REGISTRY = {
@@ -26905,13 +26928,13 @@ var HelpTooltip = ({ id, density }) => {
     return null;
   if (density === "LITE" && item.density === "FULL")
     return null;
-  return /* @__PURE__ */ React3.createElement("span", { className: "help-icon", title: `${item.title}: ${item.description}` }, "\u24D8", item.learnMoreUrl && /* @__PURE__ */ React3.createElement("a", { href: item.learnMoreUrl, target: "_blank", rel: "noopener", className: "learn-more-link" }, "Learn More"));
+  return /* @__PURE__ */ React4.createElement("span", { className: "help-icon", title: `${item.title}: ${item.description}` }, "\u24D8", item.learnMoreUrl && /* @__PURE__ */ React4.createElement("a", { href: item.learnMoreUrl, target: "_blank", rel: "noopener", className: "learn-more-link" }, "Learn More"));
 };
 
 // ui/FactInspector.tsx
 var FactInspector = ({ plugin, state }) => {
-  const [selectedFactId, setSelectedFactId] = (0, import_react3.useState)(null);
-  const [filter, setFilter] = (0, import_react3.useState)("all");
+  const [selectedFactId, setSelectedFactId] = (0, import_react4.useState)(null);
+  const [filter, setFilter] = (0, import_react4.useState)("all");
   const selectedFact = state.canonFacts.find((f) => f.id === selectedFactId);
   const getOriginBadge = (origin) => {
     const colors = {
@@ -26920,7 +26943,7 @@ var FactInspector = ({ plugin, state }) => {
       "EXTRACTOR": "var(--text-warning)",
       "CLOUD_MONOLITHIC": "var(--text-error)"
     };
-    return /* @__PURE__ */ import_react3.default.createElement("span", { className: "fact-badge", style: { color: colors[origin] || "var(--text-muted)", fontSize: "0.8em", border: "1px solid", padding: "1px 4px", borderRadius: "4px", marginLeft: "8px" } }, origin);
+    return /* @__PURE__ */ import_react4.default.createElement("span", { className: "fact-badge", style: { color: colors[origin] || "var(--text-muted)", fontSize: "0.8em", border: "1px solid", padding: "1px 4px", borderRadius: "4px", marginLeft: "8px" } }, origin);
   };
   const getStatusIcon = (state2) => {
     switch (state2) {
@@ -26945,7 +26968,7 @@ var FactInspector = ({ plugin, state }) => {
       return f.lifecycleState === "QUARANTINED";
     return true;
   });
-  return /* @__PURE__ */ import_react3.default.createElement("div", { className: "fact-inspector", style: { display: "flex", flexDirection: "column", gap: "12px", flex: "1 1 auto", minHeight: 0 } }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "inspector-header", style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ import_react3.default.createElement("h3", { style: { margin: 0 } }, "Lore Inspector ", /* @__PURE__ */ import_react3.default.createElement(HelpTooltip, { id: "grounding-heatmap", density: plugin.settings.helpDensity || "LITE" })), /* @__PURE__ */ import_react3.default.createElement("div", { className: "filter-bar", style: { display: "flex", gap: "4px" } }, /* @__PURE__ */ import_react3.default.createElement("button", { className: `nav-button ${filter === "all" ? "is-active" : ""}`, onClick: () => setFilter("all") }, "All"), /* @__PURE__ */ import_react3.default.createElement("button", { className: `nav-button ${filter === "locked" ? "is-active" : ""}`, onClick: () => setFilter("locked") }, "\u{1F512} Locked"), /* @__PURE__ */ import_react3.default.createElement("button", { className: `nav-button ${filter === "pending" ? "is-active" : ""}`, onClick: () => setFilter("pending") }, "\u{1F9EA} Pending"), /* @__PURE__ */ import_react3.default.createElement("button", { className: `nav-button ${filter === "conflict" ? "is-active" : ""}`, onClick: () => setFilter("conflict") }, "\u26A0\uFE0F Conflict"))), /* @__PURE__ */ import_react3.default.createElement("div", { className: "inspector-layout", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", flexGrow: 1, minHeight: 0 } }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "fact-list", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "8px" } }, filteredFacts.length === 0 ? /* @__PURE__ */ import_react3.default.createElement("p", { className: "empty-msg", style: { textAlign: "center", color: "var(--text-muted)" } }, "No facts found for this filter.") : filteredFacts.map((fact) => /* @__PURE__ */ import_react3.default.createElement(
+  return /* @__PURE__ */ import_react4.default.createElement("div", { className: "fact-inspector", style: { display: "flex", flexDirection: "column", gap: "12px", flex: "1 1 auto", minHeight: 0 } }, /* @__PURE__ */ import_react4.default.createElement("div", { className: "inspector-header", style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ import_react4.default.createElement("h3", { style: { margin: 0 } }, "Lore Inspector ", /* @__PURE__ */ import_react4.default.createElement(HelpTooltip, { id: "grounding-heatmap", density: plugin.settings.helpDensity || "LITE" })), /* @__PURE__ */ import_react4.default.createElement("div", { className: "filter-bar", style: { display: "flex", gap: "4px" } }, /* @__PURE__ */ import_react4.default.createElement("button", { className: `nav-button ${filter === "all" ? "is-active" : ""}`, onClick: () => setFilter("all") }, "All"), /* @__PURE__ */ import_react4.default.createElement("button", { className: `nav-button ${filter === "locked" ? "is-active" : ""}`, onClick: () => setFilter("locked") }, "\u{1F512} Locked"), /* @__PURE__ */ import_react4.default.createElement("button", { className: `nav-button ${filter === "pending" ? "is-active" : ""}`, onClick: () => setFilter("pending") }, "\u{1F9EA} Pending"), /* @__PURE__ */ import_react4.default.createElement("button", { className: `nav-button ${filter === "conflict" ? "is-active" : ""}`, onClick: () => setFilter("conflict") }, "\u26A0\uFE0F Conflict"))), /* @__PURE__ */ import_react4.default.createElement("div", { className: "inspector-layout", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", flexGrow: 1, minHeight: 0 } }, /* @__PURE__ */ import_react4.default.createElement("div", { className: "fact-list", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "8px" } }, filteredFacts.length === 0 ? /* @__PURE__ */ import_react4.default.createElement("p", { className: "empty-msg", style: { textAlign: "center", color: "var(--text-muted)" } }, "No facts found for this filter.") : filteredFacts.map((fact) => /* @__PURE__ */ import_react4.default.createElement(
     "div",
     {
       key: fact.id,
@@ -26965,13 +26988,13 @@ var FactInspector = ({ plugin, state }) => {
         backgroundColor: selectedFactId === fact.id ? "var(--background-modifier-hover)" : "transparent"
       }
     },
-    /* @__PURE__ */ import_react3.default.createElement("div", { className: "fact-main", style: { display: "flex", gap: "8px", alignItems: "center" } }, /* @__PURE__ */ import_react3.default.createElement("span", { className: "fact-icon" }, getStatusIcon(fact.lifecycleState)), /* @__PURE__ */ import_react3.default.createElement("span", { className: "fact-summary", style: { fontSize: "0.9em" } }, /* @__PURE__ */ import_react3.default.createElement("strong", null, fact.entityId), ": ", fact.attribute, " is ", /* @__PURE__ */ import_react3.default.createElement("em", null, String(fact.value)))),
-    /* @__PURE__ */ import_react3.default.createElement("div", { className: "fact-meta", style: { display: "flex", justifyContent: "space-between", marginTop: "4px", alignItems: "center" } }, getOriginBadge(fact.origin), /* @__PURE__ */ import_react3.default.createElement("span", { className: "fact-conf", style: { fontSize: "0.8em", color: "var(--text-muted)" } }, (fact.confidence * 100).toFixed(0), "% confidence"))
-  ))), /* @__PURE__ */ import_react3.default.createElement("div", { className: "fact-detail-panel", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "12px", display: "flex", flexDirection: "column", gap: "12px" } }, selectedFact ? /* @__PURE__ */ import_react3.default.createElement("div", { className: "fact-detail-content" }, /* @__PURE__ */ import_react3.default.createElement("h4", { style: { marginTop: 0 } }, "Fact Detail: ", selectedFact.id), /* @__PURE__ */ import_react3.default.createElement("section", { className: "detail-section", style: { marginBottom: "16px" } }, /* @__PURE__ */ import_react3.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Why this exists (Provenance)"), /* @__PURE__ */ import_react3.default.createElement("div", { className: "detail-grid", style: { display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react3.default.createElement("span", null, "Origin:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, selectedFact.origin), /* @__PURE__ */ import_react3.default.createElement("span", null, "Added:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, new Date(selectedFact.timestamp).toLocaleString()), /* @__PURE__ */ import_react3.default.createElement("span", null, "Source Run:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, selectedFact.chunkId || "Initial Seed"), /* @__PURE__ */ import_react3.default.createElement("span", null, "Confidence:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, (selectedFact.confidence * 100).toFixed(0), "%"))), /* @__PURE__ */ import_react3.default.createElement("section", { className: "detail-section" }, /* @__PURE__ */ import_react3.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Where this matters (Impact)"), /* @__PURE__ */ import_react3.default.createElement("div", { className: "detail-grid", style: { display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react3.default.createElement("span", null, "Scope:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, selectedFact.scope), /* @__PURE__ */ import_react3.default.createElement("span", null, "Status:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, selectedFact.lifecycleState), /* @__PURE__ */ import_react3.default.createElement("span", null, "Attribute:"), " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, selectedFact.attribute)), selectedFact.sourceSpan && /* @__PURE__ */ import_react3.default.createElement("div", { style: { marginTop: "8px", fontSize: "0.85em", fontStyle: "italic", color: "var(--text-muted)", borderLeft: "2px solid var(--text-accent)", paddingLeft: "8px" } }, '"...', selectedFact.sourceSpan.anchorTextBefore, " ", /* @__PURE__ */ import_react3.default.createElement("strong", null, "[", selectedFact.value, "]"), " ", selectedFact.sourceSpan.anchorTextAfter, '..."'))) : /* @__PURE__ */ import_react3.default.createElement("p", { className: "empty-msg", style: { textAlign: "center", color: "var(--text-muted)", margin: "auto" } }, "Select a fact to see details."))), /* @__PURE__ */ import_react3.default.createElement("div", { className: "timeline-section", style: { height: "150px", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "8px", overflowY: "auto" } }, /* @__PURE__ */ import_react3.default.createElement("h4", { style: { marginTop: 0, fontSize: "0.9em" } }, "Run Timeline"), /* @__PURE__ */ import_react3.default.createElement("div", { className: "timeline-list", style: { fontSize: "0.85em" } }, state.timeline.length === 0 ? /* @__PURE__ */ import_react3.default.createElement("p", { className: "empty-msg", style: { color: "var(--text-muted)" } }, "No timeline events yet.") : state.timeline.map((t) => /* @__PURE__ */ import_react3.default.createElement("div", { key: t.chunkId, style: { display: "flex", gap: "12px", marginBottom: "4px" } }, /* @__PURE__ */ import_react3.default.createElement("span", { style: { color: "var(--text-accent)", minWidth: "60px" } }, t.chunkId), /* @__PURE__ */ import_react3.default.createElement("span", null, t.summary))))));
+    /* @__PURE__ */ import_react4.default.createElement("div", { className: "fact-main", style: { display: "flex", gap: "8px", alignItems: "center" } }, /* @__PURE__ */ import_react4.default.createElement("span", { className: "fact-icon" }, getStatusIcon(fact.lifecycleState)), /* @__PURE__ */ import_react4.default.createElement("span", { className: "fact-summary", style: { fontSize: "0.9em" } }, /* @__PURE__ */ import_react4.default.createElement("strong", null, fact.entityId), ": ", fact.attribute, " is ", /* @__PURE__ */ import_react4.default.createElement("em", null, String(fact.value)))),
+    /* @__PURE__ */ import_react4.default.createElement("div", { className: "fact-meta", style: { display: "flex", justifyContent: "space-between", marginTop: "4px", alignItems: "center" } }, getOriginBadge(fact.origin), /* @__PURE__ */ import_react4.default.createElement("span", { className: "fact-conf", style: { fontSize: "0.8em", color: "var(--text-muted)" } }, (fact.confidence * 100).toFixed(0), "% confidence"))
+  ))), /* @__PURE__ */ import_react4.default.createElement("div", { className: "fact-detail-panel", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "12px", display: "flex", flexDirection: "column", gap: "12px" } }, selectedFact ? /* @__PURE__ */ import_react4.default.createElement("div", { className: "fact-detail-content" }, /* @__PURE__ */ import_react4.default.createElement("h4", { style: { marginTop: 0 } }, "Fact Detail: ", selectedFact.id), /* @__PURE__ */ import_react4.default.createElement("section", { className: "detail-section", style: { marginBottom: "16px" } }, /* @__PURE__ */ import_react4.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Why this exists (Provenance)"), /* @__PURE__ */ import_react4.default.createElement("div", { className: "detail-grid", style: { display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react4.default.createElement("span", null, "Origin:"), " ", /* @__PURE__ */ import_react4.default.createElement("strong", null, selectedFact.origin), /* @__PURE__ */ import_react4.default.createElement("span", null, "Added:"), " ", /* @__PURE__ */ import_react4.default.createElement("strong", null, new Date(selectedFact.timestamp).toLocaleString()), /* @__PURE__ */ import_react4.default.createElement("span", null, "Source Run:"), " ", /* @__PURE__ */ import_react4.default.createElement("strong", null, selectedFact.chunkId || "Initial Seed"), /* @__PURE__ */ import_react4.default.createElement("span", null, "Confidence:"), " ", /* @__PURE__ */ import_react4.default.createElement("strong", null, (selectedFact.confidence * 100).toFixed(0), "%"))), /* @__PURE__ */ import_react4.default.createElement("section", { className: "detail-section" }, /* @__PURE__ */ import_react4.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Where this matters (Impact)"), /* @__PURE__ */ import_react4.default.createElement("div", { className: "detail-grid", style: { display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react4.default.createElement("span", null, "Scope:"), " ", /* @__PURE__ */ import_react4.default.createElement("strong", null, selectedFact.scope), /* @__PURE__ */ import_react4.default.createElement("span", null, "Status:"), " ", /* @__PURE__ */ import_react4.default.createElement("strong", null, selectedFact.lifecycleState), /* @__PURE__ */ import_react4.default.createElement("span", null, "Attribute:"), " ", /* @__PURE__ */ import_react4.default.createElement("strong", null, selectedFact.attribute)), selectedFact.sourceSpan && /* @__PURE__ */ import_react4.default.createElement("div", { style: { marginTop: "8px", fontSize: "0.85em", fontStyle: "italic", color: "var(--text-muted)", borderLeft: "2px solid var(--text-accent)", paddingLeft: "8px" } }, '"...', selectedFact.sourceSpan.anchorTextBefore, " ", /* @__PURE__ */ import_react4.default.createElement("strong", null, "[", selectedFact.value, "]"), " ", selectedFact.sourceSpan.anchorTextAfter, '..."'))) : /* @__PURE__ */ import_react4.default.createElement("p", { className: "empty-msg", style: { textAlign: "center", color: "var(--text-muted)", margin: "auto" } }, "Select a fact to see details."))), /* @__PURE__ */ import_react4.default.createElement("div", { className: "timeline-section", style: { height: "150px", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "8px", overflowY: "auto" } }, /* @__PURE__ */ import_react4.default.createElement("h4", { style: { marginTop: 0, fontSize: "0.9em" } }, "Run Timeline"), /* @__PURE__ */ import_react4.default.createElement("div", { className: "timeline-list", style: { fontSize: "0.85em" } }, state.timeline.length === 0 ? /* @__PURE__ */ import_react4.default.createElement("p", { className: "empty-msg", style: { color: "var(--text-muted)" } }, "No timeline events yet.") : state.timeline.map((t) => /* @__PURE__ */ import_react4.default.createElement("div", { key: t.chunkId, style: { display: "flex", gap: "12px", marginBottom: "4px" } }, /* @__PURE__ */ import_react4.default.createElement("span", { style: { color: "var(--text-accent)", minWidth: "60px" } }, t.chunkId), /* @__PURE__ */ import_react4.default.createElement("span", null, t.summary))))));
 };
 
 // ui/ReplayPanel.tsx
-var import_react4 = __toESM(require_react());
+var import_react5 = __toESM(require_react());
 
 // services/RunPaths.ts
 var RunPaths = class {
@@ -27049,10 +27072,10 @@ var RunPaths = class {
 // ui/ReplayPanel.tsx
 var import_obsidian2 = require("obsidian");
 var ReplayPanel = ({ plugin }) => {
-  const [runs, setRuns] = (0, import_react4.useState)([]);
-  const [selectedRunKey, setSelectedRunKey] = (0, import_react4.useState)(null);
-  const [isLoading, setIsLoading] = (0, import_react4.useState)(false);
-  (0, import_react4.useEffect)(() => {
+  const [runs, setRuns] = (0, import_react5.useState)([]);
+  const [selectedRunKey, setSelectedRunKey] = (0, import_react5.useState)(null);
+  const [isLoading, setIsLoading] = (0, import_react5.useState)(false);
+  (0, import_react5.useEffect)(() => {
     loadRuns();
   }, []);
   const loadRuns = async () => {
@@ -27110,8 +27133,8 @@ var ReplayPanel = ({ plugin }) => {
   const getHealthBadge = (manifest) => {
     const hasError = manifest.stages.some((s) => s.stageType === "AUDIT" && s.data?.overallSeverity >= 4);
     if (hasError)
-      return /* @__PURE__ */ import_react4.default.createElement("span", { style: { color: "var(--text-error)", fontSize: "0.8em" } }, "\u274C Issues");
-    return /* @__PURE__ */ import_react4.default.createElement("span", { style: { color: "var(--text-success)", fontSize: "0.8em" } }, "\u2705 Healthy");
+      return /* @__PURE__ */ import_react5.default.createElement("span", { style: { color: "var(--text-error)", fontSize: "0.8em" } }, "\u274C Issues");
+    return /* @__PURE__ */ import_react5.default.createElement("span", { style: { color: "var(--text-success)", fontSize: "0.8em" } }, "\u2705 Healthy");
   };
   const getRunSignificance = (manifest) => {
     const promoted = manifest.harvestSummary?.approvedIds?.length || 0;
@@ -27125,7 +27148,7 @@ var ReplayPanel = ({ plugin }) => {
       parts.push("Local relay");
     return parts.join(" \u2022 ");
   };
-  return /* @__PURE__ */ import_react4.default.createElement("div", { className: "replay-panel", style: { display: "flex", flexDirection: "column", height: "100%", gap: "12px" } }, /* @__PURE__ */ import_react4.default.createElement("div", { className: "replay-header", style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ import_react4.default.createElement("h3", { style: { margin: 0 } }, "Generation History"), /* @__PURE__ */ import_react4.default.createElement("button", { className: "nav-button", onClick: loadRuns, disabled: isLoading }, isLoading ? "Loading..." : "Refresh")), /* @__PURE__ */ import_react4.default.createElement("div", { className: "replay-layout", style: { display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "12px", flexGrow: 1, minHeight: 0 } }, /* @__PURE__ */ import_react4.default.createElement("div", { className: "run-list", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "8px" } }, runs.length === 0 ? /* @__PURE__ */ import_react4.default.createElement("p", { style: { textAlign: "center", color: "var(--text-muted)" } }, "No runs found.") : runs.map((run) => /* @__PURE__ */ import_react4.default.createElement(
+  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "replay-panel", style: { display: "flex", flexDirection: "column", height: "100%", gap: "12px" } }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "replay-header", style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ import_react5.default.createElement("h3", { style: { margin: 0 } }, "Generation History"), /* @__PURE__ */ import_react5.default.createElement("button", { className: "nav-button", onClick: loadRuns, disabled: isLoading }, isLoading ? "Loading..." : "Refresh")), /* @__PURE__ */ import_react5.default.createElement("div", { className: "replay-layout", style: { display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "12px", flexGrow: 1, minHeight: 0 } }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "run-list", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "8px" } }, runs.length === 0 ? /* @__PURE__ */ import_react5.default.createElement("p", { style: { textAlign: "center", color: "var(--text-muted)" } }, "No runs found.") : runs.map((run) => /* @__PURE__ */ import_react5.default.createElement(
     "div",
     {
       key: run.key,
@@ -27145,15 +27168,15 @@ var ReplayPanel = ({ plugin }) => {
         backgroundColor: selectedRunKey === run.key ? "var(--background-modifier-hover)" : "transparent"
       }
     },
-    /* @__PURE__ */ import_react4.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ import_react4.default.createElement("strong", { style: { fontSize: "0.9em" } }, new Date(run.manifest.startTime).toLocaleString()), getHealthBadge(run.manifest)),
-    /* @__PURE__ */ import_react4.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)", marginTop: "4px" } }, getRunSignificance(run.manifest))
-  ))), /* @__PURE__ */ import_react4.default.createElement("div", { className: "run-detail", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "12px" } }, selectedRun ? /* @__PURE__ */ import_react4.default.createElement("div", { className: "run-detail-content" }, /* @__PURE__ */ import_react4.default.createElement("h4", { style: { marginTop: 0 } }, "Run: ", selectedRun.key), /* @__PURE__ */ import_react4.default.createElement("div", { style: { fontSize: "0.9em", marginBottom: "16px", display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px" } }, /* @__PURE__ */ import_react4.default.createElement("span", null, "Model:"), " ", /* @__PURE__ */ import_react4.default.createElement("strong", null, selectedRun.manifest.config.smartModel), /* @__PURE__ */ import_react4.default.createElement("span", null, "Start:"), " ", /* @__PURE__ */ import_react4.default.createElement("strong", null, new Date(selectedRun.manifest.startTime).toLocaleString()), /* @__PURE__ */ import_react4.default.createElement("span", null, "Stages:"), " ", /* @__PURE__ */ import_react4.default.createElement("strong", null, selectedRun.manifest.stages.length)), /* @__PURE__ */ import_react4.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Execution Stages"), /* @__PURE__ */ import_react4.default.createElement("div", { className: "stage-list", style: { display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" } }, selectedRun.manifest.stages.map((stage) => /* @__PURE__ */ import_react4.default.createElement("div", { key: stage.stageType + stage.startTime, style: { padding: "8px", backgroundColor: "var(--background-secondary)", borderRadius: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react4.default.createElement("div", { style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ import_react4.default.createElement("span", { style: { color: "var(--text-accent)", fontWeight: "bold" } }, getStageLabel(stage)), /* @__PURE__ */ import_react4.default.createElement("span", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, Math.round(stage.endTime - stage.startTime), "ms")), stage.stageType === "AUDIT" && stage.data && /* @__PURE__ */ import_react4.default.createElement("div", { style: { marginTop: "4px", fontSize: "0.85em" } }, stage.data.violations?.length > 0 ? /* @__PURE__ */ import_react4.default.createElement("span", { style: { color: "var(--text-error)" } }, "\u26A0\uFE0F ", stage.data.violations.length, " violations") : /* @__PURE__ */ import_react4.default.createElement("span", { style: { color: "var(--text-success)" } }, "\u2705 No violations"))))), /* @__PURE__ */ import_react4.default.createElement("div", { style: { marginTop: "20px", display: "flex", gap: "8px" } }, /* @__PURE__ */ import_react4.default.createElement("button", { className: "mod-cta", style: { fontSize: "0.85em" }, onClick: () => new import_obsidian2.Notice("Safe Context Pack inspection coming soon.") }, "Inspect Context Pack"), /* @__PURE__ */ import_react4.default.createElement("button", { style: { fontSize: "0.85em" }, onClick: () => new import_obsidian2.Notice("Replay mode coming soon.") }, "Replay Run"))) : /* @__PURE__ */ import_react4.default.createElement("p", { style: { textAlign: "center", color: "var(--text-muted)", marginTop: "40px" } }, "Select a run to see execution details."))));
+    /* @__PURE__ */ import_react5.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ import_react5.default.createElement("strong", { style: { fontSize: "0.9em" } }, new Date(run.manifest.startTime).toLocaleString()), getHealthBadge(run.manifest)),
+    /* @__PURE__ */ import_react5.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)", marginTop: "4px" } }, getRunSignificance(run.manifest))
+  ))), /* @__PURE__ */ import_react5.default.createElement("div", { className: "run-detail", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "12px" } }, selectedRun ? /* @__PURE__ */ import_react5.default.createElement("div", { className: "run-detail-content" }, /* @__PURE__ */ import_react5.default.createElement("h4", { style: { marginTop: 0 } }, "Run: ", selectedRun.key), /* @__PURE__ */ import_react5.default.createElement("div", { style: { fontSize: "0.9em", marginBottom: "16px", display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px" } }, /* @__PURE__ */ import_react5.default.createElement("span", null, "Model:"), " ", /* @__PURE__ */ import_react5.default.createElement("strong", null, selectedRun.manifest.config.smartModel), /* @__PURE__ */ import_react5.default.createElement("span", null, "Start:"), " ", /* @__PURE__ */ import_react5.default.createElement("strong", null, new Date(selectedRun.manifest.startTime).toLocaleString()), /* @__PURE__ */ import_react5.default.createElement("span", null, "Stages:"), " ", /* @__PURE__ */ import_react5.default.createElement("strong", null, selectedRun.manifest.stages.length)), /* @__PURE__ */ import_react5.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Execution Stages"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "stage-list", style: { display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" } }, selectedRun.manifest.stages.map((stage) => /* @__PURE__ */ import_react5.default.createElement("div", { key: stage.stageType + stage.startTime, style: { padding: "8px", backgroundColor: "var(--background-secondary)", borderRadius: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react5.default.createElement("div", { style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ import_react5.default.createElement("span", { style: { color: "var(--text-accent)", fontWeight: "bold" } }, getStageLabel(stage)), /* @__PURE__ */ import_react5.default.createElement("span", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, Math.round(stage.endTime - stage.startTime), "ms")), stage.stageType === "AUDIT" && stage.data && /* @__PURE__ */ import_react5.default.createElement("div", { style: { marginTop: "4px", fontSize: "0.85em" } }, stage.data.violations?.length > 0 ? /* @__PURE__ */ import_react5.default.createElement("span", { style: { color: "var(--text-error)" } }, "\u26A0\uFE0F ", stage.data.violations.length, " violations") : /* @__PURE__ */ import_react5.default.createElement("span", { style: { color: "var(--text-success)" } }, "\u2705 No violations"))))), /* @__PURE__ */ import_react5.default.createElement("div", { style: { marginTop: "20px", display: "flex", gap: "8px" } }, /* @__PURE__ */ import_react5.default.createElement("button", { className: "mod-cta", style: { fontSize: "0.85em" }, onClick: () => new import_obsidian2.Notice("Safe Context Pack inspection coming soon.") }, "Inspect Context Pack"), /* @__PURE__ */ import_react5.default.createElement("button", { style: { fontSize: "0.85em" }, onClick: () => new import_obsidian2.Notice("Replay mode coming soon.") }, "Replay Run"))) : /* @__PURE__ */ import_react5.default.createElement("p", { style: { textAlign: "center", color: "var(--text-muted)", marginTop: "40px" } }, "Select a run to see execution details."))));
 };
 
 // ui/PilotHealthPanel.tsx
-var import_react5 = __toESM(require_react());
+var import_react6 = __toESM(require_react());
 var PilotHealthPanel = ({ misses, rejections, quarantineCount }) => {
-  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "pilot-health-panel", style: { padding: "12px", border: "1px solid var(--background-modifier-border)", borderRadius: "8px", marginTop: "16px" } }, /* @__PURE__ */ import_react5.default.createElement("h3", { style: { marginTop: 0 } }, "Pilot Cockpit"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "health-metrics", style: { display: "flex", gap: "24px", marginBottom: "16px" } }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "metric" }, /* @__PURE__ */ import_react5.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, "HARD MISSES"), /* @__PURE__ */ import_react5.default.createElement("div", { style: { fontSize: "1.5em", fontWeight: "bold", color: misses.length > 0 ? "var(--text-error)" : "inherit" } }, misses.length)), /* @__PURE__ */ import_react5.default.createElement("div", { className: "metric" }, /* @__PURE__ */ import_react5.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, "STITCH REJECTIONS"), /* @__PURE__ */ import_react5.default.createElement("div", { style: { fontSize: "1.5em", fontWeight: "bold", color: rejections.length > 0 ? "var(--text-warning)" : "inherit" } }, rejections.length)), /* @__PURE__ */ import_react5.default.createElement("div", { className: "metric" }, /* @__PURE__ */ import_react5.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, "QUARANTINE"), /* @__PURE__ */ import_react5.default.createElement("div", { style: { fontSize: "1.5em", fontWeight: "bold" } }, quarantineCount))), misses.length > 0 && /* @__PURE__ */ import_react5.default.createElement("div", { className: "miss-details", style: { fontSize: "0.9em", marginBottom: "12px" } }, /* @__PURE__ */ import_react5.default.createElement("div", { style: { fontWeight: "bold", marginBottom: "4px" } }, "Recent HARD Misses:"), /* @__PURE__ */ import_react5.default.createElement("ul", { style: { margin: 0, paddingLeft: "20px" } }, misses.slice(-3).map((m, i) => /* @__PURE__ */ import_react5.default.createElement("li", { key: i }, m.type)))), /* @__PURE__ */ import_react5.default.createElement(
+  return /* @__PURE__ */ import_react6.default.createElement("div", { className: "pilot-health-panel", style: { padding: "12px", border: "1px solid var(--background-modifier-border)", borderRadius: "8px", marginTop: "16px" } }, /* @__PURE__ */ import_react6.default.createElement("h3", { style: { marginTop: 0 } }, "Pilot Cockpit"), /* @__PURE__ */ import_react6.default.createElement("div", { className: "health-metrics", style: { display: "flex", gap: "24px", marginBottom: "16px" } }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "metric" }, /* @__PURE__ */ import_react6.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, "HARD MISSES"), /* @__PURE__ */ import_react6.default.createElement("div", { style: { fontSize: "1.5em", fontWeight: "bold", color: misses.length > 0 ? "var(--text-error)" : "inherit" } }, misses.length)), /* @__PURE__ */ import_react6.default.createElement("div", { className: "metric" }, /* @__PURE__ */ import_react6.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, "STITCH REJECTIONS"), /* @__PURE__ */ import_react6.default.createElement("div", { style: { fontSize: "1.5em", fontWeight: "bold", color: rejections.length > 0 ? "var(--text-warning)" : "inherit" } }, rejections.length)), /* @__PURE__ */ import_react6.default.createElement("div", { className: "metric" }, /* @__PURE__ */ import_react6.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, "QUARANTINE"), /* @__PURE__ */ import_react6.default.createElement("div", { style: { fontSize: "1.5em", fontWeight: "bold" } }, quarantineCount))), misses.length > 0 && /* @__PURE__ */ import_react6.default.createElement("div", { className: "miss-details", style: { fontSize: "0.9em", marginBottom: "12px" } }, /* @__PURE__ */ import_react6.default.createElement("div", { style: { fontWeight: "bold", marginBottom: "4px" } }, "Recent HARD Misses:"), /* @__PURE__ */ import_react6.default.createElement("ul", { style: { margin: 0, paddingLeft: "20px" } }, misses.slice(-3).map((m, i) => /* @__PURE__ */ import_react6.default.createElement("li", { key: i }, m.type)))), /* @__PURE__ */ import_react6.default.createElement(
     "div",
     {
       className: `sla-status ${quarantineCount > 5 ? "mod-error" : ""}`,
@@ -27165,7 +27188,7 @@ var PilotHealthPanel = ({ misses, rejections, quarantineCount }) => {
         fontSize: "0.85em"
       }
     },
-    /* @__PURE__ */ import_react5.default.createElement("strong", null, "Quarantine SLA:"),
+    /* @__PURE__ */ import_react6.default.createElement("strong", null, "Quarantine SLA:"),
     " ",
     quarantineCount > 5 ? "\u{1F534} REVIEW REQUIRED" : "\u{1F7E2} HEALTHY"
   ));
@@ -27278,43 +27301,45 @@ var relayEventBus = new RelayEventBus();
 
 // ui/DashboardComponent.tsx
 var DashboardComponent = ({ plugin }) => {
-  const [mode, setMode] = (0, import_react6.useState)("chapter");
-  const [modeState, setModeState] = (0, import_react6.useState)(() => plugin.settings.modeState);
-  const [generatedText, setGeneratedText] = (0, import_react6.useState)("");
-  const [generatedParagraphs, setGeneratedParagraphs] = (0, import_react6.useState)([]);
-  const [lastAppliedSeqNo, setLastAppliedSeqNo] = (0, import_react6.useState)(/* @__PURE__ */ new Map());
-  const [undoStack, setUndoStack] = (0, import_react6.useState)(/* @__PURE__ */ new Map());
-  const [chunkBuffer, setChunkBuffer] = (0, import_react6.useState)("");
-  const [isGenerating, setIsGenerating] = (0, import_react6.useState)(false);
-  const [generationStage, setGenerationStage] = (0, import_react6.useState)("");
-  const [pulseMessage, setPulseMessage] = (0, import_react6.useState)(null);
-  const [pulseDetail, setPulseDetail] = (0, import_react6.useState)(null);
-  const [error2, setError] = (0, import_react6.useState)(null);
-  const [mismatchReport, setMismatchReport] = (0, import_react6.useState)(null);
-  const [heatmapEnabled, setHeatmapEnabled] = (0, import_react6.useState)(true);
-  const [spontaneity, setSpontaneity] = (0, import_react6.useState)(plugin.settings.spontaneitySlider || 50);
-  const [misses, setMisses] = (0, import_react6.useState)([]);
-  const [rejections, setRejections] = (0, import_react6.useState)([]);
-  const [proposedMutation, setProposedMutation] = (0, import_react6.useState)(null);
-  const [trustSummary, setTrustSummary] = (0, import_react6.useState)(null);
-  const [activeTab, setActiveTab] = (0, import_react6.useState)("editor");
-  const [suggestions, setSuggestions] = (0, import_react6.useState)([]);
-  const [isSuggestingDirections, setIsSuggestingDirections] = (0, import_react6.useState)(false);
-  const [suggestionsOpen, setSuggestionsOpen] = (0, import_react6.useState)(false);
-  const [showAdvancedMenu, setShowAdvancedMenu] = (0, import_react6.useState)(false);
-  const [characterSourceFile, setCharacterSourceFile] = (0, import_react6.useState)(
+  const [mode, setMode] = (0, import_react7.useState)("chapter");
+  const [modeState, setModeState] = (0, import_react7.useState)(() => plugin.settings.modeState);
+  const [generatedText, setGeneratedText] = (0, import_react7.useState)("");
+  const [generatedParagraphs, setGeneratedParagraphs] = (0, import_react7.useState)([]);
+  const [lastAppliedSeqNo, setLastAppliedSeqNo] = (0, import_react7.useState)(/* @__PURE__ */ new Map());
+  const [undoStack, setUndoStack] = (0, import_react7.useState)(/* @__PURE__ */ new Map());
+  const [chunkBuffer, setChunkBuffer] = (0, import_react7.useState)("");
+  const [showModal, setShowModal] = (0, import_react7.useState)(false);
+  const [isGenerating, setIsGenerating] = (0, import_react7.useState)(false);
+  const [generationStage, setGenerationStage] = (0, import_react7.useState)("");
+  const [pulseMessage, setPulseMessage] = (0, import_react7.useState)(null);
+  const [pulseDetail, setPulseDetail] = (0, import_react7.useState)(null);
+  const [error2, setError] = (0, import_react7.useState)(null);
+  const [mismatchReport, setMismatchReport] = (0, import_react7.useState)(null);
+  const [heatmapEnabled, setHeatmapEnabled] = (0, import_react7.useState)(true);
+  const [spontaneity, setSpontaneity] = (0, import_react7.useState)(plugin.settings.spontaneitySlider || 50);
+  const [misses, setMisses] = (0, import_react7.useState)([]);
+  const [rejections, setRejections] = (0, import_react7.useState)([]);
+  const [proposedMutation, setProposedMutation] = (0, import_react7.useState)(null);
+  const [trustSummary, setTrustSummary] = (0, import_react7.useState)(null);
+  const [activeTab, setActiveTab] = (0, import_react7.useState)("editor");
+  const [suggestions, setSuggestions] = (0, import_react7.useState)([]);
+  const [isSuggestingDirections, setIsSuggestingDirections] = (0, import_react7.useState)(false);
+  const [suggestionsOpen, setSuggestionsOpen] = (0, import_react7.useState)(false);
+  const [showAdvancedMenu, setShowAdvancedMenu] = (0, import_react7.useState)(false);
+  const [characterSourceFile, setCharacterSourceFile] = (0, import_react7.useState)(
     plugin.settings.characterExtractionSourcePath || plugin.settings.book2Path
   );
-  const [isExtractingCharacters, setIsExtractingCharacters] = (0, import_react6.useState)(false);
-  const [extractionProgress, setExtractionProgress] = (0, import_react6.useState)("");
-  const [characterInputText, setCharacterInputText] = (0, import_react6.useState)("");
-  const commitLock = (0, import_react6.useRef)(false);
-  (0, import_react6.useEffect)(() => {
+  const [isExtractingCharacters, setIsExtractingCharacters] = (0, import_react7.useState)(false);
+  const [extractionProgress, setExtractionProgress] = (0, import_react7.useState)("");
+  const [characterInputText, setCharacterInputText] = (0, import_react7.useState)("");
+  const commitLock = (0, import_react7.useRef)(false);
+  (0, import_react7.useEffect)(() => {
     const onStart = () => {
       setChunkBuffer("");
       setGeneratedText("");
       setGeneratedParagraphs([]);
       setIsGenerating(true);
+      setShowModal(true);
     };
     const onStageStart = (data) => {
       setGenerationStage(`Executing ${data.type}...`);
@@ -27465,9 +27490,16 @@ var DashboardComponent = ({ plugin }) => {
       setGeneratedText("");
       setGeneratedParagraphs([]);
       setChunkBuffer("");
+      setShowModal(false);
     } catch (err) {
       new import_obsidian3.Notice(`Insert failed: ${err.message}`);
     }
+  };
+  const handleDiscard = () => {
+    setGeneratedText("");
+    setGeneratedParagraphs([]);
+    setChunkBuffer("");
+    setShowModal(false);
   };
   const handleGenerate = async () => {
     if (mode === "chapter") {
@@ -27622,7 +27654,7 @@ var DashboardComponent = ({ plugin }) => {
       setIsSuggestingDirections(false);
     }
   };
-  return /* @__PURE__ */ import_react6.default.createElement("div", { className: "writing-dashboard" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "dashboard-tabs" }, /* @__PURE__ */ import_react6.default.createElement(
+  return /* @__PURE__ */ import_react7.default.createElement("div", { className: "writing-dashboard" }, /* @__PURE__ */ import_react7.default.createElement("div", { className: "dashboard-tabs" }, /* @__PURE__ */ import_react7.default.createElement(
     "button",
     {
       className: activeTab === "editor" ? "active" : "",
@@ -27632,7 +27664,7 @@ var DashboardComponent = ({ plugin }) => {
       }
     },
     "Editor"
-  ), /* @__PURE__ */ import_react6.default.createElement("div", { className: "advanced-dropdown-wrapper" }, /* @__PURE__ */ import_react6.default.createElement(
+  ), /* @__PURE__ */ import_react7.default.createElement("div", { className: "advanced-dropdown-wrapper" }, /* @__PURE__ */ import_react7.default.createElement(
     "button",
     {
       className: `advanced-dropdown-trigger ${["lore", "replay", "characters"].includes(activeTab) ? "active" : ""}`,
@@ -27640,16 +27672,16 @@ var DashboardComponent = ({ plugin }) => {
     },
     "\u2699 Advanced ",
     showAdvancedMenu ? "\u25B2" : "\u25BE"
-  ), showAdvancedMenu && /* @__PURE__ */ import_react6.default.createElement("div", { className: "advanced-dropdown-menu" }, /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => {
+  ), showAdvancedMenu && /* @__PURE__ */ import_react7.default.createElement("div", { className: "advanced-dropdown-menu" }, /* @__PURE__ */ import_react7.default.createElement("button", { onClick: () => {
     setActiveTab("lore");
     setShowAdvancedMenu(false);
-  } }, "\u{1F50D} Lore Inspector"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => {
+  } }, "\u{1F50D} Lore Inspector"), /* @__PURE__ */ import_react7.default.createElement("button", { onClick: () => {
     setActiveTab("replay");
     setShowAdvancedMenu(false);
-  } }, "\u{1F504} Replay History"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => {
+  } }, "\u{1F504} Replay History"), /* @__PURE__ */ import_react7.default.createElement("button", { onClick: () => {
     setActiveTab("characters");
     setShowAdvancedMenu(false);
-  } }, "\u{1F464} Characters")))), /* @__PURE__ */ import_react6.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "main-workspace" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "tab-content-wrapper", style: { flex: "1 1 auto", overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px" } }, activeTab === "editor" && /* @__PURE__ */ import_react6.default.createElement(
+  } }, "\u{1F464} Characters")))), /* @__PURE__ */ import_react7.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react7.default.createElement("div", { className: "main-workspace" }, /* @__PURE__ */ import_react7.default.createElement("div", { className: "tab-content-wrapper", style: { flex: "1 1 auto", overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px" } }, activeTab === "editor" && /* @__PURE__ */ import_react7.default.createElement(
     EditorPanel,
     {
       plugin,
@@ -27673,7 +27705,7 @@ var DashboardComponent = ({ plugin }) => {
         setSuggestionsOpen(false);
       }
     }
-  ), activeTab === "lore" && /* @__PURE__ */ import_react6.default.createElement("div", { className: "lore-tab" }, /* @__PURE__ */ import_react6.default.createElement(
+  ), activeTab === "lore" && /* @__PURE__ */ import_react7.default.createElement("div", { className: "lore-tab" }, /* @__PURE__ */ import_react7.default.createElement(
     FactInspector,
     {
       plugin,
@@ -27692,7 +27724,7 @@ var DashboardComponent = ({ plugin }) => {
         constraints: { pov: "third", tense: "past", tone: [], forbidden: [] }
       }
     }
-  ), /* @__PURE__ */ import_react6.default.createElement(
+  ), /* @__PURE__ */ import_react7.default.createElement(
     PilotHealthPanel,
     {
       plugin,
@@ -27700,7 +27732,7 @@ var DashboardComponent = ({ plugin }) => {
       rejections,
       quarantineCount: 0
     }
-  )), activeTab === "replay" && /* @__PURE__ */ import_react6.default.createElement("div", { className: "replay-tab" }, /* @__PURE__ */ import_react6.default.createElement(ReplayPanel, { plugin })), activeTab === "characters" && /* @__PURE__ */ import_react6.default.createElement("div", { className: "characters-tab" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "editor-section" }, /* @__PURE__ */ import_react6.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 } }, /* @__PURE__ */ import_react6.default.createElement("label", null, "Paste narrative text for character extraction:"), /* @__PURE__ */ import_react6.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, TextChunker.getWordCount(characterInputText).toLocaleString(), " words / ", characterInputText.length.toLocaleString(), " chars")), /* @__PURE__ */ import_react6.default.createElement(
+  )), activeTab === "replay" && /* @__PURE__ */ import_react7.default.createElement("div", { className: "replay-tab" }, /* @__PURE__ */ import_react7.default.createElement(ReplayPanel, { plugin })), activeTab === "characters" && /* @__PURE__ */ import_react7.default.createElement("div", { className: "characters-tab" }, /* @__PURE__ */ import_react7.default.createElement("div", { className: "editor-section" }, /* @__PURE__ */ import_react7.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 } }, /* @__PURE__ */ import_react7.default.createElement("label", null, "Paste narrative text for character extraction:"), /* @__PURE__ */ import_react7.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, TextChunker.getWordCount(characterInputText).toLocaleString(), " words / ", characterInputText.length.toLocaleString(), " chars")), /* @__PURE__ */ import_react7.default.createElement(
     "textarea",
     {
       value: characterInputText,
@@ -27709,7 +27741,7 @@ var DashboardComponent = ({ plugin }) => {
       rows: 12,
       className: "editor-textarea"
     }
-  )), /* @__PURE__ */ import_react6.default.createElement("div", { className: "character-update-controls" }, /* @__PURE__ */ import_react6.default.createElement(
+  )), /* @__PURE__ */ import_react7.default.createElement("div", { className: "character-update-controls" }, /* @__PURE__ */ import_react7.default.createElement(
     "button",
     {
       onClick: handleCharacterUpdate,
@@ -27717,7 +27749,7 @@ var DashboardComponent = ({ plugin }) => {
       className: "generate-button mod-cta"
     },
     isExtractingCharacters ? "Extracting..." : "Update Characters"
-  ), /* @__PURE__ */ import_react6.default.createElement("div", { className: "file-selection-row" }, /* @__PURE__ */ import_react6.default.createElement("span", { className: "file-label" }, "Source file: ", characterSourceFile?.split("/").pop() || "None selected"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: handleSelectCharacterFile, disabled: isExtractingCharacters }, "Select file"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: handleResetToBookMain, disabled: isExtractingCharacters }, "Use book main")), /* @__PURE__ */ import_react6.default.createElement(
+  ), /* @__PURE__ */ import_react7.default.createElement("div", { className: "file-selection-row" }, /* @__PURE__ */ import_react7.default.createElement("span", { className: "file-label" }, "Source file: ", characterSourceFile?.split("/").pop() || "None selected"), /* @__PURE__ */ import_react7.default.createElement("button", { onClick: handleSelectCharacterFile, disabled: isExtractingCharacters }, "Select file"), /* @__PURE__ */ import_react7.default.createElement("button", { onClick: handleResetToBookMain, disabled: isExtractingCharacters }, "Use book main")), /* @__PURE__ */ import_react7.default.createElement(
     "button",
     {
       onClick: handleProcessEntireBook,
@@ -27725,10 +27757,10 @@ var DashboardComponent = ({ plugin }) => {
       className: "generate-button"
     },
     isExtractingCharacters ? extractionProgress : "Process Entire Book"
-  )), /* @__PURE__ */ import_react6.default.createElement("div", { className: "character-help-text" }, /* @__PURE__ */ import_react6.default.createElement("p", null, /* @__PURE__ */ import_react6.default.createElement("strong", null, "Update Characters:"), " Extracts character info from the text above and updates notes in your Characters folder."), /* @__PURE__ */ import_react6.default.createElement("p", null, /* @__PURE__ */ import_react6.default.createElement("strong", null, "Process Entire Book:"), " 2-pass extraction (roster + per-chapter) from the selected file.")))), isGenerating && /* @__PURE__ */ import_react6.default.createElement("div", { className: "generation-status-overlay" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "loader" }, "\u23F3"), /* @__PURE__ */ import_react6.default.createElement("div", { className: "stage" }, generationStage), chunkBuffer && /* @__PURE__ */ import_react6.default.createElement("div", { className: `buffer-preview ${heatmapEnabled ? "heatmap" : ""}` }, chunkBuffer.split("\n").map((p, i) => {
+  )), /* @__PURE__ */ import_react7.default.createElement("div", { className: "character-help-text" }, /* @__PURE__ */ import_react7.default.createElement("p", null, /* @__PURE__ */ import_react7.default.createElement("strong", null, "Update Characters:"), " Extracts character info from the text above and updates notes in your Characters folder."), /* @__PURE__ */ import_react7.default.createElement("p", null, /* @__PURE__ */ import_react7.default.createElement("strong", null, "Process Entire Book:"), " 2-pass extraction (roster + per-chapter) from the selected file.")))), isGenerating && /* @__PURE__ */ import_react7.default.createElement("div", { className: "generation-status-overlay" }, /* @__PURE__ */ import_react7.default.createElement("div", { className: "loader" }, "\u23F3"), /* @__PURE__ */ import_react7.default.createElement("div", { className: "stage" }, generationStage), chunkBuffer && /* @__PURE__ */ import_react7.default.createElement("div", { className: `buffer-preview ${heatmapEnabled ? "heatmap" : ""}` }, chunkBuffer.split("\n").map((p, i) => {
     const isSpeculative = p.length % 2 === 0;
-    return /* @__PURE__ */ import_react6.default.createElement("p", { key: `chunk-${i}`, className: isSpeculative ? "speculative" : "grounded" }, p);
-  }))), proposedMutation && /* @__PURE__ */ import_react6.default.createElement("div", { className: "mutation-modal" }, /* @__PURE__ */ import_react6.default.createElement("h3", null, "Lore Mutation Proposal"), /* @__PURE__ */ import_react6.default.createElement("p", null, proposedMutation.message), /* @__PURE__ */ import_react6.default.createElement("div", { className: "actions" }, /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => setProposedMutation(null) }, "Reject"), /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => setProposedMutation(null) }, "Defer"), /* @__PURE__ */ import_react6.default.createElement("button", { className: "mod-cta", onClick: () => setProposedMutation(null) }, "Accept & Version Canon"))), trustSummary && /* @__PURE__ */ import_react6.default.createElement("div", { className: "trust-summary-banner" }, /* @__PURE__ */ import_react6.default.createElement("span", null, "Grounding: ", /* @__PURE__ */ import_react6.default.createElement("strong", null, trustSummary.grounding)), /* @__PURE__ */ import_react6.default.createElement("span", null, "Lore: ", /* @__PURE__ */ import_react6.default.createElement("strong", null, trustSummary.loreStatus)), /* @__PURE__ */ import_react6.default.createElement("span", null, "Canon Version: ", /* @__PURE__ */ import_react6.default.createElement("strong", null, trustSummary.version)), trustSummary.replayable && /* @__PURE__ */ import_react6.default.createElement("span", { className: "verified" }, "\u2713 Replayable")), mismatchReport && /* @__PURE__ */ import_react6.default.createElement("div", { className: "mismatch-report-banner" }, /* @__PURE__ */ import_react6.default.createElement("h3", null, "\u26A0\uFE0F Strict Replay Mismatch"), mismatchReport.map((m) => /* @__PURE__ */ import_react6.default.createElement("p", { key: `${m.field}-${m.expected}` }, /* @__PURE__ */ import_react6.default.createElement("strong", null, m.field, ":"), ' Expected "', m.expected.slice(0, 8), '", Got "', m.actual.slice(0, 8), '" (', m.severity, ")")), /* @__PURE__ */ import_react6.default.createElement("div", { className: "actions" }, /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => setMismatchReport(null) }, "Cancel Replay"), /* @__PURE__ */ import_react6.default.createElement("button", { className: "mod-cta", onClick: handleMismatchProceed }, "Proceed Creative (Best-Effort)"))), /* @__PURE__ */ import_react6.default.createElement("div", { className: "controls" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "spontaneity-control", style: { display: "flex", flexDirection: "column", gap: 4, flex: 1 } }, /* @__PURE__ */ import_react6.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "0.8em" } }, /* @__PURE__ */ import_react6.default.createElement("span", null, "Faithful"), /* @__PURE__ */ import_react6.default.createElement("span", null, "Spontaneity: ", spontaneity), /* @__PURE__ */ import_react6.default.createElement("span", null, "Wild")), /* @__PURE__ */ import_react6.default.createElement(
+    return /* @__PURE__ */ import_react7.default.createElement("p", { key: `chunk-${i}`, className: isSpeculative ? "speculative" : "grounded" }, p);
+  }))), proposedMutation && /* @__PURE__ */ import_react7.default.createElement("div", { className: "mutation-modal" }, /* @__PURE__ */ import_react7.default.createElement("h3", null, "Lore Mutation Proposal"), /* @__PURE__ */ import_react7.default.createElement("p", null, proposedMutation.message), /* @__PURE__ */ import_react7.default.createElement("div", { className: "actions" }, /* @__PURE__ */ import_react7.default.createElement("button", { onClick: () => setProposedMutation(null) }, "Reject"), /* @__PURE__ */ import_react7.default.createElement("button", { onClick: () => setProposedMutation(null) }, "Defer"), /* @__PURE__ */ import_react7.default.createElement("button", { className: "mod-cta", onClick: () => setProposedMutation(null) }, "Accept & Version Canon"))), trustSummary && /* @__PURE__ */ import_react7.default.createElement("div", { className: "trust-summary-banner" }, /* @__PURE__ */ import_react7.default.createElement("span", null, "Grounding: ", /* @__PURE__ */ import_react7.default.createElement("strong", null, trustSummary.grounding)), /* @__PURE__ */ import_react7.default.createElement("span", null, "Lore: ", /* @__PURE__ */ import_react7.default.createElement("strong", null, trustSummary.loreStatus)), /* @__PURE__ */ import_react7.default.createElement("span", null, "Canon Version: ", /* @__PURE__ */ import_react7.default.createElement("strong", null, trustSummary.version)), trustSummary.replayable && /* @__PURE__ */ import_react7.default.createElement("span", { className: "verified" }, "\u2713 Replayable")), mismatchReport && /* @__PURE__ */ import_react7.default.createElement("div", { className: "mismatch-report-banner" }, /* @__PURE__ */ import_react7.default.createElement("h3", null, "\u26A0\uFE0F Strict Replay Mismatch"), mismatchReport.map((m) => /* @__PURE__ */ import_react7.default.createElement("p", { key: `${m.field}-${m.expected}` }, /* @__PURE__ */ import_react7.default.createElement("strong", null, m.field, ":"), ' Expected "', m.expected.slice(0, 8), '", Got "', m.actual.slice(0, 8), '" (', m.severity, ")")), /* @__PURE__ */ import_react7.default.createElement("div", { className: "actions" }, /* @__PURE__ */ import_react7.default.createElement("button", { onClick: () => setMismatchReport(null) }, "Cancel Replay"), /* @__PURE__ */ import_react7.default.createElement("button", { className: "mod-cta", onClick: handleMismatchProceed }, "Proceed Creative (Best-Effort)"))), /* @__PURE__ */ import_react7.default.createElement("div", { className: "controls" }, /* @__PURE__ */ import_react7.default.createElement("div", { className: "spontaneity-control", style: { display: "flex", flexDirection: "column", gap: 4, flex: 1 } }, /* @__PURE__ */ import_react7.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "0.8em" } }, /* @__PURE__ */ import_react7.default.createElement("span", null, "Faithful"), /* @__PURE__ */ import_react7.default.createElement("span", null, "Spontaneity: ", spontaneity), /* @__PURE__ */ import_react7.default.createElement("span", null, "Wild")), /* @__PURE__ */ import_react7.default.createElement(
     "input",
     {
       type: "range",
@@ -27739,7 +27771,7 @@ var DashboardComponent = ({ plugin }) => {
       className: "spontaneity-slider",
       title: "Adjusts LLM temperature and novelty bias."
     }
-  )), /* @__PURE__ */ import_react6.default.createElement(
+  )), /* @__PURE__ */ import_react7.default.createElement(
     "button",
     {
       onClick: handleGenerate,
@@ -27747,25 +27779,27 @@ var DashboardComponent = ({ plugin }) => {
       className: "generate-button mod-cta"
     },
     isGenerating ? "Generating..." : "Generate"
-  ), !isGenerating && generatedText && /* @__PURE__ */ import_react6.default.createElement("button", { onClick: handleInsert, className: "generate-button insert-button" }, "\u2713 Approve & Insert"), !isGenerating && generatedText && /* @__PURE__ */ import_react6.default.createElement(
-    "button",
-    {
-      onClick: () => {
-        setGeneratedText("");
-        setGeneratedParagraphs([]);
-        setChunkBuffer("");
-      },
-      className: "generate-button discard-button"
-    },
-    "\u2715 Discard"
-  ), /* @__PURE__ */ import_react6.default.createElement(
+  ), !isGenerating && generatedText && /* @__PURE__ */ import_react7.default.createElement("button", { onClick: () => setShowModal(true), className: "generate-button insert-button" }, "\u2197 Review output"), /* @__PURE__ */ import_react7.default.createElement(
     "button",
     {
       onClick: () => setHeatmapEnabled(!heatmapEnabled),
       className: `heatmap-toggle ${heatmapEnabled ? "active" : ""}`
     },
     heatmapEnabled ? "Hide Heatmap" : "Show Heatmap"
-  ), isGenerating && /* @__PURE__ */ import_react6.default.createElement("button", { onClick: () => plugin.sequentialGenerator.abort(), className: "abort-button" }, "Abort")), isGenerating && pulseMessage && /* @__PURE__ */ import_react6.default.createElement("div", { className: "continuity-pulse-container" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-message" }, /* @__PURE__ */ import_react6.default.createElement("span", { className: "pulse-icon" }, "\u269B\uFE0F"), /* @__PURE__ */ import_react6.default.createElement("strong", null, pulseMessage)), pulseDetail && /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-detail" }, pulseDetail), /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-progress-bar" }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "pulse-progress-fill" }))))));
+  ), isGenerating && /* @__PURE__ */ import_react7.default.createElement("button", { onClick: () => plugin.sequentialGenerator.abort(), className: "abort-button" }, "Abort")), isGenerating && pulseMessage && /* @__PURE__ */ import_react7.default.createElement("div", { className: "continuity-pulse-container" }, /* @__PURE__ */ import_react7.default.createElement("div", { className: "pulse-message" }, /* @__PURE__ */ import_react7.default.createElement("span", { className: "pulse-icon" }, "\u269B\uFE0F"), /* @__PURE__ */ import_react7.default.createElement("strong", null, pulseMessage)), pulseDetail && /* @__PURE__ */ import_react7.default.createElement("div", { className: "pulse-detail" }, pulseDetail), /* @__PURE__ */ import_react7.default.createElement("div", { className: "pulse-progress-bar" }, /* @__PURE__ */ import_react7.default.createElement("div", { className: "pulse-progress-fill" }))))), showModal && /* @__PURE__ */ import_react7.default.createElement(
+    GenerationModal,
+    {
+      isGenerating,
+      generationStage,
+      chunkBuffer,
+      generatedText,
+      onApprove: handleInsert,
+      onDiscard: handleDiscard,
+      onAbort: () => {
+        plugin.sequentialGenerator.abort();
+      }
+    }
+  ));
 };
 
 // ui/DashboardView.ts
@@ -27791,7 +27825,7 @@ var DashboardView = class extends import_obsidian4.ItemView {
     const reactContainer = container.createDiv();
     this.reactRoot = (0, import_client2.createRoot)(reactContainer);
     this.reactRoot.render(
-      import_react7.default.createElement(DashboardComponent, { plugin: this.plugin })
+      import_react8.default.createElement(DashboardComponent, { plugin: this.plugin })
     );
     return Promise.resolve();
   }
@@ -27808,7 +27842,7 @@ var DashboardView = class extends import_obsidian4.ItemView {
 var import_obsidian8 = require("obsidian");
 
 // ui/SetupWizard.tsx
-var import_react8 = __toESM(require_react());
+var import_react9 = __toESM(require_react());
 var import_client3 = __toESM(require_client());
 var import_obsidian5 = require("obsidian");
 function getSetupItems(plugin) {
@@ -27872,7 +27906,7 @@ var SetupWizardModal = class extends import_obsidian5.Modal {
     const reactContainer = contentEl.createDiv();
     this.reactRoot = (0, import_client3.createRoot)(reactContainer);
     this.reactRoot.render(
-      import_react8.default.createElement(SetupWizardComponent, {
+      import_react9.default.createElement(SetupWizardComponent, {
         plugin: this.plugin,
         onClose: () => this.close()
       })
@@ -27886,10 +27920,10 @@ var SetupWizardModal = class extends import_obsidian5.Modal {
   }
 };
 var SetupWizardComponent = ({ plugin, onClose }) => {
-  const [items, setItems] = (0, import_react8.useState)([]);
-  const [isCreating, setIsCreating] = (0, import_react8.useState)(false);
-  const [result, setResult] = (0, import_react8.useState)(null);
-  (0, import_react8.useEffect)(() => {
+  const [items, setItems] = (0, import_react9.useState)([]);
+  const [isCreating, setIsCreating] = (0, import_react9.useState)(false);
+  const [result, setResult] = (0, import_react9.useState)(null);
+  (0, import_react9.useEffect)(() => {
     const checkItems = () => {
       const checkedItems = getSetupItems(plugin).map((item) => {
         const file = plugin.app.vault.getAbstractFileByPath(item.path);
@@ -27991,9 +28025,9 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
     }
   };
   if (result) {
-    return /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react8.default.createElement("h2", null, "Setup complete!"), result.created.length > 0 && /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-success" }, /* @__PURE__ */ import_react8.default.createElement("p", null, /* @__PURE__ */ import_react8.default.createElement("strong", null, "Created:")), /* @__PURE__ */ import_react8.default.createElement("ul", null, result.created.map((path) => /* @__PURE__ */ import_react8.default.createElement("li", { key: path }, path)))), result.skipped.length > 0 && /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-skipped" }, /* @__PURE__ */ import_react8.default.createElement("p", null, /* @__PURE__ */ import_react8.default.createElement("strong", null, "Skipped (already exist):")), /* @__PURE__ */ import_react8.default.createElement("ul", null, result.skipped.map((path) => /* @__PURE__ */ import_react8.default.createElement("li", { key: path }, path)))), /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react8.default.createElement("button", { onClick: handleRunGuidedDemo, className: "mod-cta" }, "Run guided demo"), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: onClose, className: "mod-secondary" }, "Close")));
+    return /* @__PURE__ */ import_react9.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react9.default.createElement("h2", null, "Setup complete!"), result.created.length > 0 && /* @__PURE__ */ import_react9.default.createElement("div", { className: "setup-success" }, /* @__PURE__ */ import_react9.default.createElement("p", null, /* @__PURE__ */ import_react9.default.createElement("strong", null, "Created:")), /* @__PURE__ */ import_react9.default.createElement("ul", null, result.created.map((path) => /* @__PURE__ */ import_react9.default.createElement("li", { key: path }, path)))), result.skipped.length > 0 && /* @__PURE__ */ import_react9.default.createElement("div", { className: "setup-skipped" }, /* @__PURE__ */ import_react9.default.createElement("p", null, /* @__PURE__ */ import_react9.default.createElement("strong", null, "Skipped (already exist):")), /* @__PURE__ */ import_react9.default.createElement("ul", null, result.skipped.map((path) => /* @__PURE__ */ import_react9.default.createElement("li", { key: path }, path)))), /* @__PURE__ */ import_react9.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react9.default.createElement("button", { onClick: handleRunGuidedDemo, className: "mod-cta" }, "Run guided demo"), /* @__PURE__ */ import_react9.default.createElement("button", { onClick: onClose, className: "mod-secondary" }, "Close")));
   }
-  return /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react8.default.createElement("h2", null, "Welcome to writing dashboard"), /* @__PURE__ */ import_react8.default.createElement("p", null, "Set up your writing workspace by selecting which files and folders to create:"), /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-items" }, items.map((item, index) => /* @__PURE__ */ import_react8.default.createElement("div", { key: item.path, className: "setup-item" }, /* @__PURE__ */ import_react8.default.createElement("label", { className: item.exists ? "disabled" : "" }, /* @__PURE__ */ import_react8.default.createElement(
+  return /* @__PURE__ */ import_react9.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react9.default.createElement("h2", null, "Welcome to writing dashboard"), /* @__PURE__ */ import_react9.default.createElement("p", null, "Set up your writing workspace by selecting which files and folders to create:"), /* @__PURE__ */ import_react9.default.createElement("div", { className: "setup-items" }, items.map((item, index) => /* @__PURE__ */ import_react9.default.createElement("div", { key: item.path, className: "setup-item" }, /* @__PURE__ */ import_react9.default.createElement("label", { className: item.exists ? "disabled" : "" }, /* @__PURE__ */ import_react9.default.createElement(
     "input",
     {
       type: "checkbox",
@@ -28001,7 +28035,7 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
       disabled: item.exists || isCreating,
       onChange: () => handleToggle(index)
     }
-  ), /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-item-content" }, /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-item-header" }, /* @__PURE__ */ import_react8.default.createElement("strong", null, item.path), item.exists && /* @__PURE__ */ import_react8.default.createElement("span", { className: "exists-badge" }, "\u2713 Already exists")), /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-item-description" }, item.description), item.type === "file" && !item.exists && /* @__PURE__ */ import_react8.default.createElement("div", { style: { marginTop: "8px" } }, /* @__PURE__ */ import_react8.default.createElement(
+  ), /* @__PURE__ */ import_react9.default.createElement("div", { className: "setup-item-content" }, /* @__PURE__ */ import_react9.default.createElement("div", { className: "setup-item-header" }, /* @__PURE__ */ import_react9.default.createElement("strong", null, item.path), item.exists && /* @__PURE__ */ import_react9.default.createElement("span", { className: "exists-badge" }, "\u2713 Already exists")), /* @__PURE__ */ import_react9.default.createElement("div", { className: "setup-item-description" }, item.description), item.type === "file" && !item.exists && /* @__PURE__ */ import_react9.default.createElement("div", { style: { marginTop: "8px" } }, /* @__PURE__ */ import_react9.default.createElement(
     "button",
     {
       onClick: () => {
@@ -28021,7 +28055,7 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
       disabled: isCreating
     },
     "Browse existing file"
-  ))))))), /* @__PURE__ */ import_react8.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react8.default.createElement("button", { onClick: onClose, disabled: isCreating, className: "mod-secondary" }, "Cancel"), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: handleDontShowAgain, disabled: isCreating, className: "mod-secondary" }, "Don't show again"), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: handleRunGuidedDemo, disabled: isCreating, className: "mod-secondary" }, "Run guided demo"), /* @__PURE__ */ import_react8.default.createElement(
+  ))))))), /* @__PURE__ */ import_react9.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react9.default.createElement("button", { onClick: onClose, disabled: isCreating, className: "mod-secondary" }, "Cancel"), /* @__PURE__ */ import_react9.default.createElement("button", { onClick: handleDontShowAgain, disabled: isCreating, className: "mod-secondary" }, "Don't show again"), /* @__PURE__ */ import_react9.default.createElement("button", { onClick: handleRunGuidedDemo, disabled: isCreating, className: "mod-secondary" }, "Run guided demo"), /* @__PURE__ */ import_react9.default.createElement(
     "button",
     {
       onClick: handleCreate,
@@ -37194,7 +37228,7 @@ var BookMainSelectorModal = class extends import_obsidian23.Modal {
 };
 
 // ui/PublishWizardModal.tsx
-var import_react11 = __toESM(require_react());
+var import_react12 = __toESM(require_react());
 var import_client6 = __toESM(require_client());
 var import_obsidian27 = require("obsidian");
 
@@ -43491,7 +43525,7 @@ var PublishWizardModal = class extends import_obsidian27.Modal {
     this.contentEl.empty();
     const container = this.contentEl.createDiv();
     this.reactRoot = (0, import_client6.createRoot)(container);
-    this.reactRoot.render(import_react11.default.createElement(PublishWizardComponent, { plugin: this.plugin, onClose: () => this.close() }));
+    this.reactRoot.render(import_react12.default.createElement(PublishWizardComponent, { plugin: this.plugin, onClose: () => this.close() }));
   }
   onClose() {
     this.reactRoot?.unmount();
@@ -43503,34 +43537,34 @@ var PublishWizardComponent = ({
   plugin,
   onClose
 }) => {
-  const [step, setStep] = (0, import_react11.useState)(1);
-  const [mode, setMode] = (0, import_react11.useState)("book-main");
-  const [sourcePath, setSourcePath] = (0, import_react11.useState)(plugin.settings.book2Path || "Book-Main.md");
-  const [tocPath, setTocPath] = (0, import_react11.useState)("");
-  const [title, setTitle] = (0, import_react11.useState)("Untitled");
-  const [subtitle, setSubtitle] = (0, import_react11.useState)("");
-  const [author, setAuthor] = (0, import_react11.useState)("");
-  const [language, setLanguage] = (0, import_react11.useState)("en");
-  const [includeTitlePage, setIncludeTitlePage] = (0, import_react11.useState)(true);
-  const [includeCopyrightPage, setIncludeCopyrightPage] = (0, import_react11.useState)(true);
-  const [licenseTemplateId, setLicenseTemplateId] = (0, import_react11.useState)("all-rights-reserved");
-  const [copyrightYear, setCopyrightYear] = (0, import_react11.useState)(currentYear());
-  const [copyrightHolder, setCopyrightHolder] = (0, import_react11.useState)("");
-  const [embedFonts, setEmbedFonts] = (0, import_react11.useState)(false);
-  const [fontRegular, setFontRegular] = (0, import_react11.useState)("");
-  const [fontBold, setFontBold] = (0, import_react11.useState)("");
-  const [fontItalic, setFontItalic] = (0, import_react11.useState)("");
-  const [fontBoldItalic, setFontBoldItalic] = (0, import_react11.useState)("");
-  const [outputFolder, setOutputFolder] = (0, import_react11.useState)("Exports");
-  const [outputFormat, setOutputFormat] = (0, import_react11.useState)("epub");
-  const [subsetMode, setSubsetMode] = (0, import_react11.useState)("all");
-  const [subsetChaptersCount, setSubsetChaptersCount] = (0, import_react11.useState)("3");
-  const [subsetWordsCount, setSubsetWordsCount] = (0, import_react11.useState)("5000");
-  const [outputFileName, setOutputFileName] = (0, import_react11.useState)("Untitled.epub");
-  const [isExporting, setIsExporting] = (0, import_react11.useState)(false);
-  const [progress, setProgress] = (0, import_react11.useState)("");
-  const [error2, setError] = (0, import_react11.useState)(null);
-  (0, import_react11.useEffect)(() => {
+  const [step, setStep] = (0, import_react12.useState)(1);
+  const [mode, setMode] = (0, import_react12.useState)("book-main");
+  const [sourcePath, setSourcePath] = (0, import_react12.useState)(plugin.settings.book2Path || "Book-Main.md");
+  const [tocPath, setTocPath] = (0, import_react12.useState)("");
+  const [title, setTitle] = (0, import_react12.useState)("Untitled");
+  const [subtitle, setSubtitle] = (0, import_react12.useState)("");
+  const [author, setAuthor] = (0, import_react12.useState)("");
+  const [language, setLanguage] = (0, import_react12.useState)("en");
+  const [includeTitlePage, setIncludeTitlePage] = (0, import_react12.useState)(true);
+  const [includeCopyrightPage, setIncludeCopyrightPage] = (0, import_react12.useState)(true);
+  const [licenseTemplateId, setLicenseTemplateId] = (0, import_react12.useState)("all-rights-reserved");
+  const [copyrightYear, setCopyrightYear] = (0, import_react12.useState)(currentYear());
+  const [copyrightHolder, setCopyrightHolder] = (0, import_react12.useState)("");
+  const [embedFonts, setEmbedFonts] = (0, import_react12.useState)(false);
+  const [fontRegular, setFontRegular] = (0, import_react12.useState)("");
+  const [fontBold, setFontBold] = (0, import_react12.useState)("");
+  const [fontItalic, setFontItalic] = (0, import_react12.useState)("");
+  const [fontBoldItalic, setFontBoldItalic] = (0, import_react12.useState)("");
+  const [outputFolder, setOutputFolder] = (0, import_react12.useState)("Exports");
+  const [outputFormat, setOutputFormat] = (0, import_react12.useState)("epub");
+  const [subsetMode, setSubsetMode] = (0, import_react12.useState)("all");
+  const [subsetChaptersCount, setSubsetChaptersCount] = (0, import_react12.useState)("3");
+  const [subsetWordsCount, setSubsetWordsCount] = (0, import_react12.useState)("5000");
+  const [outputFileName, setOutputFileName] = (0, import_react12.useState)("Untitled.epub");
+  const [isExporting, setIsExporting] = (0, import_react12.useState)(false);
+  const [progress, setProgress] = (0, import_react12.useState)("");
+  const [error2, setError] = (0, import_react12.useState)(null);
+  (0, import_react12.useEffect)(() => {
     const base2 = sanitizeFileName2(title || "Untitled");
     if (outputFormat === "epub")
       setOutputFileName(ensureEpubExt2(base2));
@@ -43567,7 +43601,7 @@ var PublishWizardComponent = ({
     }
     return out;
   };
-  const canNext = (0, import_react11.useMemo)(() => {
+  const canNext = (0, import_react12.useMemo)(() => {
     if (step === 1) {
       if (mode === "book-main")
         return Boolean(sourcePath.trim());
@@ -43710,7 +43744,7 @@ ${markdownToPlainText(c.markdown || "")}
       setIsExporting(false);
     }
   };
-  return /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-wizard" }, /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-steps" }, "Step ", step, " of 6"), step === 1 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Source"), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("label", null, /* @__PURE__ */ import_react11.default.createElement(
+  return /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-wizard" }, /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-steps" }, "Step ", step, " of 6"), step === 1 && /* @__PURE__ */ import_react12.default.createElement("div", null, /* @__PURE__ */ import_react12.default.createElement("h2", null, "Source"), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("label", null, /* @__PURE__ */ import_react12.default.createElement(
     "input",
     {
       type: "radio",
@@ -43718,7 +43752,7 @@ ${markdownToPlainText(c.markdown || "")}
       onChange: () => setMode("book-main"),
       disabled: isExporting
     }
-  ), "Book main (H1 chapters)"), /* @__PURE__ */ import_react11.default.createElement("label", { style: { marginLeft: 12 } }, /* @__PURE__ */ import_react11.default.createElement(
+  ), "Book main (H1 chapters)"), /* @__PURE__ */ import_react12.default.createElement("label", { style: { marginLeft: 12 } }, /* @__PURE__ */ import_react12.default.createElement(
     "input",
     {
       type: "radio",
@@ -43726,7 +43760,7 @@ ${markdownToPlainText(c.markdown || "")}
       onChange: () => setMode("toc-note"),
       disabled: isExporting
     }
-  ), "TOC note")), mode === "book-main" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Book main file"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: sourcePath, onChange: (e) => setSourcePath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement(
+  ), "TOC note")), mode === "book-main" && /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Book main file"), /* @__PURE__ */ import_react12.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react12.default.createElement("input", { value: sourcePath, onChange: (e) => setSourcePath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react12.default.createElement(
     "button",
     {
       onClick: () => pickMarkdownFile("Pick your manuscript note", (filePath) => {
@@ -43735,7 +43769,7 @@ ${markdownToPlainText(c.markdown || "")}
       disabled: isExporting
     },
     "Browse"
-  ))), mode === "toc-note" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "TOC note"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: tocPath, onChange: (e) => setTocPath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement(
+  ))), mode === "toc-note" && /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "TOC note"), /* @__PURE__ */ import_react12.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react12.default.createElement("input", { value: tocPath, onChange: (e) => setTocPath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react12.default.createElement(
     "button",
     {
       onClick: () => pickMarkdownFile("Pick your TOC note", (filePath) => {
@@ -43744,22 +43778,22 @@ ${markdownToPlainText(c.markdown || "")}
       disabled: isExporting
     },
     "Browse"
-  )))), step === 2 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Metadata"), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Title"), /* @__PURE__ */ import_react11.default.createElement("input", { value: title, onChange: (e) => setTitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Subtitle (optional)"), /* @__PURE__ */ import_react11.default.createElement("input", { value: subtitle, onChange: (e) => setSubtitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Author"), /* @__PURE__ */ import_react11.default.createElement("input", { value: author, onChange: (e) => setAuthor(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Language"), /* @__PURE__ */ import_react11.default.createElement("input", { value: language, onChange: (e) => setLanguage(e.target.value), disabled: isExporting, placeholder: "en" }))), step === 3 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Front matter"), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("label", null, /* @__PURE__ */ import_react11.default.createElement("input", { type: "checkbox", checked: includeTitlePage, onChange: (e) => setIncludeTitlePage(e.target.checked) }), "Title page")), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("label", null, /* @__PURE__ */ import_react11.default.createElement(
+  )))), step === 2 && /* @__PURE__ */ import_react12.default.createElement("div", null, /* @__PURE__ */ import_react12.default.createElement("h2", null, "Metadata"), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Title"), /* @__PURE__ */ import_react12.default.createElement("input", { value: title, onChange: (e) => setTitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Subtitle (optional)"), /* @__PURE__ */ import_react12.default.createElement("input", { value: subtitle, onChange: (e) => setSubtitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Author"), /* @__PURE__ */ import_react12.default.createElement("input", { value: author, onChange: (e) => setAuthor(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Language"), /* @__PURE__ */ import_react12.default.createElement("input", { value: language, onChange: (e) => setLanguage(e.target.value), disabled: isExporting, placeholder: "en" }))), step === 3 && /* @__PURE__ */ import_react12.default.createElement("div", null, /* @__PURE__ */ import_react12.default.createElement("h2", null, "Front matter"), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("label", null, /* @__PURE__ */ import_react12.default.createElement("input", { type: "checkbox", checked: includeTitlePage, onChange: (e) => setIncludeTitlePage(e.target.checked) }), "Title page")), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("label", null, /* @__PURE__ */ import_react12.default.createElement(
     "input",
     {
       type: "checkbox",
       checked: includeCopyrightPage,
       onChange: (e) => setIncludeCopyrightPage(e.target.checked)
     }
-  ), "Copyright page")), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "License template"), /* @__PURE__ */ import_react11.default.createElement(
+  ), "Copyright page")), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "License template"), /* @__PURE__ */ import_react12.default.createElement(
     "select",
     {
       value: licenseTemplateId,
       onChange: (e) => setLicenseTemplateId(e.target.value),
       disabled: isExporting
     },
-    LICENSE_TEMPLATES.map((t) => /* @__PURE__ */ import_react11.default.createElement("option", { key: t.id, value: t.id }, t.label))
-  )), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Copyright year"), /* @__PURE__ */ import_react11.default.createElement("input", { value: copyrightYear, onChange: (e) => setCopyrightYear(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Copyright holder"), /* @__PURE__ */ import_react11.default.createElement("input", { value: copyrightHolder, onChange: (e) => setCopyrightHolder(e.target.value), disabled: isExporting }))), step === 4 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Typography"), /* @__PURE__ */ import_react11.default.createElement("p", null, "Default styling uses Literata if available on the reader device. You can embed your own font files to guarantee the look."), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("label", null, /* @__PURE__ */ import_react11.default.createElement("input", { type: "checkbox", checked: embedFonts, onChange: (e) => setEmbedFonts(e.target.checked), disabled: isExporting }), "Embed custom fonts")), embedFonts && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Regular (required)"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontRegular, onChange: (e) => setFontRegular(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontRegular(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Bold"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontBold, onChange: (e) => setFontBold(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBold(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Italic"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontItalic, onChange: (e) => setFontItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontItalic(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Bold italic"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: fontBoldItalic, onChange: (e) => setFontBoldItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBoldItalic(f.path)), disabled: isExporting }, "Browse"))))), step === 5 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Output"), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Format"), /* @__PURE__ */ import_react11.default.createElement("select", { value: outputFormat, onChange: (e) => setOutputFormat(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react11.default.createElement("option", { value: "epub" }, "Epub"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "docx" }, "Docx"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "rtf" }, "Rtf"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "copy" }, "Plain text"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Export subset"), /* @__PURE__ */ import_react11.default.createElement("select", { value: subsetMode, onChange: (e) => setSubsetMode(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react11.default.createElement("option", { value: "all" }, "All chapters"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "first-chapters" }, "First N chapters"), /* @__PURE__ */ import_react11.default.createElement("option", { value: "first-words" }, "First N words"))), subsetMode === "first-chapters" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Chapters"), /* @__PURE__ */ import_react11.default.createElement("input", { value: subsetChaptersCount, onChange: (e) => setSubsetChaptersCount(e.target.value), disabled: isExporting })), subsetMode === "first-words" && /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Words"), /* @__PURE__ */ import_react11.default.createElement("input", { value: subsetWordsCount, onChange: (e) => setSubsetWordsCount(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "Folder"), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react11.default.createElement("input", { value: outputFolder, onChange: (e) => setOutputFolder(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: () => pickFolder((f) => setOutputFolder(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react11.default.createElement("div", null, "File name"), /* @__PURE__ */ import_react11.default.createElement("input", { value: outputFileName, onChange: (e) => setOutputFileName(e.target.value), disabled: isExporting }))), step === 6 && /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Export"), /* @__PURE__ */ import_react11.default.createElement("p", null, "When you click Export, the plugin will compile your notes and write the output into your vault."), progress && /* @__PURE__ */ import_react11.default.createElement("div", { className: "generation-status" }, progress), error2 && /* @__PURE__ */ import_react11.default.createElement("div", { className: "error-message" }, "\u274C ", error2)), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 16 } }, /* @__PURE__ */ import_react11.default.createElement("div", null, /* @__PURE__ */ import_react11.default.createElement("button", { onClick: onClose, className: "mod-secondary", disabled: isExporting }, "Close")), /* @__PURE__ */ import_react11.default.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ import_react11.default.createElement("button", { onClick: goBack, disabled: isExporting || step === 1 }, "Back"), step < 6 && /* @__PURE__ */ import_react11.default.createElement("button", { onClick: goNext, disabled: isExporting || !canNext, className: "mod-cta" }, "Next"), step === 6 && /* @__PURE__ */ import_react11.default.createElement("button", { onClick: doExport, disabled: isExporting, className: "mod-cta" }, "Export"))));
+    LICENSE_TEMPLATES.map((t) => /* @__PURE__ */ import_react12.default.createElement("option", { key: t.id, value: t.id }, t.label))
+  )), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Copyright year"), /* @__PURE__ */ import_react12.default.createElement("input", { value: copyrightYear, onChange: (e) => setCopyrightYear(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Copyright holder"), /* @__PURE__ */ import_react12.default.createElement("input", { value: copyrightHolder, onChange: (e) => setCopyrightHolder(e.target.value), disabled: isExporting }))), step === 4 && /* @__PURE__ */ import_react12.default.createElement("div", null, /* @__PURE__ */ import_react12.default.createElement("h2", null, "Typography"), /* @__PURE__ */ import_react12.default.createElement("p", null, "Default styling uses Literata if available on the reader device. You can embed your own font files to guarantee the look."), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("label", null, /* @__PURE__ */ import_react12.default.createElement("input", { type: "checkbox", checked: embedFonts, onChange: (e) => setEmbedFonts(e.target.checked), disabled: isExporting }), "Embed custom fonts")), embedFonts && /* @__PURE__ */ import_react12.default.createElement("div", null, /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Regular (required)"), /* @__PURE__ */ import_react12.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react12.default.createElement("input", { value: fontRegular, onChange: (e) => setFontRegular(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react12.default.createElement("button", { onClick: () => pickFontFile((f) => setFontRegular(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Bold"), /* @__PURE__ */ import_react12.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react12.default.createElement("input", { value: fontBold, onChange: (e) => setFontBold(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react12.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBold(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Italic"), /* @__PURE__ */ import_react12.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react12.default.createElement("input", { value: fontItalic, onChange: (e) => setFontItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react12.default.createElement("button", { onClick: () => pickFontFile((f) => setFontItalic(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Bold italic"), /* @__PURE__ */ import_react12.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react12.default.createElement("input", { value: fontBoldItalic, onChange: (e) => setFontBoldItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react12.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBoldItalic(f.path)), disabled: isExporting }, "Browse"))))), step === 5 && /* @__PURE__ */ import_react12.default.createElement("div", null, /* @__PURE__ */ import_react12.default.createElement("h2", null, "Output"), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Format"), /* @__PURE__ */ import_react12.default.createElement("select", { value: outputFormat, onChange: (e) => setOutputFormat(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react12.default.createElement("option", { value: "epub" }, "Epub"), /* @__PURE__ */ import_react12.default.createElement("option", { value: "docx" }, "Docx"), /* @__PURE__ */ import_react12.default.createElement("option", { value: "rtf" }, "Rtf"), /* @__PURE__ */ import_react12.default.createElement("option", { value: "copy" }, "Plain text"))), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Export subset"), /* @__PURE__ */ import_react12.default.createElement("select", { value: subsetMode, onChange: (e) => setSubsetMode(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react12.default.createElement("option", { value: "all" }, "All chapters"), /* @__PURE__ */ import_react12.default.createElement("option", { value: "first-chapters" }, "First N chapters"), /* @__PURE__ */ import_react12.default.createElement("option", { value: "first-words" }, "First N words"))), subsetMode === "first-chapters" && /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Chapters"), /* @__PURE__ */ import_react12.default.createElement("input", { value: subsetChaptersCount, onChange: (e) => setSubsetChaptersCount(e.target.value), disabled: isExporting })), subsetMode === "first-words" && /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Words"), /* @__PURE__ */ import_react12.default.createElement("input", { value: subsetWordsCount, onChange: (e) => setSubsetWordsCount(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "Folder"), /* @__PURE__ */ import_react12.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react12.default.createElement("input", { value: outputFolder, onChange: (e) => setOutputFolder(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react12.default.createElement("button", { onClick: () => pickFolder((f) => setOutputFolder(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react12.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react12.default.createElement("div", null, "File name"), /* @__PURE__ */ import_react12.default.createElement("input", { value: outputFileName, onChange: (e) => setOutputFileName(e.target.value), disabled: isExporting }))), step === 6 && /* @__PURE__ */ import_react12.default.createElement("div", null, /* @__PURE__ */ import_react12.default.createElement("h2", null, "Export"), /* @__PURE__ */ import_react12.default.createElement("p", null, "When you click Export, the plugin will compile your notes and write the output into your vault."), progress && /* @__PURE__ */ import_react12.default.createElement("div", { className: "generation-status" }, progress), error2 && /* @__PURE__ */ import_react12.default.createElement("div", { className: "error-message" }, "\u274C ", error2)), /* @__PURE__ */ import_react12.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 16 } }, /* @__PURE__ */ import_react12.default.createElement("div", null, /* @__PURE__ */ import_react12.default.createElement("button", { onClick: onClose, className: "mod-secondary", disabled: isExporting }, "Close")), /* @__PURE__ */ import_react12.default.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ import_react12.default.createElement("button", { onClick: goBack, disabled: isExporting || step === 1 }, "Back"), step < 6 && /* @__PURE__ */ import_react12.default.createElement("button", { onClick: goNext, disabled: isExporting || !canNext, className: "mod-cta" }, "Next"), step === 6 && /* @__PURE__ */ import_react12.default.createElement("button", { onClick: doExport, disabled: isExporting, className: "mod-cta" }, "Export"))));
 };
 
 // main.ts

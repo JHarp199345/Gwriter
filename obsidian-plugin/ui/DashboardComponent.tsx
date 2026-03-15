@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Notice } from 'obsidian';
 import WritingDashboardPlugin from '../main';
 import { EditorPanel } from './EditorPanel';
+import { GenerationModal } from './GenerationModal';
 import { FileTreePickerModal } from './FileTreePickerModal';
 import { FactInspector } from './FactInspector';
 import { ReplayPanel } from './ReplayPanel';
@@ -24,6 +25,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [undoStack, setUndoStack] = useState<Map<string, { beforeHash: string, text: string }[]>>(new Map());
 
 	const [chunkBuffer, setChunkBuffer] = useState<string>('');
+	const [showModal, setShowModal] = useState(false);
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [generationStage, setGenerationStage] = useState<string>('');
 	const [pulseMessage, setPulseMessage] = useState<string | null>(null);
@@ -62,6 +64,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			setGeneratedText('');
 			setGeneratedParagraphs([]);
 			setIsGenerating(true);
+			setShowModal(true);
 		};
 		const onStageStart = (data: { type: string }) => {
 			setGenerationStage(`Executing ${data.type}...`);
@@ -215,9 +218,17 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			setGeneratedText('');
 			setGeneratedParagraphs([]);
 			setChunkBuffer('');
+			setShowModal(false);
 		} catch (err: any) {
 			new Notice(`Insert failed: ${err.message}`);
 		}
+	};
+
+	const handleDiscard = () => {
+		setGeneratedText('');
+		setGeneratedParagraphs([]);
+		setChunkBuffer('');
+		setShowModal(false);
 	};
 
 	const handleGenerate = async () => {
@@ -624,17 +635,8 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 						</button>
 
 						{!isGenerating && generatedText && (
-							<button onClick={handleInsert} className="generate-button insert-button">
-								✓ Approve &amp; Insert
-							</button>
-						)}
-
-						{!isGenerating && generatedText && (
-							<button
-								onClick={() => { setGeneratedText(''); setGeneratedParagraphs([]); setChunkBuffer(''); }}
-								className="generate-button discard-button"
-							>
-								✕ Discard
+							<button onClick={() => setShowModal(true)} className="generate-button insert-button">
+								↗ Review output
 							</button>
 						)}
 
@@ -666,6 +668,19 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					)}
 				</div>
 			</div>
+
+			{/* Generation popup — opens automatically when a run starts */}
+			{showModal && (
+				<GenerationModal
+					isGenerating={isGenerating}
+					generationStage={generationStage}
+					chunkBuffer={chunkBuffer}
+					generatedText={generatedText}
+					onApprove={handleInsert}
+					onDiscard={handleDiscard}
+					onAbort={() => { plugin.sequentialGenerator.abort(); }}
+				/>
+			)}
 		</div>
 	);
 };
