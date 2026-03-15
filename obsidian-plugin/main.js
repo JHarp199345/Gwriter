@@ -30071,6 +30071,56 @@ function estimateTokens(text2) {
   return Math.ceil(text2.length / 4);
 }
 
+// services/GWLogger.ts
+var _runStart = 0;
+var _seq = 0;
+function _ts() {
+  if (_runStart) {
+    const ms = Date.now() - _runStart;
+    const s = (ms / 1e3).toFixed(2);
+    return `+${s}s`;
+  }
+  return new Date().toISOString().slice(11, 23);
+}
+function gwlog(tag, msg, extra) {
+  _seq++;
+  const line = `[GW:${tag}] ${_ts()} #${_seq} ${msg}`;
+  if (extra !== void 0) {
+    console.log(line, extra);
+  } else {
+    console.log(line);
+  }
+}
+function gwwarn(tag, msg, extra) {
+  _seq++;
+  const line = `[GW:${tag}:WARN] ${_ts()} #${_seq} ${msg}`;
+  console.warn(line, ...extra !== void 0 ? [extra] : []);
+}
+function gwerr(tag, msg, err) {
+  _seq++;
+  const errMsg = err instanceof Error ? `${err.message}${err.stack ? "\n" + err.stack.split("\n").slice(0, 4).join("\n") : ""}` : String(err ?? "");
+  console.error(`[GW:${tag}:ERR] ${_ts()} #${_seq} ${msg}`, errMsg || "");
+}
+function gwlogRunStart() {
+  _runStart = Date.now();
+  _seq = 0;
+  console.log("\n[GW:RUN] \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 NEW GENERATION RUN \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
+}
+function gwRedactKey(key) {
+  if (!key || key.length < 4)
+    return "(empty)";
+  return `${key.slice(0, 8)}\u2026 (len=${key.length})`;
+}
+function gwSnip(text2, maxChars = 120) {
+  if (!text2)
+    return "(empty)";
+  const clean = text2.replace(/\s+/g, " ").trim();
+  return clean.length > maxChars ? `${clean.slice(0, maxChars)}\u2026` : clean;
+}
+function gwWords(text2) {
+  return text2.trim() ? text2.trim().split(/\s+/).length : 0;
+}
+
 // services/AIClient.ts
 var AIClient = class {
   _formatUnknown(value) {
@@ -30166,8 +30216,11 @@ var AIClient = class {
    */
   async generateStream(prompt, settings, onToken, signal) {
     const provider = settings.apiProvider;
+    const estimatedTokens = estimateTokens(prompt);
+    gwlog("API", `generateStream | provider=${provider} | model=${settings.model} | key=${gwRedactKey(settings.apiKey)} | promptChars=${prompt.length} | ~tokens=${estimatedTokens}`);
+    let result;
     if (provider === "openai") {
-      return this._streamOpenAICompat(
+      result = await this._streamOpenAICompat(
         prompt,
         settings,
         "https://api.openai.com/v1/chat/completions",
@@ -30177,7 +30230,7 @@ var AIClient = class {
         signal
       );
     } else if (provider === "openrouter") {
-      return this._streamOpenAICompat(
+      result = await this._streamOpenAICompat(
         prompt,
         settings,
         "https://openrouter.ai/api/v1/chat/completions",
@@ -30190,18 +30243,21 @@ var AIClient = class {
         signal
       );
     } else if (provider === "anthropic") {
-      return this._streamAnthropic(prompt, settings, onToken, signal);
+      result = await this._streamAnthropic(prompt, settings, onToken, signal);
     } else if (provider === "gemini") {
-      return this._streamGemini(prompt, settings, onToken, signal);
+      result = await this._streamGemini(prompt, settings, onToken, signal);
     } else {
-      const result = await this.generateSingle(prompt, settings);
+      gwwarn("API", `Unknown provider "${provider}" \u2014 falling back to non-streaming generate`);
+      result = await this.generateSingle(prompt, settings);
       onToken(result);
-      return result;
     }
+    gwlog("API", `generateStream DONE | responseChars=${result.length} | ~words=${result.trim().split(/\s+/).length}`);
+    return result;
   }
   /** SSE streaming for OpenAI-compatible endpoints (OpenAI, OpenRouter). */
   async _streamOpenAICompat(prompt, settings, url, providerName, extraHeaders, onToken, signal) {
     const temperature = this._computeTemperature(settings);
+    gwlog("STREAM", `${providerName} \u2192 POST ${url} | model=${settings.model} | temp=${temperature.toFixed(2)}`);
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -30221,6 +30277,7 @@ var AIClient = class {
       }),
       signal
     });
+    gwlog("STREAM", `${providerName} HTTP status=${response.status}`);
     if (!response.ok) {
       const errText = await response.text().catch(() => String(response.status));
       throw new Error(`${providerName} API error ${response.status}: ${errText.slice(0, 300)}`);
@@ -30229,6 +30286,7 @@ var AIClient = class {
     const decoder = new TextDecoder();
     let lineBuffer = "";
     let accumulated = "";
+    let firstChunk = true;
     try {
       while (true) {
         const { done, value } = await reader.read();
@@ -30247,6 +30305,10 @@ var AIClient = class {
           try {
             const delta = JSON.parse(payload)?.choices?.[0]?.delta?.content;
             if (typeof delta === "string" && delta.length > 0) {
+              if (firstChunk) {
+                gwlog("STREAM", `${providerName} first token received`);
+                firstChunk = false;
+              }
               accumulated += delta;
               onToken(accumulated);
             }
@@ -30260,11 +30322,13 @@ var AIClient = class {
     if (accumulated.trim().length === 0) {
       throw new Error(`${providerName} streaming returned empty content.`);
     }
+    gwlog("STREAM", `${providerName} stream complete | chars=${accumulated.length}`);
     return accumulated;
   }
   /** SSE streaming for Anthropic Messages API. */
   async _streamAnthropic(prompt, settings, onToken, signal) {
     const temperature = this._computeTemperature(settings);
+    gwlog("STREAM", `Anthropic \u2192 POST /v1/messages | model=${settings.model} | temp=${temperature.toFixed(2)}`);
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -30281,6 +30345,7 @@ var AIClient = class {
       }),
       signal
     });
+    gwlog("STREAM", `Anthropic HTTP status=${response.status}`);
     if (!response.ok) {
       const errText = await response.text().catch(() => String(response.status));
       throw new Error(`Anthropic API error ${response.status}: ${errText.slice(0, 300)}`);
@@ -30289,6 +30354,7 @@ var AIClient = class {
     const decoder = new TextDecoder();
     let lineBuffer = "";
     let accumulated = "";
+    let firstChunk = true;
     try {
       while (true) {
         const { done, value } = await reader.read();
@@ -30307,6 +30373,10 @@ var AIClient = class {
             if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
               const delta = parsed.delta.text;
               if (typeof delta === "string" && delta.length > 0) {
+                if (firstChunk) {
+                  gwlog("STREAM", "Anthropic first token received");
+                  firstChunk = false;
+                }
                 accumulated += delta;
                 onToken(accumulated);
               }
@@ -30321,6 +30391,7 @@ var AIClient = class {
     if (accumulated.trim().length === 0) {
       throw new Error("Anthropic streaming returned empty content.");
     }
+    gwlog("STREAM", `Anthropic stream complete | chars=${accumulated.length}`);
     return accumulated;
   }
   /** SSE streaming for Gemini generateContent endpoint. */
@@ -30328,7 +30399,9 @@ var AIClient = class {
     const promptTokens = estimateTokens(prompt);
     const limit = settings.contextTokenLimit ?? 128e3;
     const reservedForOutput = 6e3;
+    gwlog("STREAM", `Gemini \u2192 streamGenerateContent | model=${settings.model} | ~tokens=${promptTokens} | limit=${limit}`);
     if (promptTokens > limit - reservedForOutput) {
+      gwerr("STREAM", `Gemini prompt too large: ~${promptTokens} tokens > limit-reserve (${limit - reservedForOutput})`);
       throw new Error(
         `Prompt too large for configured context limit. Estimated input ~${promptTokens.toLocaleString()} tokens (limit: ${limit.toLocaleString()}). Reduce context or increase the warning limit.`
       );
@@ -30347,6 +30420,7 @@ var AIClient = class {
         signal
       }
     );
+    gwlog("STREAM", `Gemini HTTP status=${response.status}`);
     if (!response.ok) {
       const errText = await response.text().catch(() => String(response.status));
       throw new Error(`Gemini API error ${response.status}: ${errText.slice(0, 300)}`);
@@ -30355,6 +30429,7 @@ var AIClient = class {
     const decoder = new TextDecoder();
     let lineBuffer = "";
     let accumulated = "";
+    let firstChunk = true;
     try {
       while (true) {
         const { done, value } = await reader.read();
@@ -30374,6 +30449,10 @@ var AIClient = class {
             if (Array.isArray(parts)) {
               for (const part of parts) {
                 if (typeof part.text === "string" && part.text.length > 0) {
+                  if (firstChunk) {
+                    gwlog("STREAM", "Gemini first token received");
+                    firstChunk = false;
+                  }
                   accumulated += part.text;
                   onToken(accumulated);
                 }
@@ -30389,6 +30468,7 @@ var AIClient = class {
     if (accumulated.trim().length === 0) {
       throw new Error("Gemini streaming returned empty content.");
     }
+    gwlog("STREAM", `Gemini stream complete | chars=${accumulated.length}`);
     return accumulated;
   }
   async generate(prompt, settings) {
@@ -30400,17 +30480,22 @@ var AIClient = class {
   }
   async generateSingle(prompt, settings) {
     const provider = settings.apiProvider;
+    const estimatedTokens = estimateTokens(prompt);
+    gwlog("API", `generate (non-stream) | provider=${provider} | model=${settings.model} | key=${gwRedactKey(settings.apiKey)} | promptChars=${prompt.length} | ~tokens=${estimatedTokens}`);
+    let result;
     if (settings.apiProvider === "openrouter") {
-      return await this._generateOpenRouter(prompt, settings);
+      result = await this._generateOpenRouter(prompt, settings);
     } else if (settings.apiProvider === "openai") {
-      return await this._generateOpenAI(prompt, settings);
+      result = await this._generateOpenAI(prompt, settings);
     } else if (settings.apiProvider === "anthropic") {
-      return await this._generateAnthropic(prompt, settings);
+      result = await this._generateAnthropic(prompt, settings);
     } else if (settings.apiProvider === "gemini") {
-      return await this._generateGemini(prompt, settings);
+      result = await this._generateGemini(prompt, settings);
     } else {
       throw new Error(`Unsupported provider: ${provider}`);
     }
+    gwlog("API", `generate DONE | responseChars=${result.length} | preview="${gwSnip(result, 80)}"`);
+    return result;
   }
   async generateMulti(prompt, settings) {
     const strategy = settings.multiStrategy;
@@ -30597,6 +30682,7 @@ ${alt}`).join("\n\n---\n\n")}`;
     const promptTokens = estimateTokens(prompt);
     const limit = settings.contextTokenLimit ?? 128e3;
     const reservedForOutput = 6e3;
+    gwlog("API", `Gemini \u2192 generateContent | model=${settings.model} | ~tokens=${promptTokens} | limit=${limit}`);
     if (promptTokens > limit - reservedForOutput) {
       throw new Error(
         `Prompt too large for configured context limit. Estimated input ~${promptTokens.toLocaleString()} tokens (limit: ${limit.toLocaleString()}). Reduce context (story bible/character notes/Smart Connections) or increase the warning limit.`
@@ -30624,6 +30710,7 @@ ${alt}`).join("\n\n---\n\n")}`;
         }
       })
     });
+    gwlog("API", `Gemini HTTP status=${response.status}`);
     if (response.status >= 400) {
       const error2 = this._getJson(response);
       throw new Error(`Gemini API error: ${this._getNestedErrorMessage(error2) || response.status}`);
@@ -35008,6 +35095,12 @@ Constraints:
       new import_obsidian20.Notice("Generation is already running.");
       return;
     }
+    gwlogRunStart();
+    gwlog("RUN", `generateChapter | targetWords=${targetWordCount} | dryRun=${!!opts?.dryRun}`);
+    gwlog("RUN", `sceneSummary="${gwSnip(opts?.sceneSummary, 100)}"`);
+    gwlog("CFG", `provider=${this.plugin.settings.apiProvider} | model=${this.plugin.settings.model} | key=${this.plugin.settings.apiKey ? this.plugin.settings.apiKey.slice(0, 8) + "\u2026(len=" + this.plugin.settings.apiKey.length + ")" : "(EMPTY!)"}`);
+    gwlog("CFG", `book2Path="${this.plugin.settings.book2Path}" | storyBible="${this.plugin.settings.storyBiblePath}" | charFolder="${this.plugin.settings.characterFolder}"`);
+    gwlog("CFG", `maxChunkWords=${this.plugin.settings.maxChunkWords} | contextTokenLimit=${this.plugin.settings.contextTokenLimit ?? 128e3}`);
     this.currentSceneSummary = opts?.sceneSummary?.trim() || "";
     this.dryRun = !!opts?.dryRun;
     if (this.dryRun) {
@@ -35020,53 +35113,82 @@ Constraints:
     this.interventionCount = 0;
     this.interventionCountPerChunk.clear();
     const initialState = this._buildInitialChapterState();
+    gwlog("RUN", `run:start emitting | runId=${this.currentRunId} | chapterId=${initialState.chapterId}`);
     relayEventBus.emit("run:start", { runId: this.currentRunId, chapterId: initialState.chapterId });
+    gwlog("RUN", "run:start emitted \u2192 modal should now be visible");
     let totalWords = 0;
     let iteration = 1;
     let contextManager = null;
     try {
+      gwlog("SETUP", "acquireRunLock...");
       await this.acquireRunLock(this.currentRunKey);
+      gwlog("SETUP", "acquireRunLock OK");
       const smartModel = this.plugin.settings.model;
       const smartProfile = this.getTaskProfile("WRITE");
       const mechanicalProfile = this.getTaskProfile("MECHANICAL");
+      gwlog("SETUP", "computing policyHash + corpusHash...");
       const policyHash = await sha256(JSON.stringify(CO_AUTHORING_POLICY));
       const corpusHash = await this.plugin.embeddingsIndex.getCorpusHash();
+      gwlog("SETUP", `policyHash=${policyHash.slice(0, 8)}\u2026 corpusHash=${corpusHash.slice(0, 8)}\u2026`);
       contextManager = new ContextManager(this.plugin.app.vault, initialState);
       this.contextManager = contextManager;
       this.verifySchemaDrift(initialState);
+      gwlog("SETUP", `seedFromStoryBible | path="${this.plugin.settings.storyBiblePath}"`);
       const seedResult = await contextManager.seedFromStoryBible(this.plugin.settings.storyBiblePath);
+      gwlog("SETUP", `seedFromStoryBible OK | hash=${seedResult.hash?.slice(0, 8) ?? "(none)"}`);
       const environment = await this._buildEnvironmentMeta(smartModel, policyHash, corpusHash);
       await this._initManifest(smartModel, null, policyHash, corpusHash, initialState, seedResult.hash, environment);
+      gwlog("SETUP", "manifest initialised \u2014 entering generation loop");
       while (totalWords < targetWordCount && (this.state === "RUNNING" || this.state === "RESUMING")) {
         if (this.checkControlFlow())
           break;
-        console.log(`[SequentialGenerator] --- Iteration ${iteration} ---`);
+        gwlog("LOOP", `\u2501\u2501\u2501 Iteration ${iteration} | totalWords so far=${totalWords} / target=${targetWordCount} \u2501\u2501\u2501`);
         const { sliderValue, rawParams, effectiveNovelty } = this._getSpontaneityAndRisk(iteration, contextManager);
         this._updateSpontaneityProfile(sliderValue, rawParams, effectiveNovelty);
+        gwlog("LOOP", `spontaneity=${sliderValue} | temp=${rawParams.temp.toFixed(2)} | novelty=${effectiveNovelty.toFixed(2)}`);
+        gwlog("PLAN", `_runPlanStage start | iteration=${iteration}`);
         const planResult = await this._runPlanStage(smartProfile, mechanicalProfile, initialState, iteration);
-        if (!planResult)
+        if (!planResult) {
+          gwwarn("PLAN", "planResult is null \u2014 breaking");
           break;
+        }
+        gwlog("PLAN", `_runPlanStage OK | dataPreview="${gwSnip(String(planResult.data), 100)}"`);
+        gwlog("RETRIEVE", `_runRetrieveStage start | iteration=${iteration}`);
         const retrieveResult = await this._runRetrieveStage(smartProfile, planResult, contextManager, effectiveNovelty, rawParams, iteration);
-        if (!retrieveResult)
+        if (!retrieveResult) {
+          gwwarn("RETRIEVE", "retrieveResult is null \u2014 breaking");
           break;
+        }
+        gwlog("RETRIEVE", `_runRetrieveStage OK | hits=${Array.isArray(retrieveResult.data) ? retrieveResult.data.length : "?"}`);
         const { restrictedDomains, isDegraded } = this._computeDegradedDomains(planResult, retrieveResult);
+        if (isDegraded)
+          gwwarn("LOOP", `degraded mode | restrictedDomains=${restrictedDomains.join(",")}`);
+        gwlog("WRITE", `_runWriteStage start | iteration=${iteration}`);
         const writeResult = await this._runWriteStage(smartProfile, planResult, retrieveResult, contextManager, iteration, rawParams, isDegraded, restrictedDomains);
-        if (!writeResult)
+        if (!writeResult) {
+          gwwarn("WRITE", "writeResult is null \u2014 breaking");
           break;
+        }
+        gwlog("WRITE", `_runWriteStage OK | dataChars=${String(writeResult.data ?? "").length}`);
         if (isDegraded) {
           this._quarantineDegradedFacts(writeResult, restrictedDomains);
         }
         const { text: chunkText, metadata: recoveredMeta } = this.segmentAndRecover(writeResult.data, []);
         writeResult.data = chunkText;
         writeResult.metadata = recoveredMeta;
+        gwlog("WRITE", `segmentAndRecover | words=${gwWords(chunkText)} | paragraphs=${chunkText.split(/\n\n/).filter((p) => p.trim()).length}`);
+        gwlog("COMMIT", `commitChunk | iteration=${iteration} | words=${gwWords(chunkText)}`);
         await this.commitChunk(iteration, writeResult.data, writeResult.metadata);
+        gwlog("COMMIT", "commitChunk OK \u2014 chunk:committed emitted, text now in modal");
+        gwlog("AUDIT", `_runAuditStage start | iteration=${iteration}`);
         let auditData = { overallSeverity: 0, violations: [], summary: "" };
         try {
           const auditResult = await this._runAuditStage(smartProfile, mechanicalProfile, contextManager, chunkText, iteration);
           if (auditResult)
             auditData = auditResult.data;
+          gwlog("AUDIT", `audit OK | severity=${auditData.overallSeverity} | violations=${auditData.violations?.length ?? 0}`);
         } catch (auditErr) {
-          console.warn("[SequentialGenerator] Audit failed (non-blocking):", auditErr);
+          gwwarn("AUDIT", `audit failed (non-blocking) \u2014 using severity=0 defaults`, auditErr);
         }
         const chunkId = `chunk-${iteration}`;
         const matrixCheck = this.shouldTriggerIntervention(auditData, chunkId);
@@ -35099,24 +35221,36 @@ Constraints:
           break;
         this.checkQualityFloors(iteration);
         totalWords += writeResult.data.split(/\s+/).length;
+        gwlog("LOOP", `iteration ${iteration} complete | chunkWords=${gwWords(writeResult.data)} | runningTotal=${totalWords}`);
         const shouldTelescope = this.shouldTriggerTelescoping(iteration, contextManager);
         if (shouldTelescope) {
+          gwlog("TELESCOPE", "triggering telescoping...");
           await this.performTelescoping(iteration, contextManager);
+          gwlog("TELESCOPE", "telescoping done");
         }
         iteration++;
         await this.saveManifest();
       }
+      gwlog("RUN", `loop exited | totalWords=${totalWords} | state=${this.state}`);
       if (contextManager && (this.state === "RUNNING" || this.state === "RESUMING")) {
+        gwlog("RUN", "_finalizeSuccessfulRun...");
         await this._finalizeSuccessfulRun(totalWords, contextManager);
+        gwlog("RUN", "\u2713 run COMPLETED successfully");
+      } else {
+        gwwarn("RUN", `run ended without finalize | state=${this.state} | contextManager=${contextManager ? "ok" : "null"}`);
       }
     } catch (err) {
+      const msg = err.message || String(err);
+      gwerr("RUN", `UNCAUGHT ERROR in generateChapter: ${msg}`, err);
       this.state = "error";
-      relayEventBus.emit("run:error", { runId: this.currentRunId, error: err.message || String(err) });
+      relayEventBus.emit("run:error", { runId: this.currentRunId, error: msg });
     } finally {
+      gwlog("RUN", `finally | releasing lock | runKey=${this.currentRunKey}`);
       if (this.currentRunKey) {
         await this.releaseRunLock(this.currentRunKey);
       }
       this.abortController = null;
+      gwlog("RUN", "\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 RUN FINISHED \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n");
     }
   }
   /**

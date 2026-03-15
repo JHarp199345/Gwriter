@@ -1,6 +1,7 @@
 import { requestUrl, type RequestUrlResponse } from 'obsidian';
 import type { DashboardSettings } from '../main';
 import { estimateTokens } from './TokenEstimate';
+import { gwlog, gwwarn, gwerr, gwRedactKey, gwSnip } from './GWLogger';
 
 export interface MultiModelResult {
 	primary: string;
@@ -112,14 +113,18 @@ export class AIClient {
 		signal?: AbortSignal
 	): Promise<string> {
 		const provider = settings.apiProvider;
+		const estimatedTokens = estimateTokens(prompt);
+		gwlog('API', `generateStream | provider=${provider} | model=${settings.model} | key=${gwRedactKey(settings.apiKey)} | promptChars=${prompt.length} | ~tokens=${estimatedTokens}`);
+
+		let result: string;
 		if (provider === 'openai') {
-			return this._streamOpenAICompat(
+			result = await this._streamOpenAICompat(
 				prompt, settings,
 				'https://api.openai.com/v1/chat/completions',
 				'OpenAI', {}, onToken, signal
 			);
 		} else if (provider === 'openrouter') {
-			return this._streamOpenAICompat(
+			result = await this._streamOpenAICompat(
 				prompt, settings,
 				'https://openrouter.ai/api/v1/chat/completions',
 				'OpenRouter',
@@ -130,15 +135,16 @@ export class AIClient {
 				onToken, signal
 			);
 		} else if (provider === 'anthropic') {
-			return this._streamAnthropic(prompt, settings, onToken, signal);
+			result = await this._streamAnthropic(prompt, settings, onToken, signal);
 		} else if (provider === 'gemini') {
-			return this._streamGemini(prompt, settings, onToken, signal);
+			result = await this._streamGemini(prompt, settings, onToken, signal);
 		} else {
-			// Unknown provider — fall back to non-streaming
-			const result = await this.generateSingle(prompt, settings);
+			gwwarn('API', `Unknown provider "${provider}" — falling back to non-streaming generate`);
+			result = await this.generateSingle(prompt, settings);
 			onToken(result);
-			return result;
 		}
+		gwlog('API', `generateStream DONE | responseChars=${result.length} | ~words=${result.trim().split(/\s+/).length}`);
+		return result;
 	}
 
 	/** SSE streaming for OpenAI-compatible endpoints (OpenAI, OpenRouter). */
@@ -152,6 +158,7 @@ export class AIClient {
 		signal?: AbortSignal
 	): Promise<string> {
 		const temperature = this._computeTemperature(settings);
+		gwlog('STREAM', `${providerName} → POST ${url} | model=${settings.model} | temp=${temperature.toFixed(2)}`);
 		const response = await fetch(url, {
 			method: 'POST',
 			headers: {
@@ -172,6 +179,7 @@ export class AIClient {
 			signal
 		});
 
+		gwlog('STREAM', `${providerName} HTTP status=${response.status}`);
 		if (!response.ok) {
 			const errText = await response.text().catch(() => String(response.status));
 			throw new Error(`${providerName} API error ${response.status}: ${errText.slice(0, 300)}`);
@@ -181,6 +189,7 @@ export class AIClient {
 		const decoder = new TextDecoder();
 		let lineBuffer = '';
 		let accumulated = '';
+		let firstChunk = true;
 
 		try {
 			while (true) {
@@ -197,6 +206,10 @@ export class AIClient {
 					try {
 						const delta = (JSON.parse(payload) as any)?.choices?.[0]?.delta?.content;
 						if (typeof delta === 'string' && delta.length > 0) {
+							if (firstChunk) {
+								gwlog('STREAM', `${providerName} first token received`);
+								firstChunk = false;
+							}
 							accumulated += delta;
 							onToken(accumulated);
 						}
@@ -212,6 +225,7 @@ export class AIClient {
 		if (accumulated.trim().length === 0) {
 			throw new Error(`${providerName} streaming returned empty content.`);
 		}
+		gwlog('STREAM', `${providerName} stream complete | chars=${accumulated.length}`);
 		return accumulated;
 	}
 
@@ -223,6 +237,7 @@ export class AIClient {
 		signal?: AbortSignal
 	): Promise<string> {
 		const temperature = this._computeTemperature(settings);
+		gwlog('STREAM', `Anthropic → POST /v1/messages | model=${settings.model} | temp=${temperature.toFixed(2)}`);
 		const response = await fetch('https://api.anthropic.com/v1/messages', {
 			method: 'POST',
 			headers: {
@@ -240,6 +255,7 @@ export class AIClient {
 			signal
 		});
 
+		gwlog('STREAM', `Anthropic HTTP status=${response.status}`);
 		if (!response.ok) {
 			const errText = await response.text().catch(() => String(response.status));
 			throw new Error(`Anthropic API error ${response.status}: ${errText.slice(0, 300)}`);
@@ -249,6 +265,7 @@ export class AIClient {
 		const decoder = new TextDecoder();
 		let lineBuffer = '';
 		let accumulated = '';
+		let firstChunk = true;
 
 		try {
 			while (true) {
@@ -266,6 +283,10 @@ export class AIClient {
 						if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
 							const delta = parsed.delta.text;
 							if (typeof delta === 'string' && delta.length > 0) {
+								if (firstChunk) {
+									gwlog('STREAM', 'Anthropic first token received');
+									firstChunk = false;
+								}
 								accumulated += delta;
 								onToken(accumulated);
 							}
@@ -282,6 +303,7 @@ export class AIClient {
 		if (accumulated.trim().length === 0) {
 			throw new Error('Anthropic streaming returned empty content.');
 		}
+		gwlog('STREAM', `Anthropic stream complete | chars=${accumulated.length}`);
 		return accumulated;
 	}
 
@@ -295,7 +317,9 @@ export class AIClient {
 		const promptTokens = estimateTokens(prompt);
 		const limit = settings.contextTokenLimit ?? 128000;
 		const reservedForOutput = 6000;
+		gwlog('STREAM', `Gemini → streamGenerateContent | model=${settings.model} | ~tokens=${promptTokens} | limit=${limit}`);
 		if (promptTokens > limit - reservedForOutput) {
+			gwerr('STREAM', `Gemini prompt too large: ~${promptTokens} tokens > limit-reserve (${limit - reservedForOutput})`);
 			throw new Error(
 				`Prompt too large for configured context limit. ` +
 				`Estimated input ~${promptTokens.toLocaleString()} tokens (limit: ${limit.toLocaleString()}). ` +
@@ -318,6 +342,7 @@ export class AIClient {
 			}
 		);
 
+		gwlog('STREAM', `Gemini HTTP status=${response.status}`);
 		if (!response.ok) {
 			const errText = await response.text().catch(() => String(response.status));
 			throw new Error(`Gemini API error ${response.status}: ${errText.slice(0, 300)}`);
@@ -327,6 +352,7 @@ export class AIClient {
 		const decoder = new TextDecoder();
 		let lineBuffer = '';
 		let accumulated = '';
+		let firstChunk = true;
 
 		try {
 			while (true) {
@@ -345,6 +371,10 @@ export class AIClient {
 						if (Array.isArray(parts)) {
 							for (const part of parts) {
 								if (typeof part.text === 'string' && part.text.length > 0) {
+									if (firstChunk) {
+										gwlog('STREAM', 'Gemini first token received');
+										firstChunk = false;
+									}
 									accumulated += part.text;
 									onToken(accumulated);
 								}
@@ -362,6 +392,7 @@ export class AIClient {
 		if (accumulated.trim().length === 0) {
 			throw new Error('Gemini streaming returned empty content.');
 		}
+		gwlog('STREAM', `Gemini stream complete | chars=${accumulated.length}`);
 		return accumulated;
 	}
 
@@ -382,19 +413,24 @@ export class AIClient {
 		prompt: string,
 		settings: DashboardSettings
 	): Promise<string> {
-		// Capture before narrowing so template literals don't end up with `never` types in unreachable branches.
 		const provider = settings.apiProvider;
+		const estimatedTokens = estimateTokens(prompt);
+		gwlog('API', `generate (non-stream) | provider=${provider} | model=${settings.model} | key=${gwRedactKey(settings.apiKey)} | promptChars=${prompt.length} | ~tokens=${estimatedTokens}`);
+
+		let result: string;
 		if (settings.apiProvider === 'openrouter') {
-			return await this._generateOpenRouter(prompt, settings);
+			result = await this._generateOpenRouter(prompt, settings);
 		} else if (settings.apiProvider === 'openai') {
-			return await this._generateOpenAI(prompt, settings);
+			result = await this._generateOpenAI(prompt, settings);
 		} else if (settings.apiProvider === 'anthropic') {
-			return await this._generateAnthropic(prompt, settings);
+			result = await this._generateAnthropic(prompt, settings);
 		} else if (settings.apiProvider === 'gemini') {
-			return await this._generateGemini(prompt, settings);
+			result = await this._generateGemini(prompt, settings);
 		} else {
 			throw new Error(`Unsupported provider: ${provider}`);
 		}
+		gwlog('API', `generate DONE | responseChars=${result.length} | preview="${gwSnip(result, 80)}"`);
+		return result;
 	}
 
 	private async generateMulti(
@@ -620,8 +656,8 @@ export class AIClient {
 	private async _generateGemini(prompt: string, settings: DashboardSettings): Promise<string> {
 		const promptTokens = estimateTokens(prompt);
 		const limit = settings.contextTokenLimit ?? 128000;
-		// Reserve space for the model to answer. If input crowds out output, Gemini can return MAX_TOKENS with no text.
 		const reservedForOutput = 6000;
+		gwlog('API', `Gemini → generateContent | model=${settings.model} | ~tokens=${promptTokens} | limit=${limit}`);
 		if (promptTokens > limit - reservedForOutput) {
 			throw new Error(
 				`Prompt too large for configured context limit. ` +
@@ -654,6 +690,7 @@ export class AIClient {
 			})
 		});
 
+		gwlog('API', `Gemini HTTP status=${response.status}`);
 		if (response.status >= 400) {
 			const error = this._getJson(response);
 			throw new Error(`Gemini API error: ${this._getNestedErrorMessage(error) || response.status}`);

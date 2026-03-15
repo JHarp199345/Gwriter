@@ -54,6 +54,7 @@ import { CloudRelay, WriteChapterInput, EditChapterInput } from './CloudRelay';
 import { ContextPacker } from './ContextPacker';
 import { estimateTokens } from './TokenEstimate';
 import { getContextLimit } from './ContextSafety';
+import { gwlog, gwwarn, gwerr, gwlogRunStart, gwSnip, gwWords } from './GWLogger';
 
 /**
  * SequentialGenerator is the "Brain" of the relay drafting race.
@@ -633,6 +634,14 @@ Constraints:
             return;
         }
 
+        // ── Start the diagnostic log for this run ──────────────────────────────
+        gwlogRunStart();
+        gwlog('RUN', `generateChapter | targetWords=${targetWordCount} | dryRun=${!!opts?.dryRun}`);
+        gwlog('RUN', `sceneSummary="${gwSnip(opts?.sceneSummary, 100)}"`);
+        gwlog('CFG', `provider=${this.plugin.settings.apiProvider} | model=${this.plugin.settings.model} | key=${this.plugin.settings.apiKey ? this.plugin.settings.apiKey.slice(0,8)+'…(len='+this.plugin.settings.apiKey.length+')' : '(EMPTY!)'}`);
+        gwlog('CFG', `book2Path="${this.plugin.settings.book2Path}" | storyBible="${this.plugin.settings.storyBiblePath}" | charFolder="${this.plugin.settings.characterFolder}"`);
+        gwlog('CFG', `maxChunkWords=${this.plugin.settings.maxChunkWords} | contextTokenLimit=${this.plugin.settings.contextTokenLimit ?? 128000}`);
+
         this.currentSceneSummary = opts?.sceneSummary?.trim() || '';
         this.dryRun = !!opts?.dryRun;
         if (this.dryRun) {
@@ -649,50 +658,67 @@ Constraints:
         // ── Emit run:start IMMEDIATELY so the modal opens before any async setup.
         // All setup errors are now caught by the try/catch below and surfaced via run:error.
         const initialState = this._buildInitialChapterState();
+        gwlog('RUN', `run:start emitting | runId=${this.currentRunId} | chapterId=${initialState.chapterId}`);
         relayEventBus.emit('run:start', { runId: this.currentRunId, chapterId: initialState.chapterId });
+        gwlog('RUN', 'run:start emitted → modal should now be visible');
 
         let totalWords = 0;
         let iteration = 1;
         let contextManager: ContextManager | null = null;
 
         try {
+            gwlog('SETUP', 'acquireRunLock...');
             await this.acquireRunLock(this.currentRunKey!);
+            gwlog('SETUP', 'acquireRunLock OK');
 
             const smartModel = this.plugin.settings.model;
             const smartProfile = this.getTaskProfile('WRITE');
             const mechanicalProfile = this.getTaskProfile('MECHANICAL');
 
+            gwlog('SETUP', 'computing policyHash + corpusHash...');
             const policyHash = await sha256(JSON.stringify(CO_AUTHORING_POLICY));
             const corpusHash = await this.plugin.embeddingsIndex.getCorpusHash();
+            gwlog('SETUP', `policyHash=${policyHash.slice(0,8)}… corpusHash=${corpusHash.slice(0,8)}…`);
 
             contextManager = new ContextManager(this.plugin.app.vault, initialState);
             this.contextManager = contextManager;
 
             this.verifySchemaDrift(initialState);
 
+            gwlog('SETUP', `seedFromStoryBible | path="${this.plugin.settings.storyBiblePath}"`);
             const seedResult = await contextManager.seedFromStoryBible(this.plugin.settings.storyBiblePath);
-            const environment = await this._buildEnvironmentMeta(smartModel, policyHash, corpusHash);
+            gwlog('SETUP', `seedFromStoryBible OK | hash=${seedResult.hash?.slice(0,8) ?? '(none)'}`);
 
+            const environment = await this._buildEnvironmentMeta(smartModel, policyHash, corpusHash);
             await this._initManifest(smartModel, null, policyHash, corpusHash, initialState, seedResult.hash, environment);
+            gwlog('SETUP', 'manifest initialised — entering generation loop');
 
             while (totalWords < targetWordCount && (this.state === 'RUNNING' || this.state === 'RESUMING')) {
                 if (this.checkControlFlow()) break;
 
-                console.log(`[SequentialGenerator] --- Iteration ${iteration} ---`);
+                gwlog('LOOP', `━━━ Iteration ${iteration} | totalWords so far=${totalWords} / target=${targetWordCount} ━━━`);
 
                 const { sliderValue, rawParams, effectiveNovelty } = this._getSpontaneityAndRisk(iteration, contextManager);
                 this._updateSpontaneityProfile(sliderValue, rawParams, effectiveNovelty);
+                gwlog('LOOP', `spontaneity=${sliderValue} | temp=${rawParams.temp.toFixed(2)} | novelty=${effectiveNovelty.toFixed(2)}`);
 
+                gwlog('PLAN', `_runPlanStage start | iteration=${iteration}`);
                 const planResult = await this._runPlanStage(smartProfile, mechanicalProfile, initialState, iteration);
-                if (!planResult) break;
+                if (!planResult) { gwwarn('PLAN', 'planResult is null — breaking'); break; }
+                gwlog('PLAN', `_runPlanStage OK | dataPreview="${gwSnip(String(planResult.data), 100)}"`);
 
+                gwlog('RETRIEVE', `_runRetrieveStage start | iteration=${iteration}`);
                 const retrieveResult = await this._runRetrieveStage(smartProfile, planResult, contextManager, effectiveNovelty, rawParams, iteration);
-                if (!retrieveResult) break;
+                if (!retrieveResult) { gwwarn('RETRIEVE', 'retrieveResult is null — breaking'); break; }
+                gwlog('RETRIEVE', `_runRetrieveStage OK | hits=${Array.isArray(retrieveResult.data) ? retrieveResult.data.length : '?'}`);
 
                 const { restrictedDomains, isDegraded } = this._computeDegradedDomains(planResult, retrieveResult);
+                if (isDegraded) gwwarn('LOOP', `degraded mode | restrictedDomains=${restrictedDomains.join(',')}`);
 
+                gwlog('WRITE', `_runWriteStage start | iteration=${iteration}`);
                 const writeResult = await this._runWriteStage(smartProfile, planResult, retrieveResult, contextManager, iteration, rawParams, isDegraded, restrictedDomains);
-                if (!writeResult) break;
+                if (!writeResult) { gwwarn('WRITE', 'writeResult is null — breaking'); break; }
+                gwlog('WRITE', `_runWriteStage OK | dataChars=${String(writeResult.data ?? '').length}`);
 
                 if (isDegraded) {
                     this._quarantineDegradedFacts(writeResult, restrictedDomains);
@@ -701,20 +727,25 @@ Constraints:
                 const { text: chunkText, metadata: recoveredMeta } = this.segmentAndRecover(writeResult.data, []);
                 writeResult.data = chunkText;
                 writeResult.metadata = recoveredMeta;
+                gwlog('WRITE', `segmentAndRecover | words=${gwWords(chunkText)} | paragraphs=${chunkText.split(/\n\n/).filter(p=>p.trim()).length}`);
 
                 // ── Commit the prose FIRST so the modal always has text to approve ──
                 // AUDIT runs after commit; its failure never blocks what the user wrote.
+                gwlog('COMMIT', `commitChunk | iteration=${iteration} | words=${gwWords(chunkText)}`);
                 await this.commitChunk(iteration, writeResult.data, writeResult.metadata);
+                gwlog('COMMIT', 'commitChunk OK — chunk:committed emitted, text now in modal');
 
                 // ── AUDIT (non-blocking) ──────────────────────────────────────────────
                 // If the model returns non-JSON or the audit call fails outright, we
                 // treat it as a clean pass (severity 0) rather than crashing the run.
+                gwlog('AUDIT', `_runAuditStage start | iteration=${iteration}`);
                 let auditData: AuditResult = { overallSeverity: 0, violations: [], summary: '' };
                 try {
                     const auditResult = await this._runAuditStage(smartProfile, mechanicalProfile, contextManager, chunkText, iteration);
                     if (auditResult) auditData = auditResult.data as AuditResult;
+                    gwlog('AUDIT', `audit OK | severity=${auditData.overallSeverity} | violations=${auditData.violations?.length ?? 0}`);
                 } catch (auditErr) {
-                    console.warn('[SequentialGenerator] Audit failed (non-blocking):', auditErr);
+                    gwwarn('AUDIT', `audit failed (non-blocking) — using severity=0 defaults`, auditErr);
                 }
 
                 const chunkId = `chunk-${iteration}`;
@@ -743,29 +774,41 @@ Constraints:
                 this.checkQualityFloors(iteration);
 
                 totalWords += writeResult.data.split(/\s+/).length;
+                gwlog('LOOP', `iteration ${iteration} complete | chunkWords=${gwWords(writeResult.data)} | runningTotal=${totalWords}`);
 
                 const shouldTelescope = this.shouldTriggerTelescoping(iteration, contextManager);
                 if (shouldTelescope) {
+                    gwlog('TELESCOPE', 'triggering telescoping...');
                     await this.performTelescoping(iteration, contextManager);
+                    gwlog('TELESCOPE', 'telescoping done');
                 }
 
                 iteration++;
-
                 await this.saveManifest();
             }
 
+            gwlog('RUN', `loop exited | totalWords=${totalWords} | state=${this.state}`);
+
             if (contextManager && (this.state === 'RUNNING' || this.state === 'RESUMING')) {
+                gwlog('RUN', '_finalizeSuccessfulRun...');
                 await this._finalizeSuccessfulRun(totalWords, contextManager);
+                gwlog('RUN', '✓ run COMPLETED successfully');
+            } else {
+                gwwarn('RUN', `run ended without finalize | state=${this.state} | contextManager=${contextManager ? 'ok' : 'null'}`);
             }
 
         } catch (err) {
+            const msg = (err as Error).message || String(err);
+            gwerr('RUN', `UNCAUGHT ERROR in generateChapter: ${msg}`, err);
             this.state = 'error';
-            relayEventBus.emit('run:error', { runId: this.currentRunId!, error: (err as Error).message || String(err) });
+            relayEventBus.emit('run:error', { runId: this.currentRunId!, error: msg });
         } finally {
+            gwlog('RUN', `finally | releasing lock | runKey=${this.currentRunKey}`);
             if (this.currentRunKey) {
                 await this.releaseRunLock(this.currentRunKey);
             }
             this.abortController = null;
+            gwlog('RUN', '══════════════════ RUN FINISHED ══════════════════\n');
         }
     }
 
