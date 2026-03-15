@@ -28875,18 +28875,34 @@ var VaultService = class {
     }
   }
   /**
-   * Ensure the parent folder of a file path exists. Creates it if missing.
-   * Handles root-level files (no parent folder needed).
+   * Ensure every segment of a folder path exists, creating them one by one
+   * from the root down. Works on a completely fresh vault with no folders at all.
+   *
+   * e.g. ensureFolderPath('.gwriter/locks') creates '.gwriter' then '.gwriter/locks'.
+   */
+  async ensureFolderPath(folderPath) {
+    const normalized = folderPath.replaceAll("\\", "/").replace(/\/$/, "");
+    if (!normalized)
+      return;
+    const segments = normalized.split("/").filter((s) => s.length > 0);
+    let current = "";
+    for (const segment of segments) {
+      current = current ? `${current}/${segment}` : segment;
+      await this.createFolderIfNotExists(current);
+    }
+  }
+  /**
+   * Ensure the parent folder of a file path exists, creating all intermediate
+   * directories as needed. Safe on a brand-new vault with no folders at all.
    */
   async ensureParentFolder(filePath) {
     const normalized = filePath.replaceAll("\\", "/");
     const lastSlash = normalized.lastIndexOf("/");
-    if (lastSlash === -1) {
+    if (lastSlash === -1)
       return;
-    }
     const parentPath = normalized.substring(0, lastSlash);
     if (parentPath) {
-      await this.createFolderIfNotExists(parentPath);
+      await this.ensureFolderPath(parentPath);
     }
   }
   /**
@@ -28921,6 +28937,7 @@ var VaultService = class {
     const skipped = [];
     for (const item of items) {
       if (item.type === "file") {
+        await this.ensureParentFolder(item.path);
         const wasCreated = await this.createFileIfNotExists(item.path, item.content || "");
         if (wasCreated) {
           created.push(item.path);
@@ -28928,8 +28945,9 @@ var VaultService = class {
           skipped.push(item.path);
         }
       } else {
-        const wasCreated = await this.createFolderIfNotExists(item.path);
-        if (wasCreated) {
+        const existed = this.vault.getAbstractFileByPath(item.path);
+        await this.ensureFolderPath(item.path);
+        if (!existed) {
           created.push(item.path);
         } else {
           skipped.push(item.path);
@@ -28950,7 +28968,7 @@ var VaultService = class {
     const baseName = sourceFilePath.replace(/\.md$/, "").replace(/\.\w+$/, "");
     const chunkedFolderName = `${baseName}-Chunked`;
     const chunks = TextChunker.chunkText(text2, wordsPerChunk);
-    await this.createFolderIfNotExists(chunkedFolderName);
+    await this.ensureFolderPath(chunkedFolderName);
     const filePaths = [];
     let created = 0;
     let overwrittenCount = 0;
@@ -29017,7 +29035,7 @@ var VaultService = class {
     const characterFolder = folderOverride || this.plugin.settings.characterFolder;
     const resolver = new CharacterNameResolver(this.vault, characterFolder);
     const sessionResolutions = /* @__PURE__ */ new Map();
-    await this.createFolderIfNotExists(characterFolder);
+    await this.ensureFolderPath(characterFolder);
     for (const { character, update } of updates) {
       const proposed = (character || "").trim();
       if (!proposed)

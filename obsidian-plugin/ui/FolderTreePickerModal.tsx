@@ -104,7 +104,7 @@ export const FolderTreePickerComponent: React.FC<FolderTreePickerComponentProps>
 		const fullPath = parentPath ? `${parentPath}/${newFolderName.trim()}` : newFolderName.trim();
 
 		try {
-			await plugin.vaultService.createFolderIfNotExists(fullPath);
+			await plugin.vaultService.ensureFolderPath(fullPath);
 			// Refresh structure
 			const vaultStructure = plugin.vaultService.getVaultStructure();
 			const foldersOnly = vaultStructure.filter(item => item.type === 'folder');
