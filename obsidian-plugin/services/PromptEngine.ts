@@ -553,6 +553,69 @@ OUTPUT FORMAT (JSON):
 	}
 
 	/**
+	 * Generates the OSC-structured chapter plan that governs BOTH phases of
+	 * generation. Called once before any prose is written. The plan is the
+	 * contract between Phase 1 and Phase 2 — it encodes the MICE driver,
+	 * emotional arc, causation chain, phase obligations, and forbidden territory.
+	 */
+	buildChapterPlanPrompt(params: {
+		sceneSummary: string;
+		previousChapter: string;
+		currentChapter: string;
+		plotMemory: string;
+		commandments: string;
+	}): string {
+		const prevBlock = params.previousChapter
+			? `-------------------------------------------------------------\nPREVIOUS CHAPTER (absorb tone, pacing, and where the story was)\n-------------------------------------------------------------\n${params.previousChapter}\n\n`
+			: '';
+		const currentBlock = params.currentChapter
+			? `-------------------------------------------------------------\nCURRENT CHAPTER SO FAR\n-------------------------------------------------------------\n${params.currentChapter}\n\n`
+			: '';
+		const plotBlock = params.plotMemory
+			? `PLOT MEMORY: ${params.plotMemory}\n\n`
+			: '';
+		const commandmentsBlock = params.commandments
+			? `-------------------------------------------------------------\nWRITING COMMANDMENTS (these govern the plan)\n-------------------------------------------------------------\n${params.commandments}\n\n`
+			: '';
+		const sceneSummaryBlock = params.sceneSummary
+			? `-------------------------------------------------------------\nAUTHOR'S SCENE DIRECTIONS\n-------------------------------------------------------------\n${params.sceneSummary}\n\n`
+			: '';
+
+		return `You are a story architect. Generate a single, unified chapter plan that governs both halves of the generation. This plan is the contract between Phase 1 and Phase 2 — both writing stages will receive it in full.
+
+${plotBlock}${prevBlock}${currentBlock}${sceneSummaryBlock}${commandmentsBlock}-------------------------------------------------------------
+Generate the chapter plan using EXACTLY this structure:
+-------------------------------------------------------------
+
+MICE DRIVER: [Milieu / Idea / Character / Event]
+(The single primary driver. The chapter is not complete until this driver has progressed.)
+
+EMOTIONAL ARC:
+- Chapter opens: [reader's emotional state]
+- Phase 1 ends: [emotional state at the midpoint — a TURN, not resolution]
+- Chapter closes: [transformed emotional state — must differ from the open]
+
+CAUSATION CHAIN (reject the first, most obvious reason):
+- Surface event: [what literally happens]
+  └─ Because: [one level down]
+     └─ Because: [deeper cause]
+        └─ Because: [the actual reason — this is what matters]
+
+PHASE 1 OBLIGATIONS (what the first half must establish):
+1. [Specific condition or setup that must exist by the midpoint]
+2. [The precise tension point where Phase 1 ends — a question, not an answer]
+
+PHASE 2 OBLIGATIONS (what the second half must deliver):
+1. [Direct consequence of Phase 1's tension point]
+2. [How the MICE driver progresses or transforms]
+3. [The one thread left open for future chapters — do not resolve this]
+
+FORBIDDEN TERRITORY (what this chapter must NOT do):
+- [Something that belongs to a later chapter — name it specifically]
+- [Another boundary — be specific]`;
+	}
+
+	/**
 	 * Lightweight prompt for rewriting a single paragraph in the Review & Edit panel.
 	 * Uses only the surrounding card context — no vault retrieval needed.
 	 * Typically 300–600 tokens total: fast and cheap.

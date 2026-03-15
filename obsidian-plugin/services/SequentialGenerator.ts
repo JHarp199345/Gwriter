@@ -85,6 +85,7 @@ export class SequentialGenerator {
     private currentPhase: 1 | 2 = 1;        // Active generation phase
     private phase2Direction: string | null = null; // Optional midpoint steering (from author)
     private phase2DirectionResolver: ((direction: string | null) => void) | null = null;
+    private chapterPlan: string = '';        // Single OSC plan governing both phases
     private readonly lastAppliedSeqNo: Map<string, number> = new Map(); // seamId -> seqNo
     private readonly seamTaskCounters: Map<string, number> = new Map(); // seamId -> counter
     private readonly sessionId: string = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -239,6 +240,35 @@ export class SequentialGenerator {
         }, undefined, await sha256(prompt));
     }
 
+    /**
+     * Generates ONE OSC-structured chapter plan that governs BOTH phases.
+     * Called once before any prose is written. The plan (MICE driver, emotional
+     * arc, causation chain, phase obligations, forbidden territory) is the
+     * contract between Phase 1 and Phase 2 — neither phase re-plans independently.
+     */
+    private async _runChapterPlanStage(
+        smartProfile: ReturnType<typeof this.getTaskProfile>,
+        contextManager: ContextManager
+    ): Promise<StageResult | null> {
+        const { previousChapter, currentChapter } = await this._getChapterContext();
+        const plotMemory = contextManager.getState().plotMemory?.denseSummary || '';
+
+        const prompt = this.plugin.promptEngine.buildChapterPlanPrompt({
+            sceneSummary: this.currentSceneSummary,
+            previousChapter: previousChapter || '',
+            currentChapter: currentChapter || '',
+            plotMemory,
+            commandments: this.plugin.settings.writingCommandments || '',
+        });
+
+        return this.runStage('PLAN', smartProfile.model, async () => {
+            return await this.plugin.aiClient.generate(
+                prompt,
+                { ...this.plugin.settings, generationMode: 'single' as const }
+            );
+        }, undefined, await sha256(prompt));
+    }
+
     private async _runRetrieveStage(
         smartProfile: ReturnType<typeof this.getTaskProfile>,
         planResult: StageResult,
@@ -249,7 +279,7 @@ export class SequentialGenerator {
     ): Promise<StageResult | null> {
         return this.runStage('RETRIEVE', smartProfile.model, async () => {
             const query = {
-                text: planResult.data.summary || 'next scene',
+                text: planResult.data.summary || this.currentSceneSummary || 'next scene',
                 mode: 'chapter' as const,
                 hints: planResult.data.hints,
                 intents: planResult.data.retrievalIntents
@@ -342,6 +372,17 @@ export class SequentialGenerator {
             ? `\n\nWRITING COMMANDMENTS — these rules are non-negotiable and govern every paragraph:\n${commandmentsText}\n`
             : '';
 
+        // ── Phase 1 prose — injected as context for Phase 2 ───────────────────
+        const phase1ProseBlock = (() => {
+            if (this.currentPhase !== 2 || this.rollingWindow.length === 0) return '';
+            // The most recent committed chunk is Phase 1's output
+            const lastChunk = this.rollingWindow[this.rollingWindow.length - 1];
+            const phase1Text = lastChunk.map(p => p.text).join('\n\n');
+            return phase1Text
+                ? `\n\nPHASE 1 PROSE — what you just wrote (continue seamlessly from the end of this; do NOT repeat it):\n"""\n${phase1Text}\n"""\n`
+                : '';
+        })();
+
         // ── Phase-aware generation directive ───────────────────────────────────
         const phaseDirective = this.currentPhase === 1
             ? `\n\n[GENERATION PHASE 1 — OPENING MOVEMENT]\nYou are writing the first half of this chapter. Establish the situation, develop tension, build forward momentum. DO NOT resolve the scene arc or wrap anything up. End at a point of tension, decision, or revelation — somewhere the story wants to continue from.\n`
@@ -352,10 +393,14 @@ export class SequentialGenerator {
             ? `\n\nAUTHOR'S SCENE DIRECTIONS — realise this in your prose:\n"""\n${this.currentSceneSummary}\n"""\n`
             : '';
 
+        const chapterPlanBlock = this.chapterPlan
+            ? `CHAPTER PLAN (governs both phases — follow the obligations for Phase ${this.currentPhase}):\n${this.chapterPlan}`
+            : `PLAN: ${JSON.stringify(planResult.data)}`;
+
         const prompt = `
                         ${stateCard}${plotMemoryBlock}
-                        PLAN: ${JSON.stringify(planResult.data)}
-                        RETRIEVED FACTS: ${retrieved}${constraintBlock}${sceneSummaryBlock}${prevChapterBlock}${currentChapterBlock}${runAnchorBlock}${characterLoreBlock}${commandmentsBlock}${phaseDirective}
+                        ${chapterPlanBlock}
+                        RETRIEVED FACTS: ${retrieved}${constraintBlock}${sceneSummaryBlock}${prevChapterBlock}${currentChapterBlock}${phase1ProseBlock}${runAnchorBlock}${characterLoreBlock}${commandmentsBlock}${phaseDirective}
 
                         INSTRUCTION: Write approximately ${phaseTargetWords} words of clean, continuous prose. This is Phase ${this.currentPhase} of 2 — do not loop back, do not restart, do not produce more than one self-contained movement.
                         Separate paragraphs with a blank line. Output the prose and nothing else — no JSON, no HTML tags, no paragraph IDs, no annotations, no metadata.
@@ -688,6 +733,7 @@ Constraints:
         this.currentPhase = 1;
         this.phase2Direction = null;
         this.phase2DirectionResolver = null;
+        this.chapterPlan = '';
 
         // ── Emit run:start IMMEDIATELY so the modal opens before any async setup.
         // All setup errors are now caught by the try/catch below and surfaced via run:error.
@@ -729,66 +775,92 @@ Constraints:
 
             const environment = await this._buildEnvironmentMeta(smartModel, policyHash, corpusHash);
             await this._initManifest(smartModel, null, policyHash, corpusHash, initialState, seedResult.hash, environment);
-            gwlog('SETUP', 'manifest initialised — starting 2-phase generation');
+            gwlog('SETUP', 'manifest initialised — starting 2-phase generation (one plan, two writes)');
 
-            // ── Exactly 2 phases. No while loop. No word-count exit condition. ──
-            for (const phaseNum of [1, 2] as const) {
-                if (this.checkControlFlow()) break;
-                if (this.state !== 'RUNNING' && this.state !== 'RESUMING') break;
+            // ── ONE plan for the whole chapter ────────────────────────────────────
+            gwlog('PLAN', 'Generating OSC chapter plan (governs both phases)...');
+            const planResult = await this._runChapterPlanStage(smartProfile, contextManager);
+            if (!planResult || this.checkControlFlow()) {
+                gwwarn('PLAN', 'Chapter plan stage failed or aborted');
+            } else {
+                this.chapterPlan = String(planResult.data);
+                gwlog('PLAN', `Chapter plan ready | ${this.chapterPlan.length} chars`);
 
-                this.currentPhase = phaseNum;
-                gwlog('PHASE', `━━━ Phase ${phaseNum} of 2 | targetWords=${phaseTargetWords} ━━━`);
-
-                const { sliderValue, rawParams, effectiveNovelty } = this._getSpontaneityAndRisk(phaseNum, contextManager);
+                // ── ONE retrieval for both phases ─────────────────────────────────
+                const { sliderValue, rawParams, effectiveNovelty } = this._getSpontaneityAndRisk(1, contextManager);
                 this._updateSpontaneityProfile(sliderValue, rawParams, effectiveNovelty);
-                gwlog('PHASE', `spontaneity=${sliderValue} | temp=${rawParams.temp.toFixed(2)}`);
 
-                gwlog('PLAN', `_runPlanStage start | phase=${phaseNum}`);
-                const planResult = await this._runPlanStage(smartProfile, mechanicalProfile, initialState, phaseNum);
-                if (!planResult) { gwwarn('PLAN', 'planResult is null — breaking'); break; }
+                gwlog('RETRIEVE', 'Running retrieval (shared for both phases)...');
+                const retrieveResult = await this._runRetrieveStage(smartProfile, planResult, contextManager, effectiveNovelty, rawParams, 1);
+                if (!retrieveResult || this.checkControlFlow()) {
+                    gwwarn('RETRIEVE', 'Retrieval failed or aborted');
+                } else {
+                    const { restrictedDomains, isDegraded } = this._computeDegradedDomains(planResult, retrieveResult);
+                    if (isDegraded) gwwarn('SETUP', `degraded mode | restrictedDomains=${restrictedDomains.join(',')}`);
 
-                gwlog('RETRIEVE', `_runRetrieveStage start | phase=${phaseNum}`);
-                const retrieveResult = await this._runRetrieveStage(smartProfile, planResult, contextManager, effectiveNovelty, rawParams, phaseNum);
-                if (!retrieveResult) { gwwarn('RETRIEVE', 'retrieveResult is null — breaking'); break; }
+                    // ── Phase 1: first half of the plan ──────────────────────────
+                    this.currentPhase = 1;
+                    gwlog('PHASE', `━━━ Phase 1 of 2 | targetWords=${phaseTargetWords} ━━━`);
 
-                const { restrictedDomains, isDegraded } = this._computeDegradedDomains(planResult, retrieveResult);
-                if (isDegraded) gwwarn('PHASE', `degraded mode | restrictedDomains=${restrictedDomains.join(',')}`);
+                    const phase1Result = await this._runWriteStage(smartProfile, planResult, retrieveResult, contextManager, 1, rawParams, isDegraded, restrictedDomains, phaseTargetWords);
 
-                gwlog('WRITE', `_runWriteStage start | phase=${phaseNum} | phaseTargetWords=${phaseTargetWords}`);
-                const writeResult = await this._runWriteStage(smartProfile, planResult, retrieveResult, contextManager, phaseNum, rawParams, isDegraded, restrictedDomains, phaseTargetWords);
-                if (!writeResult) { gwwarn('WRITE', 'writeResult is null — breaking'); break; }
+                    if (phase1Result && !this.checkControlFlow()) {
+                        if (isDegraded) this._quarantineDegradedFacts(phase1Result, restrictedDomains);
 
-                if (isDegraded) this._quarantineDegradedFacts(writeResult, restrictedDomains);
+                        const { text: chunk1, metadata: meta1 } = this.segmentAndRecover(phase1Result.data, []);
+                        phase1Result.data = chunk1;
+                        phase1Result.metadata = meta1;
 
-                const { text: chunkText, metadata: recoveredMeta } = this.segmentAndRecover(writeResult.data, []);
-                writeResult.data = chunkText;
-                writeResult.metadata = recoveredMeta;
+                        gwlog('COMMIT', `Phase 1 commit | words=${gwWords(chunk1)}`);
+                        await this.commitChunk(1, phase1Result.data, phase1Result.metadata);
 
-                gwlog('COMMIT', `commitChunk | phase=${phaseNum} | words=${gwWords(chunkText)}`);
-                await this.commitChunk(phaseNum, writeResult.data, writeResult.metadata);
-                gwlog('COMMIT', 'commitChunk OK');
+                        await this._runUpdateStage(smartProfile, contextManager, phase1Result, 1);
+                        totalWords += phase1Result.data.split(/\s+/).length;
+                        gwlog('PHASE', `Phase 1 complete | words=${gwWords(phase1Result.data)} | total=${totalWords}`);
 
-                const updateResult = await this._runUpdateStage(smartProfile, contextManager, writeResult, phaseNum);
-                if (!updateResult) break;
+                        // ── Phase transition: optional author direction ────────────
+                        relayEventBus.emit('phase:transition', { phase1Words: totalWords, targetWords: targetWordCount });
+                        const direction = await this._waitForPhase2Direction();
+                        this.phase2Direction = direction;
+                        gwlog('PHASE', `Phase 2 direction: "${direction ?? 'none — commandments govern'}"`);
 
-                totalWords += writeResult.data.split(/\s+/).length;
-                gwlog('PHASE', `Phase ${phaseNum} complete | words=${gwWords(writeResult.data)} | runningTotal=${totalWords}`);
+                        if (!this.checkControlFlow()) {
+                            // ── Phase 2: second half of the plan ─────────────────
+                            this.currentPhase = 2;
+                            gwlog('PHASE', `━━━ Phase 2 of 2 | targetWords=${phaseTargetWords} ━━━`);
 
-                // After Phase 1: optional midpoint direction before Phase 2 starts
-                if (phaseNum === 1) {
-                    relayEventBus.emit('phase:transition', { phase1Words: totalWords, targetWords: targetWordCount });
-                    const direction = await this._waitForPhase2Direction();
-                    this.phase2Direction = direction;
-                    gwlog('PHASE', `Phase 2 direction: "${direction ?? 'none — commandments govern'}"`);
+                            const { sliderValue: sv2, rawParams: rp2, effectiveNovelty: en2 } = this._getSpontaneityAndRisk(2, contextManager);
+                            this._updateSpontaneityProfile(sv2, rp2, en2);
+
+                            const phase2Result = await this._runWriteStage(smartProfile, planResult, retrieveResult, contextManager, 2, rp2, isDegraded, restrictedDomains, phaseTargetWords);
+
+                            if (phase2Result && !this.checkControlFlow()) {
+                                if (isDegraded) this._quarantineDegradedFacts(phase2Result, restrictedDomains);
+
+                                const { text: chunk2, metadata: meta2 } = this.segmentAndRecover(phase2Result.data, []);
+                                phase2Result.data = chunk2;
+                                phase2Result.metadata = meta2;
+
+                                gwlog('COMMIT', `Phase 2 commit | words=${gwWords(chunk2)}`);
+                                await this.commitChunk(2, phase2Result.data, phase2Result.metadata);
+
+                                await this._runUpdateStage(smartProfile, contextManager, phase2Result, 2);
+                                totalWords += phase2Result.data.split(/\s+/).length;
+                                gwlog('PHASE', `Phase 2 complete | words=${gwWords(phase2Result.data)} | total=${totalWords}`);
+
+                                if (this.shouldTriggerTelescoping(2, contextManager)) {
+                                    await this.performTelescoping(2, contextManager);
+                                }
+                            } else {
+                                gwwarn('PHASE', 'Phase 2 write failed or aborted');
+                            }
+                        }
+                    } else {
+                        gwwarn('PHASE', 'Phase 1 write failed or aborted');
+                    }
+
+                    await this.saveManifest();
                 }
-
-                const shouldTelescope = this.shouldTriggerTelescoping(phaseNum, contextManager);
-                if (shouldTelescope) {
-                    gwlog('TELESCOPE', 'triggering telescoping...');
-                    await this.performTelescoping(phaseNum, contextManager);
-                }
-
-                await this.saveManifest();
             }
 
             gwlog('RUN', `2-phase generation complete | totalWords=${totalWords} | state=${this.state}`);
