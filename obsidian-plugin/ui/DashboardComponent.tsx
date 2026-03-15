@@ -48,8 +48,8 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	// Advanced tabs dropdown state
 	const [showAdvancedMenu, setShowAdvancedMenu] = useState(false);
 
-	// Two-phase generation state
-	const [showPhaseTransition, setShowPhaseTransition] = useState(false);
+	// Plan review state — non-empty when the plan is ready for author review
+	const [planText, setPlanText] = useState('');
 
 	// Character Update mode state
 	const [characterSourceFile, setCharacterSourceFile] = useState<string>(
@@ -68,10 +68,10 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 			setGeneratedParagraphs([]);
 			setIsGenerating(true);
 			setShowModal(true);
-			setShowPhaseTransition(false);
+			setPlanText('');
 		};
-		const onPhaseTransition = () => {
-			setShowPhaseTransition(true);
+		const onPlanReady = (data: { planText: string }) => {
+			setPlanText(data.planText);
 		};
 		const onStageStart = (data: { type: string }) => {
 			setGenerationStage(`Executing ${data.type}...`);
@@ -178,7 +178,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		};
 
 		relayEventBus.on('run:start', onStart);
-		relayEventBus.on('phase:transition', onPhaseTransition);
+		relayEventBus.on('plan:ready', onPlanReady);
 		relayEventBus.on('run:pulse', onPulse);
 		relayEventBus.on('stage:start', onStageStart);
 		relayEventBus.on('chunk:buffer:update', onBufferUpdate);
@@ -192,7 +192,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 		return () => {
 			relayEventBus.off('run:start', onStart);
-			relayEventBus.off('phase:transition', onPhaseTransition);
+			relayEventBus.off('plan:ready', onPlanReady);
 			relayEventBus.off('run:pulse', onPulse);
 			relayEventBus.off('stage:start', onStageStart);
 			relayEventBus.off('chunk:buffer:update', onBufferUpdate);
@@ -233,10 +233,10 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		}
 	};
 
-	// Called by GenerationModal when the author submits or skips the Phase 2 direction
-	const handlePhase2Continue = (direction: string | null) => {
-		setShowPhaseTransition(false);
-		plugin.sequentialGenerator.providePhase2Direction(direction);
+	// Called by GenerationModal when the author approves the scene plan (possibly edited)
+	const handleApprovePlan = (editedPlanText: string) => {
+		setPlanText('');
+		plugin.sequentialGenerator.approvePlan(editedPlanText);
 	};
 
 	// Called by ReviewPanel "Push to Vault" — receives the author's reviewed/edited text
@@ -721,8 +721,8 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					generatedText={generatedText}
 					error={error}
 					plugin={plugin}
-					showPhaseTransition={showPhaseTransition}
-					onPhase2Continue={handlePhase2Continue}
+					planText={planText}
+					onApprovePlan={handleApprovePlan}
 					onApprove={handleInsert}
 					onPushReviewed={handleInsertReviewed}
 					onDiscard={handleDiscard}

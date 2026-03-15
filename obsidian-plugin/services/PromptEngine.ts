@@ -581,41 +581,44 @@ OUTPUT FORMAT (JSON):
 			? `-------------------------------------------------------------\nAUTHOR'S SCENE DIRECTIONS\n-------------------------------------------------------------\n${params.sceneSummary}\n\n`
 			: '';
 
-		return `You are a story architect. Generate a single, unified chapter plan that governs both halves of the generation. This plan is the contract between Phase 1 and Phase 2 — both writing stages will receive it in full.
+		return `You are a story architect. Generate a scene plan that will guide the writing of the next prose passage. The author will review and edit this plan before writing begins — treat it as a working document they can reshape.
 
 ⚠ NARRATIVE WALL — CRAFT LANGUAGE STAYS HERE:
-Every term below (MICE, causation chain, phase obligations, etc.) is architect vocabulary. It describes what the prose must accomplish — it is NOT prose. The writer receiving this plan must never put these labels into the story text. "MICE driver", "Phase 1 obligation", "causation chain", "terminus" — none of these phrases exist in the fictional world. They are invisible scaffolding. Violating this rule is the definition of failure.
+Every term below (causation chain, scene outline, forbidden territory, etc.) is architect vocabulary. It describes what the prose must accomplish — it is NOT prose. The writer must never put these labels into the story text. None of these phrases exist in the fictional world. They are invisible scaffolding.
 
 ${plotBlock}${prevBlock}${currentBlock}${sceneSummaryBlock}${commandmentsBlock}-------------------------------------------------------------
-Generate the chapter plan using EXACTLY this structure:
+Generate the scene plan using EXACTLY this structure (separate each section with a blank line):
 -------------------------------------------------------------
 
-MICE DRIVER: [Milieu / Idea / Character / Event — use plain English, no jargon in the label value]
-(The single primary driver. The chapter is not complete until this driver has progressed.)
+SCENE INTENTION:
+[What this passage is about in plain English. What must move forward. What the reader must feel by the end that they did not feel at the start.]
 
 EMOTIONAL ARC:
-- Chapter opens: [reader's emotional state]
-- Phase 1 ends: [emotional state at the midpoint — a TURN, not resolution]
-- Chapter closes: [transformed emotional state — must differ from the open]
+- Opens: [reader's emotional state entering this passage]
+- Turns: [the moment something shifts — not resolution, a change of direction]
+- Lands: [where the reader is emotionally at the last word — must differ from Opens]
 
-CAUSATION CHAIN (reject the first, most obvious reason):
-- Surface event: [what literally happens]
-  └─ Because: [one level down]
-     └─ Because: [deeper cause]
-        └─ Because: [the actual reason — this is what matters]
+CAUSATION CHAIN:
+- Surface event: [what literally happens in the scene]
+  └─ Because: [one level down — why this event, not another]
+     └─ Because: [deeper — the character's real want or fear driving it]
+        └─ Because: [the actual reason — this is the story's engine]
 
-PHASE 1 OBLIGATIONS (what the first half must establish):
-1. [Specific condition or setup that must exist by the midpoint]
-2. [The precise tension point where Phase 1 ends — a question, not an answer]
+SCENE OUTLINE:
+[Numbered beat-by-beat breakdown of what happens in order. Be specific — name characters, locations, objects, lines of dialogue if relevant. The author will edit this directly before writing begins.]
+1.
+2.
+3.
+4.
+5.
 
-PHASE 2 OBLIGATIONS (what the second half must deliver):
-1. [Direct consequence of Phase 1's tension point]
-2. [How the MICE driver progresses or transforms]
-3. [The one thread left open for future chapters — do not resolve this]
+FORBIDDEN TERRITORY:
+- [Something that belongs in a later scene — name it]
+- [A character beat or plot point that would close loops too soon]
+- [Anything that would make this passage feel like an ending when it is not]
 
-FORBIDDEN TERRITORY (what this chapter must NOT do):
-- [Something that belongs to a later chapter — name it specifically]
-- [Another boundary — be specific]`;
+AUTHOR NOTES:
+[The author will fill this in during plan review. Whatever they write here flows directly into the writing prompt as additional context and direction.]`;
 	}
 
 	/**

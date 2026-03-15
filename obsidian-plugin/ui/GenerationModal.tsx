@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { TextChunker } from '../services/TextChunker';
+import { PlanReviewPanel } from './PlanReviewPanel';
 import { ReviewPanel } from './ReviewPanel';
 import WritingDashboardPlugin from '../main';
 
@@ -10,8 +11,9 @@ interface GenerationModalProps {
 	generatedText: string;
 	error?: string | null;
 	plugin: WritingDashboardPlugin;
-	showPhaseTransition: boolean;
-	onPhase2Continue: (direction: string | null) => void;
+	/** Non-empty when the plan is ready for author review. Empty string = not in plan review. */
+	planText: string;
+	onApprovePlan: (editedPlanText: string) => void;
 	onApprove: () => void;
 	onPushReviewed: (text: string) => void;
 	onDiscard: () => void;
@@ -19,14 +21,13 @@ interface GenerationModalProps {
 }
 
 /**
- * Full-screen overlay that appears the moment generation starts.
- * Text streams directly into it in real-time, scrolling automatically.
- * When generation finishes the footer switches to Approve & Insert / Discard.
+ * Full-screen overlay for the generation workflow.
  *
- * Emergency fallback: "📋 Copy all" button is always visible whenever there
- * is content, regardless of generation state. When generation is done the
- * body switches to an editable textarea so text can be freely selected,
- * copied, and edited even if something went wrong with the normal flow.
+ * Modal states (in order):
+ *   1. planText non-empty  → PlanReviewPanel (author edits/approves plan before writing)
+ *   2. isGenerating        → streaming prose body
+ *   3. done + reviewMode   → ReviewPanel (paragraph cards for final edit)
+ *   4. done                → editable textarea + footer buttons
  */
 export const GenerationModal: React.FC<GenerationModalProps> = ({
 	isGenerating,
@@ -35,8 +36,8 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 	generatedText,
 	error,
 	plugin,
-	showPhaseTransition,
-	onPhase2Continue,
+	planText,
+	onApprovePlan,
 	onApprove,
 	onPushReviewed,
 	onDiscard,
@@ -44,46 +45,18 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 }) => {
 	const bodyRef = useRef<HTMLDivElement>(null);
 	const [reviewMode, setReviewMode] = useState(false);
-	const [phase2Direction, setPhase2Direction] = useState('');
-	const [phaseCountdown, setPhaseCountdown] = useState(10);
-	const countdownRef = useRef<number | null>(null);
 
 	// Reset review mode whenever a new generation starts
 	useEffect(() => {
 		if (isGenerating) setReviewMode(false);
 	}, [isGenerating]);
 
-	// Auto-scroll to the bottom as new text arrives (streaming phase only)
+	// Auto-scroll to the bottom as new text arrives (streaming only)
 	useEffect(() => {
 		if (reviewMode) return;
 		const el = bodyRef.current;
 		if (el) el.scrollTop = el.scrollHeight;
 	}, [chunkBuffer, generatedText, reviewMode]);
-
-	// Phase transition countdown — auto-proceed when it hits 0
-	useEffect(() => {
-		if (!showPhaseTransition) {
-			setPhase2Direction('');
-			setPhaseCountdown(10);
-			if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
-			return;
-		}
-		setPhaseCountdown(10);
-		countdownRef.current = window.setInterval(() => {
-			setPhaseCountdown(prev => {
-				if (prev <= 1) {
-					clearInterval(countdownRef.current!);
-					countdownRef.current = null;
-					onPhase2Continue(null); // auto-skip
-					return 0;
-				}
-				return prev - 1;
-			});
-		}, 1000);
-		return () => {
-			if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
-		};
-	}, [showPhaseTransition]);
 
 	const committed = generatedText.trim();
 	const streaming = chunkBuffer.trim();
@@ -91,10 +64,8 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 	const fullText = committed + (streaming ? '\n\n' + streaming : '');
 	const wordCount = TextChunker.getWordCount(fullText.trim());
 
-	// Copy all text to clipboard — works regardless of generation state
 	const handleCopyAll = () => {
 		navigator.clipboard.writeText(fullText.trim()).catch(() => {
-			// Fallback for environments where clipboard API is restricted
 			const el = document.createElement('textarea');
 			el.value = fullText.trim();
 			el.style.position = 'fixed';
@@ -106,7 +77,30 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 		});
 	};
 
-	// Determine header state
+	// ── Plan review state ──────────────────────────────────────────────────────
+	// When planText is non-empty the modal shows PlanReviewPanel instead of prose.
+	if (planText) {
+		return (
+			<div className="gw-gen-overlay">
+				<div className="gw-gen-modal">
+					<div className="gw-gen-header">
+						<div className="gw-gen-title">📋 Review Scene Plan</div>
+						<div className="gw-gen-header-right">
+							<span className="gw-gen-wordcount" style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>
+								Edit any section, then approve to begin writing
+							</span>
+						</div>
+					</div>
+					<PlanReviewPanel
+						planText={planText}
+						onApprove={onApprovePlan}
+					/>
+				</div>
+			</div>
+		);
+	}
+
+	// ── Header content ─────────────────────────────────────────────────────────
 	const headerContent = (() => {
 		if (isGenerating) {
 			return <><span className="gw-gen-spinner">⏳</span> {generationStage || 'Generating…'}</>;
@@ -121,12 +115,10 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 		<div className="gw-gen-overlay">
 			<div className="gw-gen-modal">
 
-				{/* ── Header (always visible) ── */}
+				{/* ── Header ── */}
 				<div className="gw-gen-header">
 					<div className="gw-gen-title">
-						{reviewMode
-							? <>✏ Review &amp; Edit</>
-							: headerContent}
+						{reviewMode ? <>✏ Review &amp; Edit</> : headerContent}
 					</div>
 					<div className="gw-gen-header-right">
 						{hasContent && !reviewMode && (
@@ -147,7 +139,7 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 				</div>
 
 				{reviewMode ? (
-					/* ── Review & Edit panel ── */
+					/* ── Prose Review & Edit panel ── */
 					<ReviewPanel
 						fullText={fullText.trim()}
 						plugin={plugin}
@@ -156,10 +148,9 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 					/>
 				) : (
 					<>
-						{/* ── Body — streaming prose (divs) → editable textarea when done ── */}
+						{/* ── Body ── */}
 						<div className="gw-gen-body" ref={bodyRef}>
 							{hasContent && !isGenerating ? (
-								// Generation finished: editable textarea — always selectable/copyable
 								<textarea
 									className="gw-gen-textarea"
 									defaultValue={fullText.trim()}
@@ -191,44 +182,6 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 								<div className="gw-gen-waiting">Waiting for output…</div>
 							)}
 						</div>
-
-						{/* ── Phase transition UI (appears between Phase 1 and Phase 2) ── */}
-						{showPhaseTransition && (
-							<div className="gw-phase-transition">
-								<div className="gw-phase-transition-header">
-									<span className="gw-phase-badge">Phase 1 Complete</span>
-									<span className="gw-phase-transition-title">Entering conclusion…</span>
-									<span className="gw-phase-countdown">{phaseCountdown}s</span>
-								</div>
-								<div className="gw-phase-transition-body">
-									<input
-										className="gw-phase-direction-input"
-										placeholder="Optional: steer Phase 2 — where should this chapter go? (Enter or skip)"
-										value={phase2Direction}
-										onChange={e => setPhase2Direction(e.target.value)}
-										onKeyDown={e => {
-											if (e.key === 'Enter') onPhase2Continue(phase2Direction.trim() || null);
-											if (e.key === 'Escape') onPhase2Continue(null);
-										}}
-										autoFocus
-									/>
-									<div className="gw-phase-transition-actions">
-										<button
-											className="gw-btn gw-btn-success"
-											onClick={() => onPhase2Continue(phase2Direction.trim() || null)}
-										>
-											Continue →
-										</button>
-										<button
-											className="gw-review-back-btn"
-											onClick={() => onPhase2Continue(null)}
-										>
-											Skip ({phaseCountdown}s)
-										</button>
-									</div>
-								</div>
-							</div>
-						)}
 
 						{/* ── Footer ── */}
 						<div className="gw-gen-footer">

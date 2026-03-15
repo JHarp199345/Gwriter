@@ -34,8 +34,8 @@ export type RelayEvents = {
     'control:resumed': { runId: string };
     'control:aborted': { runId: string };
 
-    /** Fired when Phase 1 completes and Phase 2 is about to begin. */
-    'phase:transition': { phase1Words: number, targetWords: number };
+    /** Fired when the chapter plan is ready for author review before writing begins. */
+    'plan:ready': { planText: string };
 
     'pilot:miss': { type: string, runId: string | null };
     'pilot:stitch_rejected': { iteration: number, reason: string, seamId: string };

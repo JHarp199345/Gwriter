@@ -1096,7 +1096,7 @@ var require_react_development = __commonJS({
           }
           return dispatcher.useContext(Context);
         }
-        function useState11(initialState) {
+        function useState12(initialState) {
           var dispatcher = resolveDispatcher();
           return dispatcher.useState(initialState);
         }
@@ -1899,7 +1899,7 @@ var require_react_development = __commonJS({
         exports.useMemo = useMemo3;
         exports.useReducer = useReducer;
         exports.useRef = useRef4;
-        exports.useState = useState11;
+        exports.useState = useState12;
         exports.useSyncExternalStore = useSyncExternalStore;
         exports.useTransition = useTransition;
         exports.version = ReactVersion;
@@ -2395,9 +2395,9 @@ var require_react_dom_development = __commonJS({
         if (typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ !== "undefined" && typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart === "function") {
           __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(new Error());
         }
-        var React15 = require_react();
+        var React16 = require_react();
         var Scheduler = require_scheduler();
-        var ReactSharedInternals = React15.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+        var ReactSharedInternals = React16.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
         var suppressWarning = false;
         function setSuppressWarning(newSuppressWarning) {
           {
@@ -4002,7 +4002,7 @@ var require_react_dom_development = __commonJS({
           {
             if (props.value == null) {
               if (typeof props.children === "object" && props.children !== null) {
-                React15.Children.forEach(props.children, function(child) {
+                React16.Children.forEach(props.children, function(child) {
                   if (child == null) {
                     return;
                   }
@@ -23565,11 +23565,11 @@ var require_client = __commonJS({
 });
 
 // ui/TreePickerModal.tsx
-var import_obsidian7, import_react11, import_client4, TreePickerModal, TreePickerComponent;
+var import_obsidian7, import_react12, import_client4, TreePickerModal, TreePickerComponent;
 var init_TreePickerModal = __esm({
   "ui/TreePickerModal.tsx"() {
     import_obsidian7 = require("obsidian");
-    import_react11 = __toESM(require_react());
+    import_react12 = __toESM(require_react());
     import_client4 = __toESM(require_client());
     TreePickerModal = class extends import_obsidian7.Modal {
       constructor(plugin, opts) {
@@ -23584,7 +23584,7 @@ var init_TreePickerModal = __esm({
         const container = this.contentEl.createDiv();
         this.reactRoot = (0, import_client4.createRoot)(container);
         this.reactRoot.render(
-          import_react11.default.createElement(TreePickerComponent, {
+          import_react12.default.createElement(TreePickerComponent, {
             plugin: this.plugin,
             title: this.opts.title,
             initialSelection: this.opts.initialSelection,
@@ -23604,15 +23604,15 @@ var init_TreePickerModal = __esm({
       }
     };
     TreePickerComponent = ({ plugin, initialSelection, mode, onSubmit, onClose, filter }) => {
-      const [nodes, setNodes] = (0, import_react11.useState)([]);
-      const [selected, setSelected] = (0, import_react11.useState)(() => {
+      const [nodes, setNodes] = (0, import_react12.useState)([]);
+      const [selected, setSelected] = (0, import_react12.useState)(() => {
         const init = /* @__PURE__ */ new Set();
         const list2 = Array.isArray(initialSelection) ? initialSelection : initialSelection ? [initialSelection] : [];
         for (const p of list2)
           init.add(p.replaceAll("\\", "/"));
         return init;
       });
-      const [expanded, setExpanded] = (0, import_react11.useState)(() => {
+      const [expanded, setExpanded] = (0, import_react12.useState)(() => {
         const exp = /* @__PURE__ */ new Set([""]);
         const list2 = Array.isArray(initialSelection) ? initialSelection : initialSelection ? [initialSelection] : [];
         for (const p of list2) {
@@ -23623,12 +23623,12 @@ var init_TreePickerModal = __esm({
         }
         return exp;
       });
-      (0, import_react11.useEffect)(() => {
+      (0, import_react12.useEffect)(() => {
         const structure = plugin.vaultService.getVaultStructure();
         const filtered = filter ? structure.filter(filter) : structure;
         setNodes(filtered);
       }, [plugin, filter]);
-      const childrenOf = (0, import_react11.useMemo)(() => {
+      const childrenOf = (0, import_react12.useMemo)(() => {
         const map2 = /* @__PURE__ */ new Map();
         for (const n of nodes) {
           const parent = n.path.includes("/") ? n.path.split("/").slice(0, -1).join("/") : "";
@@ -23665,7 +23665,7 @@ var init_TreePickerModal = __esm({
         const isExpanded = expanded.has(node.path);
         const isSelected = selected.has(node.path);
         const kids = childrenOf.get(node.path) || [];
-        return /* @__PURE__ */ import_react11.default.createElement("div", { key: node.path, style: { paddingLeft: `${depth * 18}px` } }, /* @__PURE__ */ import_react11.default.createElement(
+        return /* @__PURE__ */ import_react12.default.createElement("div", { key: node.path, style: { paddingLeft: `${depth * 18}px` } }, /* @__PURE__ */ import_react12.default.createElement(
           "div",
           {
             style: {
@@ -23678,7 +23678,7 @@ var init_TreePickerModal = __esm({
               backgroundColor: isSelected ? "var(--background-modifier-hover)" : "transparent"
             }
           },
-          isFolder ? /* @__PURE__ */ import_react11.default.createElement(
+          isFolder ? /* @__PURE__ */ import_react12.default.createElement(
             "span",
             {
               role: "button",
@@ -23693,8 +23693,8 @@ var init_TreePickerModal = __esm({
               title: isExpanded ? "Collapse" : "Expand"
             },
             isExpanded ? "\u{1F4C2}" : "\u{1F4C1}"
-          ) : /* @__PURE__ */ import_react11.default.createElement("span", { style: { width: "16px", textAlign: "center" } }, "\u{1F4C4}"),
-          /* @__PURE__ */ import_react11.default.createElement(
+          ) : /* @__PURE__ */ import_react12.default.createElement("span", { style: { width: "16px", textAlign: "center" } }, "\u{1F4C4}"),
+          /* @__PURE__ */ import_react12.default.createElement(
             "input",
             {
               type: mode === "single" ? "radio" : "checkbox",
@@ -23704,7 +23704,7 @@ var init_TreePickerModal = __esm({
               name: "tree-picker"
             }
           ),
-          /* @__PURE__ */ import_react11.default.createElement(
+          /* @__PURE__ */ import_react12.default.createElement(
             "span",
             {
               role: "button",
@@ -23727,7 +23727,7 @@ var init_TreePickerModal = __esm({
         onSubmit(value);
         onClose();
       };
-      return /* @__PURE__ */ import_react11.default.createElement("div", { style: { padding: "12px", maxHeight: "60vh", overflowY: "auto", minWidth: "360px" } }, /* @__PURE__ */ import_react11.default.createElement("div", { style: { marginBottom: "12px", color: "var(--text-muted)" } }, "Select folders and notes to include. If none are selected in some contexts, the active note is used."), roots.length === 0 ? /* @__PURE__ */ import_react11.default.createElement("div", { style: { padding: "12px", color: "var(--text-muted)" } }, "No items found") : roots.map((n) => renderNode(n)), /* @__PURE__ */ import_react11.default.createElement("div", { style: { marginTop: "16px", display: "flex", gap: "8px" } }, /* @__PURE__ */ import_react11.default.createElement("button", { className: "mod-cta", onClick: handleSubmit, style: { flex: 1 } }, "Save"), /* @__PURE__ */ import_react11.default.createElement("button", { className: "mod-secondary", onClick: onClose, style: { flex: 1 } }, "Cancel")));
+      return /* @__PURE__ */ import_react12.default.createElement("div", { style: { padding: "12px", maxHeight: "60vh", overflowY: "auto", minWidth: "360px" } }, /* @__PURE__ */ import_react12.default.createElement("div", { style: { marginBottom: "12px", color: "var(--text-muted)" } }, "Select folders and notes to include. If none are selected in some contexts, the active note is used."), roots.length === 0 ? /* @__PURE__ */ import_react12.default.createElement("div", { style: { padding: "12px", color: "var(--text-muted)" } }, "No items found") : roots.map((n) => renderNode(n)), /* @__PURE__ */ import_react12.default.createElement("div", { style: { marginTop: "16px", display: "flex", gap: "8px" } }, /* @__PURE__ */ import_react12.default.createElement("button", { className: "mod-cta", onClick: handleSubmit, style: { flex: 1 } }, "Save"), /* @__PURE__ */ import_react12.default.createElement("button", { className: "mod-secondary", onClick: onClose, style: { flex: 1 } }, "Cancel")));
     };
   }
 });
@@ -23737,11 +23737,11 @@ var ProfilePickerModal_exports = {};
 __export(ProfilePickerModal_exports, {
   ProfilePickerModal: () => ProfilePickerModal
 });
-var import_obsidian8, import_react12, import_client5, ProfilePickerModal;
+var import_obsidian8, import_react13, import_client5, ProfilePickerModal;
 var init_ProfilePickerModal = __esm({
   "ui/ProfilePickerModal.tsx"() {
     import_obsidian8 = require("obsidian");
-    import_react12 = __toESM(require_react());
+    import_react13 = __toESM(require_react());
     import_client5 = __toESM(require_client());
     init_TreePickerModal();
     ProfilePickerModal = class extends import_obsidian8.Modal {
@@ -23756,7 +23756,7 @@ var init_ProfilePickerModal = __esm({
         const container = this.contentEl.createDiv();
         this.reactRoot = (0, import_client5.createRoot)(container);
         this.reactRoot.render(
-          import_react12.default.createElement(TreePickerComponent, {
+          import_react13.default.createElement(TreePickerComponent, {
             plugin: this.plugin,
             initialSelection: this.plugin.settings.retrievalIncludedFolders || [],
             mode: "multi",
@@ -26493,10 +26493,10 @@ var import_obsidian29 = require("obsidian");
 // ui/DashboardView.ts
 var import_obsidian5 = require("obsidian");
 var import_client2 = __toESM(require_client());
-var import_react9 = __toESM(require_react());
+var import_react10 = __toESM(require_react());
 
 // ui/DashboardComponent.tsx
-var import_react8 = __toESM(require_react());
+var import_react9 = __toESM(require_react());
 var import_obsidian4 = require("obsidian");
 
 // ui/EditorPanel.tsx
@@ -26734,10 +26734,106 @@ var EditorPanel = ({ mode, selectedText, onSelectionChange, generatedText, gener
 };
 
 // ui/GenerationModal.tsx
-var import_react3 = __toESM(require_react());
+var import_react4 = __toESM(require_react());
+
+// ui/PlanReviewPanel.tsx
+var import_react2 = __toESM(require_react());
+function splitPlanIntoCards(planText) {
+  return planText.split("\n\n").map((b) => b.trim()).filter((b) => b.length > 0).map((content, i) => ({
+    id: i,
+    content,
+    originalContent: content,
+    modified: false
+  }));
+}
+function assemblePlan(cards) {
+  return cards.filter((c) => !c.content.startsWith("\u26A0 NARRATIVE WALL")).map((c) => c.content).join("\n\n");
+}
+var PlanReviewPanel = ({ planText, onApprove }) => {
+  const [cards, setCards] = (0, import_react2.useState)(() => splitPlanIntoCards(planText));
+  const handleTextChange = (id, newContent) => {
+    setCards((prev) => prev.map(
+      (c) => c.id === id ? { ...c, content: newContent, modified: newContent !== c.originalContent } : c
+    ));
+  };
+  const handleRevert = (id) => {
+    setCards((prev) => prev.map(
+      (c) => c.id === id ? { ...c, content: c.originalContent, modified: false } : c
+    ));
+  };
+  const handleApprove = () => {
+    onApprove(assemblePlan(cards));
+  };
+  const modifiedCount = cards.filter((c) => c.modified).length;
+  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-plan-panel" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-plan-header" }, /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-plan-title" }, "\u{1F4CB} Scene Plan"), /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-plan-meta" }, cards.length, " sections", modifiedCount > 0 && /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-plan-modified-badge" }, " \xB7 ", modifiedCount, " edited")), /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-btn gw-btn-success gw-plan-approve-btn", onClick: handleApprove }, "\u2713 Approve Plan \u2192 Write")), /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-plan-cards" }, cards.map((card) => /* @__PURE__ */ import_react2.default.createElement(
+    PlanCard,
+    {
+      key: card.id,
+      card,
+      onChange: handleTextChange,
+      onRevert: handleRevert
+    }
+  ))));
+};
+var PlanCard = ({ card, onChange, onRevert }) => {
+  const [isEditing, setIsEditing] = (0, import_react2.useState)(false);
+  const [editValue, setEditValue] = (0, import_react2.useState)(card.content);
+  const handleRevertClick = (e) => {
+    e.stopPropagation();
+    setEditValue(card.originalContent);
+    onRevert(card.id);
+    setIsEditing(false);
+  };
+  const handleBlur = () => {
+    setIsEditing(false);
+    onChange(card.id, editValue);
+  };
+  const handleKeyDown = (e) => {
+    if (e.key === "Escape") {
+      setEditValue(card.content);
+      setIsEditing(false);
+    }
+  };
+  const isWall = card.content.startsWith("\u26A0 NARRATIVE WALL");
+  const cardClass = [
+    "gw-plan-card",
+    isWall ? "gw-plan-card--wall" : "",
+    card.modified ? "gw-plan-card--modified" : ""
+  ].filter(Boolean).join(" ");
+  return /* @__PURE__ */ import_react2.default.createElement("div", { className: cardClass }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-plan-card-header" }, card.modified && /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-para-modified-dot", title: "Edited from AI original" }), /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-plan-card-actions" }, card.modified && !isWall && /* @__PURE__ */ import_react2.default.createElement(
+    "button",
+    {
+      className: "gw-para-action-btn",
+      title: "Revert to AI original",
+      onClick: handleRevertClick
+    },
+    "\u21A9"
+  ))), isWall ? /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-plan-card-wall-text" }, card.content) : isEditing ? /* @__PURE__ */ import_react2.default.createElement(
+    "textarea",
+    {
+      className: "gw-plan-card-textarea",
+      value: editValue,
+      onChange: (e) => setEditValue(e.target.value),
+      onBlur: handleBlur,
+      onKeyDown: handleKeyDown,
+      autoFocus: true
+    }
+  ) : /* @__PURE__ */ import_react2.default.createElement(
+    "div",
+    {
+      className: "gw-plan-card-text",
+      onClick: () => {
+        setIsEditing(true);
+        setEditValue(card.content);
+      },
+      title: "Click to edit"
+    },
+    card.content
+  ));
+};
 
 // ui/ReviewPanel.tsx
-var import_react2 = __toESM(require_react());
+var import_react3 = __toESM(require_react());
 var import_obsidian = require("obsidian");
 function splitIntoParagraphs(text2) {
   return text2.split("\n\n").map((p) => p.trim()).filter((p) => p.length > 0).map((t, i) => ({
@@ -26757,11 +26853,11 @@ var ReviewPanel = ({
   onPush,
   onBackToEdit
 }) => {
-  const [cards, setCards] = (0, import_react2.useState)(() => splitIntoParagraphs(fullText));
-  const [batchInstruction, setBatchInstruction] = (0, import_react2.useState)("");
-  const [isBatchRewriting, setIsBatchRewriting] = (0, import_react2.useState)(false);
-  const [activeCardId, setActiveCardId] = (0, import_react2.useState)(null);
-  const [lastSelectedId, setLastSelectedId] = (0, import_react2.useState)(null);
+  const [cards, setCards] = (0, import_react3.useState)(() => splitIntoParagraphs(fullText));
+  const [batchInstruction, setBatchInstruction] = (0, import_react3.useState)("");
+  const [isBatchRewriting, setIsBatchRewriting] = (0, import_react3.useState)(false);
+  const [activeCardId, setActiveCardId] = (0, import_react3.useState)(null);
+  const [lastSelectedId, setLastSelectedId] = (0, import_react3.useState)(null);
   const selectedCards = cards.filter((c) => c.selected && !c.excluded);
   const includedCards = cards.filter((c) => !c.excluded);
   const totalWords = includedCards.reduce((sum, c) => sum + c.text.split(/\s+/).filter(Boolean).length, 0);
@@ -26867,7 +26963,7 @@ var ReviewPanel = ({
     const finalText = cards.filter((c) => !c.excluded).map((c) => c.text).join("\n\n");
     onPush(finalText);
   };
-  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-review-panel" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-review-topbar" }, /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-review-back-btn", onClick: onBackToEdit }, "\u2190 Back"), /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-review-meta" }, cards.length, " paragraphs \xB7 ", totalWords.toLocaleString(), " words", includedCards.length < cards.length && /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-review-excluded-badge" }, " ", "\xB7 ", cards.length - includedCards.length, " excluded")), /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-btn gw-btn-success", onClick: handlePush }, "\u2197 Push to Vault")), /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-review-cards" }, cards.map((card, index) => /* @__PURE__ */ import_react2.default.createElement(
+  return /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-review-panel" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-review-topbar" }, /* @__PURE__ */ import_react3.default.createElement("button", { className: "gw-review-back-btn", onClick: onBackToEdit }, "\u2190 Back"), /* @__PURE__ */ import_react3.default.createElement("span", { className: "gw-review-meta" }, cards.length, " paragraphs \xB7 ", totalWords.toLocaleString(), " words", includedCards.length < cards.length && /* @__PURE__ */ import_react3.default.createElement("span", { className: "gw-review-excluded-badge" }, " ", "\xB7 ", cards.length - includedCards.length, " excluded")), /* @__PURE__ */ import_react3.default.createElement("button", { className: "gw-btn gw-btn-success", onClick: handlePush }, "\u2197 Push to Vault")), /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-review-cards" }, cards.map((card, index) => /* @__PURE__ */ import_react3.default.createElement(
     ParagraphCard,
     {
       key: card.id,
@@ -26883,7 +26979,7 @@ var ReviewPanel = ({
       onRewrite: handleSingleRewrite,
       onRevert: handleRevert
     }
-  ))), selectedCards.length > 0 && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-review-batchbar" }, /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-batchbar-label" }, selectedCards.length, " selected"), /* @__PURE__ */ import_react2.default.createElement(
+  ))), selectedCards.length > 0 && /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-review-batchbar" }, /* @__PURE__ */ import_react3.default.createElement("span", { className: "gw-batchbar-label" }, selectedCards.length, " selected"), /* @__PURE__ */ import_react3.default.createElement(
     "input",
     {
       className: "gw-batchbar-input",
@@ -26899,7 +26995,7 @@ var ReviewPanel = ({
       disabled: isBatchRewriting,
       autoFocus: true
     }
-  ), /* @__PURE__ */ import_react2.default.createElement(
+  ), /* @__PURE__ */ import_react3.default.createElement(
     "button",
     {
       className: "gw-btn gw-btn-rewrite",
@@ -26907,7 +27003,7 @@ var ReviewPanel = ({
       disabled: !batchInstruction.trim() || isBatchRewriting
     },
     isBatchRewriting ? "\u23F3 Rewriting\u2026" : `\u270F Rewrite${selectedCards.length > 1 ? ` ${selectedCards.length}` : ""}`
-  ), /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-review-back-btn", onClick: clearSelection }, "Clear")));
+  ), /* @__PURE__ */ import_react3.default.createElement("button", { className: "gw-review-back-btn", onClick: clearSelection }, "Clear")));
 };
 var ParagraphCard = ({
   card,
@@ -26922,15 +27018,15 @@ var ParagraphCard = ({
   onRewrite,
   onRevert
 }) => {
-  const [localInstruction, setLocalInstruction] = (0, import_react2.useState)("");
-  const [isEditing, setIsEditing] = (0, import_react2.useState)(false);
-  const [editValue, setEditValue] = (0, import_react2.useState)(card.text);
-  const instructionRef = (0, import_react2.useRef)(null);
-  (0, import_react2.useEffect)(() => {
+  const [localInstruction, setLocalInstruction] = (0, import_react3.useState)("");
+  const [isEditing, setIsEditing] = (0, import_react3.useState)(false);
+  const [editValue, setEditValue] = (0, import_react3.useState)(card.text);
+  const instructionRef = (0, import_react3.useRef)(null);
+  (0, import_react3.useEffect)(() => {
     if (!isEditing)
       setEditValue(card.text);
   }, [card.text, isEditing]);
-  (0, import_react2.useEffect)(() => {
+  (0, import_react3.useEffect)(() => {
     if (isInstructionOpen && instructionRef.current) {
       instructionRef.current.focus();
     }
@@ -26958,7 +27054,7 @@ var ParagraphCard = ({
     card.rewriting ? "gw-para-card--rewriting" : "",
     card.modified && !card.rewriting ? "gw-para-card--modified" : ""
   ].filter(Boolean).join(" ");
-  return /* @__PURE__ */ import_react2.default.createElement("div", { className: cardClass }, /* @__PURE__ */ import_react2.default.createElement(
+  return /* @__PURE__ */ import_react3.default.createElement("div", { className: cardClass }, /* @__PURE__ */ import_react3.default.createElement(
     "div",
     {
       className: "gw-para-card-header",
@@ -26968,9 +27064,9 @@ var ParagraphCard = ({
         }
       }
     },
-    /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-para-num" }, index + 1),
-    card.modified && !card.rewriting && /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-para-modified-dot", title: "Modified from original" }),
-    /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-para-actions" }, !card.excluded && !card.rewriting && /* @__PURE__ */ import_react2.default.createElement(import_react2.default.Fragment, null, card.modified && /* @__PURE__ */ import_react2.default.createElement(
+    /* @__PURE__ */ import_react3.default.createElement("span", { className: "gw-para-num" }, index + 1),
+    card.modified && !card.rewriting && /* @__PURE__ */ import_react3.default.createElement("span", { className: "gw-para-modified-dot", title: "Modified from original" }),
+    /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-para-actions" }, !card.excluded && !card.rewriting && /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, card.modified && /* @__PURE__ */ import_react3.default.createElement(
       "button",
       {
         className: "gw-para-action-btn",
@@ -26981,7 +27077,7 @@ var ParagraphCard = ({
         }
       },
       "\u21A9"
-    ), /* @__PURE__ */ import_react2.default.createElement(
+    ), /* @__PURE__ */ import_react3.default.createElement(
       "button",
       {
         className: `gw-para-action-btn${isInstructionOpen ? " gw-para-action-btn--active" : ""}`,
@@ -26992,7 +27088,7 @@ var ParagraphCard = ({
         }
       },
       "\u270F"
-    ), /* @__PURE__ */ import_react2.default.createElement(
+    ), /* @__PURE__ */ import_react3.default.createElement(
       "button",
       {
         className: "gw-para-action-btn gw-para-action-btn--danger",
@@ -27003,7 +27099,7 @@ var ParagraphCard = ({
         }
       },
       "\u2715"
-    )), card.excluded && /* @__PURE__ */ import_react2.default.createElement(
+    )), card.excluded && /* @__PURE__ */ import_react3.default.createElement(
       "button",
       {
         className: "gw-para-action-btn",
@@ -27015,7 +27111,7 @@ var ParagraphCard = ({
       },
       "+ Include"
     ))
-  ), /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-para-card-body" }, card.rewriting ? /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-para-rewriting" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-para-old-text" }, card.text), card.streamingText && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-para-new-text" }, card.streamingText, /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-gen-cursor" }, "\u258C"))) : isEditing ? /* @__PURE__ */ import_react2.default.createElement(
+  ), /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-para-card-body" }, card.rewriting ? /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-para-rewriting" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-para-old-text" }, card.text), card.streamingText && /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-para-new-text" }, card.streamingText, /* @__PURE__ */ import_react3.default.createElement("span", { className: "gw-gen-cursor" }, "\u258C"))) : isEditing ? /* @__PURE__ */ import_react3.default.createElement(
     "textarea",
     {
       className: "gw-para-edit-textarea",
@@ -27025,7 +27121,7 @@ var ParagraphCard = ({
       onKeyDown: handleEditKeyDown,
       autoFocus: true
     }
-  ) : /* @__PURE__ */ import_react2.default.createElement(
+  ) : /* @__PURE__ */ import_react3.default.createElement(
     "div",
     {
       className: `gw-para-text${card.excluded ? " gw-para-text--excluded" : ""}`,
@@ -27037,7 +27133,7 @@ var ParagraphCard = ({
       title: card.excluded ? "" : "Click to edit"
     },
     card.text
-  )), isInstructionOpen && !card.rewriting && !card.excluded && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-para-instruction" }, /* @__PURE__ */ import_react2.default.createElement(
+  )), isInstructionOpen && !card.rewriting && !card.excluded && /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-para-instruction" }, /* @__PURE__ */ import_react3.default.createElement(
     "input",
     {
       ref: instructionRef,
@@ -27056,7 +27152,7 @@ var ParagraphCard = ({
         }
       }
     }
-  ), /* @__PURE__ */ import_react2.default.createElement(
+  ), /* @__PURE__ */ import_react3.default.createElement(
     "button",
     {
       className: "gw-btn gw-btn-rewrite",
@@ -27064,7 +27160,7 @@ var ParagraphCard = ({
       disabled: !localInstruction.trim()
     },
     "Rewrite"
-  ), /* @__PURE__ */ import_react2.default.createElement(
+  ), /* @__PURE__ */ import_react3.default.createElement(
     "button",
     {
       className: "gw-review-back-btn",
@@ -27085,58 +27181,26 @@ var GenerationModal = ({
   generatedText,
   error: error2,
   plugin,
-  showPhaseTransition,
-  onPhase2Continue,
+  planText,
+  onApprovePlan,
   onApprove,
   onPushReviewed,
   onDiscard,
   onAbort
 }) => {
-  const bodyRef = (0, import_react3.useRef)(null);
-  const [reviewMode, setReviewMode] = (0, import_react3.useState)(false);
-  const [phase2Direction, setPhase2Direction] = (0, import_react3.useState)("");
-  const [phaseCountdown, setPhaseCountdown] = (0, import_react3.useState)(10);
-  const countdownRef = (0, import_react3.useRef)(null);
-  (0, import_react3.useEffect)(() => {
+  const bodyRef = (0, import_react4.useRef)(null);
+  const [reviewMode, setReviewMode] = (0, import_react4.useState)(false);
+  (0, import_react4.useEffect)(() => {
     if (isGenerating)
       setReviewMode(false);
   }, [isGenerating]);
-  (0, import_react3.useEffect)(() => {
+  (0, import_react4.useEffect)(() => {
     if (reviewMode)
       return;
     const el = bodyRef.current;
     if (el)
       el.scrollTop = el.scrollHeight;
   }, [chunkBuffer, generatedText, reviewMode]);
-  (0, import_react3.useEffect)(() => {
-    if (!showPhaseTransition) {
-      setPhase2Direction("");
-      setPhaseCountdown(10);
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
-        countdownRef.current = null;
-      }
-      return;
-    }
-    setPhaseCountdown(10);
-    countdownRef.current = window.setInterval(() => {
-      setPhaseCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(countdownRef.current);
-          countdownRef.current = null;
-          onPhase2Continue(null);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1e3);
-    return () => {
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
-        countdownRef.current = null;
-      }
-    };
-  }, [showPhaseTransition]);
   const committed = generatedText.trim();
   const streaming = chunkBuffer.trim();
   const hasContent = !!(committed || streaming);
@@ -27154,16 +27218,25 @@ var GenerationModal = ({
       document.body.removeChild(el);
     });
   };
+  if (planText) {
+    return /* @__PURE__ */ import_react4.default.createElement("div", { className: "gw-gen-overlay" }, /* @__PURE__ */ import_react4.default.createElement("div", { className: "gw-gen-modal" }, /* @__PURE__ */ import_react4.default.createElement("div", { className: "gw-gen-header" }, /* @__PURE__ */ import_react4.default.createElement("div", { className: "gw-gen-title" }, "\u{1F4CB} Review Scene Plan"), /* @__PURE__ */ import_react4.default.createElement("div", { className: "gw-gen-header-right" }, /* @__PURE__ */ import_react4.default.createElement("span", { className: "gw-gen-wordcount", style: { color: "var(--text-muted)", fontSize: "0.85em" } }, "Edit any section, then approve to begin writing"))), /* @__PURE__ */ import_react4.default.createElement(
+      PlanReviewPanel,
+      {
+        planText,
+        onApprove: onApprovePlan
+      }
+    )));
+  }
   const headerContent = (() => {
     if (isGenerating) {
-      return /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, /* @__PURE__ */ import_react3.default.createElement("span", { className: "gw-gen-spinner" }, "\u23F3"), " ", generationStage || "Generating\u2026");
+      return /* @__PURE__ */ import_react4.default.createElement(import_react4.default.Fragment, null, /* @__PURE__ */ import_react4.default.createElement("span", { className: "gw-gen-spinner" }, "\u23F3"), " ", generationStage || "Generating\u2026");
     }
     if (error2 && !hasContent) {
-      return /* @__PURE__ */ import_react3.default.createElement("span", { className: "gw-gen-error" }, "\u26A0 ", error2);
+      return /* @__PURE__ */ import_react4.default.createElement("span", { className: "gw-gen-error" }, "\u26A0 ", error2);
     }
-    return /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, "\u2713 Done \u2014 ", wordCount.toLocaleString(), " words");
+    return /* @__PURE__ */ import_react4.default.createElement(import_react4.default.Fragment, null, "\u2713 Done \u2014 ", wordCount.toLocaleString(), " words");
   })();
-  return /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-overlay" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-modal" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-header" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-title" }, reviewMode ? /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, "\u270F Review & Edit") : headerContent), /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-header-right" }, hasContent && !reviewMode && /* @__PURE__ */ import_react3.default.createElement("span", { className: "gw-gen-wordcount" }, wordCount.toLocaleString(), " words"), hasContent && !reviewMode && /* @__PURE__ */ import_react3.default.createElement(
+  return /* @__PURE__ */ import_react4.default.createElement("div", { className: "gw-gen-overlay" }, /* @__PURE__ */ import_react4.default.createElement("div", { className: "gw-gen-modal" }, /* @__PURE__ */ import_react4.default.createElement("div", { className: "gw-gen-header" }, /* @__PURE__ */ import_react4.default.createElement("div", { className: "gw-gen-title" }, reviewMode ? /* @__PURE__ */ import_react4.default.createElement(import_react4.default.Fragment, null, "\u270F Review & Edit") : headerContent), /* @__PURE__ */ import_react4.default.createElement("div", { className: "gw-gen-header-right" }, hasContent && !reviewMode && /* @__PURE__ */ import_react4.default.createElement("span", { className: "gw-gen-wordcount" }, wordCount.toLocaleString(), " words"), hasContent && !reviewMode && /* @__PURE__ */ import_react4.default.createElement(
     "button",
     {
       className: "gw-btn gw-btn-copy",
@@ -27172,8 +27245,8 @@ var GenerationModal = ({
     },
     "\u{1F4CB} Copy all"
   ))), reviewMode ? (
-    /* ── Review & Edit panel ── */
-    /* @__PURE__ */ import_react3.default.createElement(
+    /* ── Prose Review & Edit panel ── */
+    /* @__PURE__ */ import_react4.default.createElement(
       ReviewPanel,
       {
         fullText: fullText.trim(),
@@ -27184,48 +27257,14 @@ var GenerationModal = ({
         onBackToEdit: () => setReviewMode(false)
       }
     )
-  ) : /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-body", ref: bodyRef }, hasContent && !isGenerating ? (
-    // Generation finished: editable textarea — always selectable/copyable
-    /* @__PURE__ */ import_react3.default.createElement(
-      "textarea",
-      {
-        className: "gw-gen-textarea",
-        defaultValue: fullText.trim(),
-        spellCheck: false
-      }
-    )
-  ) : /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, committed && /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-committed" }, committed), streaming && /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-streaming" }, streaming, isGenerating && /* @__PURE__ */ import_react3.default.createElement("span", { className: "gw-gen-cursor" }, "\u258C"))), !hasContent && error2 && /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-error-detail" }, /* @__PURE__ */ import_react3.default.createElement("p", null, /* @__PURE__ */ import_react3.default.createElement("strong", null, "Generation failed.")), /* @__PURE__ */ import_react3.default.createElement("p", null, error2), /* @__PURE__ */ import_react3.default.createElement("p", { style: { marginTop: 8, fontSize: "0.85em", color: "var(--text-muted)" } }, "Check your API key and model name in Settings, then try again.")), !hasContent && !error2 && /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-waiting" }, "Waiting for output\u2026")), showPhaseTransition && /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-phase-transition" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-phase-transition-header" }, /* @__PURE__ */ import_react3.default.createElement("span", { className: "gw-phase-badge" }, "Phase 1 Complete"), /* @__PURE__ */ import_react3.default.createElement("span", { className: "gw-phase-transition-title" }, "Entering conclusion\u2026"), /* @__PURE__ */ import_react3.default.createElement("span", { className: "gw-phase-countdown" }, phaseCountdown, "s")), /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-phase-transition-body" }, /* @__PURE__ */ import_react3.default.createElement(
-    "input",
+  ) : /* @__PURE__ */ import_react4.default.createElement(import_react4.default.Fragment, null, /* @__PURE__ */ import_react4.default.createElement("div", { className: "gw-gen-body", ref: bodyRef }, hasContent && !isGenerating ? /* @__PURE__ */ import_react4.default.createElement(
+    "textarea",
     {
-      className: "gw-phase-direction-input",
-      placeholder: "Optional: steer Phase 2 \u2014 where should this chapter go? (Enter or skip)",
-      value: phase2Direction,
-      onChange: (e) => setPhase2Direction(e.target.value),
-      onKeyDown: (e) => {
-        if (e.key === "Enter")
-          onPhase2Continue(phase2Direction.trim() || null);
-        if (e.key === "Escape")
-          onPhase2Continue(null);
-      },
-      autoFocus: true
+      className: "gw-gen-textarea",
+      defaultValue: fullText.trim(),
+      spellCheck: false
     }
-  ), /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-phase-transition-actions" }, /* @__PURE__ */ import_react3.default.createElement(
-    "button",
-    {
-      className: "gw-btn gw-btn-success",
-      onClick: () => onPhase2Continue(phase2Direction.trim() || null)
-    },
-    "Continue \u2192"
-  ), /* @__PURE__ */ import_react3.default.createElement(
-    "button",
-    {
-      className: "gw-review-back-btn",
-      onClick: () => onPhase2Continue(null)
-    },
-    "Skip (",
-    phaseCountdown,
-    "s)"
-  )))), /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-footer" }, isGenerating ? /* @__PURE__ */ import_react3.default.createElement("button", { className: "gw-btn gw-btn-danger", onClick: onAbort }, "\u2715 Abort") : /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, /* @__PURE__ */ import_react3.default.createElement("button", { className: "gw-btn gw-btn-danger", onClick: onDiscard }, "\u2715 Discard"), hasContent && /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, /* @__PURE__ */ import_react3.default.createElement(
+  ) : /* @__PURE__ */ import_react4.default.createElement(import_react4.default.Fragment, null, committed && /* @__PURE__ */ import_react4.default.createElement("div", { className: "gw-gen-committed" }, committed), streaming && /* @__PURE__ */ import_react4.default.createElement("div", { className: "gw-gen-streaming" }, streaming, isGenerating && /* @__PURE__ */ import_react4.default.createElement("span", { className: "gw-gen-cursor" }, "\u258C"))), !hasContent && error2 && /* @__PURE__ */ import_react4.default.createElement("div", { className: "gw-gen-error-detail" }, /* @__PURE__ */ import_react4.default.createElement("p", null, /* @__PURE__ */ import_react4.default.createElement("strong", null, "Generation failed.")), /* @__PURE__ */ import_react4.default.createElement("p", null, error2), /* @__PURE__ */ import_react4.default.createElement("p", { style: { marginTop: 8, fontSize: "0.85em", color: "var(--text-muted)" } }, "Check your API key and model name in Settings, then try again.")), !hasContent && !error2 && /* @__PURE__ */ import_react4.default.createElement("div", { className: "gw-gen-waiting" }, "Waiting for output\u2026")), /* @__PURE__ */ import_react4.default.createElement("div", { className: "gw-gen-footer" }, isGenerating ? /* @__PURE__ */ import_react4.default.createElement("button", { className: "gw-btn gw-btn-danger", onClick: onAbort }, "\u2715 Abort") : /* @__PURE__ */ import_react4.default.createElement(import_react4.default.Fragment, null, /* @__PURE__ */ import_react4.default.createElement("button", { className: "gw-btn gw-btn-danger", onClick: onDiscard }, "\u2715 Discard"), hasContent && /* @__PURE__ */ import_react4.default.createElement(import_react4.default.Fragment, null, /* @__PURE__ */ import_react4.default.createElement(
     "button",
     {
       className: "gw-btn gw-btn-review",
@@ -27233,12 +27272,12 @@ var GenerationModal = ({
       title: "Split into paragraph cards for targeted edits"
     },
     "\u270F Review & Edit"
-  ), /* @__PURE__ */ import_react3.default.createElement("button", { className: "gw-btn gw-btn-success", onClick: onApprove }, "\u2713 Approve & Insert")))))));
+  ), /* @__PURE__ */ import_react4.default.createElement("button", { className: "gw-btn gw-btn-success", onClick: onApprove }, "\u2713 Approve & Insert")))))));
 };
 
 // ui/FileTreePickerModal.tsx
 var import_obsidian2 = require("obsidian");
-var import_react4 = __toESM(require_react());
+var import_react5 = __toESM(require_react());
 var import_client = __toESM(require_client());
 var FileTreePickerModal = class extends import_obsidian2.Modal {
   constructor(plugin, opts) {
@@ -27255,7 +27294,7 @@ var FileTreePickerModal = class extends import_obsidian2.Modal {
     const container = this.contentEl.createDiv();
     this.reactRoot = (0, import_client.createRoot)(container);
     this.reactRoot.render(
-      import_react4.default.createElement(FileTreePickerComponent, {
+      import_react5.default.createElement(FileTreePickerComponent, {
         plugin: this.plugin,
         currentPath: this.currentPath,
         onPick: (path) => {
@@ -27275,9 +27314,9 @@ var FileTreePickerModal = class extends import_obsidian2.Modal {
   }
 };
 var FileTreePickerComponent = ({ plugin, currentPath, onPick, onClose }) => {
-  const [structure, setStructure] = (0, import_react4.useState)([]);
-  const [expandedFolders, setExpandedFolders] = (0, import_react4.useState)(/* @__PURE__ */ new Set([""]));
-  (0, import_react4.useEffect)(() => {
+  const [structure, setStructure] = (0, import_react5.useState)([]);
+  const [expandedFolders, setExpandedFolders] = (0, import_react5.useState)(/* @__PURE__ */ new Set([""]));
+  (0, import_react5.useEffect)(() => {
     const vaultStructure = plugin.vaultService.getVaultStructure();
     const filtered = vaultStructure.filter(
       (item) => item.type === "folder" || item.type === "file" && item.path.endsWith(".md")
@@ -27309,7 +27348,7 @@ var FileTreePickerComponent = ({ plugin, currentPath, onPick, onClose }) => {
       );
       if (children.length === 0)
         return null;
-      return /* @__PURE__ */ import_react4.default.createElement("div", { key: item.path, className: "vault-item folder", style: { paddingLeft: `${depth * 20}px` } }, /* @__PURE__ */ import_react4.default.createElement(
+      return /* @__PURE__ */ import_react5.default.createElement("div", { key: item.path, className: "vault-item folder", style: { paddingLeft: `${depth * 20}px` } }, /* @__PURE__ */ import_react5.default.createElement(
         "span",
         {
           className: "folder-toggle",
@@ -27329,7 +27368,7 @@ var FileTreePickerComponent = ({ plugin, currentPath, onPick, onClose }) => {
       ), isExpanded && children.map((child) => renderItem(child, depth + 1)));
     } else {
       const isSelected = item.path === currentPath;
-      return /* @__PURE__ */ import_react4.default.createElement(
+      return /* @__PURE__ */ import_react5.default.createElement(
         "div",
         {
           key: item.path,
@@ -27351,19 +27390,19 @@ var FileTreePickerComponent = ({ plugin, currentPath, onPick, onClose }) => {
         },
         "\u{1F4C4} ",
         item.name,
-        isSelected && /* @__PURE__ */ import_react4.default.createElement("span", { style: { marginLeft: "8px", color: "var(--text-accent)" } }, "\u2713")
+        isSelected && /* @__PURE__ */ import_react5.default.createElement("span", { style: { marginLeft: "8px", color: "var(--text-accent)" } }, "\u2713")
       );
     }
   };
   const rootItems = structure.filter((item) => !item.path.includes("/"));
-  return /* @__PURE__ */ import_react4.default.createElement("div", { className: "file-tree-picker", style: { padding: "12px", maxHeight: "60vh", overflowY: "auto" } }, /* @__PURE__ */ import_react4.default.createElement("div", { className: "vault-tree" }, rootItems.length === 0 ? /* @__PURE__ */ import_react4.default.createElement("div", { style: { padding: "12px", color: "var(--text-muted)" } }, "No markdown files found in vault") : rootItems.map((item) => renderItem(item))));
+  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "file-tree-picker", style: { padding: "12px", maxHeight: "60vh", overflowY: "auto" } }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "vault-tree" }, rootItems.length === 0 ? /* @__PURE__ */ import_react5.default.createElement("div", { style: { padding: "12px", color: "var(--text-muted)" } }, "No markdown files found in vault") : rootItems.map((item) => renderItem(item))));
 };
 
 // ui/FactInspector.tsx
-var import_react5 = __toESM(require_react());
+var import_react6 = __toESM(require_react());
 
 // ui/HelpTooltip.tsx
-var React5 = __toESM(require_react());
+var React6 = __toESM(require_react());
 
 // ui/HelpRegistry.ts
 var HELP_REGISTRY = {
@@ -27408,13 +27447,13 @@ var HelpTooltip = ({ id, density }) => {
     return null;
   if (density === "LITE" && item.density === "FULL")
     return null;
-  return /* @__PURE__ */ React5.createElement("span", { className: "help-icon", title: `${item.title}: ${item.description}` }, "\u24D8", item.learnMoreUrl && /* @__PURE__ */ React5.createElement("a", { href: item.learnMoreUrl, target: "_blank", rel: "noopener", className: "learn-more-link" }, "Learn More"));
+  return /* @__PURE__ */ React6.createElement("span", { className: "help-icon", title: `${item.title}: ${item.description}` }, "\u24D8", item.learnMoreUrl && /* @__PURE__ */ React6.createElement("a", { href: item.learnMoreUrl, target: "_blank", rel: "noopener", className: "learn-more-link" }, "Learn More"));
 };
 
 // ui/FactInspector.tsx
 var FactInspector = ({ plugin, state }) => {
-  const [selectedFactId, setSelectedFactId] = (0, import_react5.useState)(null);
-  const [filter, setFilter] = (0, import_react5.useState)("all");
+  const [selectedFactId, setSelectedFactId] = (0, import_react6.useState)(null);
+  const [filter, setFilter] = (0, import_react6.useState)("all");
   const selectedFact = state.canonFacts.find((f) => f.id === selectedFactId);
   const getOriginBadge = (origin) => {
     const colors = {
@@ -27423,7 +27462,7 @@ var FactInspector = ({ plugin, state }) => {
       "EXTRACTOR": "var(--text-warning)",
       "CLOUD_MONOLITHIC": "var(--text-error)"
     };
-    return /* @__PURE__ */ import_react5.default.createElement("span", { className: "fact-badge", style: { color: colors[origin] || "var(--text-muted)", fontSize: "0.8em", border: "1px solid", padding: "1px 4px", borderRadius: "4px", marginLeft: "8px" } }, origin);
+    return /* @__PURE__ */ import_react6.default.createElement("span", { className: "fact-badge", style: { color: colors[origin] || "var(--text-muted)", fontSize: "0.8em", border: "1px solid", padding: "1px 4px", borderRadius: "4px", marginLeft: "8px" } }, origin);
   };
   const getStatusIcon = (state2) => {
     switch (state2) {
@@ -27448,7 +27487,7 @@ var FactInspector = ({ plugin, state }) => {
       return f.lifecycleState === "QUARANTINED";
     return true;
   });
-  return /* @__PURE__ */ import_react5.default.createElement("div", { className: "fact-inspector", style: { display: "flex", flexDirection: "column", gap: "12px", flex: "1 1 auto", minHeight: 0 } }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "inspector-header", style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ import_react5.default.createElement("h3", { style: { margin: 0 } }, "Lore Inspector ", /* @__PURE__ */ import_react5.default.createElement(HelpTooltip, { id: "grounding-heatmap", density: plugin.settings.helpDensity || "LITE" })), /* @__PURE__ */ import_react5.default.createElement("div", { className: "filter-bar", style: { display: "flex", gap: "4px" } }, /* @__PURE__ */ import_react5.default.createElement("button", { className: `nav-button ${filter === "all" ? "is-active" : ""}`, onClick: () => setFilter("all") }, "All"), /* @__PURE__ */ import_react5.default.createElement("button", { className: `nav-button ${filter === "locked" ? "is-active" : ""}`, onClick: () => setFilter("locked") }, "\u{1F512} Locked"), /* @__PURE__ */ import_react5.default.createElement("button", { className: `nav-button ${filter === "pending" ? "is-active" : ""}`, onClick: () => setFilter("pending") }, "\u{1F9EA} Pending"), /* @__PURE__ */ import_react5.default.createElement("button", { className: `nav-button ${filter === "conflict" ? "is-active" : ""}`, onClick: () => setFilter("conflict") }, "\u26A0\uFE0F Conflict"))), /* @__PURE__ */ import_react5.default.createElement("div", { className: "inspector-layout", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", flexGrow: 1, minHeight: 0 } }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "fact-list", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "8px" } }, filteredFacts.length === 0 ? /* @__PURE__ */ import_react5.default.createElement("p", { className: "empty-msg", style: { textAlign: "center", color: "var(--text-muted)" } }, "No facts found for this filter.") : filteredFacts.map((fact) => /* @__PURE__ */ import_react5.default.createElement(
+  return /* @__PURE__ */ import_react6.default.createElement("div", { className: "fact-inspector", style: { display: "flex", flexDirection: "column", gap: "12px", flex: "1 1 auto", minHeight: 0 } }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "inspector-header", style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ import_react6.default.createElement("h3", { style: { margin: 0 } }, "Lore Inspector ", /* @__PURE__ */ import_react6.default.createElement(HelpTooltip, { id: "grounding-heatmap", density: plugin.settings.helpDensity || "LITE" })), /* @__PURE__ */ import_react6.default.createElement("div", { className: "filter-bar", style: { display: "flex", gap: "4px" } }, /* @__PURE__ */ import_react6.default.createElement("button", { className: `nav-button ${filter === "all" ? "is-active" : ""}`, onClick: () => setFilter("all") }, "All"), /* @__PURE__ */ import_react6.default.createElement("button", { className: `nav-button ${filter === "locked" ? "is-active" : ""}`, onClick: () => setFilter("locked") }, "\u{1F512} Locked"), /* @__PURE__ */ import_react6.default.createElement("button", { className: `nav-button ${filter === "pending" ? "is-active" : ""}`, onClick: () => setFilter("pending") }, "\u{1F9EA} Pending"), /* @__PURE__ */ import_react6.default.createElement("button", { className: `nav-button ${filter === "conflict" ? "is-active" : ""}`, onClick: () => setFilter("conflict") }, "\u26A0\uFE0F Conflict"))), /* @__PURE__ */ import_react6.default.createElement("div", { className: "inspector-layout", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", flexGrow: 1, minHeight: 0 } }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "fact-list", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "8px" } }, filteredFacts.length === 0 ? /* @__PURE__ */ import_react6.default.createElement("p", { className: "empty-msg", style: { textAlign: "center", color: "var(--text-muted)" } }, "No facts found for this filter.") : filteredFacts.map((fact) => /* @__PURE__ */ import_react6.default.createElement(
     "div",
     {
       key: fact.id,
@@ -27468,13 +27507,13 @@ var FactInspector = ({ plugin, state }) => {
         backgroundColor: selectedFactId === fact.id ? "var(--background-modifier-hover)" : "transparent"
       }
     },
-    /* @__PURE__ */ import_react5.default.createElement("div", { className: "fact-main", style: { display: "flex", gap: "8px", alignItems: "center" } }, /* @__PURE__ */ import_react5.default.createElement("span", { className: "fact-icon" }, getStatusIcon(fact.lifecycleState)), /* @__PURE__ */ import_react5.default.createElement("span", { className: "fact-summary", style: { fontSize: "0.9em" } }, /* @__PURE__ */ import_react5.default.createElement("strong", null, fact.entityId), ": ", fact.attribute, " is ", /* @__PURE__ */ import_react5.default.createElement("em", null, String(fact.value)))),
-    /* @__PURE__ */ import_react5.default.createElement("div", { className: "fact-meta", style: { display: "flex", justifyContent: "space-between", marginTop: "4px", alignItems: "center" } }, getOriginBadge(fact.origin), /* @__PURE__ */ import_react5.default.createElement("span", { className: "fact-conf", style: { fontSize: "0.8em", color: "var(--text-muted)" } }, (fact.confidence * 100).toFixed(0), "% confidence"))
-  ))), /* @__PURE__ */ import_react5.default.createElement("div", { className: "fact-detail-panel", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "12px", display: "flex", flexDirection: "column", gap: "12px" } }, selectedFact ? /* @__PURE__ */ import_react5.default.createElement("div", { className: "fact-detail-content" }, /* @__PURE__ */ import_react5.default.createElement("h4", { style: { marginTop: 0 } }, "Fact Detail: ", selectedFact.id), /* @__PURE__ */ import_react5.default.createElement("section", { className: "detail-section", style: { marginBottom: "16px" } }, /* @__PURE__ */ import_react5.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Why this exists (Provenance)"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "detail-grid", style: { display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react5.default.createElement("span", null, "Origin:"), " ", /* @__PURE__ */ import_react5.default.createElement("strong", null, selectedFact.origin), /* @__PURE__ */ import_react5.default.createElement("span", null, "Added:"), " ", /* @__PURE__ */ import_react5.default.createElement("strong", null, new Date(selectedFact.timestamp).toLocaleString()), /* @__PURE__ */ import_react5.default.createElement("span", null, "Source Run:"), " ", /* @__PURE__ */ import_react5.default.createElement("strong", null, selectedFact.chunkId || "Initial Seed"), /* @__PURE__ */ import_react5.default.createElement("span", null, "Confidence:"), " ", /* @__PURE__ */ import_react5.default.createElement("strong", null, (selectedFact.confidence * 100).toFixed(0), "%"))), /* @__PURE__ */ import_react5.default.createElement("section", { className: "detail-section" }, /* @__PURE__ */ import_react5.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Where this matters (Impact)"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "detail-grid", style: { display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react5.default.createElement("span", null, "Scope:"), " ", /* @__PURE__ */ import_react5.default.createElement("strong", null, selectedFact.scope), /* @__PURE__ */ import_react5.default.createElement("span", null, "Status:"), " ", /* @__PURE__ */ import_react5.default.createElement("strong", null, selectedFact.lifecycleState), /* @__PURE__ */ import_react5.default.createElement("span", null, "Attribute:"), " ", /* @__PURE__ */ import_react5.default.createElement("strong", null, selectedFact.attribute)), selectedFact.sourceSpan && /* @__PURE__ */ import_react5.default.createElement("div", { style: { marginTop: "8px", fontSize: "0.85em", fontStyle: "italic", color: "var(--text-muted)", borderLeft: "2px solid var(--text-accent)", paddingLeft: "8px" } }, '"...', selectedFact.sourceSpan.anchorTextBefore, " ", /* @__PURE__ */ import_react5.default.createElement("strong", null, "[", selectedFact.value, "]"), " ", selectedFact.sourceSpan.anchorTextAfter, '..."'))) : /* @__PURE__ */ import_react5.default.createElement("p", { className: "empty-msg", style: { textAlign: "center", color: "var(--text-muted)", margin: "auto" } }, "Select a fact to see details."))), /* @__PURE__ */ import_react5.default.createElement("div", { className: "timeline-section", style: { height: "150px", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "8px", overflowY: "auto" } }, /* @__PURE__ */ import_react5.default.createElement("h4", { style: { marginTop: 0, fontSize: "0.9em" } }, "Run Timeline"), /* @__PURE__ */ import_react5.default.createElement("div", { className: "timeline-list", style: { fontSize: "0.85em" } }, state.timeline.length === 0 ? /* @__PURE__ */ import_react5.default.createElement("p", { className: "empty-msg", style: { color: "var(--text-muted)" } }, "No timeline events yet.") : state.timeline.map((t) => /* @__PURE__ */ import_react5.default.createElement("div", { key: t.chunkId, style: { display: "flex", gap: "12px", marginBottom: "4px" } }, /* @__PURE__ */ import_react5.default.createElement("span", { style: { color: "var(--text-accent)", minWidth: "60px" } }, t.chunkId), /* @__PURE__ */ import_react5.default.createElement("span", null, t.summary))))));
+    /* @__PURE__ */ import_react6.default.createElement("div", { className: "fact-main", style: { display: "flex", gap: "8px", alignItems: "center" } }, /* @__PURE__ */ import_react6.default.createElement("span", { className: "fact-icon" }, getStatusIcon(fact.lifecycleState)), /* @__PURE__ */ import_react6.default.createElement("span", { className: "fact-summary", style: { fontSize: "0.9em" } }, /* @__PURE__ */ import_react6.default.createElement("strong", null, fact.entityId), ": ", fact.attribute, " is ", /* @__PURE__ */ import_react6.default.createElement("em", null, String(fact.value)))),
+    /* @__PURE__ */ import_react6.default.createElement("div", { className: "fact-meta", style: { display: "flex", justifyContent: "space-between", marginTop: "4px", alignItems: "center" } }, getOriginBadge(fact.origin), /* @__PURE__ */ import_react6.default.createElement("span", { className: "fact-conf", style: { fontSize: "0.8em", color: "var(--text-muted)" } }, (fact.confidence * 100).toFixed(0), "% confidence"))
+  ))), /* @__PURE__ */ import_react6.default.createElement("div", { className: "fact-detail-panel", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "12px", display: "flex", flexDirection: "column", gap: "12px" } }, selectedFact ? /* @__PURE__ */ import_react6.default.createElement("div", { className: "fact-detail-content" }, /* @__PURE__ */ import_react6.default.createElement("h4", { style: { marginTop: 0 } }, "Fact Detail: ", selectedFact.id), /* @__PURE__ */ import_react6.default.createElement("section", { className: "detail-section", style: { marginBottom: "16px" } }, /* @__PURE__ */ import_react6.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Why this exists (Provenance)"), /* @__PURE__ */ import_react6.default.createElement("div", { className: "detail-grid", style: { display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react6.default.createElement("span", null, "Origin:"), " ", /* @__PURE__ */ import_react6.default.createElement("strong", null, selectedFact.origin), /* @__PURE__ */ import_react6.default.createElement("span", null, "Added:"), " ", /* @__PURE__ */ import_react6.default.createElement("strong", null, new Date(selectedFact.timestamp).toLocaleString()), /* @__PURE__ */ import_react6.default.createElement("span", null, "Source Run:"), " ", /* @__PURE__ */ import_react6.default.createElement("strong", null, selectedFact.chunkId || "Initial Seed"), /* @__PURE__ */ import_react6.default.createElement("span", null, "Confidence:"), " ", /* @__PURE__ */ import_react6.default.createElement("strong", null, (selectedFact.confidence * 100).toFixed(0), "%"))), /* @__PURE__ */ import_react6.default.createElement("section", { className: "detail-section" }, /* @__PURE__ */ import_react6.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Where this matters (Impact)"), /* @__PURE__ */ import_react6.default.createElement("div", { className: "detail-grid", style: { display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react6.default.createElement("span", null, "Scope:"), " ", /* @__PURE__ */ import_react6.default.createElement("strong", null, selectedFact.scope), /* @__PURE__ */ import_react6.default.createElement("span", null, "Status:"), " ", /* @__PURE__ */ import_react6.default.createElement("strong", null, selectedFact.lifecycleState), /* @__PURE__ */ import_react6.default.createElement("span", null, "Attribute:"), " ", /* @__PURE__ */ import_react6.default.createElement("strong", null, selectedFact.attribute)), selectedFact.sourceSpan && /* @__PURE__ */ import_react6.default.createElement("div", { style: { marginTop: "8px", fontSize: "0.85em", fontStyle: "italic", color: "var(--text-muted)", borderLeft: "2px solid var(--text-accent)", paddingLeft: "8px" } }, '"...', selectedFact.sourceSpan.anchorTextBefore, " ", /* @__PURE__ */ import_react6.default.createElement("strong", null, "[", selectedFact.value, "]"), " ", selectedFact.sourceSpan.anchorTextAfter, '..."'))) : /* @__PURE__ */ import_react6.default.createElement("p", { className: "empty-msg", style: { textAlign: "center", color: "var(--text-muted)", margin: "auto" } }, "Select a fact to see details."))), /* @__PURE__ */ import_react6.default.createElement("div", { className: "timeline-section", style: { height: "150px", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "8px", overflowY: "auto" } }, /* @__PURE__ */ import_react6.default.createElement("h4", { style: { marginTop: 0, fontSize: "0.9em" } }, "Run Timeline"), /* @__PURE__ */ import_react6.default.createElement("div", { className: "timeline-list", style: { fontSize: "0.85em" } }, state.timeline.length === 0 ? /* @__PURE__ */ import_react6.default.createElement("p", { className: "empty-msg", style: { color: "var(--text-muted)" } }, "No timeline events yet.") : state.timeline.map((t) => /* @__PURE__ */ import_react6.default.createElement("div", { key: t.chunkId, style: { display: "flex", gap: "12px", marginBottom: "4px" } }, /* @__PURE__ */ import_react6.default.createElement("span", { style: { color: "var(--text-accent)", minWidth: "60px" } }, t.chunkId), /* @__PURE__ */ import_react6.default.createElement("span", null, t.summary))))));
 };
 
 // ui/ReplayPanel.tsx
-var import_react6 = __toESM(require_react());
+var import_react7 = __toESM(require_react());
 
 // services/RunPaths.ts
 var RunPaths = class {
@@ -27552,10 +27591,10 @@ var RunPaths = class {
 // ui/ReplayPanel.tsx
 var import_obsidian3 = require("obsidian");
 var ReplayPanel = ({ plugin }) => {
-  const [runs, setRuns] = (0, import_react6.useState)([]);
-  const [selectedRunKey, setSelectedRunKey] = (0, import_react6.useState)(null);
-  const [isLoading, setIsLoading] = (0, import_react6.useState)(false);
-  (0, import_react6.useEffect)(() => {
+  const [runs, setRuns] = (0, import_react7.useState)([]);
+  const [selectedRunKey, setSelectedRunKey] = (0, import_react7.useState)(null);
+  const [isLoading, setIsLoading] = (0, import_react7.useState)(false);
+  (0, import_react7.useEffect)(() => {
     loadRuns();
   }, []);
   const loadRuns = async () => {
@@ -27613,8 +27652,8 @@ var ReplayPanel = ({ plugin }) => {
   const getHealthBadge = (manifest) => {
     const hasError = manifest.stages.some((s) => s.stageType === "AUDIT" && s.data?.overallSeverity >= 4);
     if (hasError)
-      return /* @__PURE__ */ import_react6.default.createElement("span", { style: { color: "var(--text-error)", fontSize: "0.8em" } }, "\u274C Issues");
-    return /* @__PURE__ */ import_react6.default.createElement("span", { style: { color: "var(--text-success)", fontSize: "0.8em" } }, "\u2705 Healthy");
+      return /* @__PURE__ */ import_react7.default.createElement("span", { style: { color: "var(--text-error)", fontSize: "0.8em" } }, "\u274C Issues");
+    return /* @__PURE__ */ import_react7.default.createElement("span", { style: { color: "var(--text-success)", fontSize: "0.8em" } }, "\u2705 Healthy");
   };
   const getRunSignificance = (manifest) => {
     const promoted = manifest.harvestSummary?.approvedIds?.length || 0;
@@ -27628,7 +27667,7 @@ var ReplayPanel = ({ plugin }) => {
       parts.push("Local relay");
     return parts.join(" \u2022 ");
   };
-  return /* @__PURE__ */ import_react6.default.createElement("div", { className: "replay-panel", style: { display: "flex", flexDirection: "column", height: "100%", gap: "12px" } }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "replay-header", style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ import_react6.default.createElement("h3", { style: { margin: 0 } }, "Generation History"), /* @__PURE__ */ import_react6.default.createElement("button", { className: "nav-button", onClick: loadRuns, disabled: isLoading }, isLoading ? "Loading..." : "Refresh")), /* @__PURE__ */ import_react6.default.createElement("div", { className: "replay-layout", style: { display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "12px", flexGrow: 1, minHeight: 0 } }, /* @__PURE__ */ import_react6.default.createElement("div", { className: "run-list", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "8px" } }, runs.length === 0 ? /* @__PURE__ */ import_react6.default.createElement("p", { style: { textAlign: "center", color: "var(--text-muted)" } }, "No runs found.") : runs.map((run) => /* @__PURE__ */ import_react6.default.createElement(
+  return /* @__PURE__ */ import_react7.default.createElement("div", { className: "replay-panel", style: { display: "flex", flexDirection: "column", height: "100%", gap: "12px" } }, /* @__PURE__ */ import_react7.default.createElement("div", { className: "replay-header", style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ import_react7.default.createElement("h3", { style: { margin: 0 } }, "Generation History"), /* @__PURE__ */ import_react7.default.createElement("button", { className: "nav-button", onClick: loadRuns, disabled: isLoading }, isLoading ? "Loading..." : "Refresh")), /* @__PURE__ */ import_react7.default.createElement("div", { className: "replay-layout", style: { display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "12px", flexGrow: 1, minHeight: 0 } }, /* @__PURE__ */ import_react7.default.createElement("div", { className: "run-list", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "8px" } }, runs.length === 0 ? /* @__PURE__ */ import_react7.default.createElement("p", { style: { textAlign: "center", color: "var(--text-muted)" } }, "No runs found.") : runs.map((run) => /* @__PURE__ */ import_react7.default.createElement(
     "div",
     {
       key: run.key,
@@ -27648,15 +27687,15 @@ var ReplayPanel = ({ plugin }) => {
         backgroundColor: selectedRunKey === run.key ? "var(--background-modifier-hover)" : "transparent"
       }
     },
-    /* @__PURE__ */ import_react6.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ import_react6.default.createElement("strong", { style: { fontSize: "0.9em" } }, new Date(run.manifest.startTime).toLocaleString()), getHealthBadge(run.manifest)),
-    /* @__PURE__ */ import_react6.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)", marginTop: "4px" } }, getRunSignificance(run.manifest))
-  ))), /* @__PURE__ */ import_react6.default.createElement("div", { className: "run-detail", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "12px" } }, selectedRun ? /* @__PURE__ */ import_react6.default.createElement("div", { className: "run-detail-content" }, /* @__PURE__ */ import_react6.default.createElement("h4", { style: { marginTop: 0 } }, "Run: ", selectedRun.key), /* @__PURE__ */ import_react6.default.createElement("div", { style: { fontSize: "0.9em", marginBottom: "16px", display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px" } }, /* @__PURE__ */ import_react6.default.createElement("span", null, "Model:"), " ", /* @__PURE__ */ import_react6.default.createElement("strong", null, selectedRun.manifest.config.smartModel), /* @__PURE__ */ import_react6.default.createElement("span", null, "Start:"), " ", /* @__PURE__ */ import_react6.default.createElement("strong", null, new Date(selectedRun.manifest.startTime).toLocaleString()), /* @__PURE__ */ import_react6.default.createElement("span", null, "Stages:"), " ", /* @__PURE__ */ import_react6.default.createElement("strong", null, selectedRun.manifest.stages.length)), /* @__PURE__ */ import_react6.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Execution Stages"), /* @__PURE__ */ import_react6.default.createElement("div", { className: "stage-list", style: { display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" } }, selectedRun.manifest.stages.map((stage) => /* @__PURE__ */ import_react6.default.createElement("div", { key: stage.stageType + stage.startTime, style: { padding: "8px", backgroundColor: "var(--background-secondary)", borderRadius: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react6.default.createElement("div", { style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ import_react6.default.createElement("span", { style: { color: "var(--text-accent)", fontWeight: "bold" } }, getStageLabel(stage)), /* @__PURE__ */ import_react6.default.createElement("span", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, Math.round(stage.endTime - stage.startTime), "ms")), stage.stageType === "AUDIT" && stage.data && /* @__PURE__ */ import_react6.default.createElement("div", { style: { marginTop: "4px", fontSize: "0.85em" } }, stage.data.violations?.length > 0 ? /* @__PURE__ */ import_react6.default.createElement("span", { style: { color: "var(--text-error)" } }, "\u26A0\uFE0F ", stage.data.violations.length, " violations") : /* @__PURE__ */ import_react6.default.createElement("span", { style: { color: "var(--text-success)" } }, "\u2705 No violations"))))), /* @__PURE__ */ import_react6.default.createElement("div", { style: { marginTop: "20px", display: "flex", gap: "8px" } }, /* @__PURE__ */ import_react6.default.createElement("button", { className: "mod-cta", style: { fontSize: "0.85em" }, onClick: () => new import_obsidian3.Notice("Safe Context Pack inspection coming soon.") }, "Inspect Context Pack"), /* @__PURE__ */ import_react6.default.createElement("button", { style: { fontSize: "0.85em" }, onClick: () => new import_obsidian3.Notice("Replay mode coming soon.") }, "Replay Run"))) : /* @__PURE__ */ import_react6.default.createElement("p", { style: { textAlign: "center", color: "var(--text-muted)", marginTop: "40px" } }, "Select a run to see execution details."))));
+    /* @__PURE__ */ import_react7.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ import_react7.default.createElement("strong", { style: { fontSize: "0.9em" } }, new Date(run.manifest.startTime).toLocaleString()), getHealthBadge(run.manifest)),
+    /* @__PURE__ */ import_react7.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)", marginTop: "4px" } }, getRunSignificance(run.manifest))
+  ))), /* @__PURE__ */ import_react7.default.createElement("div", { className: "run-detail", style: { overflowY: "auto", border: "1px solid var(--background-modifier-border)", borderRadius: "4px", padding: "12px" } }, selectedRun ? /* @__PURE__ */ import_react7.default.createElement("div", { className: "run-detail-content" }, /* @__PURE__ */ import_react7.default.createElement("h4", { style: { marginTop: 0 } }, "Run: ", selectedRun.key), /* @__PURE__ */ import_react7.default.createElement("div", { style: { fontSize: "0.9em", marginBottom: "16px", display: "grid", gridTemplateColumns: "100px 1fr", gap: "4px" } }, /* @__PURE__ */ import_react7.default.createElement("span", null, "Model:"), " ", /* @__PURE__ */ import_react7.default.createElement("strong", null, selectedRun.manifest.config.smartModel), /* @__PURE__ */ import_react7.default.createElement("span", null, "Start:"), " ", /* @__PURE__ */ import_react7.default.createElement("strong", null, new Date(selectedRun.manifest.startTime).toLocaleString()), /* @__PURE__ */ import_react7.default.createElement("span", null, "Stages:"), " ", /* @__PURE__ */ import_react7.default.createElement("strong", null, selectedRun.manifest.stages.length)), /* @__PURE__ */ import_react7.default.createElement("h5", { style: { borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "4px" } }, "Execution Stages"), /* @__PURE__ */ import_react7.default.createElement("div", { className: "stage-list", style: { display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" } }, selectedRun.manifest.stages.map((stage) => /* @__PURE__ */ import_react7.default.createElement("div", { key: stage.stageType + stage.startTime, style: { padding: "8px", backgroundColor: "var(--background-secondary)", borderRadius: "4px", fontSize: "0.9em" } }, /* @__PURE__ */ import_react7.default.createElement("div", { style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ import_react7.default.createElement("span", { style: { color: "var(--text-accent)", fontWeight: "bold" } }, getStageLabel(stage)), /* @__PURE__ */ import_react7.default.createElement("span", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, Math.round(stage.endTime - stage.startTime), "ms")), stage.stageType === "AUDIT" && stage.data && /* @__PURE__ */ import_react7.default.createElement("div", { style: { marginTop: "4px", fontSize: "0.85em" } }, stage.data.violations?.length > 0 ? /* @__PURE__ */ import_react7.default.createElement("span", { style: { color: "var(--text-error)" } }, "\u26A0\uFE0F ", stage.data.violations.length, " violations") : /* @__PURE__ */ import_react7.default.createElement("span", { style: { color: "var(--text-success)" } }, "\u2705 No violations"))))), /* @__PURE__ */ import_react7.default.createElement("div", { style: { marginTop: "20px", display: "flex", gap: "8px" } }, /* @__PURE__ */ import_react7.default.createElement("button", { className: "mod-cta", style: { fontSize: "0.85em" }, onClick: () => new import_obsidian3.Notice("Safe Context Pack inspection coming soon.") }, "Inspect Context Pack"), /* @__PURE__ */ import_react7.default.createElement("button", { style: { fontSize: "0.85em" }, onClick: () => new import_obsidian3.Notice("Replay mode coming soon.") }, "Replay Run"))) : /* @__PURE__ */ import_react7.default.createElement("p", { style: { textAlign: "center", color: "var(--text-muted)", marginTop: "40px" } }, "Select a run to see execution details."))));
 };
 
 // ui/PilotHealthPanel.tsx
-var import_react7 = __toESM(require_react());
+var import_react8 = __toESM(require_react());
 var PilotHealthPanel = ({ misses, rejections, quarantineCount }) => {
-  return /* @__PURE__ */ import_react7.default.createElement("div", { className: "pilot-health-panel", style: { padding: "12px", border: "1px solid var(--background-modifier-border)", borderRadius: "8px", marginTop: "16px" } }, /* @__PURE__ */ import_react7.default.createElement("h3", { style: { marginTop: 0 } }, "Pilot Cockpit"), /* @__PURE__ */ import_react7.default.createElement("div", { className: "health-metrics", style: { display: "flex", gap: "24px", marginBottom: "16px" } }, /* @__PURE__ */ import_react7.default.createElement("div", { className: "metric" }, /* @__PURE__ */ import_react7.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, "HARD MISSES"), /* @__PURE__ */ import_react7.default.createElement("div", { style: { fontSize: "1.5em", fontWeight: "bold", color: misses.length > 0 ? "var(--text-error)" : "inherit" } }, misses.length)), /* @__PURE__ */ import_react7.default.createElement("div", { className: "metric" }, /* @__PURE__ */ import_react7.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, "STITCH REJECTIONS"), /* @__PURE__ */ import_react7.default.createElement("div", { style: { fontSize: "1.5em", fontWeight: "bold", color: rejections.length > 0 ? "var(--text-warning)" : "inherit" } }, rejections.length)), /* @__PURE__ */ import_react7.default.createElement("div", { className: "metric" }, /* @__PURE__ */ import_react7.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, "QUARANTINE"), /* @__PURE__ */ import_react7.default.createElement("div", { style: { fontSize: "1.5em", fontWeight: "bold" } }, quarantineCount))), misses.length > 0 && /* @__PURE__ */ import_react7.default.createElement("div", { className: "miss-details", style: { fontSize: "0.9em", marginBottom: "12px" } }, /* @__PURE__ */ import_react7.default.createElement("div", { style: { fontWeight: "bold", marginBottom: "4px" } }, "Recent HARD Misses:"), /* @__PURE__ */ import_react7.default.createElement("ul", { style: { margin: 0, paddingLeft: "20px" } }, misses.slice(-3).map((m, i) => /* @__PURE__ */ import_react7.default.createElement("li", { key: i }, m.type)))), /* @__PURE__ */ import_react7.default.createElement(
+  return /* @__PURE__ */ import_react8.default.createElement("div", { className: "pilot-health-panel", style: { padding: "12px", border: "1px solid var(--background-modifier-border)", borderRadius: "8px", marginTop: "16px" } }, /* @__PURE__ */ import_react8.default.createElement("h3", { style: { marginTop: 0 } }, "Pilot Cockpit"), /* @__PURE__ */ import_react8.default.createElement("div", { className: "health-metrics", style: { display: "flex", gap: "24px", marginBottom: "16px" } }, /* @__PURE__ */ import_react8.default.createElement("div", { className: "metric" }, /* @__PURE__ */ import_react8.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, "HARD MISSES"), /* @__PURE__ */ import_react8.default.createElement("div", { style: { fontSize: "1.5em", fontWeight: "bold", color: misses.length > 0 ? "var(--text-error)" : "inherit" } }, misses.length)), /* @__PURE__ */ import_react8.default.createElement("div", { className: "metric" }, /* @__PURE__ */ import_react8.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, "STITCH REJECTIONS"), /* @__PURE__ */ import_react8.default.createElement("div", { style: { fontSize: "1.5em", fontWeight: "bold", color: rejections.length > 0 ? "var(--text-warning)" : "inherit" } }, rejections.length)), /* @__PURE__ */ import_react8.default.createElement("div", { className: "metric" }, /* @__PURE__ */ import_react8.default.createElement("div", { style: { fontSize: "0.8em", color: "var(--text-muted)" } }, "QUARANTINE"), /* @__PURE__ */ import_react8.default.createElement("div", { style: { fontSize: "1.5em", fontWeight: "bold" } }, quarantineCount))), misses.length > 0 && /* @__PURE__ */ import_react8.default.createElement("div", { className: "miss-details", style: { fontSize: "0.9em", marginBottom: "12px" } }, /* @__PURE__ */ import_react8.default.createElement("div", { style: { fontWeight: "bold", marginBottom: "4px" } }, "Recent HARD Misses:"), /* @__PURE__ */ import_react8.default.createElement("ul", { style: { margin: 0, paddingLeft: "20px" } }, misses.slice(-3).map((m, i) => /* @__PURE__ */ import_react8.default.createElement("li", { key: i }, m.type)))), /* @__PURE__ */ import_react8.default.createElement(
     "div",
     {
       className: `sla-status ${quarantineCount > 5 ? "mod-error" : ""}`,
@@ -27668,7 +27707,7 @@ var PilotHealthPanel = ({ misses, rejections, quarantineCount }) => {
         fontSize: "0.85em"
       }
     },
-    /* @__PURE__ */ import_react7.default.createElement("strong", null, "Quarantine SLA:"),
+    /* @__PURE__ */ import_react8.default.createElement("strong", null, "Quarantine SLA:"),
     " ",
     quarantineCount > 5 ? "\u{1F534} REVIEW REQUIRED" : "\u{1F7E2} HEALTHY"
   ));
@@ -27781,50 +27820,50 @@ var relayEventBus = new RelayEventBus();
 
 // ui/DashboardComponent.tsx
 var DashboardComponent = ({ plugin }) => {
-  const [mode, setMode] = (0, import_react8.useState)("chapter");
-  const [modeState, setModeState] = (0, import_react8.useState)(() => plugin.settings.modeState);
-  const [generatedText, setGeneratedText] = (0, import_react8.useState)("");
-  const [generatedParagraphs, setGeneratedParagraphs] = (0, import_react8.useState)([]);
-  const [lastAppliedSeqNo, setLastAppliedSeqNo] = (0, import_react8.useState)(/* @__PURE__ */ new Map());
-  const [undoStack, setUndoStack] = (0, import_react8.useState)(/* @__PURE__ */ new Map());
-  const [chunkBuffer, setChunkBuffer] = (0, import_react8.useState)("");
-  const [showModal, setShowModal] = (0, import_react8.useState)(false);
-  const [isGenerating, setIsGenerating] = (0, import_react8.useState)(false);
-  const [generationStage, setGenerationStage] = (0, import_react8.useState)("");
-  const [pulseMessage, setPulseMessage] = (0, import_react8.useState)(null);
-  const [pulseDetail, setPulseDetail] = (0, import_react8.useState)(null);
-  const [error2, setError] = (0, import_react8.useState)(null);
-  const [mismatchReport, setMismatchReport] = (0, import_react8.useState)(null);
-  const [heatmapEnabled, setHeatmapEnabled] = (0, import_react8.useState)(true);
-  const [spontaneity, setSpontaneity] = (0, import_react8.useState)(plugin.settings.spontaneitySlider || 50);
-  const [misses, setMisses] = (0, import_react8.useState)([]);
-  const [rejections, setRejections] = (0, import_react8.useState)([]);
-  const [proposedMutation, setProposedMutation] = (0, import_react8.useState)(null);
-  const [trustSummary, setTrustSummary] = (0, import_react8.useState)(null);
-  const [activeTab, setActiveTab] = (0, import_react8.useState)("editor");
-  const [suggestions, setSuggestions] = (0, import_react8.useState)([]);
-  const [isSuggestingDirections, setIsSuggestingDirections] = (0, import_react8.useState)(false);
-  const [suggestionsOpen, setSuggestionsOpen] = (0, import_react8.useState)(false);
-  const [showAdvancedMenu, setShowAdvancedMenu] = (0, import_react8.useState)(false);
-  const [showPhaseTransition, setShowPhaseTransition] = (0, import_react8.useState)(false);
-  const [characterSourceFile, setCharacterSourceFile] = (0, import_react8.useState)(
+  const [mode, setMode] = (0, import_react9.useState)("chapter");
+  const [modeState, setModeState] = (0, import_react9.useState)(() => plugin.settings.modeState);
+  const [generatedText, setGeneratedText] = (0, import_react9.useState)("");
+  const [generatedParagraphs, setGeneratedParagraphs] = (0, import_react9.useState)([]);
+  const [lastAppliedSeqNo, setLastAppliedSeqNo] = (0, import_react9.useState)(/* @__PURE__ */ new Map());
+  const [undoStack, setUndoStack] = (0, import_react9.useState)(/* @__PURE__ */ new Map());
+  const [chunkBuffer, setChunkBuffer] = (0, import_react9.useState)("");
+  const [showModal, setShowModal] = (0, import_react9.useState)(false);
+  const [isGenerating, setIsGenerating] = (0, import_react9.useState)(false);
+  const [generationStage, setGenerationStage] = (0, import_react9.useState)("");
+  const [pulseMessage, setPulseMessage] = (0, import_react9.useState)(null);
+  const [pulseDetail, setPulseDetail] = (0, import_react9.useState)(null);
+  const [error2, setError] = (0, import_react9.useState)(null);
+  const [mismatchReport, setMismatchReport] = (0, import_react9.useState)(null);
+  const [heatmapEnabled, setHeatmapEnabled] = (0, import_react9.useState)(true);
+  const [spontaneity, setSpontaneity] = (0, import_react9.useState)(plugin.settings.spontaneitySlider || 50);
+  const [misses, setMisses] = (0, import_react9.useState)([]);
+  const [rejections, setRejections] = (0, import_react9.useState)([]);
+  const [proposedMutation, setProposedMutation] = (0, import_react9.useState)(null);
+  const [trustSummary, setTrustSummary] = (0, import_react9.useState)(null);
+  const [activeTab, setActiveTab] = (0, import_react9.useState)("editor");
+  const [suggestions, setSuggestions] = (0, import_react9.useState)([]);
+  const [isSuggestingDirections, setIsSuggestingDirections] = (0, import_react9.useState)(false);
+  const [suggestionsOpen, setSuggestionsOpen] = (0, import_react9.useState)(false);
+  const [showAdvancedMenu, setShowAdvancedMenu] = (0, import_react9.useState)(false);
+  const [planText, setPlanText] = (0, import_react9.useState)("");
+  const [characterSourceFile, setCharacterSourceFile] = (0, import_react9.useState)(
     plugin.settings.characterExtractionSourcePath || plugin.settings.book2Path
   );
-  const [isExtractingCharacters, setIsExtractingCharacters] = (0, import_react8.useState)(false);
-  const [extractionProgress, setExtractionProgress] = (0, import_react8.useState)("");
-  const [characterInputText, setCharacterInputText] = (0, import_react8.useState)("");
-  const commitLock = (0, import_react8.useRef)(false);
-  (0, import_react8.useEffect)(() => {
+  const [isExtractingCharacters, setIsExtractingCharacters] = (0, import_react9.useState)(false);
+  const [extractionProgress, setExtractionProgress] = (0, import_react9.useState)("");
+  const [characterInputText, setCharacterInputText] = (0, import_react9.useState)("");
+  const commitLock = (0, import_react9.useRef)(false);
+  (0, import_react9.useEffect)(() => {
     const onStart = () => {
       setChunkBuffer("");
       setGeneratedText("");
       setGeneratedParagraphs([]);
       setIsGenerating(true);
       setShowModal(true);
-      setShowPhaseTransition(false);
+      setPlanText("");
     };
-    const onPhaseTransition = () => {
-      setShowPhaseTransition(true);
+    const onPlanReady = (data) => {
+      setPlanText(data.planText);
     };
     const onStageStart = (data) => {
       setGenerationStage(`Executing ${data.type}...`);
@@ -27924,7 +27963,7 @@ var DashboardComponent = ({ plugin }) => {
       setRejections((prev) => [...prev, data]);
     };
     relayEventBus.on("run:start", onStart);
-    relayEventBus.on("phase:transition", onPhaseTransition);
+    relayEventBus.on("plan:ready", onPlanReady);
     relayEventBus.on("run:pulse", onPulse);
     relayEventBus.on("stage:start", onStageStart);
     relayEventBus.on("chunk:buffer:update", onBufferUpdate);
@@ -27937,7 +27976,7 @@ var DashboardComponent = ({ plugin }) => {
     relayEventBus.on("pilot:stitch_rejected", onStitchRejected);
     return () => {
       relayEventBus.off("run:start", onStart);
-      relayEventBus.off("phase:transition", onPhaseTransition);
+      relayEventBus.off("plan:ready", onPlanReady);
       relayEventBus.off("run:pulse", onPulse);
       relayEventBus.off("stage:start", onStageStart);
       relayEventBus.off("chunk:buffer:update", onBufferUpdate);
@@ -27982,9 +28021,9 @@ var DashboardComponent = ({ plugin }) => {
       new import_obsidian4.Notice(`Insert failed: ${err.message}`);
     }
   };
-  const handlePhase2Continue = (direction) => {
-    setShowPhaseTransition(false);
-    plugin.sequentialGenerator.providePhase2Direction(direction);
+  const handleApprovePlan = (editedPlanText) => {
+    setPlanText("");
+    plugin.sequentialGenerator.approvePlan(editedPlanText);
   };
   const handleInsertReviewed = async (text2) => {
     if (!text2.trim())
@@ -28175,7 +28214,7 @@ var DashboardComponent = ({ plugin }) => {
       setIsSuggestingDirections(false);
     }
   };
-  return /* @__PURE__ */ import_react8.default.createElement("div", { className: "writing-dashboard" }, /* @__PURE__ */ import_react8.default.createElement("div", { className: "dashboard-tabs" }, /* @__PURE__ */ import_react8.default.createElement(
+  return /* @__PURE__ */ import_react9.default.createElement("div", { className: "writing-dashboard" }, /* @__PURE__ */ import_react9.default.createElement("div", { className: "dashboard-tabs" }, /* @__PURE__ */ import_react9.default.createElement(
     "button",
     {
       className: activeTab === "editor" ? "active" : "",
@@ -28185,7 +28224,7 @@ var DashboardComponent = ({ plugin }) => {
       }
     },
     "Editor"
-  ), /* @__PURE__ */ import_react8.default.createElement("div", { className: "advanced-dropdown-wrapper" }, /* @__PURE__ */ import_react8.default.createElement(
+  ), /* @__PURE__ */ import_react9.default.createElement("div", { className: "advanced-dropdown-wrapper" }, /* @__PURE__ */ import_react9.default.createElement(
     "button",
     {
       className: `advanced-dropdown-trigger ${["lore", "replay", "characters"].includes(activeTab) ? "active" : ""}`,
@@ -28193,16 +28232,16 @@ var DashboardComponent = ({ plugin }) => {
     },
     "\u2699 Advanced ",
     showAdvancedMenu ? "\u25B2" : "\u25BE"
-  ), showAdvancedMenu && /* @__PURE__ */ import_react8.default.createElement("div", { className: "advanced-dropdown-menu" }, /* @__PURE__ */ import_react8.default.createElement("button", { onClick: () => {
+  ), showAdvancedMenu && /* @__PURE__ */ import_react9.default.createElement("div", { className: "advanced-dropdown-menu" }, /* @__PURE__ */ import_react9.default.createElement("button", { onClick: () => {
     setActiveTab("lore");
     setShowAdvancedMenu(false);
-  } }, "\u{1F50D} Lore Inspector"), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: () => {
+  } }, "\u{1F50D} Lore Inspector"), /* @__PURE__ */ import_react9.default.createElement("button", { onClick: () => {
     setActiveTab("replay");
     setShowAdvancedMenu(false);
-  } }, "\u{1F504} Replay History"), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: () => {
+  } }, "\u{1F504} Replay History"), /* @__PURE__ */ import_react9.default.createElement("button", { onClick: () => {
     setActiveTab("characters");
     setShowAdvancedMenu(false);
-  } }, "\u{1F464} Characters")))), /* @__PURE__ */ import_react8.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react8.default.createElement("div", { className: "main-workspace" }, /* @__PURE__ */ import_react8.default.createElement("div", { className: "tab-content-wrapper", style: { flex: "1 1 auto", overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px" } }, activeTab === "editor" && /* @__PURE__ */ import_react8.default.createElement(
+  } }, "\u{1F464} Characters")))), /* @__PURE__ */ import_react9.default.createElement("div", { className: "dashboard-layout" }, /* @__PURE__ */ import_react9.default.createElement("div", { className: "main-workspace" }, /* @__PURE__ */ import_react9.default.createElement("div", { className: "tab-content-wrapper", style: { flex: "1 1 auto", overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px" } }, activeTab === "editor" && /* @__PURE__ */ import_react9.default.createElement(
     EditorPanel,
     {
       plugin,
@@ -28226,7 +28265,7 @@ var DashboardComponent = ({ plugin }) => {
         setSuggestionsOpen(false);
       }
     }
-  ), activeTab === "lore" && /* @__PURE__ */ import_react8.default.createElement("div", { className: "lore-tab" }, /* @__PURE__ */ import_react8.default.createElement(
+  ), activeTab === "lore" && /* @__PURE__ */ import_react9.default.createElement("div", { className: "lore-tab" }, /* @__PURE__ */ import_react9.default.createElement(
     FactInspector,
     {
       plugin,
@@ -28245,7 +28284,7 @@ var DashboardComponent = ({ plugin }) => {
         constraints: { pov: "third", tense: "past", tone: [], forbidden: [] }
       }
     }
-  ), /* @__PURE__ */ import_react8.default.createElement(
+  ), /* @__PURE__ */ import_react9.default.createElement(
     PilotHealthPanel,
     {
       plugin,
@@ -28253,7 +28292,7 @@ var DashboardComponent = ({ plugin }) => {
       rejections,
       quarantineCount: 0
     }
-  )), activeTab === "replay" && /* @__PURE__ */ import_react8.default.createElement("div", { className: "replay-tab" }, /* @__PURE__ */ import_react8.default.createElement(ReplayPanel, { plugin })), activeTab === "characters" && /* @__PURE__ */ import_react8.default.createElement("div", { className: "characters-tab" }, /* @__PURE__ */ import_react8.default.createElement("div", { className: "editor-section" }, /* @__PURE__ */ import_react8.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 } }, /* @__PURE__ */ import_react8.default.createElement("label", null, "Paste narrative text for character extraction:"), /* @__PURE__ */ import_react8.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, TextChunker.getWordCount(characterInputText).toLocaleString(), " words / ", characterInputText.length.toLocaleString(), " chars")), /* @__PURE__ */ import_react8.default.createElement(
+  )), activeTab === "replay" && /* @__PURE__ */ import_react9.default.createElement("div", { className: "replay-tab" }, /* @__PURE__ */ import_react9.default.createElement(ReplayPanel, { plugin })), activeTab === "characters" && /* @__PURE__ */ import_react9.default.createElement("div", { className: "characters-tab" }, /* @__PURE__ */ import_react9.default.createElement("div", { className: "editor-section" }, /* @__PURE__ */ import_react9.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 } }, /* @__PURE__ */ import_react9.default.createElement("label", null, "Paste narrative text for character extraction:"), /* @__PURE__ */ import_react9.default.createElement("span", { className: "generation-status", style: { margin: 0 } }, TextChunker.getWordCount(characterInputText).toLocaleString(), " words / ", characterInputText.length.toLocaleString(), " chars")), /* @__PURE__ */ import_react9.default.createElement(
     "textarea",
     {
       value: characterInputText,
@@ -28262,7 +28301,7 @@ var DashboardComponent = ({ plugin }) => {
       rows: 12,
       className: "editor-textarea"
     }
-  )), /* @__PURE__ */ import_react8.default.createElement("div", { className: "character-update-controls" }, /* @__PURE__ */ import_react8.default.createElement(
+  )), /* @__PURE__ */ import_react9.default.createElement("div", { className: "character-update-controls" }, /* @__PURE__ */ import_react9.default.createElement(
     "button",
     {
       onClick: handleCharacterUpdate,
@@ -28270,7 +28309,7 @@ var DashboardComponent = ({ plugin }) => {
       className: "generate-button mod-cta"
     },
     isExtractingCharacters ? "Extracting..." : "Update Characters"
-  ), /* @__PURE__ */ import_react8.default.createElement("div", { className: "file-selection-row" }, /* @__PURE__ */ import_react8.default.createElement("span", { className: "file-label" }, "Source file: ", characterSourceFile?.split("/").pop() || "None selected"), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: handleSelectCharacterFile, disabled: isExtractingCharacters }, "Select file"), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: handleResetToBookMain, disabled: isExtractingCharacters }, "Use book main")), /* @__PURE__ */ import_react8.default.createElement(
+  ), /* @__PURE__ */ import_react9.default.createElement("div", { className: "file-selection-row" }, /* @__PURE__ */ import_react9.default.createElement("span", { className: "file-label" }, "Source file: ", characterSourceFile?.split("/").pop() || "None selected"), /* @__PURE__ */ import_react9.default.createElement("button", { onClick: handleSelectCharacterFile, disabled: isExtractingCharacters }, "Select file"), /* @__PURE__ */ import_react9.default.createElement("button", { onClick: handleResetToBookMain, disabled: isExtractingCharacters }, "Use book main")), /* @__PURE__ */ import_react9.default.createElement(
     "button",
     {
       onClick: handleProcessEntireBook,
@@ -28278,10 +28317,10 @@ var DashboardComponent = ({ plugin }) => {
       className: "generate-button"
     },
     isExtractingCharacters ? extractionProgress : "Process Entire Book"
-  )), /* @__PURE__ */ import_react8.default.createElement("div", { className: "character-help-text" }, /* @__PURE__ */ import_react8.default.createElement("p", null, /* @__PURE__ */ import_react8.default.createElement("strong", null, "Update Characters:"), " Extracts character info from the text above and updates notes in your Characters folder."), /* @__PURE__ */ import_react8.default.createElement("p", null, /* @__PURE__ */ import_react8.default.createElement("strong", null, "Process Entire Book:"), " 2-pass extraction (roster + per-chapter) from the selected file.")))), isGenerating && /* @__PURE__ */ import_react8.default.createElement("div", { className: "generation-status-overlay" }, /* @__PURE__ */ import_react8.default.createElement("div", { className: "loader" }, "\u23F3"), /* @__PURE__ */ import_react8.default.createElement("div", { className: "stage" }, generationStage), chunkBuffer && /* @__PURE__ */ import_react8.default.createElement("div", { className: `buffer-preview ${heatmapEnabled ? "heatmap" : ""}` }, chunkBuffer.split("\n").map((p, i) => {
+  )), /* @__PURE__ */ import_react9.default.createElement("div", { className: "character-help-text" }, /* @__PURE__ */ import_react9.default.createElement("p", null, /* @__PURE__ */ import_react9.default.createElement("strong", null, "Update Characters:"), " Extracts character info from the text above and updates notes in your Characters folder."), /* @__PURE__ */ import_react9.default.createElement("p", null, /* @__PURE__ */ import_react9.default.createElement("strong", null, "Process Entire Book:"), " 2-pass extraction (roster + per-chapter) from the selected file.")))), isGenerating && /* @__PURE__ */ import_react9.default.createElement("div", { className: "generation-status-overlay" }, /* @__PURE__ */ import_react9.default.createElement("div", { className: "loader" }, "\u23F3"), /* @__PURE__ */ import_react9.default.createElement("div", { className: "stage" }, generationStage), chunkBuffer && /* @__PURE__ */ import_react9.default.createElement("div", { className: `buffer-preview ${heatmapEnabled ? "heatmap" : ""}` }, chunkBuffer.split("\n").map((p, i) => {
     const isSpeculative = p.length % 2 === 0;
-    return /* @__PURE__ */ import_react8.default.createElement("p", { key: `chunk-${i}`, className: isSpeculative ? "speculative" : "grounded" }, p);
-  }))), proposedMutation && /* @__PURE__ */ import_react8.default.createElement("div", { className: "mutation-modal" }, /* @__PURE__ */ import_react8.default.createElement("h3", null, "Lore Mutation Proposal"), /* @__PURE__ */ import_react8.default.createElement("p", null, proposedMutation.message), /* @__PURE__ */ import_react8.default.createElement("div", { className: "actions" }, /* @__PURE__ */ import_react8.default.createElement("button", { onClick: () => setProposedMutation(null) }, "Reject"), /* @__PURE__ */ import_react8.default.createElement("button", { onClick: () => setProposedMutation(null) }, "Defer"), /* @__PURE__ */ import_react8.default.createElement("button", { className: "mod-cta", onClick: () => setProposedMutation(null) }, "Accept & Version Canon"))), trustSummary && /* @__PURE__ */ import_react8.default.createElement("div", { className: "trust-summary-banner" }, /* @__PURE__ */ import_react8.default.createElement("span", null, "Grounding: ", /* @__PURE__ */ import_react8.default.createElement("strong", null, trustSummary.grounding)), /* @__PURE__ */ import_react8.default.createElement("span", null, "Lore: ", /* @__PURE__ */ import_react8.default.createElement("strong", null, trustSummary.loreStatus)), /* @__PURE__ */ import_react8.default.createElement("span", null, "Canon Version: ", /* @__PURE__ */ import_react8.default.createElement("strong", null, trustSummary.version)), trustSummary.replayable && /* @__PURE__ */ import_react8.default.createElement("span", { className: "verified" }, "\u2713 Replayable")), mismatchReport && /* @__PURE__ */ import_react8.default.createElement("div", { className: "mismatch-report-banner" }, /* @__PURE__ */ import_react8.default.createElement("h3", null, "\u26A0\uFE0F Strict Replay Mismatch"), mismatchReport.map((m) => /* @__PURE__ */ import_react8.default.createElement("p", { key: `${m.field}-${m.expected}` }, /* @__PURE__ */ import_react8.default.createElement("strong", null, m.field, ":"), ' Expected "', m.expected.slice(0, 8), '", Got "', m.actual.slice(0, 8), '" (', m.severity, ")")), /* @__PURE__ */ import_react8.default.createElement("div", { className: "actions" }, /* @__PURE__ */ import_react8.default.createElement("button", { onClick: () => setMismatchReport(null) }, "Cancel Replay"), /* @__PURE__ */ import_react8.default.createElement("button", { className: "mod-cta", onClick: handleMismatchProceed }, "Proceed Creative (Best-Effort)"))), /* @__PURE__ */ import_react8.default.createElement("div", { className: "controls" }, /* @__PURE__ */ import_react8.default.createElement("div", { className: "spontaneity-control", style: { display: "flex", flexDirection: "column", gap: 4, flex: 1 } }, /* @__PURE__ */ import_react8.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "0.8em" } }, /* @__PURE__ */ import_react8.default.createElement("span", null, "Faithful"), /* @__PURE__ */ import_react8.default.createElement("span", null, "Spontaneity: ", spontaneity), /* @__PURE__ */ import_react8.default.createElement("span", null, "Wild")), /* @__PURE__ */ import_react8.default.createElement(
+    return /* @__PURE__ */ import_react9.default.createElement("p", { key: `chunk-${i}`, className: isSpeculative ? "speculative" : "grounded" }, p);
+  }))), proposedMutation && /* @__PURE__ */ import_react9.default.createElement("div", { className: "mutation-modal" }, /* @__PURE__ */ import_react9.default.createElement("h3", null, "Lore Mutation Proposal"), /* @__PURE__ */ import_react9.default.createElement("p", null, proposedMutation.message), /* @__PURE__ */ import_react9.default.createElement("div", { className: "actions" }, /* @__PURE__ */ import_react9.default.createElement("button", { onClick: () => setProposedMutation(null) }, "Reject"), /* @__PURE__ */ import_react9.default.createElement("button", { onClick: () => setProposedMutation(null) }, "Defer"), /* @__PURE__ */ import_react9.default.createElement("button", { className: "mod-cta", onClick: () => setProposedMutation(null) }, "Accept & Version Canon"))), trustSummary && /* @__PURE__ */ import_react9.default.createElement("div", { className: "trust-summary-banner" }, /* @__PURE__ */ import_react9.default.createElement("span", null, "Grounding: ", /* @__PURE__ */ import_react9.default.createElement("strong", null, trustSummary.grounding)), /* @__PURE__ */ import_react9.default.createElement("span", null, "Lore: ", /* @__PURE__ */ import_react9.default.createElement("strong", null, trustSummary.loreStatus)), /* @__PURE__ */ import_react9.default.createElement("span", null, "Canon Version: ", /* @__PURE__ */ import_react9.default.createElement("strong", null, trustSummary.version)), trustSummary.replayable && /* @__PURE__ */ import_react9.default.createElement("span", { className: "verified" }, "\u2713 Replayable")), mismatchReport && /* @__PURE__ */ import_react9.default.createElement("div", { className: "mismatch-report-banner" }, /* @__PURE__ */ import_react9.default.createElement("h3", null, "\u26A0\uFE0F Strict Replay Mismatch"), mismatchReport.map((m) => /* @__PURE__ */ import_react9.default.createElement("p", { key: `${m.field}-${m.expected}` }, /* @__PURE__ */ import_react9.default.createElement("strong", null, m.field, ":"), ' Expected "', m.expected.slice(0, 8), '", Got "', m.actual.slice(0, 8), '" (', m.severity, ")")), /* @__PURE__ */ import_react9.default.createElement("div", { className: "actions" }, /* @__PURE__ */ import_react9.default.createElement("button", { onClick: () => setMismatchReport(null) }, "Cancel Replay"), /* @__PURE__ */ import_react9.default.createElement("button", { className: "mod-cta", onClick: handleMismatchProceed }, "Proceed Creative (Best-Effort)"))), /* @__PURE__ */ import_react9.default.createElement("div", { className: "controls" }, /* @__PURE__ */ import_react9.default.createElement("div", { className: "spontaneity-control", style: { display: "flex", flexDirection: "column", gap: 4, flex: 1 } }, /* @__PURE__ */ import_react9.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "0.8em" } }, /* @__PURE__ */ import_react9.default.createElement("span", null, "Faithful"), /* @__PURE__ */ import_react9.default.createElement("span", null, "Spontaneity: ", spontaneity), /* @__PURE__ */ import_react9.default.createElement("span", null, "Wild")), /* @__PURE__ */ import_react9.default.createElement(
     "input",
     {
       type: "range",
@@ -28292,7 +28331,7 @@ var DashboardComponent = ({ plugin }) => {
       className: "spontaneity-slider",
       title: "Adjusts LLM temperature and novelty bias."
     }
-  )), /* @__PURE__ */ import_react8.default.createElement(
+  )), /* @__PURE__ */ import_react9.default.createElement(
     "button",
     {
       onClick: handleGenerate,
@@ -28300,14 +28339,14 @@ var DashboardComponent = ({ plugin }) => {
       className: "generate-button mod-cta"
     },
     isGenerating ? "Generating..." : "Generate"
-  ), !isGenerating && generatedText && /* @__PURE__ */ import_react8.default.createElement("button", { onClick: () => setShowModal(true), className: "generate-button insert-button" }, "\u2197 Review output"), /* @__PURE__ */ import_react8.default.createElement(
+  ), !isGenerating && generatedText && /* @__PURE__ */ import_react9.default.createElement("button", { onClick: () => setShowModal(true), className: "generate-button insert-button" }, "\u2197 Review output"), /* @__PURE__ */ import_react9.default.createElement(
     "button",
     {
       onClick: () => setHeatmapEnabled(!heatmapEnabled),
       className: `heatmap-toggle ${heatmapEnabled ? "active" : ""}`
     },
     heatmapEnabled ? "Hide Heatmap" : "Show Heatmap"
-  ), isGenerating && /* @__PURE__ */ import_react8.default.createElement("button", { onClick: () => plugin.sequentialGenerator.abort(), className: "abort-button" }, "Abort")), isGenerating && pulseMessage && /* @__PURE__ */ import_react8.default.createElement("div", { className: "continuity-pulse-container" }, /* @__PURE__ */ import_react8.default.createElement("div", { className: "pulse-message" }, /* @__PURE__ */ import_react8.default.createElement("span", { className: "pulse-icon" }, "\u269B\uFE0F"), /* @__PURE__ */ import_react8.default.createElement("strong", null, pulseMessage)), pulseDetail && /* @__PURE__ */ import_react8.default.createElement("div", { className: "pulse-detail" }, pulseDetail), /* @__PURE__ */ import_react8.default.createElement("div", { className: "pulse-progress-bar" }, /* @__PURE__ */ import_react8.default.createElement("div", { className: "pulse-progress-fill" }))))), showModal && /* @__PURE__ */ import_react8.default.createElement(
+  ), isGenerating && /* @__PURE__ */ import_react9.default.createElement("button", { onClick: () => plugin.sequentialGenerator.abort(), className: "abort-button" }, "Abort")), isGenerating && pulseMessage && /* @__PURE__ */ import_react9.default.createElement("div", { className: "continuity-pulse-container" }, /* @__PURE__ */ import_react9.default.createElement("div", { className: "pulse-message" }, /* @__PURE__ */ import_react9.default.createElement("span", { className: "pulse-icon" }, "\u269B\uFE0F"), /* @__PURE__ */ import_react9.default.createElement("strong", null, pulseMessage)), pulseDetail && /* @__PURE__ */ import_react9.default.createElement("div", { className: "pulse-detail" }, pulseDetail), /* @__PURE__ */ import_react9.default.createElement("div", { className: "pulse-progress-bar" }, /* @__PURE__ */ import_react9.default.createElement("div", { className: "pulse-progress-fill" }))))), showModal && /* @__PURE__ */ import_react9.default.createElement(
     GenerationModal,
     {
       isGenerating,
@@ -28316,8 +28355,8 @@ var DashboardComponent = ({ plugin }) => {
       generatedText,
       error: error2,
       plugin,
-      showPhaseTransition,
-      onPhase2Continue: handlePhase2Continue,
+      planText,
+      onApprovePlan: handleApprovePlan,
       onApprove: handleInsert,
       onPushReviewed: handleInsertReviewed,
       onDiscard: handleDiscard,
@@ -28351,7 +28390,7 @@ var DashboardView = class extends import_obsidian5.ItemView {
     const reactContainer = container.createDiv();
     this.reactRoot = (0, import_client2.createRoot)(reactContainer);
     this.reactRoot.render(
-      import_react9.default.createElement(DashboardComponent, { plugin: this.plugin })
+      import_react10.default.createElement(DashboardComponent, { plugin: this.plugin })
     );
     return Promise.resolve();
   }
@@ -28368,7 +28407,7 @@ var DashboardView = class extends import_obsidian5.ItemView {
 var import_obsidian9 = require("obsidian");
 
 // ui/SetupWizard.tsx
-var import_react10 = __toESM(require_react());
+var import_react11 = __toESM(require_react());
 var import_client3 = __toESM(require_client());
 var import_obsidian6 = require("obsidian");
 function getSetupItems(plugin) {
@@ -28432,7 +28471,7 @@ var SetupWizardModal = class extends import_obsidian6.Modal {
     const reactContainer = contentEl.createDiv();
     this.reactRoot = (0, import_client3.createRoot)(reactContainer);
     this.reactRoot.render(
-      import_react10.default.createElement(SetupWizardComponent, {
+      import_react11.default.createElement(SetupWizardComponent, {
         plugin: this.plugin,
         onClose: () => this.close()
       })
@@ -28446,10 +28485,10 @@ var SetupWizardModal = class extends import_obsidian6.Modal {
   }
 };
 var SetupWizardComponent = ({ plugin, onClose }) => {
-  const [items, setItems] = (0, import_react10.useState)([]);
-  const [isCreating, setIsCreating] = (0, import_react10.useState)(false);
-  const [result, setResult] = (0, import_react10.useState)(null);
-  (0, import_react10.useEffect)(() => {
+  const [items, setItems] = (0, import_react11.useState)([]);
+  const [isCreating, setIsCreating] = (0, import_react11.useState)(false);
+  const [result, setResult] = (0, import_react11.useState)(null);
+  (0, import_react11.useEffect)(() => {
     const checkItems = () => {
       const checkedItems = getSetupItems(plugin).map((item) => {
         const file = plugin.app.vault.getAbstractFileByPath(item.path);
@@ -28551,9 +28590,9 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
     }
   };
   if (result) {
-    return /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react10.default.createElement("h2", null, "Setup complete!"), result.created.length > 0 && /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-success" }, /* @__PURE__ */ import_react10.default.createElement("p", null, /* @__PURE__ */ import_react10.default.createElement("strong", null, "Created:")), /* @__PURE__ */ import_react10.default.createElement("ul", null, result.created.map((path) => /* @__PURE__ */ import_react10.default.createElement("li", { key: path }, path)))), result.skipped.length > 0 && /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-skipped" }, /* @__PURE__ */ import_react10.default.createElement("p", null, /* @__PURE__ */ import_react10.default.createElement("strong", null, "Skipped (already exist):")), /* @__PURE__ */ import_react10.default.createElement("ul", null, result.skipped.map((path) => /* @__PURE__ */ import_react10.default.createElement("li", { key: path }, path)))), /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react10.default.createElement("button", { onClick: handleRunGuidedDemo, className: "mod-cta" }, "Run guided demo"), /* @__PURE__ */ import_react10.default.createElement("button", { onClick: onClose, className: "mod-secondary" }, "Close")));
+    return /* @__PURE__ */ import_react11.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Setup complete!"), result.created.length > 0 && /* @__PURE__ */ import_react11.default.createElement("div", { className: "setup-success" }, /* @__PURE__ */ import_react11.default.createElement("p", null, /* @__PURE__ */ import_react11.default.createElement("strong", null, "Created:")), /* @__PURE__ */ import_react11.default.createElement("ul", null, result.created.map((path) => /* @__PURE__ */ import_react11.default.createElement("li", { key: path }, path)))), result.skipped.length > 0 && /* @__PURE__ */ import_react11.default.createElement("div", { className: "setup-skipped" }, /* @__PURE__ */ import_react11.default.createElement("p", null, /* @__PURE__ */ import_react11.default.createElement("strong", null, "Skipped (already exist):")), /* @__PURE__ */ import_react11.default.createElement("ul", null, result.skipped.map((path) => /* @__PURE__ */ import_react11.default.createElement("li", { key: path }, path)))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react11.default.createElement("button", { onClick: handleRunGuidedDemo, className: "mod-cta" }, "Run guided demo"), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: onClose, className: "mod-secondary" }, "Close")));
   }
-  return /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react10.default.createElement("h2", null, "Welcome to writing dashboard"), /* @__PURE__ */ import_react10.default.createElement("p", null, "Set up your writing workspace by selecting which files and folders to create:"), /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-items" }, items.map((item, index) => /* @__PURE__ */ import_react10.default.createElement("div", { key: item.path, className: "setup-item" }, /* @__PURE__ */ import_react10.default.createElement("label", { className: item.exists ? "disabled" : "" }, /* @__PURE__ */ import_react10.default.createElement(
+  return /* @__PURE__ */ import_react11.default.createElement("div", { className: "setup-wizard" }, /* @__PURE__ */ import_react11.default.createElement("h2", null, "Welcome to writing dashboard"), /* @__PURE__ */ import_react11.default.createElement("p", null, "Set up your writing workspace by selecting which files and folders to create:"), /* @__PURE__ */ import_react11.default.createElement("div", { className: "setup-items" }, items.map((item, index) => /* @__PURE__ */ import_react11.default.createElement("div", { key: item.path, className: "setup-item" }, /* @__PURE__ */ import_react11.default.createElement("label", { className: item.exists ? "disabled" : "" }, /* @__PURE__ */ import_react11.default.createElement(
     "input",
     {
       type: "checkbox",
@@ -28561,7 +28600,7 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
       disabled: item.exists || isCreating,
       onChange: () => handleToggle(index)
     }
-  ), /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-item-content" }, /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-item-header" }, /* @__PURE__ */ import_react10.default.createElement("strong", null, item.path), item.exists && /* @__PURE__ */ import_react10.default.createElement("span", { className: "exists-badge" }, "\u2713 Already exists")), /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-item-description" }, item.description), item.type === "file" && !item.exists && /* @__PURE__ */ import_react10.default.createElement("div", { style: { marginTop: "8px" } }, /* @__PURE__ */ import_react10.default.createElement(
+  ), /* @__PURE__ */ import_react11.default.createElement("div", { className: "setup-item-content" }, /* @__PURE__ */ import_react11.default.createElement("div", { className: "setup-item-header" }, /* @__PURE__ */ import_react11.default.createElement("strong", null, item.path), item.exists && /* @__PURE__ */ import_react11.default.createElement("span", { className: "exists-badge" }, "\u2713 Already exists")), /* @__PURE__ */ import_react11.default.createElement("div", { className: "setup-item-description" }, item.description), item.type === "file" && !item.exists && /* @__PURE__ */ import_react11.default.createElement("div", { style: { marginTop: "8px" } }, /* @__PURE__ */ import_react11.default.createElement(
     "button",
     {
       onClick: () => {
@@ -28581,7 +28620,7 @@ var SetupWizardComponent = ({ plugin, onClose }) => {
       disabled: isCreating
     },
     "Browse existing file"
-  ))))))), /* @__PURE__ */ import_react10.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react10.default.createElement("button", { onClick: onClose, disabled: isCreating, className: "mod-secondary" }, "Cancel"), /* @__PURE__ */ import_react10.default.createElement("button", { onClick: handleDontShowAgain, disabled: isCreating, className: "mod-secondary" }, "Don't show again"), /* @__PURE__ */ import_react10.default.createElement("button", { onClick: handleRunGuidedDemo, disabled: isCreating, className: "mod-secondary" }, "Run guided demo"), /* @__PURE__ */ import_react10.default.createElement(
+  ))))))), /* @__PURE__ */ import_react11.default.createElement("div", { className: "setup-actions" }, /* @__PURE__ */ import_react11.default.createElement("button", { onClick: onClose, disabled: isCreating, className: "mod-secondary" }, "Cancel"), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: handleDontShowAgain, disabled: isCreating, className: "mod-secondary" }, "Don't show again"), /* @__PURE__ */ import_react11.default.createElement("button", { onClick: handleRunGuidedDemo, disabled: isCreating, className: "mod-secondary" }, "Run guided demo"), /* @__PURE__ */ import_react11.default.createElement(
     "button",
     {
       onClick: handleCreate,
@@ -30615,41 +30654,44 @@ AUTHOR'S SCENE DIRECTIONS
 ${params.sceneSummary}
 
 ` : "";
-    return `You are a story architect. Generate a single, unified chapter plan that governs both halves of the generation. This plan is the contract between Phase 1 and Phase 2 \u2014 both writing stages will receive it in full.
+    return `You are a story architect. Generate a scene plan that will guide the writing of the next prose passage. The author will review and edit this plan before writing begins \u2014 treat it as a working document they can reshape.
 
 \u26A0 NARRATIVE WALL \u2014 CRAFT LANGUAGE STAYS HERE:
-Every term below (MICE, causation chain, phase obligations, etc.) is architect vocabulary. It describes what the prose must accomplish \u2014 it is NOT prose. The writer receiving this plan must never put these labels into the story text. "MICE driver", "Phase 1 obligation", "causation chain", "terminus" \u2014 none of these phrases exist in the fictional world. They are invisible scaffolding. Violating this rule is the definition of failure.
+Every term below (causation chain, scene outline, forbidden territory, etc.) is architect vocabulary. It describes what the prose must accomplish \u2014 it is NOT prose. The writer must never put these labels into the story text. None of these phrases exist in the fictional world. They are invisible scaffolding.
 
 ${plotBlock}${prevBlock}${currentBlock}${sceneSummaryBlock}${commandmentsBlock}-------------------------------------------------------------
-Generate the chapter plan using EXACTLY this structure:
+Generate the scene plan using EXACTLY this structure (separate each section with a blank line):
 -------------------------------------------------------------
 
-MICE DRIVER: [Milieu / Idea / Character / Event \u2014 use plain English, no jargon in the label value]
-(The single primary driver. The chapter is not complete until this driver has progressed.)
+SCENE INTENTION:
+[What this passage is about in plain English. What must move forward. What the reader must feel by the end that they did not feel at the start.]
 
 EMOTIONAL ARC:
-- Chapter opens: [reader's emotional state]
-- Phase 1 ends: [emotional state at the midpoint \u2014 a TURN, not resolution]
-- Chapter closes: [transformed emotional state \u2014 must differ from the open]
+- Opens: [reader's emotional state entering this passage]
+- Turns: [the moment something shifts \u2014 not resolution, a change of direction]
+- Lands: [where the reader is emotionally at the last word \u2014 must differ from Opens]
 
-CAUSATION CHAIN (reject the first, most obvious reason):
-- Surface event: [what literally happens]
-  \u2514\u2500 Because: [one level down]
-     \u2514\u2500 Because: [deeper cause]
-        \u2514\u2500 Because: [the actual reason \u2014 this is what matters]
+CAUSATION CHAIN:
+- Surface event: [what literally happens in the scene]
+  \u2514\u2500 Because: [one level down \u2014 why this event, not another]
+     \u2514\u2500 Because: [deeper \u2014 the character's real want or fear driving it]
+        \u2514\u2500 Because: [the actual reason \u2014 this is the story's engine]
 
-PHASE 1 OBLIGATIONS (what the first half must establish):
-1. [Specific condition or setup that must exist by the midpoint]
-2. [The precise tension point where Phase 1 ends \u2014 a question, not an answer]
+SCENE OUTLINE:
+[Numbered beat-by-beat breakdown of what happens in order. Be specific \u2014 name characters, locations, objects, lines of dialogue if relevant. The author will edit this directly before writing begins.]
+1.
+2.
+3.
+4.
+5.
 
-PHASE 2 OBLIGATIONS (what the second half must deliver):
-1. [Direct consequence of Phase 1's tension point]
-2. [How the MICE driver progresses or transforms]
-3. [The one thread left open for future chapters \u2014 do not resolve this]
+FORBIDDEN TERRITORY:
+- [Something that belongs in a later scene \u2014 name it]
+- [A character beat or plot point that would close loops too soon]
+- [Anything that would make this passage feel like an ending when it is not]
 
-FORBIDDEN TERRITORY (what this chapter must NOT do):
-- [Something that belongs to a later chapter \u2014 name it specifically]
-- [Another boundary \u2014 be specific]`;
+AUTHOR NOTES:
+[The author will fill this in during plan review. Whatever they write here flows directly into the writing prompt as additional context and direction.]`;
   }
   /**
    * Lightweight prompt for rewriting a single paragraph in the Review & Edit panel.
@@ -35344,14 +35386,10 @@ var SequentialGenerator = class {
     // Last 3 chunks
     this.currentSceneSummary = "";
     // Author's directions for the current run
-    // ── Two-phase generation state ──────────────────────────────────────────
-    this.currentPhase = 1;
-    // Active generation phase
-    this.phase2Direction = null;
-    // Optional midpoint steering (from author)
-    this.phase2DirectionResolver = null;
+    // ── Plan-gated generation state ─────────────────────────────────────────
     this.chapterPlan = "";
-    // Single OSC plan governing both phases
+    // Author-approved scene plan (set after plan review)
+    this.planApprovalResolver = null;
     this.lastAppliedSeqNo = /* @__PURE__ */ new Map();
     // seamId -> seqNo
     this.seamTaskCounters = /* @__PURE__ */ new Map();
@@ -35572,8 +35610,7 @@ ${currentChapter}
 """
 ` : "";
     const runAnchor = this._getLastChunkTail();
-    const phase1ProseWillProvide = this.currentPhase === 2 && this.rollingWindow.length > 0;
-    const runAnchorBlock = runAnchor && !phase1ProseWillProvide ? `
+    const runAnchorBlock = runAnchor ? `
 CONTINUATION ANCHOR \u2014 your first sentence must flow directly from:
 """${runAnchor}"""
 ` : "";
@@ -35589,40 +35626,20 @@ ${characterLoreText}
 WRITING COMMANDMENTS \u2014 these rules are non-negotiable and govern every paragraph:
 ${commandmentsText}
 ` : "";
-    const phase1ProseBlock = (() => {
-      if (this.currentPhase !== 2 || this.rollingWindow.length === 0)
-        return "";
-      const lastChunk = this.rollingWindow[this.rollingWindow.length - 1];
-      const phase1Text = lastChunk.map((p) => p.text).join("\n\n");
-      return phase1Text ? `
+    const generationDirective = `
 
-PHASE 1 PROSE \u2014 what you just wrote (continue seamlessly from the end of this; do NOT repeat it):
-"""
-${phase1Text}
-"""
-` : "";
-    })();
-    const phaseDirective = this.currentPhase === 1 ? `
-
-[GENERATION PHASE 1 \u2014 OPENING MOVEMENT]
-You are writing the first half of this chapter. Establish the situation, develop tension, build forward momentum. DO NOT resolve the scene arc or wrap anything up. End at a point of tension, decision, or revelation \u2014 somewhere the story wants to continue from.
-` : `
-
-[GENERATION PHASE 2 \u2014 FORWARD MOVEMENT]
-The story is already in motion. You are deepening and advancing it \u2014 not ending it.
+[WRITING DIRECTIVE]
+The story is in motion. Write what happens next.
 
 FORBIDDEN:
-- Do NOT wrap up the chapter as if writing the final page of a short story.
+- Do NOT wrap the passage as if it is the final page of a short story.
 - Do NOT summarize why a character is somewhere or how they got there.
-- Do NOT use the word "terminus" or any synonym meaning "end point" or "conclusion".
-- Do NOT re-establish the opening situation or recap Phase 1.
+- Do NOT re-establish situations already known to the reader.
+- Do NOT use "terminus" or any word meaning "endpoint" or "conclusion".
 
 REQUIRED:
-- The character must encounter something NEW \u2014 a discovery, intrusion, voice, object, or revelation they did not anticipate and did not put there.
-- This new thing must force them out of their own head and into an external EVENT.
-- End the chapter at the edge of that new thing \u2014 not after it, not summarizing it. Leave the reader in the moment it begins.${this.phase2Direction ? `
-
-AUTHOR'S MIDPOINT DIRECTION: ${this.phase2Direction}` : ""}
+- Follow the Scene Outline in the plan above. The author approved it.
+- End at a moment of forward motion \u2014 a decision pending, a new thing arriving, a question hanging.
 `;
     const sceneSummaryBlock = this.currentSceneSummary ? `
 
@@ -35631,16 +35648,16 @@ AUTHOR'S SCENE DIRECTIONS \u2014 realise this in your prose:
 ${this.currentSceneSummary}
 """
 ` : "";
-    const chapterPlanBlock = this.chapterPlan ? `CHAPTER PLAN (governs both phases \u2014 follow the obligations for Phase ${this.currentPhase}):
+    const chapterPlanBlock = this.chapterPlan ? `CHAPTER PLAN (author-approved \u2014 follow it):
 ${this.chapterPlan}
 
-\u26A0 NARRATIVE WALL: Every term above is craft vocabulary for you as author \u2014 MICE, causation chain, phase obligations, forbidden territory, terminus \u2014 NONE of these phrases belong in the prose. They are invisible to the reader. Writing any structural label into the story text is a critical failure.` : `PLAN: ${JSON.stringify(planResult.data)}`;
+\u26A0 NARRATIVE WALL: Every term above is craft vocabulary for you as author \u2014 causation chain, scene outline, forbidden territory, terminus \u2014 NONE of these phrases belong in the prose. They are invisible to the reader. Writing any structural label into the story text is a critical failure.` : `PLAN: ${JSON.stringify(planResult.data)}`;
     const prompt = `
                         ${stateCard}${plotMemoryBlock}
                         ${chapterPlanBlock}
-                        RETRIEVED FACTS: ${retrieved}${constraintBlock}${sceneSummaryBlock}${prevChapterBlock}${currentChapterBlock}${phase1ProseBlock}${runAnchorBlock}${characterLoreBlock}${commandmentsBlock}${phaseDirective}
+                        RETRIEVED FACTS: ${retrieved}${constraintBlock}${sceneSummaryBlock}${prevChapterBlock}${currentChapterBlock}${runAnchorBlock}${characterLoreBlock}${commandmentsBlock}${generationDirective}
 
-                        INSTRUCTION: Write approximately ${phaseTargetWords} words of clean, continuous prose. This is Phase ${this.currentPhase} of 2 \u2014 do not loop back, do not restart, do not produce more than one self-contained movement.
+                        INSTRUCTION: Write until the scene reaches its natural resting point. Upper limit: ${phaseTargetWords} words \u2014 this is a ceiling, not a target. Do not pad to reach it. Do not stop short of the scene's natural end.
                         Separate paragraphs with a blank line. Output the prose and nothing else \u2014 no JSON, no HTML tags, no paragraph IDs, no annotations, no metadata.
                         ${isDegraded ? "[Constraint: Do not introduce canonical facts about restricted domains.]" : ""}
                     `;
@@ -35661,22 +35678,22 @@ ${this.chapterPlan}
     }, stageManifest);
   }
   /**
-   * Pauses Phase 2 from starting until the author provides a midpoint direction
-   * (or skips). Resolved by providePhase2Direction() from the UI.
+   * Pauses writing until the author approves (and optionally edits) the scene plan.
+   * Resolved by approvePlan() called from the UI.
    */
-  _waitForPhase2Direction() {
+  _waitForPlanApproval() {
     return new Promise((resolve) => {
-      this.phase2DirectionResolver = resolve;
+      this.planApprovalResolver = resolve;
     });
   }
   /**
-   * Called by the UI when the author submits a midpoint direction or skips.
-   * Passing null means "use commandments only" — no extra steering.
+   * Called by the UI when the author approves the scene plan (possibly after editing).
+   * The approved text (which may differ from the AI's original) becomes the writing context.
    */
-  providePhase2Direction(direction) {
-    if (this.phase2DirectionResolver) {
-      this.phase2DirectionResolver(direction);
-      this.phase2DirectionResolver = null;
+  approvePlan(approvedPlanText) {
+    if (this.planApprovalResolver) {
+      this.planApprovalResolver(approvedPlanText);
+      this.planApprovalResolver = null;
     }
   }
   /**
@@ -35904,17 +35921,15 @@ Constraints:
     this.abortController = new AbortController();
     this.interventionCount = 0;
     this.interventionCountPerChunk.clear();
-    this.currentPhase = 1;
-    this.phase2Direction = null;
-    this.phase2DirectionResolver = null;
     this.chapterPlan = "";
+    this.planApprovalResolver = null;
     const initialState = this._buildInitialChapterState();
     gwlog("RUN", `run:start emitting | runId=${this.currentRunId} | chapterId=${initialState.chapterId}`);
     relayEventBus.emit("run:start", { runId: this.currentRunId, chapterId: initialState.chapterId });
     gwlog("RUN", "run:start emitted \u2192 modal should now be visible");
     let totalWords = 0;
     let contextManager = null;
-    const phaseTargetWords = Math.round(targetWordCount / 2);
+    const phaseTargetWords = targetWordCount;
     try {
       gwlog("SETUP", "acquireRunLock...");
       await this.acquireRunLock(this.currentRunKey);
@@ -35934,73 +35949,53 @@ Constraints:
       gwlog("SETUP", `seedFromStoryBible OK | hash=${seedResult.hash?.slice(0, 8) ?? "(none)"}`);
       const environment = await this._buildEnvironmentMeta(smartModel, policyHash, corpusHash);
       await this._initManifest(smartModel, null, policyHash, corpusHash, initialState, seedResult.hash, environment);
-      gwlog("SETUP", "manifest initialised \u2014 starting 2-phase generation (one plan, two writes)");
-      gwlog("PLAN", "Generating OSC chapter plan (governs both phases)...");
+      gwlog("SETUP", "manifest initialised \u2014 starting plan-gated generation");
+      gwlog("PLAN", "Generating scene plan...");
       const planResult = await this._runChapterPlanStage(smartProfile, contextManager);
       if (!planResult || this.checkControlFlow()) {
-        gwwarn("PLAN", "Chapter plan stage failed or aborted");
+        gwwarn("PLAN", "Scene plan stage failed or aborted");
       } else {
-        this.chapterPlan = String(planResult.data);
-        gwlog("PLAN", `Chapter plan ready | ${this.chapterPlan.length} chars`);
-        const { sliderValue, rawParams, effectiveNovelty } = this._getSpontaneityAndRisk(1, contextManager);
-        this._updateSpontaneityProfile(sliderValue, rawParams, effectiveNovelty);
-        gwlog("RETRIEVE", "Running retrieval (shared for both phases)...");
-        const retrieveResult = await this._runRetrieveStage(smartProfile, planResult, contextManager, effectiveNovelty, rawParams, 1);
-        if (!retrieveResult || this.checkControlFlow()) {
-          gwwarn("RETRIEVE", "Retrieval failed or aborted");
-        } else {
-          const { restrictedDomains, isDegraded } = this._computeDegradedDomains(planResult, retrieveResult);
-          if (isDegraded)
-            gwwarn("SETUP", `degraded mode | restrictedDomains=${restrictedDomains.join(",")}`);
-          this.currentPhase = 1;
-          gwlog("PHASE", `\u2501\u2501\u2501 Phase 1 of 2 | targetWords=${phaseTargetWords} \u2501\u2501\u2501`);
-          const phase1Result = await this._runWriteStage(smartProfile, planResult, retrieveResult, contextManager, 1, rawParams, isDegraded, restrictedDomains, phaseTargetWords);
-          if (phase1Result && !this.checkControlFlow()) {
-            if (isDegraded)
-              this._quarantineDegradedFacts(phase1Result, restrictedDomains);
-            const { text: chunk1, metadata: meta1 } = this.segmentAndRecover(phase1Result.data, []);
-            phase1Result.data = chunk1;
-            phase1Result.metadata = meta1;
-            gwlog("COMMIT", `Phase 1 commit | words=${gwWords(chunk1)}`);
-            await this.commitChunk(1, phase1Result.data, phase1Result.metadata);
-            await this._runUpdateStage(smartProfile, contextManager, phase1Result, 1);
-            totalWords += phase1Result.data.split(/\s+/).length;
-            gwlog("PHASE", `Phase 1 complete | words=${gwWords(phase1Result.data)} | total=${totalWords}`);
-            relayEventBus.emit("phase:transition", { phase1Words: totalWords, targetWords: targetWordCount });
-            const direction = await this._waitForPhase2Direction();
-            this.phase2Direction = direction;
-            gwlog("PHASE", `Phase 2 direction: "${direction ?? "none \u2014 commandments govern"}"`);
-            if (!this.checkControlFlow()) {
-              this.currentPhase = 2;
-              gwlog("PHASE", `\u2501\u2501\u2501 Phase 2 of 2 | targetWords=${phaseTargetWords} \u2501\u2501\u2501`);
-              const { sliderValue: sv2, rawParams: rp2, effectiveNovelty: en2 } = this._getSpontaneityAndRisk(2, contextManager);
-              this._updateSpontaneityProfile(sv2, rp2, en2);
-              const phase2Result = await this._runWriteStage(smartProfile, planResult, retrieveResult, contextManager, 2, rp2, isDegraded, restrictedDomains, phaseTargetWords);
-              if (phase2Result && !this.checkControlFlow()) {
-                if (isDegraded)
-                  this._quarantineDegradedFacts(phase2Result, restrictedDomains);
-                const { text: chunk2, metadata: meta2 } = this.segmentAndRecover(phase2Result.data, []);
-                phase2Result.data = chunk2;
-                phase2Result.metadata = meta2;
-                gwlog("COMMIT", `Phase 2 commit | words=${gwWords(chunk2)}`);
-                await this.commitChunk(2, phase2Result.data, phase2Result.metadata);
-                await this._runUpdateStage(smartProfile, contextManager, phase2Result, 2);
-                totalWords += phase2Result.data.split(/\s+/).length;
-                gwlog("PHASE", `Phase 2 complete | words=${gwWords(phase2Result.data)} | total=${totalWords}`);
-                if (this.shouldTriggerTelescoping(2, contextManager)) {
-                  await this.performTelescoping(2, contextManager);
-                }
-              } else {
-                gwwarn("PHASE", "Phase 2 write failed or aborted");
-              }
-            }
+        const rawPlanText = String(planResult.data);
+        gwlog("PLAN", `Scene plan generated | ${rawPlanText.length} chars \u2014 awaiting author approval`);
+        relayEventBus.emit("plan:ready", { planText: rawPlanText });
+        const approvedPlanText = await this._waitForPlanApproval();
+        this.chapterPlan = approvedPlanText;
+        gwlog("PLAN", `Plan approved | ${approvedPlanText.length} chars`);
+        if (!this.checkControlFlow()) {
+          const { sliderValue, rawParams, effectiveNovelty } = this._getSpontaneityAndRisk(1, contextManager);
+          this._updateSpontaneityProfile(sliderValue, rawParams, effectiveNovelty);
+          gwlog("RETRIEVE", "Running retrieval...");
+          const retrieveResult = await this._runRetrieveStage(smartProfile, planResult, contextManager, effectiveNovelty, rawParams, 1);
+          if (!retrieveResult || this.checkControlFlow()) {
+            gwwarn("RETRIEVE", "Retrieval failed or aborted");
           } else {
-            gwwarn("PHASE", "Phase 1 write failed or aborted");
+            const { restrictedDomains, isDegraded } = this._computeDegradedDomains(planResult, retrieveResult);
+            if (isDegraded)
+              gwwarn("SETUP", `degraded mode | restrictedDomains=${restrictedDomains.join(",")}`);
+            gwlog("WRITE", `Writing prose | ceiling=${phaseTargetWords} words`);
+            const writeResult = await this._runWriteStage(smartProfile, planResult, retrieveResult, contextManager, 1, rawParams, isDegraded, restrictedDomains, phaseTargetWords);
+            if (writeResult && !this.checkControlFlow()) {
+              if (isDegraded)
+                this._quarantineDegradedFacts(writeResult, restrictedDomains);
+              const { text: chunk, metadata: meta } = this.segmentAndRecover(writeResult.data, []);
+              writeResult.data = chunk;
+              writeResult.metadata = meta;
+              gwlog("COMMIT", `Committing | words=${gwWords(chunk)}`);
+              await this.commitChunk(1, writeResult.data, writeResult.metadata);
+              await this._runUpdateStage(smartProfile, contextManager, writeResult, 1);
+              totalWords += writeResult.data.split(/\s+/).length;
+              gwlog("WRITE", `Write complete | words=${gwWords(writeResult.data)} | total=${totalWords}`);
+              if (this.shouldTriggerTelescoping(1, contextManager)) {
+                await this.performTelescoping(1, contextManager);
+              }
+            } else {
+              gwwarn("WRITE", "Write stage failed or aborted");
+            }
+            await this.saveManifest();
           }
-          await this.saveManifest();
         }
       }
-      gwlog("RUN", `2-phase generation complete | totalWords=${totalWords} | state=${this.state}`);
+      gwlog("RUN", `Generation complete | totalWords=${totalWords} | state=${this.state}`);
       if (contextManager && (this.state === "RUNNING" || this.state === "RESUMING")) {
         gwlog("RUN", "_finalizeSuccessfulRun...");
         await this._finalizeSuccessfulRun(totalWords, contextManager);
@@ -38195,7 +38190,7 @@ var BookMainSelectorModal = class extends import_obsidian24.Modal {
 };
 
 // ui/PublishWizardModal.tsx
-var import_react13 = __toESM(require_react());
+var import_react14 = __toESM(require_react());
 var import_client6 = __toESM(require_client());
 var import_obsidian28 = require("obsidian");
 
@@ -44492,7 +44487,7 @@ var PublishWizardModal = class extends import_obsidian28.Modal {
     this.contentEl.empty();
     const container = this.contentEl.createDiv();
     this.reactRoot = (0, import_client6.createRoot)(container);
-    this.reactRoot.render(import_react13.default.createElement(PublishWizardComponent, { plugin: this.plugin, onClose: () => this.close() }));
+    this.reactRoot.render(import_react14.default.createElement(PublishWizardComponent, { plugin: this.plugin, onClose: () => this.close() }));
   }
   onClose() {
     this.reactRoot?.unmount();
@@ -44504,34 +44499,34 @@ var PublishWizardComponent = ({
   plugin,
   onClose
 }) => {
-  const [step, setStep] = (0, import_react13.useState)(1);
-  const [mode, setMode] = (0, import_react13.useState)("book-main");
-  const [sourcePath, setSourcePath] = (0, import_react13.useState)(plugin.settings.book2Path || "Book-Main.md");
-  const [tocPath, setTocPath] = (0, import_react13.useState)("");
-  const [title, setTitle] = (0, import_react13.useState)("Untitled");
-  const [subtitle, setSubtitle] = (0, import_react13.useState)("");
-  const [author, setAuthor] = (0, import_react13.useState)("");
-  const [language, setLanguage] = (0, import_react13.useState)("en");
-  const [includeTitlePage, setIncludeTitlePage] = (0, import_react13.useState)(true);
-  const [includeCopyrightPage, setIncludeCopyrightPage] = (0, import_react13.useState)(true);
-  const [licenseTemplateId, setLicenseTemplateId] = (0, import_react13.useState)("all-rights-reserved");
-  const [copyrightYear, setCopyrightYear] = (0, import_react13.useState)(currentYear());
-  const [copyrightHolder, setCopyrightHolder] = (0, import_react13.useState)("");
-  const [embedFonts, setEmbedFonts] = (0, import_react13.useState)(false);
-  const [fontRegular, setFontRegular] = (0, import_react13.useState)("");
-  const [fontBold, setFontBold] = (0, import_react13.useState)("");
-  const [fontItalic, setFontItalic] = (0, import_react13.useState)("");
-  const [fontBoldItalic, setFontBoldItalic] = (0, import_react13.useState)("");
-  const [outputFolder, setOutputFolder] = (0, import_react13.useState)("Exports");
-  const [outputFormat, setOutputFormat] = (0, import_react13.useState)("epub");
-  const [subsetMode, setSubsetMode] = (0, import_react13.useState)("all");
-  const [subsetChaptersCount, setSubsetChaptersCount] = (0, import_react13.useState)("3");
-  const [subsetWordsCount, setSubsetWordsCount] = (0, import_react13.useState)("5000");
-  const [outputFileName, setOutputFileName] = (0, import_react13.useState)("Untitled.epub");
-  const [isExporting, setIsExporting] = (0, import_react13.useState)(false);
-  const [progress, setProgress] = (0, import_react13.useState)("");
-  const [error2, setError] = (0, import_react13.useState)(null);
-  (0, import_react13.useEffect)(() => {
+  const [step, setStep] = (0, import_react14.useState)(1);
+  const [mode, setMode] = (0, import_react14.useState)("book-main");
+  const [sourcePath, setSourcePath] = (0, import_react14.useState)(plugin.settings.book2Path || "Book-Main.md");
+  const [tocPath, setTocPath] = (0, import_react14.useState)("");
+  const [title, setTitle] = (0, import_react14.useState)("Untitled");
+  const [subtitle, setSubtitle] = (0, import_react14.useState)("");
+  const [author, setAuthor] = (0, import_react14.useState)("");
+  const [language, setLanguage] = (0, import_react14.useState)("en");
+  const [includeTitlePage, setIncludeTitlePage] = (0, import_react14.useState)(true);
+  const [includeCopyrightPage, setIncludeCopyrightPage] = (0, import_react14.useState)(true);
+  const [licenseTemplateId, setLicenseTemplateId] = (0, import_react14.useState)("all-rights-reserved");
+  const [copyrightYear, setCopyrightYear] = (0, import_react14.useState)(currentYear());
+  const [copyrightHolder, setCopyrightHolder] = (0, import_react14.useState)("");
+  const [embedFonts, setEmbedFonts] = (0, import_react14.useState)(false);
+  const [fontRegular, setFontRegular] = (0, import_react14.useState)("");
+  const [fontBold, setFontBold] = (0, import_react14.useState)("");
+  const [fontItalic, setFontItalic] = (0, import_react14.useState)("");
+  const [fontBoldItalic, setFontBoldItalic] = (0, import_react14.useState)("");
+  const [outputFolder, setOutputFolder] = (0, import_react14.useState)("Exports");
+  const [outputFormat, setOutputFormat] = (0, import_react14.useState)("epub");
+  const [subsetMode, setSubsetMode] = (0, import_react14.useState)("all");
+  const [subsetChaptersCount, setSubsetChaptersCount] = (0, import_react14.useState)("3");
+  const [subsetWordsCount, setSubsetWordsCount] = (0, import_react14.useState)("5000");
+  const [outputFileName, setOutputFileName] = (0, import_react14.useState)("Untitled.epub");
+  const [isExporting, setIsExporting] = (0, import_react14.useState)(false);
+  const [progress, setProgress] = (0, import_react14.useState)("");
+  const [error2, setError] = (0, import_react14.useState)(null);
+  (0, import_react14.useEffect)(() => {
     const base2 = sanitizeFileName2(title || "Untitled");
     if (outputFormat === "epub")
       setOutputFileName(ensureEpubExt2(base2));
@@ -44568,7 +44563,7 @@ var PublishWizardComponent = ({
     }
     return out;
   };
-  const canNext = (0, import_react13.useMemo)(() => {
+  const canNext = (0, import_react14.useMemo)(() => {
     if (step === 1) {
       if (mode === "book-main")
         return Boolean(sourcePath.trim());
@@ -44711,7 +44706,7 @@ ${markdownToPlainText(c.markdown || "")}
       setIsExporting(false);
     }
   };
-  return /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-wizard" }, /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-steps" }, "Step ", step, " of 6"), step === 1 && /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("h2", null, "Source"), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("label", null, /* @__PURE__ */ import_react13.default.createElement(
+  return /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-wizard" }, /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-steps" }, "Step ", step, " of 6"), step === 1 && /* @__PURE__ */ import_react14.default.createElement("div", null, /* @__PURE__ */ import_react14.default.createElement("h2", null, "Source"), /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("label", null, /* @__PURE__ */ import_react14.default.createElement(
     "input",
     {
       type: "radio",
@@ -44719,7 +44714,7 @@ ${markdownToPlainText(c.markdown || "")}
       onChange: () => setMode("book-main"),
       disabled: isExporting
     }
-  ), "Book main (H1 chapters)"), /* @__PURE__ */ import_react13.default.createElement("label", { style: { marginLeft: 12 } }, /* @__PURE__ */ import_react13.default.createElement(
+  ), "Book main (H1 chapters)"), /* @__PURE__ */ import_react14.default.createElement("label", { style: { marginLeft: 12 } }, /* @__PURE__ */ import_react14.default.createElement(
     "input",
     {
       type: "radio",
@@ -44727,7 +44722,7 @@ ${markdownToPlainText(c.markdown || "")}
       onChange: () => setMode("toc-note"),
       disabled: isExporting
     }
-  ), "TOC note")), mode === "book-main" && /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Book main file"), /* @__PURE__ */ import_react13.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react13.default.createElement("input", { value: sourcePath, onChange: (e) => setSourcePath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react13.default.createElement(
+  ), "TOC note")), mode === "book-main" && /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "Book main file"), /* @__PURE__ */ import_react14.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react14.default.createElement("input", { value: sourcePath, onChange: (e) => setSourcePath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react14.default.createElement(
     "button",
     {
       onClick: () => pickMarkdownFile("Pick your manuscript note", (filePath) => {
@@ -44736,7 +44731,7 @@ ${markdownToPlainText(c.markdown || "")}
       disabled: isExporting
     },
     "Browse"
-  ))), mode === "toc-note" && /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "TOC note"), /* @__PURE__ */ import_react13.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react13.default.createElement("input", { value: tocPath, onChange: (e) => setTocPath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react13.default.createElement(
+  ))), mode === "toc-note" && /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "TOC note"), /* @__PURE__ */ import_react14.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react14.default.createElement("input", { value: tocPath, onChange: (e) => setTocPath(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react14.default.createElement(
     "button",
     {
       onClick: () => pickMarkdownFile("Pick your TOC note", (filePath) => {
@@ -44745,22 +44740,22 @@ ${markdownToPlainText(c.markdown || "")}
       disabled: isExporting
     },
     "Browse"
-  )))), step === 2 && /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("h2", null, "Metadata"), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Title"), /* @__PURE__ */ import_react13.default.createElement("input", { value: title, onChange: (e) => setTitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Subtitle (optional)"), /* @__PURE__ */ import_react13.default.createElement("input", { value: subtitle, onChange: (e) => setSubtitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Author"), /* @__PURE__ */ import_react13.default.createElement("input", { value: author, onChange: (e) => setAuthor(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Language"), /* @__PURE__ */ import_react13.default.createElement("input", { value: language, onChange: (e) => setLanguage(e.target.value), disabled: isExporting, placeholder: "en" }))), step === 3 && /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("h2", null, "Front matter"), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("label", null, /* @__PURE__ */ import_react13.default.createElement("input", { type: "checkbox", checked: includeTitlePage, onChange: (e) => setIncludeTitlePage(e.target.checked) }), "Title page")), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("label", null, /* @__PURE__ */ import_react13.default.createElement(
+  )))), step === 2 && /* @__PURE__ */ import_react14.default.createElement("div", null, /* @__PURE__ */ import_react14.default.createElement("h2", null, "Metadata"), /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "Title"), /* @__PURE__ */ import_react14.default.createElement("input", { value: title, onChange: (e) => setTitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "Subtitle (optional)"), /* @__PURE__ */ import_react14.default.createElement("input", { value: subtitle, onChange: (e) => setSubtitle(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "Author"), /* @__PURE__ */ import_react14.default.createElement("input", { value: author, onChange: (e) => setAuthor(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "Language"), /* @__PURE__ */ import_react14.default.createElement("input", { value: language, onChange: (e) => setLanguage(e.target.value), disabled: isExporting, placeholder: "en" }))), step === 3 && /* @__PURE__ */ import_react14.default.createElement("div", null, /* @__PURE__ */ import_react14.default.createElement("h2", null, "Front matter"), /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("label", null, /* @__PURE__ */ import_react14.default.createElement("input", { type: "checkbox", checked: includeTitlePage, onChange: (e) => setIncludeTitlePage(e.target.checked) }), "Title page")), /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("label", null, /* @__PURE__ */ import_react14.default.createElement(
     "input",
     {
       type: "checkbox",
       checked: includeCopyrightPage,
       onChange: (e) => setIncludeCopyrightPage(e.target.checked)
     }
-  ), "Copyright page")), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "License template"), /* @__PURE__ */ import_react13.default.createElement(
+  ), "Copyright page")), /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "License template"), /* @__PURE__ */ import_react14.default.createElement(
     "select",
     {
       value: licenseTemplateId,
       onChange: (e) => setLicenseTemplateId(e.target.value),
       disabled: isExporting
     },
-    LICENSE_TEMPLATES.map((t) => /* @__PURE__ */ import_react13.default.createElement("option", { key: t.id, value: t.id }, t.label))
-  )), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Copyright year"), /* @__PURE__ */ import_react13.default.createElement("input", { value: copyrightYear, onChange: (e) => setCopyrightYear(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Copyright holder"), /* @__PURE__ */ import_react13.default.createElement("input", { value: copyrightHolder, onChange: (e) => setCopyrightHolder(e.target.value), disabled: isExporting }))), step === 4 && /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("h2", null, "Typography"), /* @__PURE__ */ import_react13.default.createElement("p", null, "Default styling uses Literata if available on the reader device. You can embed your own font files to guarantee the look."), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("label", null, /* @__PURE__ */ import_react13.default.createElement("input", { type: "checkbox", checked: embedFonts, onChange: (e) => setEmbedFonts(e.target.checked), disabled: isExporting }), "Embed custom fonts")), embedFonts && /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Regular (required)"), /* @__PURE__ */ import_react13.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react13.default.createElement("input", { value: fontRegular, onChange: (e) => setFontRegular(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react13.default.createElement("button", { onClick: () => pickFontFile((f) => setFontRegular(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Bold"), /* @__PURE__ */ import_react13.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react13.default.createElement("input", { value: fontBold, onChange: (e) => setFontBold(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react13.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBold(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Italic"), /* @__PURE__ */ import_react13.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react13.default.createElement("input", { value: fontItalic, onChange: (e) => setFontItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react13.default.createElement("button", { onClick: () => pickFontFile((f) => setFontItalic(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Bold italic"), /* @__PURE__ */ import_react13.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react13.default.createElement("input", { value: fontBoldItalic, onChange: (e) => setFontBoldItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react13.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBoldItalic(f.path)), disabled: isExporting }, "Browse"))))), step === 5 && /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("h2", null, "Output"), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Format"), /* @__PURE__ */ import_react13.default.createElement("select", { value: outputFormat, onChange: (e) => setOutputFormat(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react13.default.createElement("option", { value: "epub" }, "Epub"), /* @__PURE__ */ import_react13.default.createElement("option", { value: "docx" }, "Docx"), /* @__PURE__ */ import_react13.default.createElement("option", { value: "rtf" }, "Rtf"), /* @__PURE__ */ import_react13.default.createElement("option", { value: "copy" }, "Plain text"))), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Export subset"), /* @__PURE__ */ import_react13.default.createElement("select", { value: subsetMode, onChange: (e) => setSubsetMode(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react13.default.createElement("option", { value: "all" }, "All chapters"), /* @__PURE__ */ import_react13.default.createElement("option", { value: "first-chapters" }, "First N chapters"), /* @__PURE__ */ import_react13.default.createElement("option", { value: "first-words" }, "First N words"))), subsetMode === "first-chapters" && /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Chapters"), /* @__PURE__ */ import_react13.default.createElement("input", { value: subsetChaptersCount, onChange: (e) => setSubsetChaptersCount(e.target.value), disabled: isExporting })), subsetMode === "first-words" && /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Words"), /* @__PURE__ */ import_react13.default.createElement("input", { value: subsetWordsCount, onChange: (e) => setSubsetWordsCount(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "Folder"), /* @__PURE__ */ import_react13.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react13.default.createElement("input", { value: outputFolder, onChange: (e) => setOutputFolder(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react13.default.createElement("button", { onClick: () => pickFolder((f) => setOutputFolder(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react13.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react13.default.createElement("div", null, "File name"), /* @__PURE__ */ import_react13.default.createElement("input", { value: outputFileName, onChange: (e) => setOutputFileName(e.target.value), disabled: isExporting }))), step === 6 && /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("h2", null, "Export"), /* @__PURE__ */ import_react13.default.createElement("p", null, "When you click Export, the plugin will compile your notes and write the output into your vault."), progress && /* @__PURE__ */ import_react13.default.createElement("div", { className: "generation-status" }, progress), error2 && /* @__PURE__ */ import_react13.default.createElement("div", { className: "error-message" }, "\u274C ", error2)), /* @__PURE__ */ import_react13.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 16 } }, /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("button", { onClick: onClose, className: "mod-secondary", disabled: isExporting }, "Close")), /* @__PURE__ */ import_react13.default.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ import_react13.default.createElement("button", { onClick: goBack, disabled: isExporting || step === 1 }, "Back"), step < 6 && /* @__PURE__ */ import_react13.default.createElement("button", { onClick: goNext, disabled: isExporting || !canNext, className: "mod-cta" }, "Next"), step === 6 && /* @__PURE__ */ import_react13.default.createElement("button", { onClick: doExport, disabled: isExporting, className: "mod-cta" }, "Export"))));
+    LICENSE_TEMPLATES.map((t) => /* @__PURE__ */ import_react14.default.createElement("option", { key: t.id, value: t.id }, t.label))
+  )), /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "Copyright year"), /* @__PURE__ */ import_react14.default.createElement("input", { value: copyrightYear, onChange: (e) => setCopyrightYear(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "Copyright holder"), /* @__PURE__ */ import_react14.default.createElement("input", { value: copyrightHolder, onChange: (e) => setCopyrightHolder(e.target.value), disabled: isExporting }))), step === 4 && /* @__PURE__ */ import_react14.default.createElement("div", null, /* @__PURE__ */ import_react14.default.createElement("h2", null, "Typography"), /* @__PURE__ */ import_react14.default.createElement("p", null, "Default styling uses Literata if available on the reader device. You can embed your own font files to guarantee the look."), /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("label", null, /* @__PURE__ */ import_react14.default.createElement("input", { type: "checkbox", checked: embedFonts, onChange: (e) => setEmbedFonts(e.target.checked), disabled: isExporting }), "Embed custom fonts")), embedFonts && /* @__PURE__ */ import_react14.default.createElement("div", null, /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "Regular (required)"), /* @__PURE__ */ import_react14.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react14.default.createElement("input", { value: fontRegular, onChange: (e) => setFontRegular(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react14.default.createElement("button", { onClick: () => pickFontFile((f) => setFontRegular(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "Bold"), /* @__PURE__ */ import_react14.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react14.default.createElement("input", { value: fontBold, onChange: (e) => setFontBold(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react14.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBold(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "Italic"), /* @__PURE__ */ import_react14.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react14.default.createElement("input", { value: fontItalic, onChange: (e) => setFontItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react14.default.createElement("button", { onClick: () => pickFontFile((f) => setFontItalic(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "Bold italic"), /* @__PURE__ */ import_react14.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react14.default.createElement("input", { value: fontBoldItalic, onChange: (e) => setFontBoldItalic(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react14.default.createElement("button", { onClick: () => pickFontFile((f) => setFontBoldItalic(f.path)), disabled: isExporting }, "Browse"))))), step === 5 && /* @__PURE__ */ import_react14.default.createElement("div", null, /* @__PURE__ */ import_react14.default.createElement("h2", null, "Output"), /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "Format"), /* @__PURE__ */ import_react14.default.createElement("select", { value: outputFormat, onChange: (e) => setOutputFormat(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react14.default.createElement("option", { value: "epub" }, "Epub"), /* @__PURE__ */ import_react14.default.createElement("option", { value: "docx" }, "Docx"), /* @__PURE__ */ import_react14.default.createElement("option", { value: "rtf" }, "Rtf"), /* @__PURE__ */ import_react14.default.createElement("option", { value: "copy" }, "Plain text"))), /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "Export subset"), /* @__PURE__ */ import_react14.default.createElement("select", { value: subsetMode, onChange: (e) => setSubsetMode(e.target.value), disabled: isExporting }, /* @__PURE__ */ import_react14.default.createElement("option", { value: "all" }, "All chapters"), /* @__PURE__ */ import_react14.default.createElement("option", { value: "first-chapters" }, "First N chapters"), /* @__PURE__ */ import_react14.default.createElement("option", { value: "first-words" }, "First N words"))), subsetMode === "first-chapters" && /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "Chapters"), /* @__PURE__ */ import_react14.default.createElement("input", { value: subsetChaptersCount, onChange: (e) => setSubsetChaptersCount(e.target.value), disabled: isExporting })), subsetMode === "first-words" && /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "Words"), /* @__PURE__ */ import_react14.default.createElement("input", { value: subsetWordsCount, onChange: (e) => setSubsetWordsCount(e.target.value), disabled: isExporting })), /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "Folder"), /* @__PURE__ */ import_react14.default.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ import_react14.default.createElement("input", { value: outputFolder, onChange: (e) => setOutputFolder(e.target.value), disabled: isExporting }), /* @__PURE__ */ import_react14.default.createElement("button", { onClick: () => pickFolder((f) => setOutputFolder(f.path)), disabled: isExporting }, "Browse"))), /* @__PURE__ */ import_react14.default.createElement("div", { className: "publish-row" }, /* @__PURE__ */ import_react14.default.createElement("div", null, "File name"), /* @__PURE__ */ import_react14.default.createElement("input", { value: outputFileName, onChange: (e) => setOutputFileName(e.target.value), disabled: isExporting }))), step === 6 && /* @__PURE__ */ import_react14.default.createElement("div", null, /* @__PURE__ */ import_react14.default.createElement("h2", null, "Export"), /* @__PURE__ */ import_react14.default.createElement("p", null, "When you click Export, the plugin will compile your notes and write the output into your vault."), progress && /* @__PURE__ */ import_react14.default.createElement("div", { className: "generation-status" }, progress), error2 && /* @__PURE__ */ import_react14.default.createElement("div", { className: "error-message" }, "\u274C ", error2)), /* @__PURE__ */ import_react14.default.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 16 } }, /* @__PURE__ */ import_react14.default.createElement("div", null, /* @__PURE__ */ import_react14.default.createElement("button", { onClick: onClose, className: "mod-secondary", disabled: isExporting }, "Close")), /* @__PURE__ */ import_react14.default.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ import_react14.default.createElement("button", { onClick: goBack, disabled: isExporting || step === 1 }, "Back"), step < 6 && /* @__PURE__ */ import_react14.default.createElement("button", { onClick: goNext, disabled: isExporting || !canNext, className: "mod-cta" }, "Next"), step === 6 && /* @__PURE__ */ import_react14.default.createElement("button", { onClick: doExport, disabled: isExporting, className: "mod-cta" }, "Export"))));
 };
 
 // main.ts
