@@ -26753,8 +26753,21 @@ var GenerationModal = ({
   }, [chunkBuffer, generatedText]);
   const committed = generatedText.trim();
   const streaming = chunkBuffer.trim();
-  const hasContent = committed || streaming;
-  const wordCount = TextChunker.getWordCount((committed + " " + streaming).trim());
+  const hasContent = !!(committed || streaming);
+  const fullText = committed + (streaming ? "\n\n" + streaming : "");
+  const wordCount = TextChunker.getWordCount(fullText.trim());
+  const handleCopyAll = () => {
+    navigator.clipboard.writeText(fullText.trim()).catch(() => {
+      const el = document.createElement("textarea");
+      el.value = fullText.trim();
+      el.style.position = "fixed";
+      el.style.opacity = "0";
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    });
+  };
   const headerContent = (() => {
     if (isGenerating) {
       return /* @__PURE__ */ import_react2.default.createElement(import_react2.default.Fragment, null, /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-gen-spinner" }, "\u23F3"), " ", generationStage || "Generating\u2026");
@@ -26764,7 +26777,26 @@ var GenerationModal = ({
     }
     return /* @__PURE__ */ import_react2.default.createElement(import_react2.default.Fragment, null, "\u2713 Done \u2014 ", wordCount.toLocaleString(), " words");
   })();
-  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-overlay" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-modal" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-header" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-title" }, headerContent), hasContent && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-wordcount" }, wordCount.toLocaleString(), " words")), /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-body", ref: bodyRef }, committed && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-committed" }, committed), streaming && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-streaming" }, streaming, isGenerating && /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-gen-cursor" }, "\u258C")), !hasContent && error2 && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-error-detail" }, /* @__PURE__ */ import_react2.default.createElement("p", null, /* @__PURE__ */ import_react2.default.createElement("strong", null, "Generation failed.")), /* @__PURE__ */ import_react2.default.createElement("p", null, error2), /* @__PURE__ */ import_react2.default.createElement("p", { style: { marginTop: 8, fontSize: "0.85em", color: "var(--text-muted)" } }, "Check your API key and model name in Settings, then try again.")), !hasContent && !error2 && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-waiting" }, "Waiting for output\u2026")), /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-footer" }, isGenerating ? /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-btn gw-btn-danger", onClick: onAbort }, "\u2715 Abort") : /* @__PURE__ */ import_react2.default.createElement(import_react2.default.Fragment, null, /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-btn gw-btn-danger", onClick: onDiscard }, "\u2715 Discard"), hasContent && /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-btn gw-btn-success", onClick: onApprove }, "\u2713 Approve & Insert")))));
+  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-overlay" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-modal" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-header" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-title" }, headerContent), /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-header-right" }, hasContent && /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-gen-wordcount" }, wordCount.toLocaleString(), " words"), hasContent && /* @__PURE__ */ import_react2.default.createElement(
+    "button",
+    {
+      className: "gw-btn gw-btn-copy",
+      onClick: handleCopyAll,
+      title: "Copy all generated text to clipboard"
+    },
+    "\u{1F4CB} Copy all"
+  ))), /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-body", ref: bodyRef }, hasContent && !isGenerating ? (
+    // Generation finished: show editable textarea so text is always
+    // selectable, copyable, and editable as an emergency fallback.
+    /* @__PURE__ */ import_react2.default.createElement(
+      "textarea",
+      {
+        className: "gw-gen-textarea",
+        defaultValue: fullText.trim(),
+        spellCheck: false
+      }
+    )
+  ) : /* @__PURE__ */ import_react2.default.createElement(import_react2.default.Fragment, null, committed && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-committed" }, committed), streaming && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-streaming" }, streaming, isGenerating && /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-gen-cursor" }, "\u258C"))), !hasContent && error2 && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-error-detail" }, /* @__PURE__ */ import_react2.default.createElement("p", null, /* @__PURE__ */ import_react2.default.createElement("strong", null, "Generation failed.")), /* @__PURE__ */ import_react2.default.createElement("p", null, error2), /* @__PURE__ */ import_react2.default.createElement("p", { style: { marginTop: 8, fontSize: "0.85em", color: "var(--text-muted)" } }, "Check your API key and model name in Settings, then try again.")), !hasContent && !error2 && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-waiting" }, "Waiting for output\u2026")), /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-footer" }, isGenerating ? /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-btn gw-btn-danger", onClick: onAbort }, "\u2715 Abort") : /* @__PURE__ */ import_react2.default.createElement(import_react2.default.Fragment, null, /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-btn gw-btn-danger", onClick: onDiscard }, "\u2715 Discard"), hasContent && /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-btn gw-btn-success", onClick: onApprove }, "\u2713 Approve & Insert")))));
 };
 
 // ui/FileTreePickerModal.tsx
@@ -28115,9 +28147,9 @@ var GEMINI_MODELS = [
   // ── Gemini 3.x — active previews (may require waitlist access) ─
   { value: "gemini-3-flash-preview", label: "Gemini 3 Flash Preview \u26A0 may require waitlist" },
   { value: "gemini-3.1-flash-lite-preview", label: "Gemini 3.1 Flash Lite Preview \u26A0 may require waitlist" },
-  // ── Deprecated / shut down ────────────────────────────────────
+  // ── Older / deprecated ────────────────────────────────────────
   { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash (Deprecated by Google)" },
-  { value: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro Preview \u2717 SHUT DOWN Mar 9 2026" }
+  { value: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro Preview" }
 ];
 var OPENROUTER_MODELS = [
   // ── Anthropic via OpenRouter ──────────────────────────────────
@@ -28135,7 +28167,7 @@ var OPENROUTER_MODELS = [
   { value: "google/gemini-2.5-flash", label: "\u2605 Google \u2014 Gemini 2.5 Flash (Recommended)" },
   { value: "google/gemini-2.5-pro", label: "Google \u2014 Gemini 2.5 Pro" },
   { value: "google/gemini-3-flash-preview-20251217", label: "Google \u2014 Gemini 3 Flash Preview \u26A0 waitlist" },
-  { value: "google/gemini-3.1-pro-preview", label: "Google \u2014 Gemini 3.1 Pro \u2717 SHUT DOWN Mar 9 2026" },
+  { value: "google/gemini-3.1-pro-preview", label: "Google \u2014 Gemini 3.1 Pro Preview" },
   // ── Meta Llama via OpenRouter ─────────────────────────────────
   { value: "meta-llama/llama-4-maverick", label: "Meta \u2014 Llama 4 Maverick (Best quality)" },
   { value: "meta-llama/llama-4-scout", label: "Meta \u2014 Llama 4 Scout (10M ctx)" },
@@ -28147,8 +28179,7 @@ var OPENROUTER_MODELS = [
   { value: "minimax/minimax-m2.5", label: "MiniMax \u2014 M2.5 (Most used on OR)" }
 ];
 var SHUTDOWN_MODELS = /* @__PURE__ */ new Set([
-  "gemini-3.1-pro-preview"
-  // Shut down March 9, 2026
+  // none currently — remove entries here if a model is confirmed back online
 ]);
 var RESTRICTED_PREVIEW_MODELS = /* @__PURE__ */ new Set([
   "gemini-3-flash-preview",
@@ -35259,7 +35290,6 @@ Constraints:
         const updateResult = await this._runUpdateStage(smartProfile, contextManager, writeResult, iteration);
         if (!updateResult)
           break;
-        this.checkQualityFloors(iteration);
         totalWords += writeResult.data.split(/\s+/).length;
         gwlog("LOOP", `iteration ${iteration} complete | chunkWords=${gwWords(writeResult.data)} | runningTotal=${totalWords}`);
         const shouldTelescope = this.shouldTriggerTelescoping(iteration, contextManager);
@@ -44256,17 +44286,6 @@ var WritingDashboardPlugin = class extends import_obsidian28.Plugin {
       },
       loaded
     );
-    const GEMINI_SHUTDOWN_MODELS = [
-      "gemini-3.1-pro-preview"
-      // Shut down March 9, 2026
-    ];
-    if (this.settings.apiProvider === "gemini" && GEMINI_SHUTDOWN_MODELS.includes(this.settings.model)) {
-      console.warn(
-        `[GoodWriter] Model "${this.settings.model}" was shut down by Google on March 9, 2026 and no longer exists. Migrating to gemini-2.5-flash.`
-      );
-      this.settings.model = "gemini-2.5-flash";
-      await this.saveData(this.settings);
-    }
   }
   async saveSettings() {
     await this.saveData(this.settings);

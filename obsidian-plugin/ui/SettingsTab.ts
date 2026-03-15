@@ -39,9 +39,9 @@ const GEMINI_MODELS = [
 	// ── Gemini 3.x — active previews (may require waitlist access) ─
 	{ value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview ⚠ may require waitlist' },
 	{ value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite Preview ⚠ may require waitlist' },
-	// ── Deprecated / shut down ────────────────────────────────────
+	// ── Older / deprecated ────────────────────────────────────────
 	{ value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Deprecated by Google)' },
-	{ value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview ✗ SHUT DOWN Mar 9 2026' },
+	{ value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview' },
 ];
 
 const OPENROUTER_MODELS = [
@@ -60,7 +60,7 @@ const OPENROUTER_MODELS = [
 	{ value: 'google/gemini-2.5-flash', label: '★ Google — Gemini 2.5 Flash (Recommended)' },
 	{ value: 'google/gemini-2.5-pro', label: 'Google — Gemini 2.5 Pro' },
 	{ value: 'google/gemini-3-flash-preview-20251217', label: 'Google — Gemini 3 Flash Preview ⚠ waitlist' },
-	{ value: 'google/gemini-3.1-pro-preview', label: 'Google — Gemini 3.1 Pro ✗ SHUT DOWN Mar 9 2026' },
+	{ value: 'google/gemini-3.1-pro-preview', label: 'Google — Gemini 3.1 Pro Preview' },
 	// ── Meta Llama via OpenRouter ─────────────────────────────────
 	{ value: 'meta-llama/llama-4-maverick', label: 'Meta — Llama 4 Maverick (Best quality)' },
 	{ value: 'meta-llama/llama-4-scout', label: 'Meta — Llama 4 Scout (10M ctx)' },
@@ -72,9 +72,9 @@ const OPENROUTER_MODELS = [
 	{ value: 'minimax/minimax-m2.5', label: 'MiniMax — M2.5 (Most used on OR)' }
 ];
 
-/** Model IDs that have been shut down by Google and will never work. */
-const SHUTDOWN_MODELS = new Set([
-	'gemini-3.1-pro-preview', // Shut down March 9, 2026
+/** Model IDs that have been confirmed shut down by Google and will never work. */
+const SHUTDOWN_MODELS = new Set<string>([
+	// none currently — remove entries here if a model is confirmed back online
 ]);
 
 /** Model IDs that exist but may require special waitlist/preview access from Google. */

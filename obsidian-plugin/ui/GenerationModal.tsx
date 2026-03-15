@@ -16,6 +16,11 @@ interface GenerationModalProps {
  * Full-screen overlay that appears the moment generation starts.
  * Text streams directly into it in real-time, scrolling automatically.
  * When generation finishes the footer switches to Approve & Insert / Discard.
+ *
+ * Emergency fallback: "📋 Copy all" button is always visible whenever there
+ * is content, regardless of generation state. When generation is done the
+ * body switches to an editable textarea so text can be freely selected,
+ * copied, and edited even if something went wrong with the normal flow.
  */
 export const GenerationModal: React.FC<GenerationModalProps> = ({
 	isGenerating,
@@ -29,7 +34,7 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 }) => {
 	const bodyRef = useRef<HTMLDivElement>(null);
 
-	// Auto-scroll to the bottom as new text arrives
+	// Auto-scroll to the bottom as new text arrives (streaming phase only)
 	useEffect(() => {
 		const el = bodyRef.current;
 		if (el) el.scrollTop = el.scrollHeight;
@@ -37,8 +42,24 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 
 	const committed = generatedText.trim();
 	const streaming = chunkBuffer.trim();
-	const hasContent = committed || streaming;
-	const wordCount = TextChunker.getWordCount((committed + ' ' + streaming).trim());
+	const hasContent = !!(committed || streaming);
+	const fullText = committed + (streaming ? '\n\n' + streaming : '');
+	const wordCount = TextChunker.getWordCount(fullText.trim());
+
+	// Copy all text to clipboard — works regardless of generation state
+	const handleCopyAll = () => {
+		navigator.clipboard.writeText(fullText.trim()).catch(() => {
+			// Fallback for environments where clipboard API is restricted
+			const el = document.createElement('textarea');
+			el.value = fullText.trim();
+			el.style.position = 'fixed';
+			el.style.opacity = '0';
+			document.body.appendChild(el);
+			el.select();
+			document.execCommand('copy');
+			document.body.removeChild(el);
+		});
+	};
 
 	// Determine header state
 	const headerContent = (() => {
@@ -60,23 +81,46 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 					<div className="gw-gen-title">
 						{headerContent}
 					</div>
-					{hasContent && (
-						<div className="gw-gen-wordcount">
-							{wordCount.toLocaleString()} words
-						</div>
-					)}
+					<div className="gw-gen-header-right">
+						{hasContent && (
+							<span className="gw-gen-wordcount">
+								{wordCount.toLocaleString()} words
+							</span>
+						)}
+						{hasContent && (
+							<button
+								className="gw-btn gw-btn-copy"
+								onClick={handleCopyAll}
+								title="Copy all generated text to clipboard"
+							>
+								📋 Copy all
+							</button>
+						)}
+					</div>
 				</div>
 
-				{/* ── Body — streaming prose ── */}
+				{/* ── Body — streaming prose (divs) → editable textarea when done ── */}
 				<div className="gw-gen-body" ref={bodyRef}>
-					{committed && (
-						<div className="gw-gen-committed">{committed}</div>
-					)}
-					{streaming && (
-						<div className="gw-gen-streaming">
-							{streaming}
-							{isGenerating && <span className="gw-gen-cursor">▌</span>}
-						</div>
+					{hasContent && !isGenerating ? (
+						// Generation finished: show editable textarea so text is always
+						// selectable, copyable, and editable as an emergency fallback.
+						<textarea
+							className="gw-gen-textarea"
+							defaultValue={fullText.trim()}
+							spellCheck={false}
+						/>
+					) : (
+						<>
+							{committed && (
+								<div className="gw-gen-committed">{committed}</div>
+							)}
+							{streaming && (
+								<div className="gw-gen-streaming">
+									{streaming}
+									{isGenerating && <span className="gw-gen-cursor">▌</span>}
+								</div>
+							)}
+						</>
 					)}
 					{!hasContent && error && (
 						<div className="gw-gen-error-detail">

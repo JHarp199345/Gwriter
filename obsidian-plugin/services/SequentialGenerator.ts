@@ -740,7 +740,11 @@ Constraints:
                 const updateResult = await this._runUpdateStage(smartProfile, contextManager, writeResult, iteration);
                 if (!updateResult) break;
 
-                this.checkQualityFloors(iteration);
+                // checkQualityFloors() removed — AUDIT was the data source for quality metadata
+                // and AUDIT has been removed. Without AUDIT populating write-stage metadata,
+                // checkQualityFloors() always sees 0 grounded paragraphs → triggers
+                // PAUSED_FOR_INTERVENTION after 2 chunks, blocking _finalizeSuccessfulRun.
+                // Quality gate is now the author's discernment during Approve & Insert.
 
                 totalWords += writeResult.data.split(/\s+/).length;
                 gwlog('LOOP', `iteration ${iteration} complete | chunkWords=${gwWords(writeResult.data)} | runningTotal=${totalWords}`);

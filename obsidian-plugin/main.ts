@@ -336,23 +336,6 @@ export default class WritingDashboardPlugin extends Plugin {
 			loaded
 		);
 
-		// Migrate: gemini-3.1-pro-preview was shut down by Google on March 9, 2026.
-		// Any user who still has it configured will get 429/404 errors on every run.
-		// Auto-correct to the current stable recommended model.
-		const GEMINI_SHUTDOWN_MODELS = [
-			'gemini-3.1-pro-preview', // Shut down March 9, 2026
-		];
-		if (
-			this.settings.apiProvider === 'gemini' &&
-			GEMINI_SHUTDOWN_MODELS.includes(this.settings.model)
-		) {
-			console.warn(
-				`[GoodWriter] Model "${this.settings.model}" was shut down by Google on March 9, 2026 ` +
-				`and no longer exists. Migrating to gemini-2.5-flash.`
-			);
-			this.settings.model = 'gemini-2.5-flash';
-			await this.saveData(this.settings);
-		}
 	}
 
 	async saveSettings() {
