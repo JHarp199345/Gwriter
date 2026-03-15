@@ -35451,7 +35451,7 @@ Produce a brief beat-by-beat plan that will be handed to the writer.`;
     const restrictedDomains = missedHardIntents.map((i) => i.domain || i.type);
     return { missedHardIntents, restrictedDomains, isDegraded: restrictedDomains.length > 0 };
   }
-  async _runWriteStage(smartProfile, planResult, retrieveResult, contextManager, iteration, rawParams, isDegraded, restrictedDomains) {
+  async _runWriteStage(smartProfile, planResult, retrieveResult, contextManager, iteration, rawParams, isDegraded, restrictedDomains, phaseTargetWords = 1500) {
     const stateCard = contextManager.renderStateCard();
     const retrieved = retrieveResult.data.map((r) => r.excerpt).join("\n\n");
     const plotMemory = contextManager.getState().plotMemory?.denseSummary || "";
@@ -35516,7 +35516,7 @@ ${this.currentSceneSummary}
                         PLAN: ${JSON.stringify(planResult.data)}
                         RETRIEVED FACTS: ${retrieved}${constraintBlock}${sceneSummaryBlock}${prevChapterBlock}${currentChapterBlock}${runAnchorBlock}${characterLoreBlock}${commandmentsBlock}${phaseDirective}
 
-                        INSTRUCTION: Write the next prose chunk as clean, continuous prose.
+                        INSTRUCTION: Write approximately ${phaseTargetWords} words of clean, continuous prose. This is Phase ${this.currentPhase} of 2 \u2014 do not loop back, do not restart, do not produce more than one self-contained movement.
                         Separate paragraphs with a blank line. Output the prose and nothing else \u2014 no JSON, no HTML tags, no paragraph IDs, no annotations, no metadata.
                         ${isDegraded ? "[Constraint: Do not introduce canonical facts about restricted domains.]" : ""}
                     `;
@@ -35788,8 +35788,8 @@ Constraints:
     relayEventBus.emit("run:start", { runId: this.currentRunId, chapterId: initialState.chapterId });
     gwlog("RUN", "run:start emitted \u2192 modal should now be visible");
     let totalWords = 0;
-    let iteration = 1;
     let contextManager = null;
+    const phaseTargetWords = Math.round(targetWordCount / 2);
     try {
       gwlog("SETUP", "acquireRunLock...");
       await this.acquireRunLock(this.currentRunKey);
@@ -35809,71 +35809,65 @@ Constraints:
       gwlog("SETUP", `seedFromStoryBible OK | hash=${seedResult.hash?.slice(0, 8) ?? "(none)"}`);
       const environment = await this._buildEnvironmentMeta(smartModel, policyHash, corpusHash);
       await this._initManifest(smartModel, null, policyHash, corpusHash, initialState, seedResult.hash, environment);
-      gwlog("SETUP", "manifest initialised \u2014 entering generation loop");
-      while (totalWords < targetWordCount && (this.state === "RUNNING" || this.state === "RESUMING")) {
+      gwlog("SETUP", "manifest initialised \u2014 starting 2-phase generation");
+      for (const phaseNum of [1, 2]) {
         if (this.checkControlFlow())
           break;
-        gwlog("LOOP", `\u2501\u2501\u2501 Iteration ${iteration} | totalWords so far=${totalWords} / target=${targetWordCount} \u2501\u2501\u2501`);
-        const { sliderValue, rawParams, effectiveNovelty } = this._getSpontaneityAndRisk(iteration, contextManager);
+        if (this.state !== "RUNNING" && this.state !== "RESUMING")
+          break;
+        this.currentPhase = phaseNum;
+        gwlog("PHASE", `\u2501\u2501\u2501 Phase ${phaseNum} of 2 | targetWords=${phaseTargetWords} \u2501\u2501\u2501`);
+        const { sliderValue, rawParams, effectiveNovelty } = this._getSpontaneityAndRisk(phaseNum, contextManager);
         this._updateSpontaneityProfile(sliderValue, rawParams, effectiveNovelty);
-        gwlog("LOOP", `spontaneity=${sliderValue} | temp=${rawParams.temp.toFixed(2)} | novelty=${effectiveNovelty.toFixed(2)}`);
-        gwlog("PLAN", `_runPlanStage start | iteration=${iteration}`);
-        const planResult = await this._runPlanStage(smartProfile, mechanicalProfile, initialState, iteration);
+        gwlog("PHASE", `spontaneity=${sliderValue} | temp=${rawParams.temp.toFixed(2)}`);
+        gwlog("PLAN", `_runPlanStage start | phase=${phaseNum}`);
+        const planResult = await this._runPlanStage(smartProfile, mechanicalProfile, initialState, phaseNum);
         if (!planResult) {
           gwwarn("PLAN", "planResult is null \u2014 breaking");
           break;
         }
-        gwlog("PLAN", `_runPlanStage OK | dataPreview="${gwSnip(String(planResult.data), 100)}"`);
-        gwlog("RETRIEVE", `_runRetrieveStage start | iteration=${iteration}`);
-        const retrieveResult = await this._runRetrieveStage(smartProfile, planResult, contextManager, effectiveNovelty, rawParams, iteration);
+        gwlog("RETRIEVE", `_runRetrieveStage start | phase=${phaseNum}`);
+        const retrieveResult = await this._runRetrieveStage(smartProfile, planResult, contextManager, effectiveNovelty, rawParams, phaseNum);
         if (!retrieveResult) {
           gwwarn("RETRIEVE", "retrieveResult is null \u2014 breaking");
           break;
         }
-        gwlog("RETRIEVE", `_runRetrieveStage OK | hits=${Array.isArray(retrieveResult.data) ? retrieveResult.data.length : "?"}`);
         const { restrictedDomains, isDegraded } = this._computeDegradedDomains(planResult, retrieveResult);
         if (isDegraded)
-          gwwarn("LOOP", `degraded mode | restrictedDomains=${restrictedDomains.join(",")}`);
-        gwlog("WRITE", `_runWriteStage start | iteration=${iteration}`);
-        const writeResult = await this._runWriteStage(smartProfile, planResult, retrieveResult, contextManager, iteration, rawParams, isDegraded, restrictedDomains);
+          gwwarn("PHASE", `degraded mode | restrictedDomains=${restrictedDomains.join(",")}`);
+        gwlog("WRITE", `_runWriteStage start | phase=${phaseNum} | phaseTargetWords=${phaseTargetWords}`);
+        const writeResult = await this._runWriteStage(smartProfile, planResult, retrieveResult, contextManager, phaseNum, rawParams, isDegraded, restrictedDomains, phaseTargetWords);
         if (!writeResult) {
           gwwarn("WRITE", "writeResult is null \u2014 breaking");
           break;
         }
-        gwlog("WRITE", `_runWriteStage OK | dataChars=${String(writeResult.data ?? "").length}`);
-        if (isDegraded) {
+        if (isDegraded)
           this._quarantineDegradedFacts(writeResult, restrictedDomains);
-        }
         const { text: chunkText, metadata: recoveredMeta } = this.segmentAndRecover(writeResult.data, []);
         writeResult.data = chunkText;
         writeResult.metadata = recoveredMeta;
-        gwlog("WRITE", `segmentAndRecover | words=${gwWords(chunkText)} | paragraphs=${chunkText.split(/\n\n/).filter((p) => p.trim()).length}`);
-        gwlog("COMMIT", `commitChunk | iteration=${iteration} | words=${gwWords(chunkText)}`);
-        await this.commitChunk(iteration, writeResult.data, writeResult.metadata);
-        gwlog("COMMIT", "commitChunk OK \u2014 chunk:committed emitted, text now in modal");
-        const updateResult = await this._runUpdateStage(smartProfile, contextManager, writeResult, iteration);
+        gwlog("COMMIT", `commitChunk | phase=${phaseNum} | words=${gwWords(chunkText)}`);
+        await this.commitChunk(phaseNum, writeResult.data, writeResult.metadata);
+        gwlog("COMMIT", "commitChunk OK");
+        const updateResult = await this._runUpdateStage(smartProfile, contextManager, writeResult, phaseNum);
         if (!updateResult)
           break;
         totalWords += writeResult.data.split(/\s+/).length;
-        gwlog("LOOP", `iteration ${iteration} complete | chunkWords=${gwWords(writeResult.data)} | runningTotal=${totalWords} | phase=${this.currentPhase}`);
-        if (this.currentPhase === 1 && totalWords >= targetWordCount / 2) {
-          gwlog("PHASE", `Phase 1 complete at ${totalWords} words \u2014 transitioning to Phase 2`);
-          this.currentPhase = 2;
+        gwlog("PHASE", `Phase ${phaseNum} complete | words=${gwWords(writeResult.data)} | runningTotal=${totalWords}`);
+        if (phaseNum === 1) {
           relayEventBus.emit("phase:transition", { phase1Words: totalWords, targetWords: targetWordCount });
           const direction = await this._waitForPhase2Direction();
           this.phase2Direction = direction;
-          gwlog("PHASE", `Phase 2 starting | direction="${direction ? direction.slice(0, 100) : "none (commandments only)"}"`);
+          gwlog("PHASE", `Phase 2 direction: "${direction ?? "none \u2014 commandments govern"}"`);
         }
-        const shouldTelescope = this.shouldTriggerTelescoping(iteration, contextManager);
+        const shouldTelescope = this.shouldTriggerTelescoping(phaseNum, contextManager);
         if (shouldTelescope) {
           gwlog("TELESCOPE", "triggering telescoping...");
-          await this.performTelescoping(iteration, contextManager);
-          gwlog("TELESCOPE", "telescoping done");
+          await this.performTelescoping(phaseNum, contextManager);
         }
-        iteration++;
         await this.saveManifest();
       }
-      gwlog("RUN", `loop exited | totalWords=${totalWords} | state=${this.state}`);
+      gwlog("RUN", `2-phase generation complete | totalWords=${totalWords} | state=${this.state}`);
       if (contextManager && (this.state === "RUNNING" || this.state === "RESUMING")) {
         gwlog("RUN", "_finalizeSuccessfulRun...");
         await this._finalizeSuccessfulRun(totalWords, contextManager);

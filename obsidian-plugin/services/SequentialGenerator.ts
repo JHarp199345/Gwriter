@@ -299,7 +299,8 @@ export class SequentialGenerator {
         iteration: number,
         rawParams: { temp: number; novelty: number; stickyMin: number },
         isDegraded: boolean,
-        restrictedDomains: string[]
+        restrictedDomains: string[],
+        phaseTargetWords: number = 1500
     ): Promise<StageResult | null> {
         const stateCard = contextManager.renderStateCard();
         const retrieved = retrieveResult.data.map((r: any) => r.excerpt).join('\n\n');
@@ -356,7 +357,7 @@ export class SequentialGenerator {
                         PLAN: ${JSON.stringify(planResult.data)}
                         RETRIEVED FACTS: ${retrieved}${constraintBlock}${sceneSummaryBlock}${prevChapterBlock}${currentChapterBlock}${runAnchorBlock}${characterLoreBlock}${commandmentsBlock}${phaseDirective}
 
-                        INSTRUCTION: Write the next prose chunk as clean, continuous prose.
+                        INSTRUCTION: Write approximately ${phaseTargetWords} words of clean, continuous prose. This is Phase ${this.currentPhase} of 2 — do not loop back, do not restart, do not produce more than one self-contained movement.
                         Separate paragraphs with a blank line. Output the prose and nothing else — no JSON, no HTML tags, no paragraph IDs, no annotations, no metadata.
                         ${isDegraded ? '[Constraint: Do not introduce canonical facts about restricted domains.]' : ''}
                     `;
@@ -696,8 +697,12 @@ Constraints:
         gwlog('RUN', 'run:start emitted → modal should now be visible');
 
         let totalWords = 0;
-        let iteration = 1;
         let contextManager: ContextManager | null = null;
+
+        // Each phase targets half the requested word count. The target is a
+        // guideline passed to the AI — not a loop termination condition.
+        // Generation is exactly 2 API calls: Phase 1 then Phase 2. Full stop.
+        const phaseTargetWords = Math.round(targetWordCount / 2);
 
         try {
             gwlog('SETUP', 'acquireRunLock...');
@@ -724,87 +729,69 @@ Constraints:
 
             const environment = await this._buildEnvironmentMeta(smartModel, policyHash, corpusHash);
             await this._initManifest(smartModel, null, policyHash, corpusHash, initialState, seedResult.hash, environment);
-            gwlog('SETUP', 'manifest initialised — entering generation loop');
+            gwlog('SETUP', 'manifest initialised — starting 2-phase generation');
 
-            while (totalWords < targetWordCount && (this.state === 'RUNNING' || this.state === 'RESUMING')) {
+            // ── Exactly 2 phases. No while loop. No word-count exit condition. ──
+            for (const phaseNum of [1, 2] as const) {
                 if (this.checkControlFlow()) break;
+                if (this.state !== 'RUNNING' && this.state !== 'RESUMING') break;
 
-                gwlog('LOOP', `━━━ Iteration ${iteration} | totalWords so far=${totalWords} / target=${targetWordCount} ━━━`);
+                this.currentPhase = phaseNum;
+                gwlog('PHASE', `━━━ Phase ${phaseNum} of 2 | targetWords=${phaseTargetWords} ━━━`);
 
-                const { sliderValue, rawParams, effectiveNovelty } = this._getSpontaneityAndRisk(iteration, contextManager);
+                const { sliderValue, rawParams, effectiveNovelty } = this._getSpontaneityAndRisk(phaseNum, contextManager);
                 this._updateSpontaneityProfile(sliderValue, rawParams, effectiveNovelty);
-                gwlog('LOOP', `spontaneity=${sliderValue} | temp=${rawParams.temp.toFixed(2)} | novelty=${effectiveNovelty.toFixed(2)}`);
+                gwlog('PHASE', `spontaneity=${sliderValue} | temp=${rawParams.temp.toFixed(2)}`);
 
-                gwlog('PLAN', `_runPlanStage start | iteration=${iteration}`);
-                const planResult = await this._runPlanStage(smartProfile, mechanicalProfile, initialState, iteration);
+                gwlog('PLAN', `_runPlanStage start | phase=${phaseNum}`);
+                const planResult = await this._runPlanStage(smartProfile, mechanicalProfile, initialState, phaseNum);
                 if (!planResult) { gwwarn('PLAN', 'planResult is null — breaking'); break; }
-                gwlog('PLAN', `_runPlanStage OK | dataPreview="${gwSnip(String(planResult.data), 100)}"`);
 
-                gwlog('RETRIEVE', `_runRetrieveStage start | iteration=${iteration}`);
-                const retrieveResult = await this._runRetrieveStage(smartProfile, planResult, contextManager, effectiveNovelty, rawParams, iteration);
+                gwlog('RETRIEVE', `_runRetrieveStage start | phase=${phaseNum}`);
+                const retrieveResult = await this._runRetrieveStage(smartProfile, planResult, contextManager, effectiveNovelty, rawParams, phaseNum);
                 if (!retrieveResult) { gwwarn('RETRIEVE', 'retrieveResult is null — breaking'); break; }
-                gwlog('RETRIEVE', `_runRetrieveStage OK | hits=${Array.isArray(retrieveResult.data) ? retrieveResult.data.length : '?'}`);
 
                 const { restrictedDomains, isDegraded } = this._computeDegradedDomains(planResult, retrieveResult);
-                if (isDegraded) gwwarn('LOOP', `degraded mode | restrictedDomains=${restrictedDomains.join(',')}`);
+                if (isDegraded) gwwarn('PHASE', `degraded mode | restrictedDomains=${restrictedDomains.join(',')}`);
 
-                gwlog('WRITE', `_runWriteStage start | iteration=${iteration}`);
-                const writeResult = await this._runWriteStage(smartProfile, planResult, retrieveResult, contextManager, iteration, rawParams, isDegraded, restrictedDomains);
+                gwlog('WRITE', `_runWriteStage start | phase=${phaseNum} | phaseTargetWords=${phaseTargetWords}`);
+                const writeResult = await this._runWriteStage(smartProfile, planResult, retrieveResult, contextManager, phaseNum, rawParams, isDegraded, restrictedDomains, phaseTargetWords);
                 if (!writeResult) { gwwarn('WRITE', 'writeResult is null — breaking'); break; }
-                gwlog('WRITE', `_runWriteStage OK | dataChars=${String(writeResult.data ?? '').length}`);
 
-                if (isDegraded) {
-                    this._quarantineDegradedFacts(writeResult, restrictedDomains);
-                }
+                if (isDegraded) this._quarantineDegradedFacts(writeResult, restrictedDomains);
 
                 const { text: chunkText, metadata: recoveredMeta } = this.segmentAndRecover(writeResult.data, []);
                 writeResult.data = chunkText;
                 writeResult.metadata = recoveredMeta;
-                gwlog('WRITE', `segmentAndRecover | words=${gwWords(chunkText)} | paragraphs=${chunkText.split(/\n\n/).filter(p=>p.trim()).length}`);
 
-                // ── Commit the prose FIRST so the modal always has text to approve ──
-                // AUDIT runs after commit; its failure never blocks what the user wrote.
-                gwlog('COMMIT', `commitChunk | iteration=${iteration} | words=${gwWords(chunkText)}`);
-                await this.commitChunk(iteration, writeResult.data, writeResult.metadata);
-                gwlog('COMMIT', 'commitChunk OK — chunk:committed emitted, text now in modal');
+                gwlog('COMMIT', `commitChunk | phase=${phaseNum} | words=${gwWords(chunkText)}`);
+                await this.commitChunk(phaseNum, writeResult.data, writeResult.metadata);
+                gwlog('COMMIT', 'commitChunk OK');
 
-                // AUDIT, intervention, and repair removed — the author's discernment
-                // is the quality gate. Clean prose is committed directly.
-
-                const updateResult = await this._runUpdateStage(smartProfile, contextManager, writeResult, iteration);
+                const updateResult = await this._runUpdateStage(smartProfile, contextManager, writeResult, phaseNum);
                 if (!updateResult) break;
 
-                // checkQualityFloors() removed — AUDIT was the data source for quality metadata
-                // and AUDIT has been removed. Without AUDIT populating write-stage metadata,
-                // checkQualityFloors() always sees 0 grounded paragraphs → triggers
-                // PAUSED_FOR_INTERVENTION after 2 chunks, blocking _finalizeSuccessfulRun.
-                // Quality gate is now the author's discernment during Approve & Insert.
-
                 totalWords += writeResult.data.split(/\s+/).length;
-                gwlog('LOOP', `iteration ${iteration} complete | chunkWords=${gwWords(writeResult.data)} | runningTotal=${totalWords} | phase=${this.currentPhase}`);
+                gwlog('PHASE', `Phase ${phaseNum} complete | words=${gwWords(writeResult.data)} | runningTotal=${totalWords}`);
 
-                // ── Phase 1 → Phase 2 transition ────────────────────────────────────
-                if (this.currentPhase === 1 && totalWords >= targetWordCount / 2) {
-                    gwlog('PHASE', `Phase 1 complete at ${totalWords} words — transitioning to Phase 2`);
-                    this.currentPhase = 2;
+                // After Phase 1: optional midpoint direction before Phase 2 starts
+                if (phaseNum === 1) {
                     relayEventBus.emit('phase:transition', { phase1Words: totalWords, targetWords: targetWordCount });
                     const direction = await this._waitForPhase2Direction();
                     this.phase2Direction = direction;
-                    gwlog('PHASE', `Phase 2 starting | direction="${direction ? direction.slice(0, 100) : 'none (commandments only)'}"`);
+                    gwlog('PHASE', `Phase 2 direction: "${direction ?? 'none — commandments govern'}"`);
                 }
 
-                const shouldTelescope = this.shouldTriggerTelescoping(iteration, contextManager);
+                const shouldTelescope = this.shouldTriggerTelescoping(phaseNum, contextManager);
                 if (shouldTelescope) {
                     gwlog('TELESCOPE', 'triggering telescoping...');
-                    await this.performTelescoping(iteration, contextManager);
-                    gwlog('TELESCOPE', 'telescoping done');
+                    await this.performTelescoping(phaseNum, contextManager);
                 }
 
-                iteration++;
                 await this.saveManifest();
             }
 
-            gwlog('RUN', `loop exited | totalWords=${totalWords} | state=${this.state}`);
+            gwlog('RUN', `2-phase generation complete | totalWords=${totalWords} | state=${this.state}`);
 
             if (contextManager && (this.state === 'RUNNING' || this.state === 'RESUMING')) {
                 gwlog('RUN', '_finalizeSuccessfulRun...');
