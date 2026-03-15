@@ -26740,6 +26740,7 @@ var GenerationModal = ({
   generationStage,
   chunkBuffer,
   generatedText,
+  error: error2,
   onApprove,
   onDiscard,
   onAbort
@@ -26752,8 +26753,18 @@ var GenerationModal = ({
   }, [chunkBuffer, generatedText]);
   const committed = generatedText.trim();
   const streaming = chunkBuffer.trim();
+  const hasContent = committed || streaming;
   const wordCount = TextChunker.getWordCount((committed + " " + streaming).trim());
-  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-overlay" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-modal" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-header" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-title" }, isGenerating ? /* @__PURE__ */ import_react2.default.createElement(import_react2.default.Fragment, null, /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-gen-spinner" }, "\u23F3"), " ", generationStage || "Generating\u2026") : /* @__PURE__ */ import_react2.default.createElement(import_react2.default.Fragment, null, "\u2713 Done \u2014 ", wordCount.toLocaleString(), " words")), /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-wordcount" }, wordCount.toLocaleString(), " words")), /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-body", ref: bodyRef }, committed && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-committed" }, committed), streaming && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-streaming" }, streaming, /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-gen-cursor" }, "\u258C")), !committed && !streaming && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-waiting" }, "Waiting for output\u2026")), /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-footer" }, isGenerating ? /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-btn gw-btn-danger", onClick: onAbort }, "\u2715 Abort") : /* @__PURE__ */ import_react2.default.createElement(import_react2.default.Fragment, null, /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-btn gw-btn-danger", onClick: onDiscard }, "\u2715 Discard"), /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-btn gw-btn-success", onClick: onApprove }, "\u2713 Approve & Insert")))));
+  const headerContent = (() => {
+    if (isGenerating) {
+      return /* @__PURE__ */ import_react2.default.createElement(import_react2.default.Fragment, null, /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-gen-spinner" }, "\u23F3"), " ", generationStage || "Generating\u2026");
+    }
+    if (error2 && !hasContent) {
+      return /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-gen-error" }, "\u26A0 ", error2);
+    }
+    return /* @__PURE__ */ import_react2.default.createElement(import_react2.default.Fragment, null, "\u2713 Done \u2014 ", wordCount.toLocaleString(), " words");
+  })();
+  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-overlay" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-modal" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-header" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-title" }, headerContent), hasContent && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-wordcount" }, wordCount.toLocaleString(), " words")), /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-body", ref: bodyRef }, committed && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-committed" }, committed), streaming && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-streaming" }, streaming, isGenerating && /* @__PURE__ */ import_react2.default.createElement("span", { className: "gw-gen-cursor" }, "\u258C")), !hasContent && error2 && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-error-detail" }, /* @__PURE__ */ import_react2.default.createElement("p", null, /* @__PURE__ */ import_react2.default.createElement("strong", null, "Generation failed.")), /* @__PURE__ */ import_react2.default.createElement("p", null, error2), /* @__PURE__ */ import_react2.default.createElement("p", { style: { marginTop: 8, fontSize: "0.85em", color: "var(--text-muted)" } }, "Check your API key and model name in Settings, then try again.")), !hasContent && !error2 && /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-waiting" }, "Waiting for output\u2026")), /* @__PURE__ */ import_react2.default.createElement("div", { className: "gw-gen-footer" }, isGenerating ? /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-btn gw-btn-danger", onClick: onAbort }, "\u2715 Abort") : /* @__PURE__ */ import_react2.default.createElement(import_react2.default.Fragment, null, /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-btn gw-btn-danger", onClick: onDiscard }, "\u2715 Discard"), hasContent && /* @__PURE__ */ import_react2.default.createElement("button", { className: "gw-btn gw-btn-success", onClick: onApprove }, "\u2713 Approve & Insert")))));
 };
 
 // ui/FileTreePickerModal.tsx
@@ -27502,20 +27513,27 @@ var DashboardComponent = ({ plugin }) => {
     setShowModal(false);
   };
   const handleGenerate = async () => {
-    if (mode === "chapter") {
-      setError(null);
-      const targetWords = plugin.settings.maxChunkWords || 2500;
-      await plugin.sequentialGenerator.generateChapter(targetWords, {
-        sceneSummary: modeState.chapter.sceneSummary
-      });
-    } else if (mode === "micro-edit") {
-      setError(null);
-      await plugin.sequentialGenerator.editChapter({
-        chapterText: modeState.microEdit.selectedPassage,
-        editInstructions: modeState.microEdit.grievances
-      });
-    } else {
-      new import_obsidian3.Notice("Relay generation is currently only available for Chapter and Micro-Edit modes.");
+    try {
+      if (mode === "chapter") {
+        setError(null);
+        const targetWords = plugin.settings.maxChunkWords || 2500;
+        await plugin.sequentialGenerator.generateChapter(targetWords, {
+          sceneSummary: modeState.chapter.sceneSummary
+        });
+      } else if (mode === "micro-edit") {
+        setError(null);
+        await plugin.sequentialGenerator.editChapter({
+          chapterText: modeState.microEdit.selectedPassage,
+          editInstructions: modeState.microEdit.grievances
+        });
+      } else {
+        new import_obsidian3.Notice("Relay generation is currently only available for Chapter and Micro-Edit modes.");
+      }
+    } catch (err) {
+      const msg = err?.message || String(err);
+      setError(msg);
+      setIsGenerating(false);
+      new import_obsidian3.Notice(`Generation error: ${msg}`);
     }
   };
   const handleUndo = (paraId) => {
@@ -27793,6 +27811,7 @@ var DashboardComponent = ({ plugin }) => {
       generationStage,
       chunkBuffer,
       generatedText,
+      error: error2,
       onApprove: handleInsert,
       onDiscard: handleDiscard,
       onAbort: () => {
@@ -34965,23 +34984,24 @@ Constraints:
     this.abortController = new AbortController();
     this.interventionCount = 0;
     this.interventionCountPerChunk.clear();
-    await this.acquireRunLock(this.currentRunKey);
-    const smartModel = this.plugin.settings.model;
-    const smartProfile = this.getTaskProfile("WRITE");
-    const mechanicalProfile = this.getTaskProfile("MECHANICAL");
-    const policyHash = await sha256(JSON.stringify(CO_AUTHORING_POLICY));
-    const corpusHash = await this.plugin.embeddingsIndex.getCorpusHash();
     const initialState = this._buildInitialChapterState();
-    const contextManager = new ContextManager(this.plugin.app.vault, initialState);
-    this.contextManager = contextManager;
-    this.verifySchemaDrift(initialState);
-    const seedResult = await contextManager.seedFromStoryBible(this.plugin.settings.storyBiblePath);
-    const environment = await this._buildEnvironmentMeta(smartModel, policyHash, corpusHash);
-    await this._initManifest(smartModel, null, policyHash, corpusHash, initialState, seedResult.hash, environment);
     relayEventBus.emit("run:start", { runId: this.currentRunId, chapterId: initialState.chapterId });
     let totalWords = 0;
     let iteration = 1;
+    let contextManager = null;
     try {
+      await this.acquireRunLock(this.currentRunKey);
+      const smartModel = this.plugin.settings.model;
+      const smartProfile = this.getTaskProfile("WRITE");
+      const mechanicalProfile = this.getTaskProfile("MECHANICAL");
+      const policyHash = await sha256(JSON.stringify(CO_AUTHORING_POLICY));
+      const corpusHash = await this.plugin.embeddingsIndex.getCorpusHash();
+      contextManager = new ContextManager(this.plugin.app.vault, initialState);
+      this.contextManager = contextManager;
+      this.verifySchemaDrift(initialState);
+      const seedResult = await contextManager.seedFromStoryBible(this.plugin.settings.storyBiblePath);
+      const environment = await this._buildEnvironmentMeta(smartModel, policyHash, corpusHash);
+      await this._initManifest(smartModel, null, policyHash, corpusHash, initialState, seedResult.hash, environment);
       while (totalWords < targetWordCount && (this.state === "RUNNING" || this.state === "RESUMING")) {
         if (this.checkControlFlow())
           break;
@@ -35004,10 +35024,15 @@ Constraints:
         const { text: chunkText, metadata: recoveredMeta } = this.segmentAndRecover(writeResult.data, []);
         writeResult.data = chunkText;
         writeResult.metadata = recoveredMeta;
-        const auditResult = await this._runAuditStage(smartProfile, mechanicalProfile, contextManager, chunkText, iteration);
-        if (!auditResult)
-          break;
-        const auditData = auditResult.data;
+        await this.commitChunk(iteration, writeResult.data, writeResult.metadata);
+        let auditData = { overallSeverity: 0, violations: [], summary: "" };
+        try {
+          const auditResult = await this._runAuditStage(smartProfile, mechanicalProfile, contextManager, chunkText, iteration);
+          if (auditResult)
+            auditData = auditResult.data;
+        } catch (auditErr) {
+          console.warn("[SequentialGenerator] Audit failed (non-blocking):", auditErr);
+        }
         const chunkId = `chunk-${iteration}`;
         const matrixCheck = this.shouldTriggerIntervention(auditData, chunkId);
         let interventionGuidance = null;
@@ -35034,7 +35059,6 @@ Constraints:
         );
         if (repairOutcome.cancelled)
           break;
-        await this.commitChunk(iteration, writeResult.data, writeResult.metadata);
         const updateResult = await this._runUpdateStage(smartProfile, contextManager, writeResult, iteration);
         if (!updateResult)
           break;
@@ -35047,12 +35071,12 @@ Constraints:
         iteration++;
         await this.saveManifest();
       }
-      if (this.state === "RUNNING" || this.state === "RESUMING") {
+      if (contextManager && (this.state === "RUNNING" || this.state === "RESUMING")) {
         await this._finalizeSuccessfulRun(totalWords, contextManager);
       }
     } catch (err) {
       this.state = "error";
-      relayEventBus.emit("run:error", { runId: this.currentRunId, error: err.message });
+      relayEventBus.emit("run:error", { runId: this.currentRunId, error: err.message || String(err) });
     } finally {
       if (this.currentRunKey) {
         await this.releaseRunLock(this.currentRunKey);

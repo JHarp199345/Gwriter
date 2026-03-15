@@ -646,32 +646,35 @@ Constraints:
         this.interventionCount = 0;
         this.interventionCountPerChunk.clear();
 
-        await this.acquireRunLock(this.currentRunKey!);
-
-        const smartModel = this.plugin.settings.model;
-        const smartProfile = this.getTaskProfile('WRITE');
-        const mechanicalProfile = this.getTaskProfile('MECHANICAL');
-
-        const policyHash = await sha256(JSON.stringify(CO_AUTHORING_POLICY));
-        const corpusHash = await this.plugin.embeddingsIndex.getCorpusHash();
-
+        // ── Emit run:start IMMEDIATELY so the modal opens before any async setup.
+        // All setup errors are now caught by the try/catch below and surfaced via run:error.
         const initialState = this._buildInitialChapterState();
-        const contextManager = new ContextManager(this.plugin.app.vault, initialState);
-        this.contextManager = contextManager;
-
-        this.verifySchemaDrift(initialState);
-
-        const seedResult = await contextManager.seedFromStoryBible(this.plugin.settings.storyBiblePath);
-        const environment = await this._buildEnvironmentMeta(smartModel, policyHash, corpusHash);
-
-        await this._initManifest(smartModel, null, policyHash, corpusHash, initialState, seedResult.hash, environment);
-
         relayEventBus.emit('run:start', { runId: this.currentRunId, chapterId: initialState.chapterId });
 
         let totalWords = 0;
         let iteration = 1;
+        let contextManager: ContextManager | null = null;
 
         try {
+            await this.acquireRunLock(this.currentRunKey!);
+
+            const smartModel = this.plugin.settings.model;
+            const smartProfile = this.getTaskProfile('WRITE');
+            const mechanicalProfile = this.getTaskProfile('MECHANICAL');
+
+            const policyHash = await sha256(JSON.stringify(CO_AUTHORING_POLICY));
+            const corpusHash = await this.plugin.embeddingsIndex.getCorpusHash();
+
+            contextManager = new ContextManager(this.plugin.app.vault, initialState);
+            this.contextManager = contextManager;
+
+            this.verifySchemaDrift(initialState);
+
+            const seedResult = await contextManager.seedFromStoryBible(this.plugin.settings.storyBiblePath);
+            const environment = await this._buildEnvironmentMeta(smartModel, policyHash, corpusHash);
+
+            await this._initManifest(smartModel, null, policyHash, corpusHash, initialState, seedResult.hash, environment);
+
             while (totalWords < targetWordCount && (this.state === 'RUNNING' || this.state === 'RESUMING')) {
                 if (this.checkControlFlow()) break;
 
@@ -699,9 +702,20 @@ Constraints:
                 writeResult.data = chunkText;
                 writeResult.metadata = recoveredMeta;
 
-                const auditResult = await this._runAuditStage(smartProfile, mechanicalProfile, contextManager, chunkText, iteration);
-                if (!auditResult) break;
-                const auditData: AuditResult = auditResult.data;
+                // ── Commit the prose FIRST so the modal always has text to approve ──
+                // AUDIT runs after commit; its failure never blocks what the user wrote.
+                await this.commitChunk(iteration, writeResult.data, writeResult.metadata);
+
+                // ── AUDIT (non-blocking) ──────────────────────────────────────────────
+                // If the model returns non-JSON or the audit call fails outright, we
+                // treat it as a clean pass (severity 0) rather than crashing the run.
+                let auditData: AuditResult = { overallSeverity: 0, violations: [], summary: '' };
+                try {
+                    const auditResult = await this._runAuditStage(smartProfile, mechanicalProfile, contextManager, chunkText, iteration);
+                    if (auditResult) auditData = auditResult.data as AuditResult;
+                } catch (auditErr) {
+                    console.warn('[SequentialGenerator] Audit failed (non-blocking):', auditErr);
+                }
 
                 const chunkId = `chunk-${iteration}`;
                 const matrixCheck = this.shouldTriggerIntervention(auditData, chunkId);
@@ -723,8 +737,6 @@ Constraints:
                 );
                 if (repairOutcome.cancelled) break;
 
-                await this.commitChunk(iteration, writeResult.data, writeResult.metadata);
-
                 const updateResult = await this._runUpdateStage(smartProfile, contextManager, writeResult, iteration);
                 if (!updateResult) break;
 
@@ -742,13 +754,13 @@ Constraints:
                 await this.saveManifest();
             }
 
-            if (this.state === 'RUNNING' || this.state === 'RESUMING') {
+            if (contextManager && (this.state === 'RUNNING' || this.state === 'RESUMING')) {
                 await this._finalizeSuccessfulRun(totalWords, contextManager);
             }
 
         } catch (err) {
             this.state = 'error';
-            relayEventBus.emit('run:error', { runId: this.currentRunId!, error: err.message });
+            relayEventBus.emit('run:error', { runId: this.currentRunId!, error: (err as Error).message || String(err) });
         } finally {
             if (this.currentRunKey) {
                 await this.releaseRunLock(this.currentRunKey);

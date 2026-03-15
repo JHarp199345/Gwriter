@@ -232,20 +232,27 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	};
 
 	const handleGenerate = async () => {
-		if (mode === 'chapter') {
-			setError(null);
-			const targetWords = plugin.settings.maxChunkWords || 2500;
-			await plugin.sequentialGenerator.generateChapter(targetWords, {
-				sceneSummary: modeState.chapter.sceneSummary
-			});
-		} else if (mode === 'micro-edit') {
-			setError(null);
-			await plugin.sequentialGenerator.editChapter({
-				chapterText: modeState.microEdit.selectedPassage,
-				editInstructions: modeState.microEdit.grievances
-			});
-		} else {
-			new Notice('Relay generation is currently only available for Chapter and Micro-Edit modes.');
+		try {
+			if (mode === 'chapter') {
+				setError(null);
+				const targetWords = plugin.settings.maxChunkWords || 2500;
+				await plugin.sequentialGenerator.generateChapter(targetWords, {
+					sceneSummary: modeState.chapter.sceneSummary
+				});
+			} else if (mode === 'micro-edit') {
+				setError(null);
+				await plugin.sequentialGenerator.editChapter({
+					chapterText: modeState.microEdit.selectedPassage,
+					editInstructions: modeState.microEdit.grievances
+				});
+			} else {
+				new Notice('Relay generation is currently only available for Chapter and Micro-Edit modes.');
+			}
+		} catch (err: any) {
+			const msg = err?.message || String(err);
+			setError(msg);
+			setIsGenerating(false);
+			new Notice(`Generation error: ${msg}`);
 		}
 	};
 
@@ -676,6 +683,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					generationStage={generationStage}
 					chunkBuffer={chunkBuffer}
 					generatedText={generatedText}
+					error={error}
 					onApprove={handleInsert}
 					onDiscard={handleDiscard}
 					onAbort={() => { plugin.sequentialGenerator.abort(); }}

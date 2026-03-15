@@ -6,6 +6,7 @@ interface GenerationModalProps {
 	generationStage: string;
 	chunkBuffer: string;
 	generatedText: string;
+	error?: string | null;
 	onApprove: () => void;
 	onDiscard: () => void;
 	onAbort: () => void;
@@ -21,6 +22,7 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 	generationStage,
 	chunkBuffer,
 	generatedText,
+	error,
 	onApprove,
 	onDiscard,
 	onAbort,
@@ -35,7 +37,19 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 
 	const committed = generatedText.trim();
 	const streaming = chunkBuffer.trim();
+	const hasContent = committed || streaming;
 	const wordCount = TextChunker.getWordCount((committed + ' ' + streaming).trim());
+
+	// Determine header state
+	const headerContent = (() => {
+		if (isGenerating) {
+			return <><span className="gw-gen-spinner">⏳</span> {generationStage || 'Generating…'}</>;
+		}
+		if (error && !hasContent) {
+			return <span className="gw-gen-error">⚠ {error}</span>;
+		}
+		return <>✓ Done — {wordCount.toLocaleString()} words</>;
+	})();
 
 	return (
 		<div className="gw-gen-overlay">
@@ -44,14 +58,13 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 				{/* ── Header ── */}
 				<div className="gw-gen-header">
 					<div className="gw-gen-title">
-						{isGenerating
-							? <><span className="gw-gen-spinner">⏳</span> {generationStage || 'Generating…'}</>
-							: <>✓ Done — {wordCount.toLocaleString()} words</>
-						}
+						{headerContent}
 					</div>
-					<div className="gw-gen-wordcount">
-						{wordCount.toLocaleString()} words
-					</div>
+					{hasContent && (
+						<div className="gw-gen-wordcount">
+							{wordCount.toLocaleString()} words
+						</div>
+					)}
 				</div>
 
 				{/* ── Body — streaming prose ── */}
@@ -62,10 +75,19 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 					{streaming && (
 						<div className="gw-gen-streaming">
 							{streaming}
-							<span className="gw-gen-cursor">▌</span>
+							{isGenerating && <span className="gw-gen-cursor">▌</span>}
 						</div>
 					)}
-					{!committed && !streaming && (
+					{!hasContent && error && (
+						<div className="gw-gen-error-detail">
+							<p><strong>Generation failed.</strong></p>
+							<p>{error}</p>
+							<p style={{ marginTop: 8, fontSize: '0.85em', color: 'var(--text-muted)' }}>
+								Check your API key and model name in Settings, then try again.
+							</p>
+						</div>
+					)}
+					{!hasContent && !error && (
 						<div className="gw-gen-waiting">Waiting for output…</div>
 					)}
 				</div>
@@ -81,9 +103,11 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 							<button className="gw-btn gw-btn-danger" onClick={onDiscard}>
 								✕ Discard
 							</button>
-							<button className="gw-btn gw-btn-success" onClick={onApprove}>
-								✓ Approve &amp; Insert
-							</button>
+							{hasContent && (
+								<button className="gw-btn gw-btn-success" onClick={onApprove}>
+									✓ Approve &amp; Insert
+								</button>
+							)}
 						</>
 					)}
 				</div>

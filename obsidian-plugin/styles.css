@@ -1056,6 +1056,19 @@
 	font-style: italic;
 }
 
+.gw-gen-error {
+	color: var(--text-error, #e05252);
+	font-weight: 600;
+}
+
+.gw-gen-error-detail {
+	padding: 16px;
+	color: var(--text-error, #e05252);
+	background: rgba(224, 82, 82, 0.08);
+	border-radius: 6px;
+	border: 1px solid rgba(224, 82, 82, 0.25);
+}
+
 .gw-gen-footer {
 	padding: 12px 20px;
 	border-top: 1px solid var(--background-modifier-border);
