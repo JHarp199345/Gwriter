@@ -583,11 +583,14 @@ OUTPUT FORMAT (JSON):
 
 		return `You are a story architect. Generate a single, unified chapter plan that governs both halves of the generation. This plan is the contract between Phase 1 and Phase 2 — both writing stages will receive it in full.
 
+⚠ NARRATIVE WALL — CRAFT LANGUAGE STAYS HERE:
+Every term below (MICE, causation chain, phase obligations, etc.) is architect vocabulary. It describes what the prose must accomplish — it is NOT prose. The writer receiving this plan must never put these labels into the story text. "MICE driver", "Phase 1 obligation", "causation chain", "terminus" — none of these phrases exist in the fictional world. They are invisible scaffolding. Violating this rule is the definition of failure.
+
 ${plotBlock}${prevBlock}${currentBlock}${sceneSummaryBlock}${commandmentsBlock}-------------------------------------------------------------
 Generate the chapter plan using EXACTLY this structure:
 -------------------------------------------------------------
 
-MICE DRIVER: [Milieu / Idea / Character / Event]
+MICE DRIVER: [Milieu / Idea / Character / Event — use plain English, no jargon in the label value]
 (The single primary driver. The chapter is not complete until this driver has progressed.)
 
 EMOTIONAL ARC:

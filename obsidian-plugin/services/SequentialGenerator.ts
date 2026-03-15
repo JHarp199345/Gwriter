@@ -353,10 +353,12 @@ export class SequentialGenerator {
             ? `\n\nCURRENT CHAPTER — EVERYTHING WRITTEN SO FAR (continue from this; do NOT repeat any of it):\n"""\n${currentChapter}\n"""\n`
             : '';
 
-        // Within-run continuity: if we've already committed chunks this run,
-        // pin to the exact last paragraph so chunks stitch together seamlessly.
+        // Within-run continuity: pin to the exact last paragraph so chunks stitch seamlessly.
+        // Skip when Phase 2 has the full Phase 1 prose block — the anchor is already inside
+        // that block and repeating it causes the AI to re-write the last paragraph verbatim.
         const runAnchor = this._getLastChunkTail();
-        const runAnchorBlock = runAnchor
+        const phase1ProseWillProvide = this.currentPhase === 2 && this.rollingWindow.length > 0;
+        const runAnchorBlock = runAnchor && !phase1ProseWillProvide
             ? `\nCONTINUATION ANCHOR — your first sentence must flow directly from:\n"""${runAnchor}"""\n`
             : '';
 
@@ -386,7 +388,7 @@ export class SequentialGenerator {
         // ── Phase-aware generation directive ───────────────────────────────────
         const phaseDirective = this.currentPhase === 1
             ? `\n\n[GENERATION PHASE 1 — OPENING MOVEMENT]\nYou are writing the first half of this chapter. Establish the situation, develop tension, build forward momentum. DO NOT resolve the scene arc or wrap anything up. End at a point of tension, decision, or revelation — somewhere the story wants to continue from.\n`
-            : `\n\n[GENERATION PHASE 2 — CLOSING MOVEMENT]\nYou are writing the CONCLUSION of this chapter. Every thread established in Phase 1 must now drive toward resolution. Close the primary arc. Leave at least one meaningful thread open for what comes next. DO NOT recap, re-establish the opening, or restart the narrative — the story is already in motion.${this.phase2Direction ? `\n\nAUTHOR'S MIDPOINT DIRECTION: ${this.phase2Direction}` : ''}\n`;
+            : `\n\n[GENERATION PHASE 2 — FORWARD MOVEMENT]\nThe story is already in motion. You are deepening and advancing it — not ending it.\n\nFORBIDDEN:\n- Do NOT wrap up the chapter as if writing the final page of a short story.\n- Do NOT summarize why a character is somewhere or how they got there.\n- Do NOT use the word "terminus" or any synonym meaning "end point" or "conclusion".\n- Do NOT re-establish the opening situation or recap Phase 1.\n\nREQUIRED:\n- The character must encounter something NEW — a discovery, intrusion, voice, object, or revelation they did not anticipate and did not put there.\n- This new thing must force them out of their own head and into an external EVENT.\n- End the chapter at the edge of that new thing — not after it, not summarizing it. Leave the reader in the moment it begins.${this.phase2Direction ? `\n\nAUTHOR'S MIDPOINT DIRECTION: ${this.phase2Direction}` : ''}\n`;
 
         // Scene summary — the author's directions for this specific scene
         const sceneSummaryBlock = this.currentSceneSummary
@@ -394,7 +396,7 @@ export class SequentialGenerator {
             : '';
 
         const chapterPlanBlock = this.chapterPlan
-            ? `CHAPTER PLAN (governs both phases — follow the obligations for Phase ${this.currentPhase}):\n${this.chapterPlan}`
+            ? `CHAPTER PLAN (governs both phases — follow the obligations for Phase ${this.currentPhase}):\n${this.chapterPlan}\n\n⚠ NARRATIVE WALL: Every term above is craft vocabulary for you as author — MICE, causation chain, phase obligations, forbidden territory, terminus — NONE of these phrases belong in the prose. They are invisible to the reader. Writing any structural label into the story text is a critical failure.`
             : `PLAN: ${JSON.stringify(planResult.data)}`;
 
         const prompt = `

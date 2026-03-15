@@ -30617,11 +30617,14 @@ ${params.sceneSummary}
 ` : "";
     return `You are a story architect. Generate a single, unified chapter plan that governs both halves of the generation. This plan is the contract between Phase 1 and Phase 2 \u2014 both writing stages will receive it in full.
 
+\u26A0 NARRATIVE WALL \u2014 CRAFT LANGUAGE STAYS HERE:
+Every term below (MICE, causation chain, phase obligations, etc.) is architect vocabulary. It describes what the prose must accomplish \u2014 it is NOT prose. The writer receiving this plan must never put these labels into the story text. "MICE driver", "Phase 1 obligation", "causation chain", "terminus" \u2014 none of these phrases exist in the fictional world. They are invisible scaffolding. Violating this rule is the definition of failure.
+
 ${plotBlock}${prevBlock}${currentBlock}${sceneSummaryBlock}${commandmentsBlock}-------------------------------------------------------------
 Generate the chapter plan using EXACTLY this structure:
 -------------------------------------------------------------
 
-MICE DRIVER: [Milieu / Idea / Character / Event]
+MICE DRIVER: [Milieu / Idea / Character / Event \u2014 use plain English, no jargon in the label value]
 (The single primary driver. The chapter is not complete until this driver has progressed.)
 
 EMOTIONAL ARC:
@@ -35569,7 +35572,8 @@ ${currentChapter}
 """
 ` : "";
     const runAnchor = this._getLastChunkTail();
-    const runAnchorBlock = runAnchor ? `
+    const phase1ProseWillProvide = this.currentPhase === 2 && this.rollingWindow.length > 0;
+    const runAnchorBlock = runAnchor && !phase1ProseWillProvide ? `
 CONTINUATION ANCHOR \u2014 your first sentence must flow directly from:
 """${runAnchor}"""
 ` : "";
@@ -35604,8 +35608,19 @@ ${phase1Text}
 You are writing the first half of this chapter. Establish the situation, develop tension, build forward momentum. DO NOT resolve the scene arc or wrap anything up. End at a point of tension, decision, or revelation \u2014 somewhere the story wants to continue from.
 ` : `
 
-[GENERATION PHASE 2 \u2014 CLOSING MOVEMENT]
-You are writing the CONCLUSION of this chapter. Every thread established in Phase 1 must now drive toward resolution. Close the primary arc. Leave at least one meaningful thread open for what comes next. DO NOT recap, re-establish the opening, or restart the narrative \u2014 the story is already in motion.${this.phase2Direction ? `
+[GENERATION PHASE 2 \u2014 FORWARD MOVEMENT]
+The story is already in motion. You are deepening and advancing it \u2014 not ending it.
+
+FORBIDDEN:
+- Do NOT wrap up the chapter as if writing the final page of a short story.
+- Do NOT summarize why a character is somewhere or how they got there.
+- Do NOT use the word "terminus" or any synonym meaning "end point" or "conclusion".
+- Do NOT re-establish the opening situation or recap Phase 1.
+
+REQUIRED:
+- The character must encounter something NEW \u2014 a discovery, intrusion, voice, object, or revelation they did not anticipate and did not put there.
+- This new thing must force them out of their own head and into an external EVENT.
+- End the chapter at the edge of that new thing \u2014 not after it, not summarizing it. Leave the reader in the moment it begins.${this.phase2Direction ? `
 
 AUTHOR'S MIDPOINT DIRECTION: ${this.phase2Direction}` : ""}
 `;
@@ -35617,7 +35632,9 @@ ${this.currentSceneSummary}
 """
 ` : "";
     const chapterPlanBlock = this.chapterPlan ? `CHAPTER PLAN (governs both phases \u2014 follow the obligations for Phase ${this.currentPhase}):
-${this.chapterPlan}` : `PLAN: ${JSON.stringify(planResult.data)}`;
+${this.chapterPlan}
+
+\u26A0 NARRATIVE WALL: Every term above is craft vocabulary for you as author \u2014 MICE, causation chain, phase obligations, forbidden territory, terminus \u2014 NONE of these phrases belong in the prose. They are invisible to the reader. Writing any structural label into the story text is a critical failure.` : `PLAN: ${JSON.stringify(planResult.data)}`;
     const prompt = `
                         ${stateCard}${plotMemoryBlock}
                         ${chapterPlanBlock}
