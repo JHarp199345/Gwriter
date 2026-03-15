@@ -27450,11 +27450,32 @@ var DashboardComponent = ({ plugin }) => {
       return next;
     });
   };
+  const handleInsert = async () => {
+    if (!generatedText)
+      return;
+    try {
+      let existing = "";
+      try {
+        existing = await plugin.vaultService.readFile(plugin.settings.book2Path);
+      } catch {
+      }
+      const separator = existing.trimEnd() ? "\n\n" : "";
+      await plugin.vaultService.writeFile(plugin.settings.book2Path, existing.trimEnd() + separator + generatedText);
+      new import_obsidian3.Notice("Inserted into manuscript.");
+      setGeneratedText("");
+      setGeneratedParagraphs([]);
+      setChunkBuffer("");
+    } catch (err) {
+      new import_obsidian3.Notice(`Insert failed: ${err.message}`);
+    }
+  };
   const handleGenerate = async () => {
     if (mode === "chapter") {
       setError(null);
-      const minCfg = modeState.chapter.minWords ?? 2e3;
-      await plugin.sequentialGenerator.generateChapter(minCfg);
+      const targetWords = plugin.settings.maxChunkWords || 2500;
+      await plugin.sequentialGenerator.generateChapter(targetWords, {
+        sceneSummary: modeState.chapter.sceneSummary
+      });
     } else if (mode === "micro-edit") {
       setError(null);
       await plugin.sequentialGenerator.editChapter({
@@ -27725,7 +27746,18 @@ var DashboardComponent = ({ plugin }) => {
       disabled: isGenerating,
       className: "generate-button mod-cta"
     },
-    isGenerating ? "Generating..." : "Start Relay Generation"
+    isGenerating ? "Generating..." : "Generate"
+  ), !isGenerating && generatedText && /* @__PURE__ */ import_react6.default.createElement("button", { onClick: handleInsert, className: "generate-button insert-button" }, "\u2713 Approve & Insert"), !isGenerating && generatedText && /* @__PURE__ */ import_react6.default.createElement(
+    "button",
+    {
+      onClick: () => {
+        setGeneratedText("");
+        setGeneratedParagraphs([]);
+        setChunkBuffer("");
+      },
+      className: "generate-button discard-button"
+    },
+    "\u2715 Discard"
   ), /* @__PURE__ */ import_react6.default.createElement(
     "button",
     {
@@ -34427,6 +34459,8 @@ var SequentialGenerator = class {
     // chunkId -> entityIds
     this.rollingWindow = [];
     // Last 3 chunks
+    this.currentSceneSummary = "";
+    // Author's directions for the current run
     this.lastAppliedSeqNo = /* @__PURE__ */ new Map();
     // seamId -> seqNo
     this.seamTaskCounters = /* @__PURE__ */ new Map();
@@ -34546,7 +34580,15 @@ var SequentialGenerator = class {
     };
   }
   async _runPlanStage(smartProfile, mechanicalProfile, initialState, iteration) {
-    const prompt = `Plan the next ${this.manifest.config.maxChunkWords} words for chapter ${initialState.chapterId}.`;
+    const sceneSummaryBlock = this.currentSceneSummary ? `
+
+AUTHOR'S SCENE DIRECTIONS \u2014 the prose must realise exactly this:
+"""
+${this.currentSceneSummary}
+"""` : "";
+    const prompt = `Plan the next ${this.manifest.config.maxChunkWords} words of narrative prose.${sceneSummaryBlock}
+
+Produce a brief beat-by-beat plan that will be handed to the writer.`;
     return this.runStage("PLAN", smartProfile.model, async () => {
       return await this.plugin.aiClient.generate(prompt, { ...this.plugin.settings, generationMode: "single" });
     }, void 0, await sha256(prompt));
@@ -34635,10 +34677,17 @@ ${styleSignature.slice(0, 5).join("\n\n---\n\n")}
 """
 Mirror the sentence rhythm, diction, narrative distance, and emotional register shown above. Do not default to generic AI prose patterns.
 ` : "";
+    const sceneSummaryBlock = this.currentSceneSummary ? `
+
+AUTHOR'S SCENE DIRECTIONS \u2014 realise this in your prose:
+"""
+${this.currentSceneSummary}
+"""
+` : "";
     const prompt = `
                         ${stateCard}${plotMemoryBlock}
                         PLAN: ${JSON.stringify(planResult.data)}
-                        RETRIEVED FACTS: ${retrieved}${constraintBlock}${prevChapterBlock}${currentChapterBlock}${runAnchorBlock}${characterLoreBlock}${styleBlock}
+                        RETRIEVED FACTS: ${retrieved}${constraintBlock}${sceneSummaryBlock}${prevChapterBlock}${currentChapterBlock}${runAnchorBlock}${characterLoreBlock}${styleBlock}
 
                         INSTRUCTION: Write the next prose chunk.
                         Use 
@@ -34871,6 +34920,7 @@ Constraints:
       new import_obsidian20.Notice("Generation is already running.");
       return;
     }
+    this.currentSceneSummary = opts?.sceneSummary?.trim() || "";
     this.dryRun = !!opts?.dryRun;
     if (this.dryRun) {
       new import_obsidian20.Notice("Running in DRY-RUN mode. No changes will be saved.");

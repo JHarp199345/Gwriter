@@ -509,6 +509,24 @@
 	cursor: not-allowed;
 }
 
+.insert-button {
+	background-color: var(--text-success) !important;
+	color: #fff !important;
+}
+
+.insert-button:hover {
+	filter: brightness(1.1);
+}
+
+.discard-button {
+	background-color: var(--background-modifier-error) !important;
+	color: #fff !important;
+}
+
+.discard-button:hover {
+	filter: brightness(1.1);
+}
+
 .mode-selector {
 	position: fixed;
 	bottom: 20px;

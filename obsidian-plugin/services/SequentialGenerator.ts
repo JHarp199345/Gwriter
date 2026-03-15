@@ -78,6 +78,7 @@ export class SequentialGenerator {
     private contextManager: ContextManager | null = null;
     private readonly entitiesMentionedHistory: Map<string, string[]> = new Map(); // chunkId -> entityIds
     private rollingWindow: { id: string, text: string, hash: string, status: 'STREAMING' | 'FINALIZED' | 'USER_DIRTY' }[][] = []; // Last 3 chunks
+    private currentSceneSummary: string = ''; // Author's directions for the current run
     private readonly lastAppliedSeqNo: Map<string, number> = new Map(); // seamId -> seqNo
     private readonly seamTaskCounters: Map<string, number> = new Map(); // seamId -> counter
     private readonly sessionId: string = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -223,7 +224,10 @@ export class SequentialGenerator {
         initialState: ChapterState,
         iteration: number
     ): Promise<StageResult | null> {
-        const prompt = `Plan the next ${this.manifest!.config.maxChunkWords} words for chapter ${initialState.chapterId}.`;
+        const sceneSummaryBlock = this.currentSceneSummary
+            ? `\n\nAUTHOR'S SCENE DIRECTIONS — the prose must realise exactly this:\n"""\n${this.currentSceneSummary}\n"""`
+            : '';
+        const prompt = `Plan the next ${this.manifest!.config.maxChunkWords} words of narrative prose.${sceneSummaryBlock}\n\nProduce a brief beat-by-beat plan that will be handed to the writer.`;
         return this.runStage('PLAN', smartProfile.model, async () => {
             return await this.plugin.aiClient.generate(prompt, { ...this.plugin.settings, generationMode: 'single' as const });
         }, undefined, await sha256(prompt));
@@ -331,10 +335,15 @@ export class SequentialGenerator {
             ? `\n\nAUTHOR'S VOICE REFERENCE — your prose must match this exact voice:\n"""\n${styleSignature.slice(0, 5).join('\n\n---\n\n')}\n"""\nMirror the sentence rhythm, diction, narrative distance, and emotional register shown above. Do not default to generic AI prose patterns.\n`
             : '';
 
+        // Scene summary — the author's directions for this specific scene
+        const sceneSummaryBlock = this.currentSceneSummary
+            ? `\n\nAUTHOR'S SCENE DIRECTIONS — realise this in your prose:\n"""\n${this.currentSceneSummary}\n"""\n`
+            : '';
+
         const prompt = `
                         ${stateCard}${plotMemoryBlock}
                         PLAN: ${JSON.stringify(planResult.data)}
-                        RETRIEVED FACTS: ${retrieved}${constraintBlock}${prevChapterBlock}${currentChapterBlock}${runAnchorBlock}${characterLoreBlock}${styleBlock}
+                        RETRIEVED FACTS: ${retrieved}${constraintBlock}${sceneSummaryBlock}${prevChapterBlock}${currentChapterBlock}${runAnchorBlock}${characterLoreBlock}${styleBlock}
 
                         INSTRUCTION: Write the next prose chunk.
                         Use \n\n to separate paragraphs.
@@ -618,12 +627,13 @@ Constraints:
     /**
      * Main entry point to generate a chapter in stages.
      */
-    async generateChapter(targetWordCount: number, opts?: { dryRun?: boolean }) {
+    async generateChapter(targetWordCount: number, opts?: { dryRun?: boolean; sceneSummary?: string }) {
         if (this._isGenerationRunning()) {
             new Notice('Generation is already running.');
             return;
         }
 
+        this.currentSceneSummary = opts?.sceneSummary?.trim() || '';
         this.dryRun = !!opts?.dryRun;
         if (this.dryRun) {
             new Notice('Running in DRY-RUN mode. No changes will be saved.');

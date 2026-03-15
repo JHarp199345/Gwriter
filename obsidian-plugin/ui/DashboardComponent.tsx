@@ -204,11 +204,29 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		});
 	};
 
+	const handleInsert = async () => {
+		if (!generatedText) return;
+		try {
+			let existing = '';
+			try { existing = await plugin.vaultService.readFile(plugin.settings.book2Path); } catch {}
+			const separator = existing.trimEnd() ? '\n\n' : '';
+			await plugin.vaultService.writeFile(plugin.settings.book2Path, existing.trimEnd() + separator + generatedText);
+			new Notice('Inserted into manuscript.');
+			setGeneratedText('');
+			setGeneratedParagraphs([]);
+			setChunkBuffer('');
+		} catch (err: any) {
+			new Notice(`Insert failed: ${err.message}`);
+		}
+	};
+
 	const handleGenerate = async () => {
 		if (mode === 'chapter') {
 			setError(null);
-			const minCfg = modeState.chapter.minWords ?? 2000;
-			await plugin.sequentialGenerator.generateChapter(minCfg);
+			const targetWords = plugin.settings.maxChunkWords || 2500;
+			await plugin.sequentialGenerator.generateChapter(targetWords, {
+				sceneSummary: modeState.chapter.sceneSummary
+			});
 		} else if (mode === 'micro-edit') {
 			setError(null);
 			await plugin.sequentialGenerator.editChapter({
@@ -602,8 +620,23 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							disabled={isGenerating}
 							className="generate-button mod-cta"
 						>
-							{isGenerating ? 'Generating...' : 'Start Relay Generation'}
+							{isGenerating ? 'Generating...' : 'Generate'}
 						</button>
+
+						{!isGenerating && generatedText && (
+							<button onClick={handleInsert} className="generate-button insert-button">
+								✓ Approve &amp; Insert
+							</button>
+						)}
+
+						{!isGenerating && generatedText && (
+							<button
+								onClick={() => { setGeneratedText(''); setGeneratedParagraphs([]); setChunkBuffer(''); }}
+								className="generate-button discard-button"
+							>
+								✕ Discard
+							</button>
+						)}
 
 						<button
 							onClick={() => setHeatmapEnabled(!heatmapEnabled)}
