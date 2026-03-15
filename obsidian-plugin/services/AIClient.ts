@@ -693,60 +693,58 @@ export class AIClient {
 			Math.min(8192, limit - promptTokens - 1024)
 		);
 
-		// requestUrl throws a RequestError (with .status and .text) on 4xx/5xx in Obsidian.
-		// We catch it here to surface the actual Gemini error body for diagnostics.
-		let response: import('obsidian').RequestUrlResponse;
-		try {
-			response = await requestUrl({
-				url: `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
+		// Use fetch (not requestUrl) so we can always read the response body on errors.
+		// requestUrl throws on 4xx/5xx and its thrown error does not carry the HTTP body,
+		// making quota / auth errors completely opaque in logs.
+		const fetchResponse = await fetch(
+			`https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
+			{
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
+				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					contents: [
-						{
-							parts: [{ text: prompt }]
-						}
-					],
+					contents: [{ parts: [{ text: prompt }] }],
 					generationConfig: {
 						maxOutputTokens,
 						temperature: this._computeTemperature(settings)
 					}
 				})
-			});
-		} catch (reqErr: unknown) {
-			// Obsidian's requestUrl throws { status, text, headers } on HTTP errors.
-			const status = (reqErr as any)?.status ?? '?';
-			const body = (reqErr as any)?.text ?? (reqErr instanceof Error ? reqErr.message : String(reqErr));
-			const bodySnip = typeof body === 'string' ? body.slice(0, 500) : String(body);
-			gwerr('API', `Gemini requestUrl error | status=${status} | body=${bodySnip}`);
+			}
+		);
 
-			// Parse the body for a human-readable error message
-			let geminiMsg = bodySnip;
+		gwlog('API', `Gemini HTTP status=${fetchResponse.status}`);
+
+		const rawBody = await fetchResponse.text().catch(() => '');
+
+		if (!fetchResponse.ok) {
+			gwerr('API', `Gemini error ${fetchResponse.status} | body=${rawBody.slice(0, 500)}`);
+
+			// Parse Gemini's JSON error for a clean human-readable message
+			let geminiMsg = rawBody.slice(0, 400);
 			try {
-				const parsed = JSON.parse(bodySnip);
+				const parsed = JSON.parse(rawBody);
 				const nested = this._getNestedErrorMessage(parsed);
 				if (nested) geminiMsg = nested;
 			} catch { /* body wasn't JSON */ }
 
 			const shutdownModels = ['gemini-3.1-pro-preview'];
 			const isShutdown = shutdownModels.includes(settings.model);
-			const hint = String(status) === '429' || String(status) === '404'
+			const status = fetchResponse.status;
+			const hint = status === 429 || status === 404
 				? isShutdown
 					? ` (model "${settings.model}" was SHUT DOWN by Google on Mar 9 2026 — change to gemini-2.5-flash in Settings)`
-					: ` (${status} = quota/rate-limit or preview model requires waitlist access — try gemini-2.5-flash in Settings)`
+					: status === 429
+					? ` — quota exhausted or key needs billing enabled. Visit aistudio.google.com → API keys to check your quota.`
+					: ` — model "${settings.model}" not found. Check the model name in Settings.`
 				: '';
 			throw new Error(`Gemini API error ${status}: ${geminiMsg}${hint}`);
 		}
 
-		gwlog('API', `Gemini HTTP status=${response.status}`);
-		if (response.status >= 400) {
-			const error = this._getJson(response);
-			throw new Error(`Gemini API error: ${this._getNestedErrorMessage(error) || response.status}`);
+		let data: unknown;
+		try {
+			data = JSON.parse(rawBody);
+		} catch {
+			throw new Error(`Gemini returned non-JSON response: ${rawBody.slice(0, 200)}`);
 		}
-
-		const data = this._getJson(response);
 
 		const candidates =
 			data && typeof data === 'object'

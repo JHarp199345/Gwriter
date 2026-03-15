@@ -30757,34 +30757,27 @@ ${alt}`).join("\n\n---\n\n")}`;
       512,
       Math.min(8192, limit - promptTokens - 1024)
     );
-    let response;
-    try {
-      response = await (0, import_obsidian13.requestUrl)({
-        url: `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
+    const fetchResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
+      {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: prompt }]
-            }
-          ],
+          contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             maxOutputTokens,
             temperature: this._computeTemperature(settings)
           }
         })
-      });
-    } catch (reqErr) {
-      const status = reqErr?.status ?? "?";
-      const body = reqErr?.text ?? (reqErr instanceof Error ? reqErr.message : String(reqErr));
-      const bodySnip = typeof body === "string" ? body.slice(0, 500) : String(body);
-      gwerr("API", `Gemini requestUrl error | status=${status} | body=${bodySnip}`);
-      let geminiMsg = bodySnip;
+      }
+    );
+    gwlog("API", `Gemini HTTP status=${fetchResponse.status}`);
+    const rawBody = await fetchResponse.text().catch(() => "");
+    if (!fetchResponse.ok) {
+      gwerr("API", `Gemini error ${fetchResponse.status} | body=${rawBody.slice(0, 500)}`);
+      let geminiMsg = rawBody.slice(0, 400);
       try {
-        const parsed = JSON.parse(bodySnip);
+        const parsed = JSON.parse(rawBody);
         const nested = this._getNestedErrorMessage(parsed);
         if (nested)
           geminiMsg = nested;
@@ -30792,15 +30785,16 @@ ${alt}`).join("\n\n---\n\n")}`;
       }
       const shutdownModels = ["gemini-3.1-pro-preview"];
       const isShutdown = shutdownModels.includes(settings.model);
-      const hint = String(status) === "429" || String(status) === "404" ? isShutdown ? ` (model "${settings.model}" was SHUT DOWN by Google on Mar 9 2026 \u2014 change to gemini-2.5-flash in Settings)` : ` (${status} = quota/rate-limit or preview model requires waitlist access \u2014 try gemini-2.5-flash in Settings)` : "";
+      const status = fetchResponse.status;
+      const hint = status === 429 || status === 404 ? isShutdown ? ` (model "${settings.model}" was SHUT DOWN by Google on Mar 9 2026 \u2014 change to gemini-2.5-flash in Settings)` : status === 429 ? ` \u2014 quota exhausted or key needs billing enabled. Visit aistudio.google.com \u2192 API keys to check your quota.` : ` \u2014 model "${settings.model}" not found. Check the model name in Settings.` : "";
       throw new Error(`Gemini API error ${status}: ${geminiMsg}${hint}`);
     }
-    gwlog("API", `Gemini HTTP status=${response.status}`);
-    if (response.status >= 400) {
-      const error2 = this._getJson(response);
-      throw new Error(`Gemini API error: ${this._getNestedErrorMessage(error2) || response.status}`);
+    let data;
+    try {
+      data = JSON.parse(rawBody);
+    } catch {
+      throw new Error(`Gemini returned non-JSON response: ${rawBody.slice(0, 200)}`);
     }
-    const data = this._getJson(response);
     const candidates = data && typeof data === "object" ? data.candidates : void 0;
     if (!Array.isArray(candidates) || candidates.length === 0) {
       let blockReason;
