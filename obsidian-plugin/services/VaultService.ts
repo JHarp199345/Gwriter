@@ -47,12 +47,13 @@ export class VaultService {
 			await this.vault.createFolder(path);
 			return true;
 		} catch (err: any) {
-			// "Folder already exists" means the filesystem has it but the
-			// in-memory cache hadn't caught up yet — treat as success.
-			if (typeof err?.message === 'string' && err.message.toLowerCase().includes('folder already exists')) {
+			const msg = err?.message?.toLowerCase() || '';
+			if (msg.includes('folder already exists')) {
 				return false;
 			}
-			throw err;
+			console.error('[VaultService] Error creating folder:', err, 'Path:', path);
+			// Don't throw, just return false so we don't crash the whole promise chain
+			return false;
 		}
 	}
 

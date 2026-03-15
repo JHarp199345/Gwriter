@@ -609,7 +609,17 @@ export class ContextManager {
             const folderPath = path.substring(0, path.lastIndexOf('/'));
             const folder = this.vault.getAbstractFileByPath(folderPath);
             if (!folder) {
-                await this.vault.createFolder(folderPath);
+                try {
+                    await this.vault.createFolder(folderPath);
+                } catch (err: any) {
+                    const msg = err?.message?.toLowerCase() || '';
+                    if (msg.includes('folder already exists')) {
+                        // It's fine, the folder exists
+                    } else {
+                        console.error('[ContextManager] Error creating folder:', err, 'Path:', folderPath);
+                        // Don't throw, we'll try to create the file anyway
+                    }
+                }
             }
             await this.vault.create(path, JSON.stringify(this.state, null, 2));
         }

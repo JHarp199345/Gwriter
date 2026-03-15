@@ -61,8 +61,12 @@ export class GenerationLogService {
 		try {
 			await this.app.vault.createFolder(folderPath);
 			return true;
-		} catch {
-			// Folder may already exist or fail due to permissions; return false to prompt user
+		} catch (err: any) {
+			const msg = err?.message?.toLowerCase() || '';
+			if (msg.includes('folder already exists')) {
+				return true;
+			}
+			console.error('[GenerationLogService] Error creating folder:', err);
 			return false;
 		}
 	}

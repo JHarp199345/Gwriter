@@ -28868,10 +28868,12 @@ var VaultService = class {
       await this.vault.createFolder(path);
       return true;
     } catch (err) {
-      if (typeof err?.message === "string" && err.message.toLowerCase().includes("folder already exists")) {
+      const msg = err?.message?.toLowerCase() || "";
+      if (msg.includes("folder already exists")) {
         return false;
       }
-      throw err;
+      console.error("[VaultService] Error creating folder:", err, "Path:", path);
+      return false;
     }
   }
   /**
@@ -33055,7 +33057,15 @@ var ContextManager = class {
       const folderPath = path.substring(0, path.lastIndexOf("/"));
       const folder = this.vault.getAbstractFileByPath(folderPath);
       if (!folder) {
-        await this.vault.createFolder(folderPath);
+        try {
+          await this.vault.createFolder(folderPath);
+        } catch (err) {
+          const msg = err?.message?.toLowerCase() || "";
+          if (msg.includes("folder already exists")) {
+          } else {
+            console.error("[ContextManager] Error creating folder:", err, "Path:", folderPath);
+          }
+        }
       }
       await this.vault.create(path, JSON.stringify(this.state, null, 2));
     }
@@ -37059,7 +37069,12 @@ var GenerationLogService = class {
     try {
       await this.app.vault.createFolder(folderPath);
       return true;
-    } catch {
+    } catch (err) {
+      const msg = err?.message?.toLowerCase() || "";
+      if (msg.includes("folder already exists")) {
+        return true;
+      }
+      console.error("[GenerationLogService] Error creating folder:", err);
       return false;
     }
   }
