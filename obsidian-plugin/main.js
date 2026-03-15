@@ -34943,12 +34943,9 @@ ${this.currentSceneSummary}
                         PLAN: ${JSON.stringify(planResult.data)}
                         RETRIEVED FACTS: ${retrieved}${constraintBlock}${sceneSummaryBlock}${prevChapterBlock}${currentChapterBlock}${runAnchorBlock}${characterLoreBlock}${styleBlock}
 
-                        INSTRUCTION: Write the next prose chunk.
-                        Use 
-
- to separate paragraphs.
-                        For every paragraph, you MUST also generate a sidecar entry with a unique "p_id" (c${iteration}-p{index}).
-                        ${isDegraded ? "Flag missingHardIntent: true if relevant." : ""}
+                        INSTRUCTION: Write the next prose chunk as clean, continuous prose.
+                        Separate paragraphs with a blank line. Output the prose and nothing else \u2014 no JSON, no HTML tags, no paragraph IDs, no annotations, no metadata.
+                        ${isDegraded ? "[Constraint: Do not introduce canonical facts about restricted domains.]" : ""}
                     `;
     const stageManifest = await (async () => {
       const manifest = contextManager.generateManifest(retrieveResult.data, [], prompt);
@@ -35259,42 +35256,6 @@ Constraints:
         gwlog("COMMIT", `commitChunk | iteration=${iteration} | words=${gwWords(chunkText)}`);
         await this.commitChunk(iteration, writeResult.data, writeResult.metadata);
         gwlog("COMMIT", "commitChunk OK \u2014 chunk:committed emitted, text now in modal");
-        gwlog("AUDIT", `_runAuditStage start | iteration=${iteration}`);
-        let auditData = { overallSeverity: 0, violations: [], summary: "" };
-        try {
-          const auditResult = await this._runAuditStage(smartProfile, mechanicalProfile, contextManager, chunkText, iteration);
-          if (auditResult)
-            auditData = auditResult.data;
-          gwlog("AUDIT", `audit OK | severity=${auditData.overallSeverity} | violations=${auditData.violations?.length ?? 0}`);
-        } catch (auditErr) {
-          gwwarn("AUDIT", `audit failed (non-blocking) \u2014 using severity=0 defaults`, auditErr);
-        }
-        const chunkId = `chunk-${iteration}`;
-        const matrixCheck = this.shouldTriggerIntervention(auditData, chunkId);
-        let interventionGuidance = null;
-        if (matrixCheck.trigger) {
-          interventionGuidance = await this.handleIntervention(
-            matrixCheck.trigger,
-            matrixCheck.violationSummary,
-            chunkId,
-            auditData.overallSeverity,
-            contextManager
-          );
-          if (!interventionGuidance)
-            break;
-        }
-        const repairOutcome = await this._runRepairStageIfNeeded(
-          smartProfile,
-          auditData,
-          chunkText,
-          writeResult,
-          interventionGuidance,
-          iteration,
-          chunkId,
-          contextManager
-        );
-        if (repairOutcome.cancelled)
-          break;
         const updateResult = await this._runUpdateStage(smartProfile, contextManager, writeResult, iteration);
         if (!updateResult)
           break;
