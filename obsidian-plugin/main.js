@@ -28864,8 +28864,15 @@ var VaultService = class {
     if (folder instanceof import_obsidian11.TFolder) {
       return false;
     }
-    await this.vault.createFolder(path);
-    return true;
+    try {
+      await this.vault.createFolder(path);
+      return true;
+    } catch (err) {
+      if (typeof err?.message === "string" && err.message.toLowerCase().includes("folder already exists")) {
+        return false;
+      }
+      throw err;
+    }
   }
   /**
    * Ensure the parent folder of a file path exists. Creates it if missing.

@@ -38,13 +38,22 @@ export class VaultService {
 	}
 
 	async createFolderIfNotExists(path: string): Promise<boolean> {
+		// Check in-memory cache first (fast path)
 		const folder = this.vault.getAbstractFileByPath(path);
 		if (folder instanceof TFolder) {
-			return false; // Folder already exists
+			return false; // Already exists in cache
 		}
-		// Folder doesn't exist, create it
-		await this.vault.createFolder(path);
-		return true; // Folder was created
+		try {
+			await this.vault.createFolder(path);
+			return true;
+		} catch (err: any) {
+			// "Folder already exists" means the filesystem has it but the
+			// in-memory cache hadn't caught up yet — treat as success.
+			if (typeof err?.message === 'string' && err.message.toLowerCase().includes('folder already exists')) {
+				return false;
+			}
+			throw err;
+		}
 	}
 
 	/**
