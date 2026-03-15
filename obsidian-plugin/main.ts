@@ -336,23 +336,19 @@ export default class WritingDashboardPlugin extends Plugin {
 			loaded
 		);
 
-		// Migrate: If the user has a restricted Gemini preview model that requires
-		// special waitlist access (common cause of 429 errors), auto-correct to the
-		// stable recommended model. The settings tab will show a notice if they
-		// manually re-select a preview model.
-		const RESTRICTED_GEMINI_PREVIEWS = [
-			'gemini-3.1-pro-preview',
-			'gemini-3-flash-preview',
-			'gemini-3.1-flash-lite-preview',
+		// Migrate: gemini-3.1-pro-preview was shut down by Google on March 9, 2026.
+		// Any user who still has it configured will get 429/404 errors on every run.
+		// Auto-correct to the current stable recommended model.
+		const GEMINI_SHUTDOWN_MODELS = [
+			'gemini-3.1-pro-preview', // Shut down March 9, 2026
 		];
 		if (
 			this.settings.apiProvider === 'gemini' &&
-			RESTRICTED_GEMINI_PREVIEWS.includes(this.settings.model)
+			GEMINI_SHUTDOWN_MODELS.includes(this.settings.model)
 		) {
 			console.warn(
-				`[GoodWriter] Model "${this.settings.model}" requires restricted preview access ` +
-				`(common cause of 429 errors). Migrating to gemini-2.5-flash. ` +
-				`You can change this in Settings if you have preview access.`
+				`[GoodWriter] Model "${this.settings.model}" was shut down by Google on March 9, 2026 ` +
+				`and no longer exists. Migrating to gemini-2.5-flash.`
 			);
 			this.settings.model = 'gemini-2.5-flash';
 			await this.saveData(this.settings);

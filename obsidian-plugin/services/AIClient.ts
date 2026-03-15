@@ -730,10 +730,12 @@ export class AIClient {
 				if (nested) geminiMsg = nested;
 			} catch { /* body wasn't JSON */ }
 
-			const hint = String(status) === '429'
-				? ' (429 = rate limit or preview model requires special access — try gemini-2.5-flash in Settings)'
-				: String(status) === '404'
-				? ` (404 = model "${settings.model}" not found — check model name in Settings)`
+			const shutdownModels = ['gemini-3.1-pro-preview'];
+			const isShutdown = shutdownModels.includes(settings.model);
+			const hint = String(status) === '429' || String(status) === '404'
+				? isShutdown
+					? ` (model "${settings.model}" was SHUT DOWN by Google on Mar 9 2026 — change to gemini-2.5-flash in Settings)`
+					: ` (${status} = quota/rate-limit or preview model requires waitlist access — try gemini-2.5-flash in Settings)`
 				: '';
 			throw new Error(`Gemini API error ${status}: ${geminiMsg}${hint}`);
 		}

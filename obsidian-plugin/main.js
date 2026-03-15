@@ -28112,12 +28112,12 @@ var GEMINI_MODELS = [
   { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash \u2B50 Recommended \u2014 fast & affordable" },
   { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro \u2014 highest quality, 2M ctx" },
   { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite \u2014 cheapest option" },
-  // ── Gemini 2.0 — stable, still reliable ──────────────────────
-  { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash \u2014 proven stable model" },
-  // ── Gemini 3.x — restricted preview (requires waitlist access) ─
-  { value: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro Preview \u26A0 requires preview access" },
-  { value: "gemini-3-flash-preview", label: "Gemini 3 Flash Preview \u26A0 requires preview access" },
-  { value: "gemini-3.1-flash-lite-preview", label: "Gemini 3.1 Flash Lite Preview \u26A0 requires preview access" }
+  // ── Gemini 3.x — active previews (may require waitlist access) ─
+  { value: "gemini-3-flash-preview", label: "Gemini 3 Flash Preview \u26A0 may require waitlist" },
+  { value: "gemini-3.1-flash-lite-preview", label: "Gemini 3.1 Flash Lite Preview \u26A0 may require waitlist" },
+  // ── Deprecated / shut down ────────────────────────────────────
+  { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash (Deprecated by Google)" },
+  { value: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro Preview \u2717 SHUT DOWN Mar 9 2026" }
 ];
 var OPENROUTER_MODELS = [
   // ── Anthropic via OpenRouter ──────────────────────────────────
@@ -28132,10 +28132,10 @@ var OPENROUTER_MODELS = [
   { value: "openai/o3", label: "OpenAI \u2014 o3 (Reasoning)" },
   { value: "openai/o4-mini", label: "OpenAI \u2014 o4-mini (Reasoning, Fast)" },
   // ── Google via OpenRouter ─────────────────────────────────────
-  { value: "google/gemini-3.1-pro-preview", label: "Google \u2014 Gemini 3.1 Pro (Preview)" },
-  { value: "google/gemini-3-flash-preview-20251217", label: "\u2605 Google \u2014 Gemini 3 Flash (Preview)" },
+  { value: "google/gemini-2.5-flash", label: "\u2605 Google \u2014 Gemini 2.5 Flash (Recommended)" },
   { value: "google/gemini-2.5-pro", label: "Google \u2014 Gemini 2.5 Pro" },
-  { value: "google/gemini-2.5-flash", label: "Google \u2014 Gemini 2.5 Flash" },
+  { value: "google/gemini-3-flash-preview-20251217", label: "Google \u2014 Gemini 3 Flash Preview \u26A0 waitlist" },
+  { value: "google/gemini-3.1-pro-preview", label: "Google \u2014 Gemini 3.1 Pro \u2717 SHUT DOWN Mar 9 2026" },
   // ── Meta Llama via OpenRouter ─────────────────────────────────
   { value: "meta-llama/llama-4-maverick", label: "Meta \u2014 Llama 4 Maverick (Best quality)" },
   { value: "meta-llama/llama-4-scout", label: "Meta \u2014 Llama 4 Scout (10M ctx)" },
@@ -28146,8 +28146,11 @@ var OPENROUTER_MODELS = [
   { value: "deepseek/deepseek-v3.2-20251201", label: "DeepSeek \u2014 V3.2 (Top OSS)" },
   { value: "minimax/minimax-m2.5", label: "MiniMax \u2014 M2.5 (Most used on OR)" }
 ];
+var SHUTDOWN_MODELS = /* @__PURE__ */ new Set([
+  "gemini-3.1-pro-preview"
+  // Shut down March 9, 2026
+]);
 var RESTRICTED_PREVIEW_MODELS = /* @__PURE__ */ new Set([
-  "gemini-3.1-pro-preview",
   "gemini-3-flash-preview",
   "gemini-3.1-flash-lite-preview"
 ]);
@@ -28227,19 +28230,28 @@ var SettingsTab = class extends import_obsidian8.PluginSettingTab {
         this.display();
       });
     });
-    if (this.plugin.settings.apiProvider === "gemini" && RESTRICTED_PREVIEW_MODELS.has(this.plugin.settings.model)) {
-      const banner = containerEl.createEl("div");
-      banner.style.cssText = [
-        "background: var(--background-modifier-error)",
-        "color: var(--text-error)",
-        "border: 1px solid var(--background-modifier-error-hover)",
-        "border-radius: 6px",
-        "padding: 10px 14px",
-        "margin: 4px 0 12px",
-        "font-size: 0.88em",
-        "line-height: 1.5"
-      ].join(";");
-      banner.innerHTML = `<strong>\u26A0 Preview model: limited access</strong><br><b>${this.plugin.settings.model}</b> requires special waitlist access from Google. Without it you will receive a <code>429 Resource Exhausted</code> error on every generation.<br><b>Fix:</b> change Model above to <b>Gemini 2.5 Flash</b> \u2014 widely available and no waitlist needed.`;
+    if (this.plugin.settings.apiProvider === "gemini") {
+      const model = this.plugin.settings.model;
+      const isShutdown = SHUTDOWN_MODELS.has(model);
+      const isRestricted = RESTRICTED_PREVIEW_MODELS.has(model);
+      if (isShutdown || isRestricted) {
+        const banner = containerEl.createEl("div");
+        banner.style.cssText = [
+          `background: var(${isShutdown ? "--background-modifier-error" : "--background-modifier-message"})`,
+          `color: var(${isShutdown ? "--text-error" : "--text-warning"})`,
+          `border: 1px solid var(${isShutdown ? "--background-modifier-error-hover" : "--background-modifier-message"})`,
+          "border-radius: 6px",
+          "padding: 10px 14px",
+          "margin: 4px 0 12px",
+          "font-size: 0.88em",
+          "line-height: 1.5"
+        ].join(";");
+        if (isShutdown) {
+          banner.innerHTML = `<strong>\u2717 This model was shut down by Google on March 9, 2026</strong><br><b>${model}</b> no longer exists in the Gemini API. Every request will fail with a 429 or 404 error.<br><b>Fix:</b> change Model above to <b>Gemini 2.5 Flash</b> \u2014 it is the current recommended model.`;
+        } else {
+          banner.innerHTML = `<strong>\u26A0 Preview model \u2014 waitlist may be required</strong><br><b>${model}</b> is an active Gemini preview. Without Google's explicit access approval you will receive a <code>429 Resource Exhausted</code> error.<br>If generation fails, switch to <b>Gemini 2.5 Flash</b> in the Model dropdown above.`;
+        }
+      }
     }
     new import_obsidian8.Setting(containerEl).setName("Words per chunk").setDesc("Target word count for each generation pass. Default 2500. Cloud AI handles 3000\u20138000 well \u2014 enter any value, there is no upper limit.").addText((text2) => text2.setPlaceholder("2500").setValue(String(this.plugin.settings.maxChunkWords)).onChange(async (value) => {
       const parsed = Number.parseInt(value, 10);
@@ -30778,7 +30790,9 @@ ${alt}`).join("\n\n---\n\n")}`;
           geminiMsg = nested;
       } catch {
       }
-      const hint = String(status) === "429" ? " (429 = rate limit or preview model requires special access \u2014 try gemini-2.5-flash in Settings)" : String(status) === "404" ? ` (404 = model "${settings.model}" not found \u2014 check model name in Settings)` : "";
+      const shutdownModels = ["gemini-3.1-pro-preview"];
+      const isShutdown = shutdownModels.includes(settings.model);
+      const hint = String(status) === "429" || String(status) === "404" ? isShutdown ? ` (model "${settings.model}" was SHUT DOWN by Google on Mar 9 2026 \u2014 change to gemini-2.5-flash in Settings)` : ` (${status} = quota/rate-limit or preview model requires waitlist access \u2014 try gemini-2.5-flash in Settings)` : "";
       throw new Error(`Gemini API error ${status}: ${geminiMsg}${hint}`);
     }
     gwlog("API", `Gemini HTTP status=${response.status}`);
@@ -44287,14 +44301,13 @@ var WritingDashboardPlugin = class extends import_obsidian28.Plugin {
       },
       loaded
     );
-    const RESTRICTED_GEMINI_PREVIEWS = [
-      "gemini-3.1-pro-preview",
-      "gemini-3-flash-preview",
-      "gemini-3.1-flash-lite-preview"
+    const GEMINI_SHUTDOWN_MODELS = [
+      "gemini-3.1-pro-preview"
+      // Shut down March 9, 2026
     ];
-    if (this.settings.apiProvider === "gemini" && RESTRICTED_GEMINI_PREVIEWS.includes(this.settings.model)) {
+    if (this.settings.apiProvider === "gemini" && GEMINI_SHUTDOWN_MODELS.includes(this.settings.model)) {
       console.warn(
-        `[GoodWriter] Model "${this.settings.model}" requires restricted preview access (common cause of 429 errors). Migrating to gemini-2.5-flash. You can change this in Settings if you have preview access.`
+        `[GoodWriter] Model "${this.settings.model}" was shut down by Google on March 9, 2026 and no longer exists. Migrating to gemini-2.5-flash.`
       );
       this.settings.model = "gemini-2.5-flash";
       await this.saveData(this.settings);
