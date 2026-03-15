@@ -80,6 +80,11 @@ export class SequentialGenerator {
     private readonly entitiesMentionedHistory: Map<string, string[]> = new Map(); // chunkId -> entityIds
     private rollingWindow: { id: string, text: string, hash: string, status: 'STREAMING' | 'FINALIZED' | 'USER_DIRTY' }[][] = []; // Last 3 chunks
     private currentSceneSummary: string = ''; // Author's directions for the current run
+
+    // ── Two-phase generation state ──────────────────────────────────────────
+    private currentPhase: 1 | 2 = 1;        // Active generation phase
+    private phase2Direction: string | null = null; // Optional midpoint steering (from author)
+    private phase2DirectionResolver: ((direction: string | null) => void) | null = null;
     private readonly lastAppliedSeqNo: Map<string, number> = new Map(); // seamId -> seqNo
     private readonly seamTaskCounters: Map<string, number> = new Map(); // seamId -> counter
     private readonly sessionId: string = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -330,11 +335,16 @@ export class SequentialGenerator {
             ? `\n\nCHARACTER LORE (only characters present in this scene):\n${characterLoreText}\n`
             : '';
 
-        // ── Golden paragraphs — author's voice signature ───────────────────────
-        const styleSignature = this.plugin.settings.relayStyleSignature;
-        const styleBlock = (styleSignature && styleSignature.length > 0)
-            ? `\n\nAUTHOR'S VOICE REFERENCE — your prose must match this exact voice:\n"""\n${styleSignature.slice(0, 5).join('\n\n---\n\n')}\n"""\nMirror the sentence rhythm, diction, narrative distance, and emotional register shown above. Do not default to generic AI prose patterns.\n`
+        // ── Writing Commandments — literary rules that govern every phase ──────
+        const commandmentsText = this.plugin.settings.writingCommandments;
+        const commandmentsBlock = commandmentsText
+            ? `\n\nWRITING COMMANDMENTS — these rules are non-negotiable and govern every paragraph:\n${commandmentsText}\n`
             : '';
+
+        // ── Phase-aware generation directive ───────────────────────────────────
+        const phaseDirective = this.currentPhase === 1
+            ? `\n\n[GENERATION PHASE 1 — OPENING MOVEMENT]\nYou are writing the first half of this chapter. Establish the situation, develop tension, build forward momentum. DO NOT resolve the scene arc or wrap anything up. End at a point of tension, decision, or revelation — somewhere the story wants to continue from.\n`
+            : `\n\n[GENERATION PHASE 2 — CLOSING MOVEMENT]\nYou are writing the CONCLUSION of this chapter. Every thread established in Phase 1 must now drive toward resolution. Close the primary arc. Leave at least one meaningful thread open for what comes next. DO NOT recap, re-establish the opening, or restart the narrative — the story is already in motion.${this.phase2Direction ? `\n\nAUTHOR'S MIDPOINT DIRECTION: ${this.phase2Direction}` : ''}\n`;
 
         // Scene summary — the author's directions for this specific scene
         const sceneSummaryBlock = this.currentSceneSummary
@@ -344,7 +354,7 @@ export class SequentialGenerator {
         const prompt = `
                         ${stateCard}${plotMemoryBlock}
                         PLAN: ${JSON.stringify(planResult.data)}
-                        RETRIEVED FACTS: ${retrieved}${constraintBlock}${sceneSummaryBlock}${prevChapterBlock}${currentChapterBlock}${runAnchorBlock}${characterLoreBlock}${styleBlock}
+                        RETRIEVED FACTS: ${retrieved}${constraintBlock}${sceneSummaryBlock}${prevChapterBlock}${currentChapterBlock}${runAnchorBlock}${characterLoreBlock}${commandmentsBlock}${phaseDirective}
 
                         INSTRUCTION: Write the next prose chunk as clean, continuous prose.
                         Separate paragraphs with a blank line. Output the prose and nothing else — no JSON, no HTML tags, no paragraph IDs, no annotations, no metadata.
@@ -367,6 +377,27 @@ export class SequentialGenerator {
                 this.abortController?.signal
             );
         }, stageManifest);
+    }
+
+    /**
+     * Pauses Phase 2 from starting until the author provides a midpoint direction
+     * (or skips). Resolved by providePhase2Direction() from the UI.
+     */
+    private _waitForPhase2Direction(): Promise<string | null> {
+        return new Promise(resolve => {
+            this.phase2DirectionResolver = resolve;
+        });
+    }
+
+    /**
+     * Called by the UI when the author submits a midpoint direction or skips.
+     * Passing null means "use commandments only" — no extra steering.
+     */
+    public providePhase2Direction(direction: string | null): void {
+        if (this.phase2DirectionResolver) {
+            this.phase2DirectionResolver(direction);
+            this.phase2DirectionResolver = null;
+        }
     }
 
     /**
@@ -653,6 +684,9 @@ Constraints:
         this.abortController = new AbortController();
         this.interventionCount = 0;
         this.interventionCountPerChunk.clear();
+        this.currentPhase = 1;
+        this.phase2Direction = null;
+        this.phase2DirectionResolver = null;
 
         // ── Emit run:start IMMEDIATELY so the modal opens before any async setup.
         // All setup errors are now caught by the try/catch below and surfaced via run:error.
@@ -747,7 +781,17 @@ Constraints:
                 // Quality gate is now the author's discernment during Approve & Insert.
 
                 totalWords += writeResult.data.split(/\s+/).length;
-                gwlog('LOOP', `iteration ${iteration} complete | chunkWords=${gwWords(writeResult.data)} | runningTotal=${totalWords}`);
+                gwlog('LOOP', `iteration ${iteration} complete | chunkWords=${gwWords(writeResult.data)} | runningTotal=${totalWords} | phase=${this.currentPhase}`);
+
+                // ── Phase 1 → Phase 2 transition ────────────────────────────────────
+                if (this.currentPhase === 1 && totalWords >= targetWordCount / 2) {
+                    gwlog('PHASE', `Phase 1 complete at ${totalWords} words — transitioning to Phase 2`);
+                    this.currentPhase = 2;
+                    relayEventBus.emit('phase:transition', { phase1Words: totalWords, targetWords: targetWordCount });
+                    const direction = await this._waitForPhase2Direction();
+                    this.phase2Direction = direction;
+                    gwlog('PHASE', `Phase 2 starting | direction="${direction ? direction.slice(0, 100) : 'none (commandments only)'}"`);
+                }
 
                 const shouldTelescope = this.shouldTriggerTelescoping(iteration, contextManager);
                 if (shouldTelescope) {

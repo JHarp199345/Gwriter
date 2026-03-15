@@ -97,7 +97,9 @@ export type DashboardSettings = {
 	relayCloudModel?: string;
 	relayMaxContextWindow?: number;
 	relayCostHardBudget?: number; // Max cost per run in dollars
-	relayStyleSignature?: string[]; // "Golden Paragraphs" for voice matching
+	relayStyleSignature?: string[]; // Legacy — replaced by writingCommandments
+	/** Author-defined literary commandments injected into every generation phase. */
+	writingCommandments?: string;
 	maxChunkWords: number;
 	maxRepairAttempts: number;
 	retrievalTokenBudget: number;

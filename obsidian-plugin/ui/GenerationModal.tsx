@@ -10,6 +10,8 @@ interface GenerationModalProps {
 	generatedText: string;
 	error?: string | null;
 	plugin: WritingDashboardPlugin;
+	showPhaseTransition: boolean;
+	onPhase2Continue: (direction: string | null) => void;
 	onApprove: () => void;
 	onPushReviewed: (text: string) => void;
 	onDiscard: () => void;
@@ -33,6 +35,8 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 	generatedText,
 	error,
 	plugin,
+	showPhaseTransition,
+	onPhase2Continue,
 	onApprove,
 	onPushReviewed,
 	onDiscard,
@@ -40,6 +44,9 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 }) => {
 	const bodyRef = useRef<HTMLDivElement>(null);
 	const [reviewMode, setReviewMode] = useState(false);
+	const [phase2Direction, setPhase2Direction] = useState('');
+	const [phaseCountdown, setPhaseCountdown] = useState(10);
+	const countdownRef = useRef<number | null>(null);
 
 	// Reset review mode whenever a new generation starts
 	useEffect(() => {
@@ -52,6 +59,31 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 		const el = bodyRef.current;
 		if (el) el.scrollTop = el.scrollHeight;
 	}, [chunkBuffer, generatedText, reviewMode]);
+
+	// Phase transition countdown — auto-proceed when it hits 0
+	useEffect(() => {
+		if (!showPhaseTransition) {
+			setPhase2Direction('');
+			setPhaseCountdown(10);
+			if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+			return;
+		}
+		setPhaseCountdown(10);
+		countdownRef.current = window.setInterval(() => {
+			setPhaseCountdown(prev => {
+				if (prev <= 1) {
+					clearInterval(countdownRef.current!);
+					countdownRef.current = null;
+					onPhase2Continue(null); // auto-skip
+					return 0;
+				}
+				return prev - 1;
+			});
+		}, 1000);
+		return () => {
+			if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+		};
+	}, [showPhaseTransition]);
 
 	const committed = generatedText.trim();
 	const streaming = chunkBuffer.trim();
@@ -159,6 +191,44 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 								<div className="gw-gen-waiting">Waiting for output…</div>
 							)}
 						</div>
+
+						{/* ── Phase transition UI (appears between Phase 1 and Phase 2) ── */}
+						{showPhaseTransition && (
+							<div className="gw-phase-transition">
+								<div className="gw-phase-transition-header">
+									<span className="gw-phase-badge">Phase 1 Complete</span>
+									<span className="gw-phase-transition-title">Entering conclusion…</span>
+									<span className="gw-phase-countdown">{phaseCountdown}s</span>
+								</div>
+								<div className="gw-phase-transition-body">
+									<input
+										className="gw-phase-direction-input"
+										placeholder="Optional: steer Phase 2 — where should this chapter go? (Enter or skip)"
+										value={phase2Direction}
+										onChange={e => setPhase2Direction(e.target.value)}
+										onKeyDown={e => {
+											if (e.key === 'Enter') onPhase2Continue(phase2Direction.trim() || null);
+											if (e.key === 'Escape') onPhase2Continue(null);
+										}}
+										autoFocus
+									/>
+									<div className="gw-phase-transition-actions">
+										<button
+											className="gw-btn gw-btn-success"
+											onClick={() => onPhase2Continue(phase2Direction.trim() || null)}
+										>
+											Continue →
+										</button>
+										<button
+											className="gw-review-back-btn"
+											onClick={() => onPhase2Continue(null)}
+										>
+											Skip ({phaseCountdown}s)
+										</button>
+									</div>
+								</div>
+							</div>
+						)}
 
 						{/* ── Footer ── */}
 						<div className="gw-gen-footer">

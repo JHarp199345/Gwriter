@@ -27085,6 +27085,8 @@ var GenerationModal = ({
   generatedText,
   error: error2,
   plugin,
+  showPhaseTransition,
+  onPhase2Continue,
   onApprove,
   onPushReviewed,
   onDiscard,
@@ -27092,6 +27094,9 @@ var GenerationModal = ({
 }) => {
   const bodyRef = (0, import_react3.useRef)(null);
   const [reviewMode, setReviewMode] = (0, import_react3.useState)(false);
+  const [phase2Direction, setPhase2Direction] = (0, import_react3.useState)("");
+  const [phaseCountdown, setPhaseCountdown] = (0, import_react3.useState)(10);
+  const countdownRef = (0, import_react3.useRef)(null);
   (0, import_react3.useEffect)(() => {
     if (isGenerating)
       setReviewMode(false);
@@ -27103,6 +27108,35 @@ var GenerationModal = ({
     if (el)
       el.scrollTop = el.scrollHeight;
   }, [chunkBuffer, generatedText, reviewMode]);
+  (0, import_react3.useEffect)(() => {
+    if (!showPhaseTransition) {
+      setPhase2Direction("");
+      setPhaseCountdown(10);
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
+      return;
+    }
+    setPhaseCountdown(10);
+    countdownRef.current = window.setInterval(() => {
+      setPhaseCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownRef.current);
+          countdownRef.current = null;
+          onPhase2Continue(null);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1e3);
+    return () => {
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
+    };
+  }, [showPhaseTransition]);
   const committed = generatedText.trim();
   const streaming = chunkBuffer.trim();
   const hasContent = !!(committed || streaming);
@@ -27160,7 +27194,38 @@ var GenerationModal = ({
         spellCheck: false
       }
     )
-  ) : /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, committed && /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-committed" }, committed), streaming && /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-streaming" }, streaming, isGenerating && /* @__PURE__ */ import_react3.default.createElement("span", { className: "gw-gen-cursor" }, "\u258C"))), !hasContent && error2 && /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-error-detail" }, /* @__PURE__ */ import_react3.default.createElement("p", null, /* @__PURE__ */ import_react3.default.createElement("strong", null, "Generation failed.")), /* @__PURE__ */ import_react3.default.createElement("p", null, error2), /* @__PURE__ */ import_react3.default.createElement("p", { style: { marginTop: 8, fontSize: "0.85em", color: "var(--text-muted)" } }, "Check your API key and model name in Settings, then try again.")), !hasContent && !error2 && /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-waiting" }, "Waiting for output\u2026")), /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-footer" }, isGenerating ? /* @__PURE__ */ import_react3.default.createElement("button", { className: "gw-btn gw-btn-danger", onClick: onAbort }, "\u2715 Abort") : /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, /* @__PURE__ */ import_react3.default.createElement("button", { className: "gw-btn gw-btn-danger", onClick: onDiscard }, "\u2715 Discard"), hasContent && /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, /* @__PURE__ */ import_react3.default.createElement(
+  ) : /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, committed && /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-committed" }, committed), streaming && /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-streaming" }, streaming, isGenerating && /* @__PURE__ */ import_react3.default.createElement("span", { className: "gw-gen-cursor" }, "\u258C"))), !hasContent && error2 && /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-error-detail" }, /* @__PURE__ */ import_react3.default.createElement("p", null, /* @__PURE__ */ import_react3.default.createElement("strong", null, "Generation failed.")), /* @__PURE__ */ import_react3.default.createElement("p", null, error2), /* @__PURE__ */ import_react3.default.createElement("p", { style: { marginTop: 8, fontSize: "0.85em", color: "var(--text-muted)" } }, "Check your API key and model name in Settings, then try again.")), !hasContent && !error2 && /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-waiting" }, "Waiting for output\u2026")), showPhaseTransition && /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-phase-transition" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-phase-transition-header" }, /* @__PURE__ */ import_react3.default.createElement("span", { className: "gw-phase-badge" }, "Phase 1 Complete"), /* @__PURE__ */ import_react3.default.createElement("span", { className: "gw-phase-transition-title" }, "Entering conclusion\u2026"), /* @__PURE__ */ import_react3.default.createElement("span", { className: "gw-phase-countdown" }, phaseCountdown, "s")), /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-phase-transition-body" }, /* @__PURE__ */ import_react3.default.createElement(
+    "input",
+    {
+      className: "gw-phase-direction-input",
+      placeholder: "Optional: steer Phase 2 \u2014 where should this chapter go? (Enter or skip)",
+      value: phase2Direction,
+      onChange: (e) => setPhase2Direction(e.target.value),
+      onKeyDown: (e) => {
+        if (e.key === "Enter")
+          onPhase2Continue(phase2Direction.trim() || null);
+        if (e.key === "Escape")
+          onPhase2Continue(null);
+      },
+      autoFocus: true
+    }
+  ), /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-phase-transition-actions" }, /* @__PURE__ */ import_react3.default.createElement(
+    "button",
+    {
+      className: "gw-btn gw-btn-success",
+      onClick: () => onPhase2Continue(phase2Direction.trim() || null)
+    },
+    "Continue \u2192"
+  ), /* @__PURE__ */ import_react3.default.createElement(
+    "button",
+    {
+      className: "gw-review-back-btn",
+      onClick: () => onPhase2Continue(null)
+    },
+    "Skip (",
+    phaseCountdown,
+    "s)"
+  )))), /* @__PURE__ */ import_react3.default.createElement("div", { className: "gw-gen-footer" }, isGenerating ? /* @__PURE__ */ import_react3.default.createElement("button", { className: "gw-btn gw-btn-danger", onClick: onAbort }, "\u2715 Abort") : /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, /* @__PURE__ */ import_react3.default.createElement("button", { className: "gw-btn gw-btn-danger", onClick: onDiscard }, "\u2715 Discard"), hasContent && /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, /* @__PURE__ */ import_react3.default.createElement(
     "button",
     {
       className: "gw-btn gw-btn-review",
@@ -27741,6 +27806,7 @@ var DashboardComponent = ({ plugin }) => {
   const [isSuggestingDirections, setIsSuggestingDirections] = (0, import_react8.useState)(false);
   const [suggestionsOpen, setSuggestionsOpen] = (0, import_react8.useState)(false);
   const [showAdvancedMenu, setShowAdvancedMenu] = (0, import_react8.useState)(false);
+  const [showPhaseTransition, setShowPhaseTransition] = (0, import_react8.useState)(false);
   const [characterSourceFile, setCharacterSourceFile] = (0, import_react8.useState)(
     plugin.settings.characterExtractionSourcePath || plugin.settings.book2Path
   );
@@ -27755,6 +27821,10 @@ var DashboardComponent = ({ plugin }) => {
       setGeneratedParagraphs([]);
       setIsGenerating(true);
       setShowModal(true);
+      setShowPhaseTransition(false);
+    };
+    const onPhaseTransition = () => {
+      setShowPhaseTransition(true);
     };
     const onStageStart = (data) => {
       setGenerationStage(`Executing ${data.type}...`);
@@ -27854,6 +27924,7 @@ var DashboardComponent = ({ plugin }) => {
       setRejections((prev) => [...prev, data]);
     };
     relayEventBus.on("run:start", onStart);
+    relayEventBus.on("phase:transition", onPhaseTransition);
     relayEventBus.on("run:pulse", onPulse);
     relayEventBus.on("stage:start", onStageStart);
     relayEventBus.on("chunk:buffer:update", onBufferUpdate);
@@ -27866,6 +27937,7 @@ var DashboardComponent = ({ plugin }) => {
     relayEventBus.on("pilot:stitch_rejected", onStitchRejected);
     return () => {
       relayEventBus.off("run:start", onStart);
+      relayEventBus.off("phase:transition", onPhaseTransition);
       relayEventBus.off("run:pulse", onPulse);
       relayEventBus.off("stage:start", onStageStart);
       relayEventBus.off("chunk:buffer:update", onBufferUpdate);
@@ -27909,6 +27981,10 @@ var DashboardComponent = ({ plugin }) => {
     } catch (err) {
       new import_obsidian4.Notice(`Insert failed: ${err.message}`);
     }
+  };
+  const handlePhase2Continue = (direction) => {
+    setShowPhaseTransition(false);
+    plugin.sequentialGenerator.providePhase2Direction(direction);
   };
   const handleInsertReviewed = async (text2) => {
     if (!text2.trim())
@@ -28240,6 +28316,8 @@ var DashboardComponent = ({ plugin }) => {
       generatedText,
       error: error2,
       plugin,
+      showPhaseTransition,
+      onPhase2Continue: handlePhase2Continue,
       onApprove: handleInsert,
       onPushReviewed: handleInsertReviewed,
       onDiscard: handleDiscard,
@@ -29107,21 +29185,36 @@ var SettingsTab = class extends import_obsidian9.PluginSettingTab {
         }
       }).open();
     }));
-    addSection("Voice & style", "Golden paragraphs \u2014 your best prose shown to the AI as a voice anchor.");
-    new import_obsidian9.Setting(containerEl).setName("Golden paragraphs").setDesc(
-      'Paste 3\u20135 of your best paragraphs here. The AI will mirror this exact voice, rhythm, and style in every generation. Separate each paragraph with a line containing only "---". Pick paragraphs that show your most characteristic sentence structure and emotional register.'
+    addSection("Writing Commandments", "Literary rules injected into every generation phase. The AI treats these as non-negotiable when no specific direction is given.");
+    new import_obsidian9.Setting(containerEl).setName("Writing Commandments").setDesc(
+      "These rules govern every generation phase \u2014 especially Phase 2 when no midpoint direction is given. Based on Orson Scott Card's story architecture principles. Edit, remove, or add commandments freely. Each commandment should be numbered and self-contained."
     ).addTextArea((text2) => {
-      text2.setPlaceholder(
-        "She walked into the room like she owned the silence...\n---\nThe rain had the kind of patience that made windows into mirrors of grey..."
-      ).setValue((this.plugin.settings.relayStyleSignature || []).join("\n---\n")).onChange(async (value) => {
-        const paragraphs = value.split(/\n---\n/).map((p) => p.trim()).filter((p) => p.length > 0);
-        this.plugin.settings.relayStyleSignature = paragraphs.length > 0 ? paragraphs : void 0;
+      const defaultCommandments = `1. THE LAW OF CAUSATION
+No event occurs in isolation. Every action must have a reaction and a preceding cause. Ask "Why did this happen?" then ask it again, up to 4 levels deep. The causation must always lead to a state change. Reject the first, most obvious reason \u2014 it is rarely the right one.
+
+2. THE MICE QUOTIENT ANCHOR
+Every scene has a primary driver: Milieu (The World), Idea (The Mystery), Character (The Transformation), or Event (The Conflict). The scene is not complete until that driver has progressed. If it is a Character scene, the character's internal state MUST be different by the final paragraph.
+
+3. THE INEVITABLE END
+Every causal chain must trend toward the narrative climax. Every choice a character makes must narrow their future options, making the eventual ending feel inevitable but unexpected. Never add complications that do not serve the ultimate direction of the story.
+
+4. DEEP POV
+Do not report on events \u2014 experience them. Filter every description through the POV character's specific biases, sensory experience, and emotional state. Do not default to omniscient narration or generic AI prose patterns.
+
+5. NO FLOATING DIALOGUE
+Dialogue is action. Characters speak to get something or to hide something. Every line of dialogue must have a subtext cause rooted in that character's motivations. No line of dialogue exists purely for exposition.
+
+6. THE ADDITIVE WRITER RULE
+You are an additive writer. Your only job is to concatenate, not recreate. Every paragraph must be a direct consequence of the one before it. If a character has left a room, they cannot be in that room in the next paragraph unless they physically walk back in. Never restart the narrative or regenerate the beginning of anything.`;
+      text2.setPlaceholder(defaultCommandments).setValue(this.plugin.settings.writingCommandments || defaultCommandments).onChange(async (value) => {
+        this.plugin.settings.writingCommandments = value.trim() || void 0;
         await this.plugin.saveSettings();
       });
-      text2.inputEl.rows = 14;
+      text2.inputEl.rows = 22;
       text2.inputEl.style.width = "100%";
       text2.inputEl.style.fontFamily = "var(--font-text)";
-      text2.inputEl.style.fontSize = "0.9em";
+      text2.inputEl.style.fontSize = "0.88em";
+      text2.inputEl.style.lineHeight = "1.6";
       return text2;
     });
     addSection("Character extraction & safeguards", "Defaults for character processing and prompt-size warnings.");
@@ -35181,6 +35274,12 @@ var SequentialGenerator = class {
     // Last 3 chunks
     this.currentSceneSummary = "";
     // Author's directions for the current run
+    // ── Two-phase generation state ──────────────────────────────────────────
+    this.currentPhase = 1;
+    // Active generation phase
+    this.phase2Direction = null;
+    // Optional midpoint steering (from author)
+    this.phase2DirectionResolver = null;
     this.lastAppliedSeqNo = /* @__PURE__ */ new Map();
     // seamId -> seqNo
     this.seamTaskCounters = /* @__PURE__ */ new Map();
@@ -35388,15 +35487,23 @@ CONTINUATION ANCHOR \u2014 your first sentence must flow directly from:
 CHARACTER LORE (only characters present in this scene):
 ${characterLoreText}
 ` : "";
-    const styleSignature = this.plugin.settings.relayStyleSignature;
-    const styleBlock = styleSignature && styleSignature.length > 0 ? `
+    const commandmentsText = this.plugin.settings.writingCommandments;
+    const commandmentsBlock = commandmentsText ? `
 
-AUTHOR'S VOICE REFERENCE \u2014 your prose must match this exact voice:
-"""
-${styleSignature.slice(0, 5).join("\n\n---\n\n")}
-"""
-Mirror the sentence rhythm, diction, narrative distance, and emotional register shown above. Do not default to generic AI prose patterns.
+WRITING COMMANDMENTS \u2014 these rules are non-negotiable and govern every paragraph:
+${commandmentsText}
 ` : "";
+    const phaseDirective = this.currentPhase === 1 ? `
+
+[GENERATION PHASE 1 \u2014 OPENING MOVEMENT]
+You are writing the first half of this chapter. Establish the situation, develop tension, build forward momentum. DO NOT resolve the scene arc or wrap anything up. End at a point of tension, decision, or revelation \u2014 somewhere the story wants to continue from.
+` : `
+
+[GENERATION PHASE 2 \u2014 CLOSING MOVEMENT]
+You are writing the CONCLUSION of this chapter. Every thread established in Phase 1 must now drive toward resolution. Close the primary arc. Leave at least one meaningful thread open for what comes next. DO NOT recap, re-establish the opening, or restart the narrative \u2014 the story is already in motion.${this.phase2Direction ? `
+
+AUTHOR'S MIDPOINT DIRECTION: ${this.phase2Direction}` : ""}
+`;
     const sceneSummaryBlock = this.currentSceneSummary ? `
 
 AUTHOR'S SCENE DIRECTIONS \u2014 realise this in your prose:
@@ -35407,7 +35514,7 @@ ${this.currentSceneSummary}
     const prompt = `
                         ${stateCard}${plotMemoryBlock}
                         PLAN: ${JSON.stringify(planResult.data)}
-                        RETRIEVED FACTS: ${retrieved}${constraintBlock}${sceneSummaryBlock}${prevChapterBlock}${currentChapterBlock}${runAnchorBlock}${characterLoreBlock}${styleBlock}
+                        RETRIEVED FACTS: ${retrieved}${constraintBlock}${sceneSummaryBlock}${prevChapterBlock}${currentChapterBlock}${runAnchorBlock}${characterLoreBlock}${commandmentsBlock}${phaseDirective}
 
                         INSTRUCTION: Write the next prose chunk as clean, continuous prose.
                         Separate paragraphs with a blank line. Output the prose and nothing else \u2014 no JSON, no HTML tags, no paragraph IDs, no annotations, no metadata.
@@ -35428,6 +35535,25 @@ ${this.currentSceneSummary}
         this.abortController?.signal
       );
     }, stageManifest);
+  }
+  /**
+   * Pauses Phase 2 from starting until the author provides a midpoint direction
+   * (or skips). Resolved by providePhase2Direction() from the UI.
+   */
+  _waitForPhase2Direction() {
+    return new Promise((resolve) => {
+      this.phase2DirectionResolver = resolve;
+    });
+  }
+  /**
+   * Called by the UI when the author submits a midpoint direction or skips.
+   * Passing null means "use commandments only" — no extra steering.
+   */
+  providePhase2Direction(direction) {
+    if (this.phase2DirectionResolver) {
+      this.phase2DirectionResolver(direction);
+      this.phase2DirectionResolver = null;
+    }
   }
   /**
    * Returns the last `n` non-empty paragraphs from the active manuscript file.
@@ -35654,6 +35780,9 @@ Constraints:
     this.abortController = new AbortController();
     this.interventionCount = 0;
     this.interventionCountPerChunk.clear();
+    this.currentPhase = 1;
+    this.phase2Direction = null;
+    this.phase2DirectionResolver = null;
     const initialState = this._buildInitialChapterState();
     gwlog("RUN", `run:start emitting | runId=${this.currentRunId} | chapterId=${initialState.chapterId}`);
     relayEventBus.emit("run:start", { runId: this.currentRunId, chapterId: initialState.chapterId });
@@ -35726,7 +35855,15 @@ Constraints:
         if (!updateResult)
           break;
         totalWords += writeResult.data.split(/\s+/).length;
-        gwlog("LOOP", `iteration ${iteration} complete | chunkWords=${gwWords(writeResult.data)} | runningTotal=${totalWords}`);
+        gwlog("LOOP", `iteration ${iteration} complete | chunkWords=${gwWords(writeResult.data)} | runningTotal=${totalWords} | phase=${this.currentPhase}`);
+        if (this.currentPhase === 1 && totalWords >= targetWordCount / 2) {
+          gwlog("PHASE", `Phase 1 complete at ${totalWords} words \u2014 transitioning to Phase 2`);
+          this.currentPhase = 2;
+          relayEventBus.emit("phase:transition", { phase1Words: totalWords, targetWords: targetWordCount });
+          const direction = await this._waitForPhase2Direction();
+          this.phase2Direction = direction;
+          gwlog("PHASE", `Phase 2 starting | direction="${direction ? direction.slice(0, 100) : "none (commandments only)"}"`);
+        }
         const shouldTelescope = this.shouldTriggerTelescoping(iteration, contextManager);
         if (shouldTelescope) {
           gwlog("TELESCOPE", "triggering telescoping...");

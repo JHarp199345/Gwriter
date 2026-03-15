@@ -895,34 +895,45 @@ export class SettingsTab extends PluginSettingTab {
 					}).open();
 				}));
 
-		addSection('Voice & style', 'Golden paragraphs — your best prose shown to the AI as a voice anchor.');
+		addSection('Writing Commandments', 'Literary rules injected into every generation phase. The AI treats these as non-negotiable when no specific direction is given.');
 
 		new Setting(containerEl)
-			.setName('Golden paragraphs')
+			.setName('Writing Commandments')
 			.setDesc(
-				'Paste 3–5 of your best paragraphs here. The AI will mirror this exact voice, rhythm, and style ' +
-				'in every generation. Separate each paragraph with a line containing only "---". ' +
-				'Pick paragraphs that show your most characteristic sentence structure and emotional register.'
+				'These rules govern every generation phase — especially Phase 2 when no midpoint direction is given. ' +
+				'Based on Orson Scott Card\'s story architecture principles. Edit, remove, or add commandments freely. ' +
+				'Each commandment should be numbered and self-contained.'
 			)
 			.addTextArea(text => {
+				const defaultCommandments = `1. THE LAW OF CAUSATION
+No event occurs in isolation. Every action must have a reaction and a preceding cause. Ask "Why did this happen?" then ask it again, up to 4 levels deep. The causation must always lead to a state change. Reject the first, most obvious reason — it is rarely the right one.
+
+2. THE MICE QUOTIENT ANCHOR
+Every scene has a primary driver: Milieu (The World), Idea (The Mystery), Character (The Transformation), or Event (The Conflict). The scene is not complete until that driver has progressed. If it is a Character scene, the character's internal state MUST be different by the final paragraph.
+
+3. THE INEVITABLE END
+Every causal chain must trend toward the narrative climax. Every choice a character makes must narrow their future options, making the eventual ending feel inevitable but unexpected. Never add complications that do not serve the ultimate direction of the story.
+
+4. DEEP POV
+Do not report on events — experience them. Filter every description through the POV character's specific biases, sensory experience, and emotional state. Do not default to omniscient narration or generic AI prose patterns.
+
+5. NO FLOATING DIALOGUE
+Dialogue is action. Characters speak to get something or to hide something. Every line of dialogue must have a subtext cause rooted in that character's motivations. No line of dialogue exists purely for exposition.
+
+6. THE ADDITIVE WRITER RULE
+You are an additive writer. Your only job is to concatenate, not recreate. Every paragraph must be a direct consequence of the one before it. If a character has left a room, they cannot be in that room in the next paragraph unless they physically walk back in. Never restart the narrative or regenerate the beginning of anything.`;
 				text
-					.setPlaceholder(
-						'She walked into the room like she owned the silence...\n---\n' +
-						'The rain had the kind of patience that made windows into mirrors of grey...'
-					)
-					.setValue((this.plugin.settings.relayStyleSignature || []).join('\n---\n'))
+					.setPlaceholder(defaultCommandments)
+					.setValue(this.plugin.settings.writingCommandments || defaultCommandments)
 					.onChange(async (value) => {
-						const paragraphs = value
-							.split(/\n---\n/)
-							.map(p => p.trim())
-							.filter(p => p.length > 0);
-						this.plugin.settings.relayStyleSignature = paragraphs.length > 0 ? paragraphs : undefined;
+						this.plugin.settings.writingCommandments = value.trim() || undefined;
 						await this.plugin.saveSettings();
 					});
-				text.inputEl.rows = 14;
+				text.inputEl.rows = 22;
 				text.inputEl.style.width = '100%';
 				text.inputEl.style.fontFamily = 'var(--font-text)';
-				text.inputEl.style.fontSize = '0.9em';
+				text.inputEl.style.fontSize = '0.88em';
+				text.inputEl.style.lineHeight = '1.6';
 				return text;
 			});
 
