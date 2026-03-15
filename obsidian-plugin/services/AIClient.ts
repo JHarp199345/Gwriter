@@ -555,24 +555,35 @@ export class AIClient {
 		providerName: string,
 		extraHeaders?: Record<string, string>
 	): Promise<string> {
-		const response = await requestUrl({
-			url,
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'Authorization': `Bearer ${settings.apiKey}`,
-				...extraHeaders
-			},
-			body: JSON.stringify({
-				model: settings.model,
-				messages: [
-					{ role: 'system', content: 'You are a professional writing assistant.' },
-					{ role: 'user', content: prompt }
-				],
-				max_tokens: 4000,
-				temperature: this._computeTemperature(settings)
-			})
-		});
+		let response: import('obsidian').RequestUrlResponse;
+		try {
+			response = await requestUrl({
+				url,
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${settings.apiKey}`,
+					...extraHeaders
+				},
+				body: JSON.stringify({
+					model: settings.model,
+					messages: [
+						{ role: 'system', content: 'You are a professional writing assistant.' },
+						{ role: 'user', content: prompt }
+					],
+					max_tokens: 4000,
+					temperature: this._computeTemperature(settings)
+				})
+			});
+		} catch (reqErr: unknown) {
+			const status = (reqErr as any)?.status ?? '?';
+			const body = (reqErr as any)?.text ?? (reqErr instanceof Error ? reqErr.message : String(reqErr));
+			const bodySnip = typeof body === 'string' ? body.slice(0, 400) : String(body);
+			gwerr('API', `${providerName} requestUrl error | status=${status} | body=${bodySnip}`);
+			let msg = bodySnip;
+			try { const n = this._getNestedErrorMessage(JSON.parse(bodySnip)); if (n) msg = n; } catch { /* not JSON */ }
+			throw new Error(`${providerName} API error ${status}: ${msg}`);
+		}
 
 		if (response.status >= 400) {
 			const error = this._getJson(response);
@@ -613,20 +624,31 @@ export class AIClient {
 	}
 
 	private async _generateAnthropic(prompt: string, settings: DashboardSettings): Promise<string> {
-		const response = await requestUrl({
-			url: 'https://api.anthropic.com/v1/messages',
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'x-api-key': settings.apiKey,
-				'anthropic-version': '2023-06-01'
-			},
-			body: JSON.stringify({
-				model: settings.model,
-				max_tokens: 4000,
-				messages: [{ role: 'user', content: prompt }]
-			})
-		});
+		let response: import('obsidian').RequestUrlResponse;
+		try {
+			response = await requestUrl({
+				url: 'https://api.anthropic.com/v1/messages',
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'x-api-key': settings.apiKey,
+					'anthropic-version': '2023-06-01'
+				},
+				body: JSON.stringify({
+					model: settings.model,
+					max_tokens: 4000,
+					messages: [{ role: 'user', content: prompt }]
+				})
+			});
+		} catch (reqErr: unknown) {
+			const status = (reqErr as any)?.status ?? '?';
+			const body = (reqErr as any)?.text ?? (reqErr instanceof Error ? reqErr.message : String(reqErr));
+			const bodySnip = typeof body === 'string' ? body.slice(0, 400) : String(body);
+			gwerr('API', `Anthropic requestUrl error | status=${status} | body=${bodySnip}`);
+			let msg = bodySnip;
+			try { const n = this._getNestedErrorMessage(JSON.parse(bodySnip)); if (n) msg = n; } catch { /* not JSON */ }
+			throw new Error(`Anthropic API error ${status}: ${msg}`);
+		}
 
 		if (response.status >= 400) {
 			const error = this._getJson(response);
@@ -671,24 +693,50 @@ export class AIClient {
 			Math.min(8192, limit - promptTokens - 1024)
 		);
 
-		const response = await requestUrl({
-			url: `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				contents: [
-					{
-						parts: [{ text: prompt }]
+		// requestUrl throws a RequestError (with .status and .text) on 4xx/5xx in Obsidian.
+		// We catch it here to surface the actual Gemini error body for diagnostics.
+		let response: import('obsidian').RequestUrlResponse;
+		try {
+			response = await requestUrl({
+				url: `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					contents: [
+						{
+							parts: [{ text: prompt }]
+						}
+					],
+					generationConfig: {
+						maxOutputTokens,
+						temperature: this._computeTemperature(settings)
 					}
-				],
-				generationConfig: {
-					maxOutputTokens,
-					temperature: this._computeTemperature(settings)
-				}
-			})
-		});
+				})
+			});
+		} catch (reqErr: unknown) {
+			// Obsidian's requestUrl throws { status, text, headers } on HTTP errors.
+			const status = (reqErr as any)?.status ?? '?';
+			const body = (reqErr as any)?.text ?? (reqErr instanceof Error ? reqErr.message : String(reqErr));
+			const bodySnip = typeof body === 'string' ? body.slice(0, 500) : String(body);
+			gwerr('API', `Gemini requestUrl error | status=${status} | body=${bodySnip}`);
+
+			// Parse the body for a human-readable error message
+			let geminiMsg = bodySnip;
+			try {
+				const parsed = JSON.parse(bodySnip);
+				const nested = this._getNestedErrorMessage(parsed);
+				if (nested) geminiMsg = nested;
+			} catch { /* body wasn't JSON */ }
+
+			const hint = String(status) === '429'
+				? ' (429 = rate limit or preview model requires special access — try gemini-2.5-flash in Settings)'
+				: String(status) === '404'
+				? ` (404 = model "${settings.model}" not found — check model name in Settings)`
+				: '';
+			throw new Error(`Gemini API error ${status}: ${geminiMsg}${hint}`);
+		}
 
 		gwlog('API', `Gemini HTTP status=${response.status}`);
 		if (response.status >= 400) {

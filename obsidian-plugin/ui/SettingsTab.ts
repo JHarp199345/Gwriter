@@ -32,15 +32,16 @@ const ANTHROPIC_MODELS = [
 ];
 
 const GEMINI_MODELS = [
-	// Gemini 3.x — latest (2025–2026)
-	{ value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (Preview) — 1M ctx' },
-	{ value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (Preview) — 1M ctx' },
-	// Gemini 2.5 — stable production
-	{ value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro — 2M ctx' },
-	{ value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash ⭐ Recommended — 1M ctx' },
-	{ value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (Cheapest)' },
-	// Gemini 2.0 — retiring June 2026
-	{ value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Retiring June 2026)' }
+	// ── Gemini 2.5 — stable production (widely available) ────────
+	{ value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash ⭐ Recommended — fast & affordable' },
+	{ value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro — highest quality, 2M ctx' },
+	{ value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite — cheapest option' },
+	// ── Gemini 2.0 — stable, still reliable ──────────────────────
+	{ value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash — proven stable model' },
+	// ── Gemini 3.x — restricted preview (requires waitlist access) ─
+	{ value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview ⚠ requires preview access' },
+	{ value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview ⚠ requires preview access' },
+	{ value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite Preview ⚠ requires preview access' },
 ];
 
 const OPENROUTER_MODELS = [
@@ -70,6 +71,13 @@ const OPENROUTER_MODELS = [
 	{ value: 'deepseek/deepseek-v3.2-20251201', label: 'DeepSeek — V3.2 (Top OSS)' },
 	{ value: 'minimax/minimax-m2.5', label: 'MiniMax — M2.5 (Most used on OR)' }
 ];
+
+/** Model IDs that require special waitlist/preview access. Users will see a warning. */
+const RESTRICTED_PREVIEW_MODELS = new Set([
+	'gemini-3.1-pro-preview',
+	'gemini-3-flash-preview',
+	'gemini-3.1-flash-lite-preview',
+]);
 
 function getModelsForProvider(provider: string): Array<{ value: string; label: string }> {
 	switch (provider) {
@@ -182,8 +190,32 @@ export class SettingsTab extends PluginSettingTab {
 				dropdown.onChange(async (value) => {
 					this.plugin.settings.model = value;
 					await this.plugin.saveSettings();
+					this.display(); // Refresh to update/clear the preview warning banner
 				});
 			});
+
+		// ── Preview-model warning banner ─────────────────────────────────────
+		if (
+			this.plugin.settings.apiProvider === 'gemini' &&
+			RESTRICTED_PREVIEW_MODELS.has(this.plugin.settings.model)
+		) {
+			const banner = containerEl.createEl('div');
+			banner.style.cssText = [
+				'background: var(--background-modifier-error)',
+				'color: var(--text-error)',
+				'border: 1px solid var(--background-modifier-error-hover)',
+				'border-radius: 6px',
+				'padding: 10px 14px',
+				'margin: 4px 0 12px',
+				'font-size: 0.88em',
+				'line-height: 1.5',
+			].join(';');
+			banner.innerHTML =
+				`<strong>⚠ Preview model: limited access</strong><br>` +
+				`<b>${this.plugin.settings.model}</b> requires special waitlist access from Google. ` +
+				`Without it you will receive a <code>429 Resource Exhausted</code> error on every generation.<br>` +
+				`<b>Fix:</b> change Model above to <b>Gemini 2.5 Flash</b> — widely available and no waitlist needed.`;
+		}
 
 		new Setting(containerEl)
 			.setName('Words per chunk')

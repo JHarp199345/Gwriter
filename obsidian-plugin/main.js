@@ -28108,15 +28108,16 @@ var ANTHROPIC_MODELS = [
   { value: "claude-opus-4-20250514", label: "Claude Opus 4 (Pinned, Legacy)" }
 ];
 var GEMINI_MODELS = [
-  // Gemini 3.x — latest (2025–2026)
-  { value: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (Preview) \u2014 1M ctx" },
-  { value: "gemini-3-flash-preview", label: "Gemini 3 Flash (Preview) \u2014 1M ctx" },
-  // Gemini 2.5 — stable production
-  { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro \u2014 2M ctx" },
-  { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash \u2B50 Recommended \u2014 1M ctx" },
-  { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite (Cheapest)" },
-  // Gemini 2.0 — retiring June 2026
-  { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash (Retiring June 2026)" }
+  // ── Gemini 2.5 — stable production (widely available) ────────
+  { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash \u2B50 Recommended \u2014 fast & affordable" },
+  { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro \u2014 highest quality, 2M ctx" },
+  { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite \u2014 cheapest option" },
+  // ── Gemini 2.0 — stable, still reliable ──────────────────────
+  { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash \u2014 proven stable model" },
+  // ── Gemini 3.x — restricted preview (requires waitlist access) ─
+  { value: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro Preview \u26A0 requires preview access" },
+  { value: "gemini-3-flash-preview", label: "Gemini 3 Flash Preview \u26A0 requires preview access" },
+  { value: "gemini-3.1-flash-lite-preview", label: "Gemini 3.1 Flash Lite Preview \u26A0 requires preview access" }
 ];
 var OPENROUTER_MODELS = [
   // ── Anthropic via OpenRouter ──────────────────────────────────
@@ -28145,6 +28146,11 @@ var OPENROUTER_MODELS = [
   { value: "deepseek/deepseek-v3.2-20251201", label: "DeepSeek \u2014 V3.2 (Top OSS)" },
   { value: "minimax/minimax-m2.5", label: "MiniMax \u2014 M2.5 (Most used on OR)" }
 ];
+var RESTRICTED_PREVIEW_MODELS = /* @__PURE__ */ new Set([
+  "gemini-3.1-pro-preview",
+  "gemini-3-flash-preview",
+  "gemini-3.1-flash-lite-preview"
+]);
 function getModelsForProvider(provider) {
   switch (provider) {
     case "openai":
@@ -28218,8 +28224,23 @@ var SettingsTab = class extends import_obsidian8.PluginSettingTab {
       dropdown.onChange(async (value) => {
         this.plugin.settings.model = value;
         await this.plugin.saveSettings();
+        this.display();
       });
     });
+    if (this.plugin.settings.apiProvider === "gemini" && RESTRICTED_PREVIEW_MODELS.has(this.plugin.settings.model)) {
+      const banner = containerEl.createEl("div");
+      banner.style.cssText = [
+        "background: var(--background-modifier-error)",
+        "color: var(--text-error)",
+        "border: 1px solid var(--background-modifier-error-hover)",
+        "border-radius: 6px",
+        "padding: 10px 14px",
+        "margin: 4px 0 12px",
+        "font-size: 0.88em",
+        "line-height: 1.5"
+      ].join(";");
+      banner.innerHTML = `<strong>\u26A0 Preview model: limited access</strong><br><b>${this.plugin.settings.model}</b> requires special waitlist access from Google. Without it you will receive a <code>429 Resource Exhausted</code> error on every generation.<br><b>Fix:</b> change Model above to <b>Gemini 2.5 Flash</b> \u2014 widely available and no waitlist needed.`;
+    }
     new import_obsidian8.Setting(containerEl).setName("Words per chunk").setDesc("Target word count for each generation pass. Default 2500. Cloud AI handles 3000\u20138000 well \u2014 enter any value, there is no upper limit.").addText((text2) => text2.setPlaceholder("2500").setValue(String(this.plugin.settings.maxChunkWords)).onChange(async (value) => {
       const parsed = Number.parseInt(value, 10);
       if (Number.isFinite(parsed) && parsed >= 100) {
@@ -30589,24 +30610,40 @@ ${alt}`).join("\n\n---\n\n")}`;
     };
   }
   async _generateOpenAICompat(prompt, settings, url, providerName, extraHeaders) {
-    const response = await (0, import_obsidian13.requestUrl)({
-      url,
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${settings.apiKey}`,
-        ...extraHeaders
-      },
-      body: JSON.stringify({
-        model: settings.model,
-        messages: [
-          { role: "system", content: "You are a professional writing assistant." },
-          { role: "user", content: prompt }
-        ],
-        max_tokens: 4e3,
-        temperature: this._computeTemperature(settings)
-      })
-    });
+    let response;
+    try {
+      response = await (0, import_obsidian13.requestUrl)({
+        url,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${settings.apiKey}`,
+          ...extraHeaders
+        },
+        body: JSON.stringify({
+          model: settings.model,
+          messages: [
+            { role: "system", content: "You are a professional writing assistant." },
+            { role: "user", content: prompt }
+          ],
+          max_tokens: 4e3,
+          temperature: this._computeTemperature(settings)
+        })
+      });
+    } catch (reqErr) {
+      const status = reqErr?.status ?? "?";
+      const body = reqErr?.text ?? (reqErr instanceof Error ? reqErr.message : String(reqErr));
+      const bodySnip = typeof body === "string" ? body.slice(0, 400) : String(body);
+      gwerr("API", `${providerName} requestUrl error | status=${status} | body=${bodySnip}`);
+      let msg = bodySnip;
+      try {
+        const n = this._getNestedErrorMessage(JSON.parse(bodySnip));
+        if (n)
+          msg = n;
+      } catch {
+      }
+      throw new Error(`${providerName} API error ${status}: ${msg}`);
+    }
     if (response.status >= 400) {
       const error2 = this._getJson(response);
       throw new Error(`${providerName} API error: ${this._getNestedErrorMessage(error2) || response.status}`);
@@ -30641,20 +30678,36 @@ ${alt}`).join("\n\n---\n\n")}`;
     );
   }
   async _generateAnthropic(prompt, settings) {
-    const response = await (0, import_obsidian13.requestUrl)({
-      url: "https://api.anthropic.com/v1/messages",
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": settings.apiKey,
-        "anthropic-version": "2023-06-01"
-      },
-      body: JSON.stringify({
-        model: settings.model,
-        max_tokens: 4e3,
-        messages: [{ role: "user", content: prompt }]
-      })
-    });
+    let response;
+    try {
+      response = await (0, import_obsidian13.requestUrl)({
+        url: "https://api.anthropic.com/v1/messages",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": settings.apiKey,
+          "anthropic-version": "2023-06-01"
+        },
+        body: JSON.stringify({
+          model: settings.model,
+          max_tokens: 4e3,
+          messages: [{ role: "user", content: prompt }]
+        })
+      });
+    } catch (reqErr) {
+      const status = reqErr?.status ?? "?";
+      const body = reqErr?.text ?? (reqErr instanceof Error ? reqErr.message : String(reqErr));
+      const bodySnip = typeof body === "string" ? body.slice(0, 400) : String(body);
+      gwerr("API", `Anthropic requestUrl error | status=${status} | body=${bodySnip}`);
+      let msg = bodySnip;
+      try {
+        const n = this._getNestedErrorMessage(JSON.parse(bodySnip));
+        if (n)
+          msg = n;
+      } catch {
+      }
+      throw new Error(`Anthropic API error ${status}: ${msg}`);
+    }
     if (response.status >= 400) {
       const error2 = this._getJson(response);
       throw new Error(`Anthropic API error: ${this._getNestedErrorMessage(error2) || response.status}`);
@@ -30692,24 +30745,42 @@ ${alt}`).join("\n\n---\n\n")}`;
       512,
       Math.min(8192, limit - promptTokens - 1024)
     );
-    const response = await (0, import_obsidian13.requestUrl)({
-      url: `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: prompt }]
+    let response;
+    try {
+      response = await (0, import_obsidian13.requestUrl)({
+        url: `https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: prompt }]
+            }
+          ],
+          generationConfig: {
+            maxOutputTokens,
+            temperature: this._computeTemperature(settings)
           }
-        ],
-        generationConfig: {
-          maxOutputTokens,
-          temperature: this._computeTemperature(settings)
-        }
-      })
-    });
+        })
+      });
+    } catch (reqErr) {
+      const status = reqErr?.status ?? "?";
+      const body = reqErr?.text ?? (reqErr instanceof Error ? reqErr.message : String(reqErr));
+      const bodySnip = typeof body === "string" ? body.slice(0, 500) : String(body);
+      gwerr("API", `Gemini requestUrl error | status=${status} | body=${bodySnip}`);
+      let geminiMsg = bodySnip;
+      try {
+        const parsed = JSON.parse(bodySnip);
+        const nested = this._getNestedErrorMessage(parsed);
+        if (nested)
+          geminiMsg = nested;
+      } catch {
+      }
+      const hint = String(status) === "429" ? " (429 = rate limit or preview model requires special access \u2014 try gemini-2.5-flash in Settings)" : String(status) === "404" ? ` (404 = model "${settings.model}" not found \u2014 check model name in Settings)` : "";
+      throw new Error(`Gemini API error ${status}: ${geminiMsg}${hint}`);
+    }
     gwlog("API", `Gemini HTTP status=${response.status}`);
     if (response.status >= 400) {
       const error2 = this._getJson(response);
@@ -44216,6 +44287,18 @@ var WritingDashboardPlugin = class extends import_obsidian28.Plugin {
       },
       loaded
     );
+    const RESTRICTED_GEMINI_PREVIEWS = [
+      "gemini-3.1-pro-preview",
+      "gemini-3-flash-preview",
+      "gemini-3.1-flash-lite-preview"
+    ];
+    if (this.settings.apiProvider === "gemini" && RESTRICTED_GEMINI_PREVIEWS.includes(this.settings.model)) {
+      console.warn(
+        `[GoodWriter] Model "${this.settings.model}" requires restricted preview access (common cause of 429 errors). Migrating to gemini-2.5-flash. You can change this in Settings if you have preview access.`
+      );
+      this.settings.model = "gemini-2.5-flash";
+      await this.saveData(this.settings);
+    }
   }
   async saveSettings() {
     await this.saveData(this.settings);
