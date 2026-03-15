@@ -1,5 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { TextChunker } from '../services/TextChunker';
+import { ReviewPanel } from './ReviewPanel';
+import WritingDashboardPlugin from '../main';
 
 interface GenerationModalProps {
 	isGenerating: boolean;
@@ -7,7 +9,9 @@ interface GenerationModalProps {
 	chunkBuffer: string;
 	generatedText: string;
 	error?: string | null;
+	plugin: WritingDashboardPlugin;
 	onApprove: () => void;
+	onPushReviewed: (text: string) => void;
 	onDiscard: () => void;
 	onAbort: () => void;
 }
@@ -28,17 +32,26 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 	chunkBuffer,
 	generatedText,
 	error,
+	plugin,
 	onApprove,
+	onPushReviewed,
 	onDiscard,
 	onAbort,
 }) => {
 	const bodyRef = useRef<HTMLDivElement>(null);
+	const [reviewMode, setReviewMode] = useState(false);
+
+	// Reset review mode whenever a new generation starts
+	useEffect(() => {
+		if (isGenerating) setReviewMode(false);
+	}, [isGenerating]);
 
 	// Auto-scroll to the bottom as new text arrives (streaming phase only)
 	useEffect(() => {
+		if (reviewMode) return;
 		const el = bodyRef.current;
 		if (el) el.scrollTop = el.scrollHeight;
-	}, [chunkBuffer, generatedText]);
+	}, [chunkBuffer, generatedText, reviewMode]);
 
 	const committed = generatedText.trim();
 	const streaming = chunkBuffer.trim();
@@ -76,18 +89,20 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 		<div className="gw-gen-overlay">
 			<div className="gw-gen-modal">
 
-				{/* ── Header ── */}
+				{/* ── Header (always visible) ── */}
 				<div className="gw-gen-header">
 					<div className="gw-gen-title">
-						{headerContent}
+						{reviewMode
+							? <>✏ Review &amp; Edit</>
+							: headerContent}
 					</div>
 					<div className="gw-gen-header-right">
-						{hasContent && (
+						{hasContent && !reviewMode && (
 							<span className="gw-gen-wordcount">
 								{wordCount.toLocaleString()} words
 							</span>
 						)}
-						{hasContent && (
+						{hasContent && !reviewMode && (
 							<button
 								className="gw-btn gw-btn-copy"
 								onClick={handleCopyAll}
@@ -99,62 +114,82 @@ export const GenerationModal: React.FC<GenerationModalProps> = ({
 					</div>
 				</div>
 
-				{/* ── Body — streaming prose (divs) → editable textarea when done ── */}
-				<div className="gw-gen-body" ref={bodyRef}>
-					{hasContent && !isGenerating ? (
-						// Generation finished: show editable textarea so text is always
-						// selectable, copyable, and editable as an emergency fallback.
-						<textarea
-							className="gw-gen-textarea"
-							defaultValue={fullText.trim()}
-							spellCheck={false}
-						/>
-					) : (
-						<>
-							{committed && (
-								<div className="gw-gen-committed">{committed}</div>
+				{reviewMode ? (
+					/* ── Review & Edit panel ── */
+					<ReviewPanel
+						fullText={fullText.trim()}
+						plugin={plugin}
+						onPush={(text) => { onPushReviewed(text); }}
+						onBackToEdit={() => setReviewMode(false)}
+					/>
+				) : (
+					<>
+						{/* ── Body — streaming prose (divs) → editable textarea when done ── */}
+						<div className="gw-gen-body" ref={bodyRef}>
+							{hasContent && !isGenerating ? (
+								// Generation finished: editable textarea — always selectable/copyable
+								<textarea
+									className="gw-gen-textarea"
+									defaultValue={fullText.trim()}
+									spellCheck={false}
+								/>
+							) : (
+								<>
+									{committed && (
+										<div className="gw-gen-committed">{committed}</div>
+									)}
+									{streaming && (
+										<div className="gw-gen-streaming">
+											{streaming}
+											{isGenerating && <span className="gw-gen-cursor">▌</span>}
+										</div>
+									)}
+								</>
 							)}
-							{streaming && (
-								<div className="gw-gen-streaming">
-									{streaming}
-									{isGenerating && <span className="gw-gen-cursor">▌</span>}
+							{!hasContent && error && (
+								<div className="gw-gen-error-detail">
+									<p><strong>Generation failed.</strong></p>
+									<p>{error}</p>
+									<p style={{ marginTop: 8, fontSize: '0.85em', color: 'var(--text-muted)' }}>
+										Check your API key and model name in Settings, then try again.
+									</p>
 								</div>
 							)}
-						</>
-					)}
-					{!hasContent && error && (
-						<div className="gw-gen-error-detail">
-							<p><strong>Generation failed.</strong></p>
-							<p>{error}</p>
-							<p style={{ marginTop: 8, fontSize: '0.85em', color: 'var(--text-muted)' }}>
-								Check your API key and model name in Settings, then try again.
-							</p>
-						</div>
-					)}
-					{!hasContent && !error && (
-						<div className="gw-gen-waiting">Waiting for output…</div>
-					)}
-				</div>
-
-				{/* ── Footer ── */}
-				<div className="gw-gen-footer">
-					{isGenerating ? (
-						<button className="gw-btn gw-btn-danger" onClick={onAbort}>
-							✕ Abort
-						</button>
-					) : (
-						<>
-							<button className="gw-btn gw-btn-danger" onClick={onDiscard}>
-								✕ Discard
-							</button>
-							{hasContent && (
-								<button className="gw-btn gw-btn-success" onClick={onApprove}>
-									✓ Approve &amp; Insert
-								</button>
+							{!hasContent && !error && (
+								<div className="gw-gen-waiting">Waiting for output…</div>
 							)}
-						</>
-					)}
-				</div>
+						</div>
+
+						{/* ── Footer ── */}
+						<div className="gw-gen-footer">
+							{isGenerating ? (
+								<button className="gw-btn gw-btn-danger" onClick={onAbort}>
+									✕ Abort
+								</button>
+							) : (
+								<>
+									<button className="gw-btn gw-btn-danger" onClick={onDiscard}>
+										✕ Discard
+									</button>
+									{hasContent && (
+										<>
+											<button
+												className="gw-btn gw-btn-review"
+												onClick={() => setReviewMode(true)}
+												title="Split into paragraph cards for targeted edits"
+											>
+												✏ Review &amp; Edit
+											</button>
+											<button className="gw-btn gw-btn-success" onClick={onApprove}>
+												✓ Approve &amp; Insert
+											</button>
+										</>
+									)}
+								</>
+							)}
+						</div>
+					</>
+				)}
 
 			</div>
 		</div>

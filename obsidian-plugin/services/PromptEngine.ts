@@ -553,6 +553,44 @@ OUTPUT FORMAT (JSON):
 	}
 
 	/**
+	 * Lightweight prompt for rewriting a single paragraph in the Review & Edit panel.
+	 * Uses only the surrounding card context — no vault retrieval needed.
+	 * Typically 300–600 tokens total: fast and cheap.
+	 */
+	buildParagraphRewritePrompt(params: {
+		contextBefore: string;
+		paragraph: string;
+		contextAfter: string;
+		instruction: string;
+	}): string {
+		const beforeBlock = params.contextBefore
+			? `-------------------------------------------------------------\nCONTEXT BEFORE (read only — do not rewrite)\n-------------------------------------------------------------\n${params.contextBefore}\n\n`
+			: '';
+		const afterBlock = params.contextAfter
+			? `\n-------------------------------------------------------------\nCONTEXT AFTER (read only — do not rewrite)\n-------------------------------------------------------------\n${params.contextAfter}\n\n`
+			: '';
+
+		return `You are a line editor making a targeted revision to a single paragraph.
+
+${beforeBlock}-------------------------------------------------------------
+PARAGRAPH TO REWRITE
+-------------------------------------------------------------
+${params.paragraph}
+${afterBlock}-------------------------------------------------------------
+AUTHOR'S INSTRUCTION
+-------------------------------------------------------------
+${params.instruction || 'Improve this paragraph while maintaining its purpose and the surrounding flow.'}
+
+-------------------------------------------------------------
+YOUR TASK
+-------------------------------------------------------------
+Rewrite ONLY the paragraph above according to the author's instruction.
+- Flow seamlessly from the context before into the context after
+- Match the existing tone, voice, and style exactly
+- Output ONLY the rewritten paragraph — no commentary, no labels, no extra text`;
+	}
+
+	/**
 	 * Builds a prompt that asks the AI to suggest 3 narrative directions the story could
 	 * take from where it currently ends. Used by the "What happens next?" feature to help
 	 * authors overcome writer's block.

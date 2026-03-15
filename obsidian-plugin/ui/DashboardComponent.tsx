@@ -224,6 +224,27 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		}
 	};
 
+	// Called by ReviewPanel "Push to Vault" — receives the author's reviewed/edited text
+	const handleInsertReviewed = async (text: string) => {
+		if (!text.trim()) return;
+		try {
+			let existing = '';
+			try { existing = await plugin.vaultService.readFile(plugin.settings.book2Path); } catch {}
+			const separator = existing.trimEnd() ? '\n\n' : '';
+			await plugin.vaultService.writeFile(
+				plugin.settings.book2Path,
+				existing.trimEnd() + separator + text.trim()
+			);
+			new Notice('Reviewed text pushed to manuscript.');
+			setGeneratedText('');
+			setGeneratedParagraphs([]);
+			setChunkBuffer('');
+			setShowModal(false);
+		} catch (err: any) {
+			new Notice(`Push failed: ${err.message}`);
+		}
+	};
+
 	const handleDiscard = () => {
 		setGeneratedText('');
 		setGeneratedParagraphs([]);
@@ -684,7 +705,9 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					chunkBuffer={chunkBuffer}
 					generatedText={generatedText}
 					error={error}
+					plugin={plugin}
 					onApprove={handleInsert}
+					onPushReviewed={handleInsertReviewed}
 					onDiscard={handleDiscard}
 					onAbort={() => { plugin.sequentialGenerator.abort(); }}
 				/>
