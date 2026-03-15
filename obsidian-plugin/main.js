@@ -30786,29 +30786,26 @@ var CharacterUpdateService = class {
     console.debug(`[CharacterUpdateService] Committed ${updates.length} character updates`);
   }
   /**
-   * Build a representative text sample for roster generation by taking
-   * excerpts from the beginning AND middle of every chapter across the book.
+   * Build a representative text sample for roster generation.
    *
-   * Cloud AI is cheap enough that we can afford a generous sample.
-   * At Gemini Flash pricing (~$0.07/M input tokens), 200K characters costs
-   * less than two cents — no reason to be stingy here.
+   * Word-first: the unit is words, not characters.
+   * Takes the first 2,000 words of every chapter opening and 1,000 words
+   * from the mid-point — enough to catch characters introduced anywhere
+   * in the chapter, not just the first paragraph.
    *
-   * Sampling both the start and middle of each chapter ensures we catch
-   * characters introduced later in a chapter, not just those who appear
-   * in the opening paragraphs.
+   * For a 40-chapter, 300K-word manuscript this produces roughly 120,000
+   * words (~160K tokens) — well within any cloud model's context window.
    */
   _buildRosterSample(chapters) {
     if (chapters.length === 0)
       return "";
-    const TARGET_TOTAL = 2e5;
-    const openingBudget = Math.floor(TARGET_TOTAL * 0.67);
-    const middleBudget = TARGET_TOTAL - openingBudget;
-    const charsOpeningPerChapter = Math.min(4e3, Math.floor(openingBudget / chapters.length));
-    const charsMiddlePerChapter = Math.min(2e3, Math.floor(middleBudget / chapters.length));
+    const OPENING_WORDS = 2e3;
+    const MIDDLE_WORDS = 1e3;
     const samples = chapters.map((ch, i) => {
-      const opening = ch.slice(0, charsOpeningPerChapter).trim();
-      const midStart = Math.floor(ch.length * 0.5);
-      const middle = ch.slice(midStart, midStart + charsMiddlePerChapter).trim();
+      const words = ch.split(/\s+/);
+      const opening = words.slice(0, OPENING_WORDS).join(" ").trim();
+      const midWordStart = Math.floor(words.length * 0.5);
+      const middle = words.slice(midWordStart, midWordStart + MIDDLE_WORDS).join(" ").trim();
       const parts = [`[Chapter ${i + 1} \u2014 opening]
 ${opening}`];
       if (middle && middle !== opening) {
@@ -30817,7 +30814,7 @@ ${middle}`);
       }
       return parts.join("\n\n");
     });
-    return samples.join("\n\n---\n\n").slice(0, TARGET_TOTAL);
+    return samples.join("\n\n---\n\n");
   }
   /**
    * Split content by H1 headings (chapters).
@@ -30827,10 +30824,11 @@ ${middle}`);
     return parts.filter((p) => p.trim().length > 100).map((p, i) => i === 0 ? p : `# ${p}`);
   }
   /**
-   * Read ALL existing character notes from the character folder.
-   * No file-count cap — a large cast must be fully catalogued so the AI
-   * can respect what is already written for every character.
-   * Each note is capped at 3000 chars (sufficient for voice + trait summary).
+   * Read ALL existing character notes from the character folder, in full.
+   * No file-count cap, no character/word cap — the entire file is returned.
+   * Cloud context windows are large enough that truncating character history
+   * is counterproductive; the AI needs the full picture to respect and extend
+   * what is already written rather than re-extracting stale facts.
    */
   async getAllCharacterNotes() {
     const folder = this.plugin.settings.characterFolder || "Characters";
@@ -30839,7 +30837,7 @@ ${middle}`);
       const files = this.plugin.app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(`${folder}/`));
       for (const file of files) {
         const content = await this.plugin.app.vault.cachedRead(file);
-        notes[file.basename] = content.slice(0, 3e3);
+        notes[file.basename] = content;
       }
     } catch (err) {
       console.warn("[CharacterUpdateService] Failed to read existing character notes:", err);
