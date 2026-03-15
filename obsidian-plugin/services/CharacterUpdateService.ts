@@ -43,7 +43,7 @@ export class CharacterUpdateService {
 			this.plugin.settings.storyBiblePath
 		).catch(() => '');
 
-		const existingNotes = await this.getExistingCharacterNotes();
+		const existingNotes = await this.getAllCharacterNotes();
 
 		const prompt = this.promptEngine.buildCharacterExtractionPrompt(
 			text,
@@ -85,8 +85,11 @@ export class CharacterUpdateService {
 
 		console.debug(`[CharacterUpdateService] Roster built: ${roster.length} characters from ${chapters.length} chapters`);
 
-		// Cache existing character notes once — avoids re-reading the vault on every chapter
-		const existingNotes = await this.getExistingCharacterNotes();
+		// Read ALL existing character notes once — no file-count cap.
+		// The full catalog is needed so every character's existing notes can be
+		// shown to the AI when that character appears in a chapter.
+		const allNotes = await this.getAllCharacterNotes();
+		console.debug(`[CharacterUpdateService] Loaded ${Object.keys(allNotes).length} existing character files`);
 
 		// PASS 2: Per-chapter extraction with roster
 		const allUpdates: CharacterUpdate[] = [];
@@ -96,10 +99,14 @@ export class CharacterUpdateService {
 			const chapterContent = chapters[i];
 			if (chapterContent.trim().length < 100) continue; // Skip tiny chunks
 
+			// Only show notes for characters that actually appear in this chapter.
+			// This keeps the prompt lean and ensures the AI focuses on the right people.
+			const chapterNotes = this._filterNotesForChapter(allNotes, chapterContent);
+
 			const prompt = this.promptEngine.buildCharacterExtractionPromptWithRoster({
 				passage: chapterContent,
 				roster: rosterText,
-				characterNotes: existingNotes,
+				characterNotes: chapterNotes,
 				storyBible
 			});
 
@@ -113,10 +120,16 @@ export class CharacterUpdateService {
 			}
 		}
 
-		// Aggregate updates by character
-		const aggregated = this.characterExtractor.processChunks(
-			allUpdates.map(u => `## ${u.character}\n${u.update}`),
-			text => this.characterExtractor.parseExtraction(text)
+		// Aggregate updates by character directly — no roundtrip through parseExtraction.
+		// Collects all per-chapter updates for each character and joins them with separators.
+		const aggregateMap = new Map<string, string[]>();
+		for (const { character, update } of allUpdates) {
+			const bucket = aggregateMap.get(character) ?? [];
+			bucket.push(update);
+			aggregateMap.set(character, bucket);
+		}
+		const aggregated: CharacterUpdate[] = Array.from(aggregateMap.entries()).map(
+			([character, updates]) => ({ character, update: updates.join('\n\n---\n\n') })
 		);
 
 		console.debug(`[CharacterUpdateService] Extraction complete: ${aggregated.length} character updates from ${chapters.length} chapters`);
@@ -191,9 +204,12 @@ export class CharacterUpdateService {
 	}
 
 	/**
-	 * Get existing character notes from the character folder.
+	 * Read ALL existing character notes from the character folder.
+	 * No file-count cap — a large cast must be fully catalogued so the AI
+	 * can respect what is already written for every character.
+	 * Each note is capped at 3000 chars (sufficient for voice + trait summary).
 	 */
-	private async getExistingCharacterNotes(): Promise<Record<string, string>> {
+	private async getAllCharacterNotes(): Promise<Record<string, string>> {
 		const folder = this.plugin.settings.characterFolder || 'Characters';
 		const notes: Record<string, string> = {};
 
@@ -201,16 +217,35 @@ export class CharacterUpdateService {
 			const files = this.plugin.app.vault.getMarkdownFiles()
 				.filter(f => f.path.startsWith(`${folder}/`));
 
-			// Limit to first 20 files to avoid overwhelming the prompt
-			for (const file of files.slice(0, 20)) {
+			for (const file of files) {
 				const content = await this.plugin.app.vault.cachedRead(file);
-				notes[file.basename] = content.slice(0, 2000);
+				notes[file.basename] = content.slice(0, 3000);
 			}
 		} catch (err) {
 			console.warn('[CharacterUpdateService] Failed to read existing character notes:', err);
 		}
 
 		return notes;
+	}
+
+	/**
+	 * Filter a full character notes catalog down to only the characters
+	 * that appear by name in the given chapter text.
+	 * This keeps each chapter's prompt lean while still ensuring the AI
+	 * can see the complete existing notes for every character it actually meets.
+	 */
+	private _filterNotesForChapter(
+		allNotes: Record<string, string>,
+		chapterText: string
+	): Record<string, string> {
+		const haystack = chapterText.toLowerCase();
+		const filtered: Record<string, string> = {};
+		for (const [name, content] of Object.entries(allNotes)) {
+			if (haystack.includes(name.toLowerCase())) {
+				filtered[name] = content;
+			}
+		}
+		return filtered;
 	}
 }
 

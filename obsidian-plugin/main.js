@@ -30710,7 +30710,7 @@ var CharacterUpdateService = class {
     const storyBible = await this.vaultService.readFile(
       this.plugin.settings.storyBiblePath
     ).catch(() => "");
-    const existingNotes = await this.getExistingCharacterNotes();
+    const existingNotes = await this.getAllCharacterNotes();
     const prompt = this.promptEngine.buildCharacterExtractionPrompt(
       text2,
       existingNotes,
@@ -30739,17 +30739,19 @@ var CharacterUpdateService = class {
     const roster = parseCharacterRoster(rosterResponse);
     const rosterText = rosterToBulletList(roster);
     console.debug(`[CharacterUpdateService] Roster built: ${roster.length} characters from ${chapters.length} chapters`);
-    const existingNotes = await this.getExistingCharacterNotes();
+    const allNotes = await this.getAllCharacterNotes();
+    console.debug(`[CharacterUpdateService] Loaded ${Object.keys(allNotes).length} existing character files`);
     const allUpdates = [];
     for (let i = 0; i < chapters.length; i++) {
       onProgress?.(`Pass 2: Chapter ${i + 1}/${chapters.length}...`);
       const chapterContent = chapters[i];
       if (chapterContent.trim().length < 100)
         continue;
+      const chapterNotes = this._filterNotesForChapter(allNotes, chapterContent);
       const prompt = this.promptEngine.buildCharacterExtractionPromptWithRoster({
         passage: chapterContent,
         roster: rosterText,
-        characterNotes: existingNotes,
+        characterNotes: chapterNotes,
         storyBible
       });
       try {
@@ -30760,10 +30762,14 @@ var CharacterUpdateService = class {
         console.warn(`[CharacterUpdateService] Failed to process chapter ${i + 1}:`, err);
       }
     }
-    const aggregated = this.characterExtractor.processChunks(
-      allUpdates.map((u) => `## ${u.character}
-${u.update}`),
-      (text2) => this.characterExtractor.parseExtraction(text2)
+    const aggregateMap = /* @__PURE__ */ new Map();
+    for (const { character, update } of allUpdates) {
+      const bucket = aggregateMap.get(character) ?? [];
+      bucket.push(update);
+      aggregateMap.set(character, bucket);
+    }
+    const aggregated = Array.from(aggregateMap.entries()).map(
+      ([character, updates]) => ({ character, update: updates.join("\n\n---\n\n") })
     );
     console.debug(`[CharacterUpdateService] Extraction complete: ${aggregated.length} character updates from ${chapters.length} chapters`);
     return { roster, updates: aggregated, chaptersProcessed: chapters.length };
@@ -30821,21 +30827,40 @@ ${middle}`);
     return parts.filter((p) => p.trim().length > 100).map((p, i) => i === 0 ? p : `# ${p}`);
   }
   /**
-   * Get existing character notes from the character folder.
+   * Read ALL existing character notes from the character folder.
+   * No file-count cap — a large cast must be fully catalogued so the AI
+   * can respect what is already written for every character.
+   * Each note is capped at 3000 chars (sufficient for voice + trait summary).
    */
-  async getExistingCharacterNotes() {
+  async getAllCharacterNotes() {
     const folder = this.plugin.settings.characterFolder || "Characters";
     const notes = {};
     try {
       const files = this.plugin.app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(`${folder}/`));
-      for (const file of files.slice(0, 20)) {
+      for (const file of files) {
         const content = await this.plugin.app.vault.cachedRead(file);
-        notes[file.basename] = content.slice(0, 2e3);
+        notes[file.basename] = content.slice(0, 3e3);
       }
     } catch (err) {
       console.warn("[CharacterUpdateService] Failed to read existing character notes:", err);
     }
     return notes;
+  }
+  /**
+   * Filter a full character notes catalog down to only the characters
+   * that appear by name in the given chapter text.
+   * This keeps each chapter's prompt lean while still ensuring the AI
+   * can see the complete existing notes for every character it actually meets.
+   */
+  _filterNotesForChapter(allNotes, chapterText) {
+    const haystack = chapterText.toLowerCase();
+    const filtered = {};
+    for (const [name, content] of Object.entries(allNotes)) {
+      if (haystack.includes(name.toLowerCase())) {
+        filtered[name] = content;
+      }
+    }
+    return filtered;
   }
 };
 
