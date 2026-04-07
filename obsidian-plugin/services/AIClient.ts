@@ -117,31 +117,45 @@ export class AIClient {
 		gwlog('API', `generateStream | provider=${provider} | model=${settings.model} | key=${gwRedactKey(settings.apiKey)} | promptChars=${prompt.length} | ~tokens=${estimatedTokens}`);
 
 		let result: string;
-		if (provider === 'openai') {
-			result = await this._streamOpenAICompat(
-				prompt, settings,
-				'https://api.openai.com/v1/chat/completions',
-				'OpenAI', {}, onToken, signal
-			);
-		} else if (provider === 'openrouter') {
-			result = await this._streamOpenAICompat(
-				prompt, settings,
-				'https://openrouter.ai/api/v1/chat/completions',
-				'OpenRouter',
-				{
-					'HTTP-Referer': 'https://github.com/JHarp199345/Gwriter',
-					'X-Title': 'Writing Dashboard'
-				},
-				onToken, signal
-			);
-		} else if (provider === 'anthropic') {
-			result = await this._streamAnthropic(prompt, settings, onToken, signal);
-		} else if (provider === 'gemini') {
-			result = await this._streamGemini(prompt, settings, onToken, signal);
-		} else {
-			gwwarn('API', `Unknown provider "${provider}" — falling back to non-streaming generate`);
-			result = await this.generateSingle(prompt, settings);
-			onToken(result);
+		try {
+			if (provider === 'openai') {
+				result = await this._streamOpenAICompat(
+					prompt, settings,
+					'https://api.openai.com/v1/chat/completions',
+					'OpenAI', {}, onToken, signal
+				);
+			} else if (provider === 'openrouter') {
+				result = await this._streamOpenAICompat(
+					prompt, settings,
+					'https://openrouter.ai/api/v1/chat/completions',
+					'OpenRouter',
+					{
+						'HTTP-Referer': 'https://github.com/JHarp199345/Gwriter',
+						'X-Title': 'Writing Dashboard'
+					},
+					onToken, signal
+				);
+			} else if (provider === 'anthropic') {
+				result = await this._streamAnthropic(prompt, settings, onToken, signal);
+			} else if (provider === 'gemini') {
+				result = await this._streamGemini(prompt, settings, onToken, signal);
+			} else {
+				gwwarn('API', `Unknown provider "${provider}" — falling back to non-streaming generate`);
+				result = await this.generateSingle(prompt, settings);
+				onToken(result);
+			}
+		} catch (streamErr: unknown) {
+			// In Obsidian/Electron, native fetch() can fail with a TypeError ("Failed to fetch")
+			// due to network sandboxing, while requestUrl works fine. Fall back to non-streaming.
+			const isFetchError = streamErr instanceof TypeError ||
+				(streamErr instanceof Error && /failed to fetch|network/i.test(streamErr.message));
+			if (isFetchError) {
+				gwwarn('API', `generateStream fetch error — falling back to non-streaming | error=${(streamErr as Error).message}`);
+				result = await this.generateSingle(prompt, settings);
+				onToken(result);
+			} else {
+				throw streamErr;
+			}
 		}
 		gwlog('API', `generateStream DONE | responseChars=${result.length} | ~words=${result.trim().split(/\s+/).length}`);
 		return result;
