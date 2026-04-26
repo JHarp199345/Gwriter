@@ -52,6 +52,7 @@ import { showHarvestChecklistModal } from '../ui/HarvestChecklistModal';
 import { RunPaths } from './RunPaths';
 import { CloudRelay, WriteChapterInput, EditChapterInput } from './CloudRelay';
 import { ContextPacker } from './ContextPacker';
+import { StoryStateLedger } from './StoryStateLedger';
 import { estimateTokens } from './TokenEstimate';
 import { getContextLimit } from './ContextSafety';
 import { gwlog, gwwarn, gwerr, gwlogRunStart, gwSnip, gwWords } from './GWLogger';
@@ -90,6 +91,7 @@ export class SequentialGenerator {
     private heartbeatInterval: NodeJS.Timeout | null = null;
     private readonly cloudRelay: CloudRelay | null = null;
     private readonly contextPacker: ContextPacker | null = null;
+    private readonly storyStateLedger: StoryStateLedger;
 
     constructor(app: App, plugin: WritingDashboardPlugin) {
         this.plugin = plugin;
@@ -99,6 +101,7 @@ export class SequentialGenerator {
         this.auditService = new AuditService();
         this.cloudRelay = new CloudRelay(plugin);
         this.contextPacker = new ContextPacker();
+        this.storyStateLedger = new StoryStateLedger(plugin);
     }
 
     getCurrentRunId(): string | null {
@@ -352,7 +355,7 @@ export class SequentialGenerator {
             : '';
 
         // Within-run continuity: pin to the exact last paragraph so chunks stitch seamlessly.
-        const runAnchor = this._getLastChunkTail();
+        const runAnchor = iteration > 1 ? this._getLastChunkTail() : '';
         const runAnchorBlock = runAnchor
             ? `\nCONTINUATION ANCHOR — your first sentence must flow directly from:\n"""${runAnchor}"""\n`
             : '';
@@ -378,7 +381,7 @@ export class SequentialGenerator {
             : '';
 
         const chapterPlanBlock = this.chapterPlan
-            ? `CHAPTER PLAN (author-approved — follow it):\n${this.chapterPlan}\n\n⚠ NARRATIVE WALL: Every term above is craft vocabulary for you as author — causation chain, scene outline, forbidden territory, terminus — NONE of these phrases belong in the prose. They are invisible to the reader. Writing any structural label into the story text is a critical failure.`
+            ? `CHAPTER PLAN (author-approved — follow its intent and sequence, but do not copy its wording):\n${this.chapterPlan}\n\n⚠ NARRATIVE WALL: Every term and sentence above is craft vocabulary for you as author — causation chain, scene outline, forbidden territory, wall, boundary, problem, turn, lands, etc. NONE of these labels or plan phrases belong in the prose unless the phrase is already natural in the fictional scene. They are invisible scaffolding. Writing structural labels, meta-planning language, or copied plan wording into the story text is a critical failure.`
             : `PLAN: ${JSON.stringify(planResult.data)}`;
 
         const prompt = `
@@ -638,6 +641,14 @@ Constraints:
 `;
     }
 
+    private looksIncompleteProse(text: string): boolean {
+        const trimmed = text.trim();
+        if (!trimmed) return true;
+        if (/[.!?"')\]]$/.test(trimmed)) return false;
+        const tail = trimmed.split(/\s+/).slice(-8).join(' ').toLowerCase();
+        return /\b(to|and|or|but|because|that|which|who|where|when|for|of|with|from|into|the|a|an)$/i.test(tail) || !/[.!?]["')\]]?$/.test(trimmed);
+    }
+
     private async _runUpdateStage(
         smartProfile: ReturnType<typeof this.getTaskProfile>,
         contextManager: ContextManager,
@@ -645,11 +656,16 @@ Constraints:
         iteration: number
     ): Promise<StageResult | null> {
         return this.runStage('UPDATE', smartProfile.model, async () => {
-            const newFacts: CanonFact[] = [];
-            contextManager.updateState(newFacts, {
+            const delta = await this.storyStateLedger.extractDeltaFromProse(
+                String(writeResult.data || ''),
+                contextManager,
+                `chunk-${iteration}`
+            );
+            this.storyStateLedger.applyDelta(contextManager, delta, {
                 chunkId: `chunk-${iteration}`,
-                summary: `Generated chunk ${iteration}`
+                summary: `Generated chunk ${iteration}; ${delta.facts.length} state facts; ${delta.openLoops.length} open loops`
             });
+            await this.storyStateLedger.recordDelta(`chunk-${iteration}`, `chunk-${iteration}`, contextManager, delta);
 
             const citedFactIds = writeResult.metadata?.flatMap(m => m.factIds) || [];
             contextManager.refreshPins(citedFactIds);
@@ -662,7 +678,14 @@ Constraints:
             });
             this.entitiesMentionedHistory.set(`chunk-${iteration}`, Array.from(mentionedEntities));
 
-            return { status: 'success', version: contextManager.getState().canonVersion };
+            return {
+                status: 'success',
+                version: contextManager.getState().canonVersion,
+                source: delta.source,
+                facts: delta.facts.length,
+                openLoops: delta.openLoops.length,
+                warnings: delta.warnings
+            };
         }, undefined, await sha256(`Generated chunk ${iteration}`));
     }
 
@@ -683,6 +706,33 @@ Constraints:
 
         await this.saveManifest();
         await this.cleanupOldRuns();
+    }
+
+    private async ensureStoryBibleExists(): Promise<void> {
+        const path = this.plugin.settings.storyBiblePath || 'Book - Story Bible.md';
+        const existing = this.plugin.app.vault.getAbstractFileByPath(path);
+        if (existing instanceof TFile) return;
+
+        await this.plugin.vaultService.ensureParentFolder(path);
+        await this.plugin.vaultService.createFileIfNotExists(path, `# Story Bible
+
+This file is the durable canon memory for the book. Approved lore harvests are merged here and future generations seed story state from it.
+
+## Characters
+
+## Locations
+
+## Objects
+
+## Timeline
+
+## World Rules
+
+## Open Questions
+
+## Conflicts to Resolve
+`);
+        new Notice(`Created Story Bible: ${path}`);
     }
 
     /**
@@ -714,6 +764,7 @@ Constraints:
         this.abortController = new AbortController();
         this.interventionCount = 0;
         this.interventionCountPerChunk.clear();
+        this.rollingWindow = [];
         this.chapterPlan = '';
         this.planApprovalResolver = null;
 
@@ -749,9 +800,10 @@ Constraints:
 
             this.verifySchemaDrift(initialState);
 
-            gwlog('SETUP', `seedFromStoryBible | path="${this.plugin.settings.storyBiblePath}"`);
-            const seedResult = await contextManager.seedFromStoryBible(this.plugin.settings.storyBiblePath);
-            gwlog('SETUP', `seedFromStoryBible OK | hash=${seedResult.hash?.slice(0,8) ?? '(none)'}`);
+            await this.ensureStoryBibleExists();
+            gwlog('SETUP', `seed story ledger | path="${this.plugin.settings.storyBiblePath}"`);
+            const seedResult = await this.storyStateLedger.seedFromStoryBible(contextManager, this.plugin.settings.storyBiblePath);
+            gwlog('SETUP', `story ledger seed OK | hash=${seedResult.hash?.slice(0,8) ?? '(none)'} | facts=${seedResult.delta.facts.length}`);
 
             const environment = await this._buildEnvironmentMeta(smartModel, policyHash, corpusHash);
             await this._initManifest(smartModel, null, policyHash, corpusHash, initialState, seedResult.hash, environment);
@@ -790,6 +842,10 @@ Constraints:
                         const writeResult = await this._runWriteStage(smartProfile, planResult, retrieveResult, contextManager, 1, rawParams, isDegraded, restrictedDomains, phaseTargetWords);
 
                         if (writeResult && !this.checkControlFlow()) {
+                            if (this.looksIncompleteProse(String(writeResult.data))) {
+                                throw new Error('Generated prose appears incomplete at the final sentence. Increase output tokens or regenerate before committing.');
+                            }
+
                             if (isDegraded) this._quarantineDegradedFacts(writeResult, restrictedDomains);
 
                             const { text: chunk, metadata: meta } = this.segmentAndRecover(writeResult.data, []);
@@ -2371,7 +2427,8 @@ Constraints:
         const contextManager = new ContextManager(this.plugin.app.vault, initialState);
         this.contextManager = contextManager;
 
-        const seedResult = await contextManager.seedFromStoryBible(this.plugin.settings.storyBiblePath);
+        await this.ensureStoryBibleExists();
+        const seedResult = await this.storyStateLedger.seedFromStoryBible(contextManager, this.plugin.settings.storyBiblePath);
         const userInstruction = (this.plugin.settings.modeState?.chapter?.rewriteInstructions ||
                                'Write a compelling chapter that advances the plot.');
 
@@ -2669,6 +2726,21 @@ Constraints:
             chunkId: 'monolithic-chapter',
             summary: `Cloud generated full chapter (${fullProse.split(/\s+/).length} words)`
         });
+
+        const delta = output.stateDelta
+            ? this.storyStateLedger.normalizeExternalDelta(
+                output.stateDelta,
+                'monolithic-chapter',
+                'GENERATION',
+                'PROPOSED'
+            )
+            : await this.storyStateLedger.extractDeltaFromProse(
+                fullProse,
+                contextManager,
+                'monolithic-chapter'
+            );
+        this.storyStateLedger.applyDelta(contextManager, delta);
+        await this.storyStateLedger.recordDelta('monolithic-chapter', 'monolithic-chapter', contextManager, delta);
 
         await this.performCloudHarvest(contextManager, fullProse, output.paragraphs, output.extractedTuples);
     }

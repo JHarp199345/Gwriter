@@ -1,5 +1,5 @@
 import { Vault, TFile } from 'obsidian';
-import WritingDashboardPlugin from '../main';
+import type WritingDashboardPlugin from '../main';
 import { EvidenceSpan, EvidenceRelocationTier, EvidenceRelocationMethod, HarvestItem } from './Schemas';
 import { sha256, normalizeForExcerptHash, normalizeWhitespace } from './ContentHash';
 
@@ -39,6 +39,7 @@ export class EvidenceRelocationService {
     private vault: Vault;
     private plugin: WritingDashboardPlugin;
     private fileCache: Map<string, { content: string; hash: string }> = new Map();
+    private useFileCache = false;
 
     constructor(vault: Vault, plugin: WritingDashboardPlugin) {
         this.vault = vault;
@@ -173,29 +174,35 @@ export class EvidenceRelocationService {
     ): Promise<HarvestItem[]> {
         // Clear cache for fresh reads
         this.fileCache.clear();
+        this.useFileCache = true;
 
-        const relocatedItems: HarvestItem[] = [];
-        
-        for (const item of items) {
-            const filePath = sourceFilePaths.get(item.harvestId) || item.supportingEvidence[0]?.sourceFilePath;
-            if (!filePath) {
-                relocatedItems.push(item);
-                continue;
+        try {
+            const relocatedItems: HarvestItem[] = [];
+            
+            for (const item of items) {
+                const filePath = sourceFilePaths.get(item.harvestId) || item.supportingEvidence[0]?.sourceFilePath;
+                if (!filePath) {
+                    relocatedItems.push(item);
+                    continue;
+                }
+
+                const relocatedEvidence: EvidenceSpan[] = [];
+                for (const span of item.supportingEvidence) {
+                    const relocated = await this.relocateEvidenceSpan(span, filePath);
+                    relocatedEvidence.push(relocated);
+                }
+
+                relocatedItems.push({
+                    ...item,
+                    supportingEvidence: relocatedEvidence
+                });
             }
 
-            const relocatedEvidence: EvidenceSpan[] = [];
-            for (const span of item.supportingEvidence) {
-                const relocated = await this.relocateEvidenceSpan(span, filePath);
-                relocatedEvidence.push(relocated);
-            }
-
-            relocatedItems.push({
-                ...item,
-                supportingEvidence: relocatedEvidence
-            });
+            return relocatedItems;
+        } finally {
+            this.useFileCache = false;
+            this.fileCache.clear();
         }
-
-        return relocatedItems;
     }
 
     /**
@@ -228,6 +235,9 @@ export class EvidenceRelocationService {
         // Normalize for search
         const normalizedBefore = normalizeWhitespace(before);
         const normalizedAfter = normalizeWhitespace(after);
+        if (!normalizedBefore || !normalizedAfter) {
+            return matches;
+        }
         const normalizedContent = normalizeWhitespace(content);
 
         // Search for before context
@@ -264,6 +274,9 @@ export class EvidenceRelocationService {
         const matches: Array<{ start: number; end: number }> = [];
         const normalizedContent = normalizeForExcerptHash(content);
         const normalizedOriginal = normalizeForExcerptHash(originalExcerpt);
+        if (!normalizedOriginal) {
+            return matches;
+        }
 
         // Search for normalized excerpt text
         let searchStart = 0;
@@ -295,6 +308,9 @@ export class EvidenceRelocationService {
     ): Array<{ start: number; end: number }> {
         const matches: Array<{ start: number; end: number }> = [];
         const normalizedExcerpt = normalizeWhitespace(excerpt);
+        if (!normalizedExcerpt) {
+            return matches;
+        }
         const normalizedContent = normalizeWhitespace(content);
 
         let searchStart = 0;
@@ -317,7 +333,7 @@ export class EvidenceRelocationService {
      * Reads file with caching to avoid repeated reads during batch relocation.
      */
     private async readFileWithCache(filePath: string): Promise<string | null> {
-        if (this.fileCache.has(filePath)) {
+        if (this.useFileCache && this.fileCache.has(filePath)) {
             return this.fileCache.get(filePath)!.content;
         }
 
@@ -330,7 +346,9 @@ export class EvidenceRelocationService {
             const content = await this.vault.read(file);
             const hash = await sha256(content);
             
-            this.fileCache.set(filePath, { content, hash });
+            if (this.useFileCache) {
+                this.fileCache.set(filePath, { content, hash });
+            }
             return content;
         } catch (err) {
             console.warn(`[EvidenceRelocationService] Failed to read file ${filePath}:`, err);
@@ -338,4 +356,3 @@ export class EvidenceRelocationService {
         }
     }
 }
-

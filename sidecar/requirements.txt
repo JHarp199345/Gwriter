@@ -1,0 +1,12 @@
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+transformers>=4.44.0
+torch>=2.3.0
+safetensors>=0.4.3
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
+huggingface_hub>=0.23.0
+accelerate>=0.31.0
+
+# Optional — only needed if NSM_QUANTIZE_INT8=true (for 8GB RAM machines)
+# bitsandbytes>=0.43.0

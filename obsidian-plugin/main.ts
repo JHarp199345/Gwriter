@@ -63,6 +63,7 @@ export type DashboardSettings = {
 	retrievalChunkHeadingLevel: 'h1' | 'h2' | 'h3' | 'none';
 	book2Path: string;
 	storyBiblePath: string;
+	storyBibleFolder?: string;
 	characterFolder: string;
 	generationLogsEnabled?: boolean;
 	generationLogsIncludePrompt?: boolean;
@@ -297,6 +298,7 @@ export default class WritingDashboardPlugin extends Plugin {
 				retrievalChunkHeadingLevel: 'h1',
 				book2Path: 'Book-Main.md',
 				storyBiblePath: 'Book - Story Bible.md',
+				storyBibleFolder: 'Story Bible',
 				characterFolder: 'Characters',
 				generationLogsEnabled: false,
 				generationLogsIncludePrompt: false,

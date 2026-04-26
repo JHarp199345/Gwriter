@@ -2,6 +2,16 @@ import { CanonFact, ParagraphMetadata } from './Schemas';
 import WritingDashboardPlugin from '../main';
 import { sha256, normalizeWhitespace } from './ContentHash';
 
+export interface NarrativeAttentionItem {
+    id: string;
+    label: string;
+    status: string;
+    reason: string;
+    expectedPayoff?: string;
+    nextObligation?: string;
+    score?: number;
+}
+
 /**
  * Locked fact attestation - model must explicitly state preservation status
  */
@@ -35,6 +45,27 @@ export interface WriteChapterOutput {
     proseHash: string; // sha256(normalizeWhitespace(computedProse))
     lockedFactAttestations: LockedFactAttestation[];
     extractedTuples?: CanonFact[]; // Optional model-extracted facts
+    stateDelta?: {
+        entities?: Array<{ id?: string; name: string; type?: 'character' | 'location' | 'object' | 'concept'; attributes?: Record<string, any> }>;
+        facts?: Array<{ entityId?: string; entityName?: string; type?: string; attribute?: string; value?: any; scope?: string; confidence?: number }>;
+        openLoops?: string[];
+        resolvedLoops?: string[];
+        loopMovements?: Array<{
+            loopId?: string;
+            label: string;
+            kind?: string;
+            status: string;
+            movement: string;
+            ownerEntityIds?: string[];
+            urgency?: number;
+            dropRisk?: number;
+            expectedPayoff?: 'soon' | 'later' | 'background' | 'none';
+            closureCondition?: string;
+            nextObligation?: string;
+            evidence?: string;
+        }>;
+        warnings?: string[];
+    };
     usedHitIds: string[];
 }
 
@@ -98,6 +129,11 @@ export interface ContextPack {
         currentLocation?: string;
         currentTime?: string;
         activeCast?: string[];
+        narrativeAttention?: {
+            foreground: NarrativeAttentionItem[];
+            closureCandidates: NarrativeAttentionItem[];
+            offstage: NarrativeAttentionItem[];
+        };
     };
     styleSignature?: string[]; // "Golden Paragraphs" for voice matching
     retrievalHits: Array<{
@@ -204,6 +240,15 @@ Location: ${context.chapterState.currentLocation || 'Unknown'}
 Time: ${context.chapterState.currentTime || 'Unknown'}
 Active Cast: ${context.chapterState.activeCast?.join(', ') || 'None'}
 
+## Narrative Attention
+${this.formatNarrativeAttention(context.chapterState.narrativeAttention)}
+
+Use the foreground list as the pool of story threads most available to tell now. You do not need to use every available thread. Choose the ones that best answer the director notes, the current scene pressure, active cast, location, and pacing.
+
+Use closure candidates when the passage can quietly satisfy, transfer, background, recontextualize, or close a thread without forcing a false climax.
+
+Keep offstage/background threads alive as continuity only unless the director notes or scene pressure naturally summons them.
+
 ## Style Signature
 ${context.styleSignature?.join('\n\n---\n\n') || 'No style signature provided.'}
 
@@ -216,7 +261,11 @@ Generate a complete chapter as a JSON object with:
 - proseHash: SHA256 hash of normalized prose (computed from paragraphs)
 - lockedFactAttestations[]: For each locked fact, state PRESERVED/NOT_MENTIONED/CONTRADICTED
 - extractedTuples[]: Any new canonical facts introduced
+- stateDelta: Entities, facts, open loops, resolved loops, relationship shifts, emotional/plot promises, and warnings introduced by the chapter
+- stateDelta.loopMovements: how existing and new loops moved, including quiet closure, dormancy, transfer, recontextualization, background continuity, and intentional abandonment
 - usedHitIds[]: Which retrieval hits were actually used
+
+The stateDelta is not prose. It is the script-supervisor metadata for what your chapter changed in story state. Do not only open loops; intelligently close, satisfy, transfer, recontextualize, or background loops when the passage has released their story obligation.
 
 Ensure prose matches target word count and maintains narrative coherence.
 `;
@@ -272,6 +321,26 @@ Return JSON with:
         return lines.join('\n');
     }
 
+    private formatNarrativeAttention(attention?: ContextPack['chapterState']['narrativeAttention']): string {
+        if (!attention) return 'No loop ledger yet.';
+
+        const formatList = (title: string, items: NarrativeAttentionItem[]) => {
+            const lines = items.slice(0, 10).map(item => {
+                const payoff = item.expectedPayoff ? ` payoff=${item.expectedPayoff}` : '';
+                const obligation = item.nextObligation ? ` next=${item.nextObligation}` : '';
+                const score = typeof item.score === 'number' ? ` score=${item.score.toFixed(2)}` : '';
+                return `- ${item.label} [${item.status}]${payoff}${score}: ${item.reason}${obligation}`;
+            });
+            return `${title}\n${lines.length ? lines.join('\n') : '- none'}`;
+        };
+
+        return [
+            formatList('Foreground candidates', attention.foreground || []),
+            formatList('Closure/background candidates', attention.closureCandidates || []),
+            formatList('Offstage continuity', attention.offstage || []),
+        ].join('\n\n');
+    }
+
     /**
      * Get JSON Schema for write output
      */
@@ -317,6 +386,17 @@ Return JSON with:
                     }
                 },
                 extractedTuples: { type: 'array' },
+                stateDelta: {
+                    type: 'object',
+                    properties: {
+                        entities: { type: 'array' },
+                        facts: { type: 'array' },
+                        openLoops: { type: 'array', items: { type: 'string' } },
+                        resolvedLoops: { type: 'array', items: { type: 'string' } },
+                        loopMovements: { type: 'array' },
+                        warnings: { type: 'array', items: { type: 'string' } }
+                    }
+                },
                 usedHitIds: { type: 'array', items: { type: 'string' } }
             }
         };
@@ -628,4 +708,3 @@ Return JSON with:
         throw new Error(`JSON recovery failed: ${jsonText.substring(0, 200)}...`);
     }
 }
-

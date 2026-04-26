@@ -6,11 +6,17 @@ import { HelpDensity } from './HelpRegistry';
 import { relayEventBus } from '../services/EventBus';
 
 // Model lists for each provider
-// IDs verified against live API docs — March 2026
+// IDs verified against official API docs — April 2026
 // Sources: docs.anthropic.com, platform.openai.com, ai.google.dev, openrouter.ai/models
 
 const OPENAI_MODELS = [
 	// Current generation (2025–2026)
+	{ value: 'gpt-5.5', label: 'GPT-5.5 ⭐ Latest' },
+	{ value: 'gpt-5.5-2026-04-23', label: 'GPT-5.5 Snapshot — 2026-04-23' },
+	{ value: 'gpt-5.4', label: 'GPT-5.4' },
+	{ value: 'gpt-5.2', label: 'GPT-5.2 ⭐ Latest' },
+	{ value: 'gpt-5.2-pro', label: 'GPT-5.2 Pro' },
+	{ value: 'gpt-5.1', label: 'GPT-5.1' },
 	{ value: 'gpt-5', label: 'GPT-5' },
 	{ value: 'gpt-4.1', label: 'GPT-4.1' },
 	{ value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
@@ -50,6 +56,10 @@ const OPENROUTER_MODELS = [
 	{ value: 'anthropic/claude-opus-4-6', label: 'Anthropic — Claude Opus 4.6' },
 	{ value: 'anthropic/claude-haiku-4-5', label: 'Anthropic — Claude Haiku 4.5 (Fast)' },
 	// ── OpenAI via OpenRouter ─────────────────────────────────────
+	{ value: 'openai/gpt-5.5', label: 'OpenAI — GPT-5.5' },
+	{ value: 'openai/gpt-5.4', label: 'OpenAI — GPT-5.4' },
+	{ value: 'openai/gpt-5.2', label: 'OpenAI — GPT-5.2' },
+	{ value: 'openai/gpt-5.1', label: 'OpenAI — GPT-5.1' },
 	{ value: 'openai/gpt-5', label: 'OpenAI — GPT-5' },
 	{ value: 'openai/gpt-4.1', label: 'OpenAI — GPT-4.1' },
 	{ value: 'openai/gpt-4.1-mini', label: 'OpenAI — GPT-4.1 Mini' },

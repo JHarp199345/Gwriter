@@ -51,7 +51,7 @@ export class ContextManager {
         while (this.state.entity_redirects[current]) {
             if (visited.has(current)) {
                 console.error(`[ContextManager] 🌀 Cycle detected in entity redirects for ID: ${id}`);
-                return current; 
+                return chain[chain.length - 1] || id; 
             }
             visited.add(current);
             chain.push(current);
@@ -95,7 +95,7 @@ export class ContextManager {
 
         // 2. STATE can only override specific types (scene-local or run-scoped)
         if (srcOrigin === 'STATE') {
-            return ['SCENE_DETAIL', 'THREAD_STATE'].includes(factType);
+            return dstOrigin === 'GENERATION' || ['SCENE_DETAIL', 'THREAD_STATE'].includes(factType);
         }
 
         // 3. General power hierarchy
@@ -362,8 +362,8 @@ export class ContextManager {
     }
 
     /**
-     * Seeds the initial state from the story bible file.
-     * confidence >= 0.85 auto-accept AND no collisions; otherwise Quarantine.
+     * Deprecated compatibility shim. Story Bible extraction now belongs to
+     * StoryStateLedger so model/heuristic parsing stays outside the state store.
      */
     async seedFromStoryBible(path: string): Promise<{ updated: boolean, hash: string, seedProposals?: any[] }> {
         const file = this.vault.getAbstractFileByPath(path);
@@ -376,52 +376,8 @@ export class ContextManager {
             return { updated: false, hash };
         }
 
-        console.debug(`[ContextManager] 📚 Seeding canon from story bible (Hash: ${hash})`);
-        
-        // MOCK: LLM-extracted proposals
-        const proposals = [
-            { 
-                id: 'char_alice', 
-                entity: { id: 'char_alice', name: 'Alice', type: 'character', attributes: { role: 'protagonist' } },
-                confidence: 0.95 
-            },
-            { 
-                id: 'char_bob', 
-                entity: { id: 'char_bob', name: 'Bob', type: 'character', attributes: { role: 'mentor' } },
-                confidence: 0.82 
-            }
-        ];
-
-        const seedProposals: any[] = [];
-
-        proposals.forEach(prop => {
-            const hasCollision = this.detectCollisions(prop.entity as any);
-            const mockFact: CanonFact = {
-                id: prop.id,
-                entityId: prop.id,
-                type: 'IDENTITY',
-                attribute: 'identity',
-                value: prop.entity.name,
-                origin: 'EXTRACTOR',
-                scope: 'GLOBAL',
-                confidence: prop.confidence,
-                timestamp: Date.now(),
-                lifecycleState: 'PROPOSED'
-            };
-
-            if (prop.confidence >= 0.85 && !hasCollision && this.shouldAutoPromote(mockFact)) {
-                this.state.entities.push(prop.entity as any);
-                this.state.canonFacts.push({ ...mockFact, lifecycleState: 'CANON' });
-                console.debug(`[ContextManager] ✅ Auto-accepted seeding: ${prop.entity.name}`);
-            } else {
-                seedProposals.push(prop);
-                console.debug(`[ContextManager] ⚠️ Seeding proposal quarantined: ${prop.entity.name} (Conf: ${prop.confidence}, Collision: ${hasCollision})`);
-            }
-        });
-
         this.lastStoryBibleHash = hash;
-        
-        return { updated: true, hash, seedProposals };
+        return { updated: false, hash, seedProposals: [] };
     }
 
     /**

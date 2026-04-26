@@ -1,5 +1,5 @@
 import { ChapterState, CanonFact } from './Schemas';
-import { ContextPack, LockMap } from './CloudRelay';
+import { ContextPack, LockMap, NarrativeAttentionItem } from './CloudRelay';
 import { estimateTokens } from './TokenEstimate';
 import { sha256, normalizeWhitespace } from './ContentHash';
 
@@ -121,7 +121,8 @@ export class ContextPacker {
                 directorNotes,
                 currentLocation: chapterState.anchors?.locationId,
                 currentTime: chapterState.anchors?.sceneTime,
-                activeCast: chapterState.anchors?.castIds || []
+                activeCast: chapterState.anchors?.castIds || [],
+                narrativeAttention: this.buildNarrativeAttention(chapterState, directorNotes)
             },
             styleSignature: styleSignature || undefined,
             retrievalHits: hitsWithHashes,
@@ -202,6 +203,65 @@ export class ContextPacker {
         return parts.join('\n');
     }
 
+    private buildNarrativeAttention(chapterState: ChapterState, directorNotes?: string): ContextPack['chapterState']['narrativeAttention'] {
+        const loops = chapterState.loopLedger || [];
+        if (loops.length === 0) return undefined;
+
+        const activeCast = new Set(chapterState.anchors?.castIds || []);
+        const noteTokens = new Set((directorNotes || '').toLowerCase().match(/[a-z0-9']+/g) || []);
+
+        const items = loops.map(loop => {
+            const castBoost = loop.ownerEntityIds.some(id => activeCast.has(id)) ? 0.2 : 0;
+            const noteBoost = Array.from(noteTokens).some(token => token.length > 3 && loop.label.toLowerCase().includes(token)) ? 0.2 : 0;
+            const payoffBoost = loop.expectedPayoff === 'soon' ? 0.2 : loop.expectedPayoff === 'later' ? 0.1 : 0;
+            const statusBoost = loop.status === 'ACTIVE' ? 0.15 : loop.status === 'OPEN' ? 0.1 : 0;
+            const score = Math.max(0, Math.min(1, (loop.urgency * 0.45) + (loop.dropRisk * 0.25) + castBoost + noteBoost + payoffBoost + statusBoost));
+            const latest = loop.history[loop.history.length - 1];
+
+            return {
+                id: loop.id,
+                label: loop.label,
+                status: loop.status,
+                reason: this.attentionReason(loop, score),
+                expectedPayoff: loop.expectedPayoff,
+                nextObligation: latest?.nextObligation || loop.closureCondition,
+                score
+            } satisfies NarrativeAttentionItem;
+        });
+
+        const foregroundStatuses = new Set(['OPEN', 'ACTIVE', 'TRANSFERRED']);
+        const closureStatuses = new Set(['DORMANT', 'SATISFIED', 'RECONTEXTUALIZED']);
+        const offstageStatuses = new Set(['BACKGROUND_CONTINUITY', 'ABANDONED_INTENTIONALLY', 'DEAD_END', 'CLOSED']);
+
+        const foreground = items
+            .filter(item => foregroundStatuses.has(item.status) && (item.expectedPayoff !== 'background' && item.expectedPayoff !== 'none'))
+            .sort((a, b) => (b.score || 0) - (a.score || 0))
+            .slice(0, 8);
+
+        const closureCandidates = items
+            .filter(item => closureStatuses.has(item.status) || item.expectedPayoff === 'background' || item.expectedPayoff === 'none')
+            .sort((a, b) => (b.score || 0) - (a.score || 0))
+            .slice(0, 8);
+
+        const offstage = items
+            .filter(item => offstageStatuses.has(item.status))
+            .sort((a, b) => a.label.localeCompare(b.label))
+            .slice(0, 12);
+
+        return { foreground, closureCandidates, offstage };
+    }
+
+    private attentionReason(loop: NonNullable<ChapterState['loopLedger']>[number], score: number): string {
+        const parts: string[] = [];
+        if (loop.urgency >= 0.7) parts.push('high urgency');
+        if (loop.dropRisk >= 0.7) parts.push('at risk of feeling dropped');
+        if (loop.expectedPayoff === 'soon') parts.push('near-term payoff');
+        if (loop.expectedPayoff === 'background') parts.push('can recede into continuity');
+        if (loop.expectedPayoff === 'none') parts.push('no further payoff expected');
+        if (parts.length === 0) parts.push(score >= 0.5 ? 'available if scene pressure supports it' : 'low pressure');
+        return parts.join('; ');
+    }
+
     /**
      * Save context pack artifact for audit
      */
@@ -221,4 +281,3 @@ export class ContextPacker {
         await vaultService.writeFile(packPath, JSON.stringify(packJson, null, 2));
     }
 }
-

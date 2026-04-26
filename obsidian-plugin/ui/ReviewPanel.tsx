@@ -344,6 +344,7 @@ const ParagraphCard: React.FC<ParagraphCardProps> = ({
 	const [isEditing, setIsEditing] = useState(false);
 	const [editValue, setEditValue] = useState(card.text);
 	const instructionRef = useRef<HTMLInputElement>(null);
+	const editRef = useRef<HTMLTextAreaElement>(null);
 
 	// Sync edit value when card text changes externally (after rewrite/revert)
 	useEffect(() => {
@@ -356,6 +357,12 @@ const ParagraphCard: React.FC<ParagraphCardProps> = ({
 			instructionRef.current.focus();
 		}
 	}, [isInstructionOpen]);
+
+	useEffect(() => {
+		if (!isEditing || !editRef.current) return;
+		editRef.current.style.height = 'auto';
+		editRef.current.style.height = `${editRef.current.scrollHeight}px`;
+	}, [isEditing, editValue]);
 
 	const handleInstructionSubmit = () => {
 		if (localInstruction.trim()) {
@@ -456,6 +463,7 @@ const ParagraphCard: React.FC<ParagraphCardProps> = ({
 					</div>
 				) : isEditing ? (
 					<textarea
+						ref={editRef}
 						className="gw-para-edit-textarea"
 						value={editValue}
 						onChange={e => setEditValue(e.target.value)}

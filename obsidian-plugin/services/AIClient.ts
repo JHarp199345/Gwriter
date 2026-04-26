@@ -82,6 +82,40 @@ export class AIClient {
 		return typeof content === 'string' ? content : undefined;
 	}
 
+	private _getOpenAIResponsesContent(payload: unknown): string | undefined {
+		if (!payload || typeof payload !== 'object') return undefined;
+		const obj = payload as Record<string, unknown>;
+		if (typeof obj.output_text === 'string') return obj.output_text;
+
+		const output = obj.output;
+		if (!Array.isArray(output)) return undefined;
+		const parts: string[] = [];
+		for (const item of output) {
+			if (!item || typeof item !== 'object') continue;
+			const content = (item as Record<string, unknown>).content;
+			if (!Array.isArray(content)) continue;
+			for (const part of content) {
+				if (!part || typeof part !== 'object') continue;
+				const text = (part as Record<string, unknown>).text;
+				if (typeof text === 'string') parts.push(text);
+			}
+		}
+		return parts.length ? parts.join('') : undefined;
+	}
+
+	private _usesOpenAIResponses(settings: DashboardSettings): boolean {
+		return settings.apiProvider === 'openai' && /^gpt-5(?:[.\-]|$)|^o\d/.test(settings.model || '');
+	}
+
+	private _maxOutputTokens(settings: DashboardSettings): number {
+		const targetWords = Math.max(1000, Number(settings.maxChunkWords || 2500));
+		const requested = Math.ceil(targetWords * 1.8) + 1200;
+		if (settings.apiProvider === 'anthropic') return Math.min(16000, Math.max(4000, requested));
+		if (settings.apiProvider === 'openai' && this._usesOpenAIResponses(settings)) return Math.min(128000, Math.max(4000, requested));
+		if (settings.apiProvider === 'openai' || settings.apiProvider === 'openrouter') return Math.min(16000, Math.max(4000, requested));
+		return Math.min(8192, Math.max(4000, requested));
+	}
+
 	private _safeJsonPreview(value: unknown, maxLen = 1200): string {
 		try {
 			const text = JSON.stringify(value);
@@ -119,11 +153,16 @@ export class AIClient {
 		let result: string;
 		try {
 			if (provider === 'openai') {
-				result = await this._streamOpenAICompat(
-					prompt, settings,
-					'https://api.openai.com/v1/chat/completions',
-					'OpenAI', {}, onToken, signal
-				);
+				if (this._usesOpenAIResponses(settings)) {
+					result = await this._generateOpenAIResponses(prompt, settings, signal);
+					onToken(result);
+				} else {
+					result = await this._streamOpenAICompat(
+						prompt, settings,
+						'https://api.openai.com/v1/chat/completions',
+						'OpenAI', {}, onToken, signal
+					);
+				}
 			} else if (provider === 'openrouter') {
 				result = await this._streamOpenAICompat(
 					prompt, settings,
@@ -172,7 +211,8 @@ export class AIClient {
 		signal?: AbortSignal
 	): Promise<string> {
 		const temperature = this._computeTemperature(settings);
-		gwlog('STREAM', `${providerName} → POST ${url} | model=${settings.model} | temp=${temperature.toFixed(2)}`);
+		const maxOutputTokens = this._maxOutputTokens(settings);
+		gwlog('STREAM', `${providerName} → POST ${url} | model=${settings.model} | temp=${temperature.toFixed(2)} | maxTokens=${maxOutputTokens}`);
 		const response = await fetch(url, {
 			method: 'POST',
 			headers: {
@@ -186,7 +226,7 @@ export class AIClient {
 					{ role: 'system', content: 'You are a professional writing assistant.' },
 					{ role: 'user', content: prompt }
 				],
-				max_tokens: 4000,
+				max_tokens: maxOutputTokens,
 				temperature,
 				stream: true
 			}),
@@ -251,7 +291,8 @@ export class AIClient {
 		signal?: AbortSignal
 	): Promise<string> {
 		const temperature = this._computeTemperature(settings);
-		gwlog('STREAM', `Anthropic → POST /v1/messages | model=${settings.model} | temp=${temperature.toFixed(2)}`);
+		const maxOutputTokens = this._maxOutputTokens(settings);
+		gwlog('STREAM', `Anthropic → POST /v1/messages | model=${settings.model} | temp=${temperature.toFixed(2)} | maxTokens=${maxOutputTokens}`);
 		const response = await fetch('https://api.anthropic.com/v1/messages', {
 			method: 'POST',
 			headers: {
@@ -261,7 +302,7 @@ export class AIClient {
 			},
 			body: JSON.stringify({
 				model: settings.model,
-				max_tokens: 4000,
+				max_tokens: maxOutputTokens,
 				temperature,
 				stream: true,
 				messages: [{ role: 'user', content: prompt }]
@@ -585,7 +626,7 @@ export class AIClient {
 						{ role: 'system', content: 'You are a professional writing assistant.' },
 						{ role: 'user', content: prompt }
 					],
-					max_tokens: 4000,
+					max_tokens: this._maxOutputTokens(settings),
 					temperature: this._computeTemperature(settings)
 				})
 			});
@@ -629,12 +670,63 @@ export class AIClient {
 	}
 
 	private async _generateOpenAI(prompt: string, settings: DashboardSettings): Promise<string> {
+		if (this._usesOpenAIResponses(settings)) {
+			return this._generateOpenAIResponses(prompt, settings);
+		}
 		return this._generateOpenAICompat(
 			prompt,
 			settings,
 			'https://api.openai.com/v1/chat/completions',
 			'OpenAI'
 		);
+	}
+
+	private async _generateOpenAIResponses(prompt: string, settings: DashboardSettings, signal?: AbortSignal): Promise<string> {
+		let response: import('obsidian').RequestUrlResponse;
+		const body = {
+			model: settings.model,
+			instructions: 'You are a professional writing assistant.',
+			input: prompt,
+			max_output_tokens: this._maxOutputTokens(settings),
+			reasoning: { effort: 'low' },
+			text: { verbosity: 'high' }
+		};
+
+		try {
+			response = await requestUrl({
+				url: 'https://api.openai.com/v1/responses',
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${settings.apiKey}`
+				},
+				body: JSON.stringify(body)
+			});
+		} catch (reqErr: unknown) {
+			if (signal?.aborted) throw new Error('OpenAI request aborted.');
+			const status = (reqErr as any)?.status ?? '?';
+			const bodyText = (reqErr as any)?.text ?? (reqErr instanceof Error ? reqErr.message : String(reqErr));
+			const bodySnip = typeof bodyText === 'string' ? bodyText.slice(0, 600) : String(bodyText);
+			gwerr('API', `OpenAI Responses requestUrl error | status=${status} | body=${bodySnip}`);
+			let msg = bodySnip;
+			try { const n = this._getNestedErrorMessage(JSON.parse(bodySnip)); if (n) msg = n; } catch { /* not JSON */ }
+			throw new Error(`OpenAI API error ${status}: ${msg}`);
+		}
+
+		if (response.status >= 400) {
+			const error = this._getJson(response);
+			throw new Error(`OpenAI API error ${response.status}: ${this._getNestedErrorMessage(error) || this._safeJsonPreview(error)}`);
+		}
+
+		const data = this._getJson(response);
+		const content = this._getOpenAIResponsesContent(data);
+		if (typeof content !== 'string' || content.trim().length === 0) {
+			throw new Error(
+				`OpenAI Responses output missing text. ` +
+				`Preview: ${this._safeJsonPreview(data)}`
+			);
+		}
+		return content;
 	}
 
 	private async _generateAnthropic(prompt: string, settings: DashboardSettings): Promise<string> {
@@ -650,7 +742,7 @@ export class AIClient {
 				},
 				body: JSON.stringify({
 					model: settings.model,
-					max_tokens: 4000,
+					max_tokens: this._maxOutputTokens(settings),
 					messages: [{ role: 'user', content: prompt }]
 				})
 			});
@@ -815,4 +907,3 @@ export class AIClient {
 		return text;
 	}
 }
-

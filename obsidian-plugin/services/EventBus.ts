@@ -39,7 +39,13 @@ export type RelayEvents = {
 
     'pilot:miss': { type: string, runId: string | null };
     'pilot:stitch_rejected': { iteration: number, reason: string, seamId: string };
-    
+    'nsm:features_extracted': {
+        chunkId: string;
+        features: Array<{ index: number; activation: number; label?: string }>;
+        source: 'sidecar' | 'fallback';
+    };
+    'nsm:sidecar_status': { available: boolean; device?: string };
+
     // Indexing events
     'index:start': { totalFiles: number };
     'index:progress': { processed: number, total: number, currentFile?: string };

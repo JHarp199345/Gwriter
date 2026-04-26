@@ -519,7 +519,9 @@ export class VaultService {
 			'Locations': [],
 			'Objects': [],
 			'Timeline': [],
-			'World Rules': []
+			'World Rules': [],
+			'Open Questions': [],
+			'Conflicts to Resolve': []
 		};
 
 		harvestItems.forEach(item => {
@@ -528,6 +530,8 @@ export class VaultService {
 			if (fact.type === 'IDENTITY' || fact.type === 'TRAIT') section = 'Characters';
 			else if (fact.type === 'RELATIONSHIP') section = 'Characters';
 			else if (fact.type === 'TIMELINE') section = 'Timeline';
+			else if (fact.type === 'SCENE_DETAIL' && String(fact.attribute || '').toLowerCase().includes('location')) section = 'Locations';
+			else if (fact.type === 'THREAD_STATE') section = 'Open Questions';
 
 			// Format as a stable bullet: "- [entityId] attribute: value"
 			const valueStr = typeof fact.value === 'string' ? fact.value : JSON.stringify(fact.value);

@@ -179,6 +179,44 @@ export interface PlotMemory {
     timestamp: number;
 }
 
+export type LoopStatus =
+    | 'OPEN'
+    | 'ACTIVE'
+    | 'DORMANT'
+    | 'TRANSFERRED'
+    | 'SATISFIED'
+    | 'RECONTEXTUALIZED'
+    | 'BACKGROUND_CONTINUITY'
+    | 'ABANDONED_INTENTIONALLY'
+    | 'DEAD_END'
+    | 'CLOSED';
+
+export type LoopKind = 'mystery' | 'threat' | 'relationship' | 'promise' | 'emotional' | 'world' | 'theme' | 'texture';
+
+export interface LoopMovement {
+    chunkId: string;
+    status: LoopStatus;
+    movement: string;
+    nextObligation?: string;
+    evidence?: string;
+    timestamp: number;
+}
+
+export interface StoryLoop {
+    id: string;
+    label: string;
+    kind: LoopKind;
+    status: LoopStatus;
+    ownerEntityIds: string[];
+    urgency: number;
+    dropRisk: number;
+    openedAtChunk: string;
+    lastTouchedChunk: string;
+    expectedPayoff: 'soon' | 'later' | 'background' | 'none';
+    closureCondition?: string;
+    history: LoopMovement[];
+}
+
 export interface ChapterState {
     chapterId: string;
     canonVersion: number; // Incremented on every MutationAcceptance
@@ -197,6 +235,7 @@ export interface ChapterState {
         threadIds: string[];
     };
     openLoops: string[];
+    loopLedger?: StoryLoop[];
     constraints: {
         pov: string;
         tense: string;
@@ -552,4 +591,3 @@ export const AttributeRegistry = [
     'relationship_to',
     'possession_of'
 ];
-

@@ -37,7 +37,7 @@ describe('EvidenceRelocationService', () => {
 
         it('should return original span if file is unchanged and tier is EXACT', async () => {
             const content = 'This is the original content.';
-            const hash = '89e0ad2ce990523121ef240cf39e91ad74950ca7984cd1674bc1aa39f4c36326'; // sha256 of content
+            const hash = '842bec84eaceb8b477be4f61979dfb3c8a1e68ed8f54e0dc699d44ee2954f78c'; // sha256 of content
             
             mockVault.getAbstractFileByPath.mockReturnValue({ extension: 'md' });
             mockVault.read.mockResolvedValue(content);
@@ -89,4 +89,3 @@ describe('EvidenceRelocationService', () => {
         });
     });
 });
-

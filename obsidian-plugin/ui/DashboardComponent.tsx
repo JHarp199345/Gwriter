@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Notice } from 'obsidian';
+import { Notice, TFile } from 'obsidian';
 import WritingDashboardPlugin from '../main';
 import { EditorPanel } from './EditorPanel';
 import { GenerationModal } from './GenerationModal';
@@ -39,6 +39,8 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [proposedMutation, setProposedMutation] = useState<any | null>(null);
 	const [trustSummary, setTrustSummary] = useState<any | null>(null);
 	const [activeTab, setActiveTab] = useState<'editor' | 'lore' | 'replay' | 'characters'>('editor');
+	const [storyBibleExists, setStoryBibleExists] = useState<boolean>(() => plugin.app.vault.getAbstractFileByPath(plugin.settings.storyBiblePath) instanceof TFile);
+	const [isGeneratingStoryBible, setIsGeneratingStoryBible] = useState(false);
 
 	// Suggestions ("What happens next?") state
 	const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -60,6 +62,10 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 	const [characterInputText, setCharacterInputText] = useState<string>('');
 
 	const commitLock = useRef<boolean>(false);
+
+	useEffect(() => {
+		setStoryBibleExists(plugin.app.vault.getAbstractFileByPath(plugin.settings.storyBiblePath) instanceof TFile);
+	}, [plugin, activeTab]);
 
 	useEffect(() => {
 		const onStart = () => {
@@ -448,6 +454,82 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 		}
 	};
 
+	const createStoryBibleContent = () => `# Story Bible
+
+This file is the durable canon memory for the book. Approved lore harvests are merged here and future generations seed story state from it.
+
+## Characters
+
+## Locations
+
+## Objects
+
+## Timeline
+
+## World Rules
+
+## Open Questions
+
+## Conflicts to Resolve
+`;
+
+	const handleCreateOrOpenStoryBible = async () => {
+		const path = plugin.settings.storyBiblePath || 'Book - Story Bible.md';
+		try {
+			let file = plugin.app.vault.getAbstractFileByPath(path);
+			if (!(file instanceof TFile)) {
+				await plugin.vaultService.ensureParentFolder(path);
+				await plugin.vaultService.createFileIfNotExists(path, createStoryBibleContent());
+				new Notice(`Created Story Bible: ${path}`);
+				file = plugin.app.vault.getAbstractFileByPath(path);
+			}
+			if (file instanceof TFile) {
+				setStoryBibleExists(true);
+				await plugin.app.workspace.getLeaf(false).openFile(file);
+			}
+		} catch (err: any) {
+			new Notice(`Story Bible failed: ${err.message}`);
+		}
+	};
+
+	const timestampForPath = () => new Date()
+		.toISOString()
+		.replace(/[:.]/g, '-')
+		.replace('T', ' ')
+		.slice(0, 19);
+
+	const handleGenerateStoryBible = async () => {
+		if (isGeneratingStoryBible || isGenerating) return;
+		setIsGeneratingStoryBible(true);
+		try {
+			const manuscript = await plugin.vaultService.readFile(plugin.settings.book2Path);
+			const existingBible = await plugin.vaultService.readFile(plugin.settings.storyBiblePath).catch(() => '');
+			const prompt = plugin.promptEngine.buildFullStoryBiblePrompt({ manuscript, existingStoryBible: existingBible });
+			const result = await plugin.aiClient.generate(prompt, {
+				...plugin.settings,
+				generationMode: 'single' as const,
+				spontaneity: 0
+			});
+			const folder = plugin.settings.storyBibleFolder || 'Story Bible';
+			const path = `${folder}/Story Bible - ${timestampForPath()}.md`;
+			await plugin.vaultService.ensureParentFolder(path);
+			await plugin.vaultService.writeFile(path, result.trim());
+			plugin.settings.storyBibleFolder = folder;
+			plugin.settings.storyBiblePath = path;
+			await plugin.saveSettings();
+			setStoryBibleExists(true);
+			const file = plugin.app.vault.getAbstractFileByPath(path);
+			if (file instanceof TFile) {
+				await plugin.app.workspace.getLeaf(false).openFile(file);
+			}
+			new Notice(`Generated Story Bible: ${path}`);
+		} catch (err: any) {
+			new Notice(`Story Bible generation failed: ${err.message}`);
+		} finally {
+			setIsGeneratingStoryBible(false);
+		}
+	};
+
 	return (
 		<div className="writing-dashboard">
 			<div className="dashboard-tabs">
@@ -467,7 +549,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 					{showAdvancedMenu && (
 						<div className="advanced-dropdown-menu">
 							<button onClick={() => { setActiveTab('lore'); setShowAdvancedMenu(false); }}>
-								🔍 Lore Inspector
+								Story Bible & Lore
 							</button>
 							<button onClick={() => { setActiveTab('replay'); setShowAdvancedMenu(false); }}>
 								🔄 Replay History
@@ -510,6 +592,33 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 
 						{activeTab === 'lore' && (
 							<div className="lore-tab">
+								<div className="story-bible-panel">
+									<div className="story-bible-panel-main">
+										<div>
+											<h3>Story Bible</h3>
+											<p>
+												{storyBibleExists
+													? `Active canon file: ${plugin.settings.storyBiblePath}`
+													: `No Story Bible found at ${plugin.settings.storyBiblePath || 'Book - Story Bible.md'}`}
+											</p>
+										</div>
+										<button className="generate-button mod-cta" onClick={handleCreateOrOpenStoryBible}>
+											{storyBibleExists ? 'Open Story Bible' : 'Create Story Bible'}
+										</button>
+									</div>
+									<div className="story-bible-panel-actions">
+										<button
+											className="generate-button"
+											onClick={handleGenerateStoryBible}
+											disabled={isGeneratingStoryBible || isGenerating}
+										>
+											{isGeneratingStoryBible ? 'Generating Story Bible...' : 'Generate Story Bible from Manuscript'}
+										</button>
+									</div>
+									<div className="story-bible-panel-note">
+										This creates a canon document in the Story Bible folder. Chapter writing stays separate.
+									</div>
+								</div>
 								<FactInspector
 									plugin={plugin}
 									state={plugin.sequentialGenerator.getContextManager()?.getState() || {
@@ -651,6 +760,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 						</div>
 					)}
 
+					{activeTab === 'editor' && (
 					<div className="controls">
 						<div className="spontaneity-control" style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
 							<div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8em' }}>
@@ -696,6 +806,7 @@ export const DashboardComponent: React.FC<{ plugin: WritingDashboardPlugin }> = 
 							</button>
 						)}
 					</div>
+					)}
 
 					{isGenerating && pulseMessage && (
 						<div className="continuity-pulse-container">

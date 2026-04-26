@@ -467,6 +467,112 @@ OUTPUT
 Return the full updated story bible markdown only.`;
 	}
 
+	buildStoryStateDeltaPrompt(params: {
+		sourceLabel: string;
+		text: string;
+		existingEntities: Array<{ id: string; name: string; type: string }>;
+		existingFacts: Array<{ id: string; entityId: string; attribute: string; value: any; scope: string }>;
+		openLoops: string[];
+		loopLedger?: Array<{
+			id: string;
+			label: string;
+			kind: string;
+			status: string;
+			urgency: number;
+			dropRisk: number;
+			expectedPayoff: string;
+			lastTouchedChunk: string;
+		}>;
+		defaultOrigin: string;
+		defaultLifecycle: string;
+	}): string {
+		return `SYSTEM INSTRUCTION FOR AI:
+
+You are the state ledger extractor for a long-form fiction project. Extract only evidence-backed story state from the supplied source text.
+
+The project treats story continuity like a typed codebase:
+- Entities are stable IDs.
+- Facts are typed tuples.
+- Open loops are promises, mysteries, obligations, questions, threats, or unresolved emotional/plot debts.
+- Existing loops should move intelligently: active, dormant, satisfied, transferred, recontextualized, background, intentionally abandoned, dead end, or closed.
+- Lack of author direction should bias toward stewarding existing pressure, not endlessly opening new loops.
+- Do not invent or infer beyond the source text.
+- Prefer existing entity IDs when the source clearly refers to an existing entity.
+
+Return strict JSON only. No markdown, no commentary.
+
+-------------------------------------------------------------
+EXISTING ENTITIES
+-------------------------------------------------------------
+${JSON.stringify(params.existingEntities.slice(0, 200), null, 2)}
+
+-------------------------------------------------------------
+EXISTING FACTS
+-------------------------------------------------------------
+${JSON.stringify(params.existingFacts.slice(-200), null, 2)}
+
+-------------------------------------------------------------
+CURRENT OPEN LOOPS
+-------------------------------------------------------------
+${JSON.stringify(params.openLoops, null, 2)}
+
+-------------------------------------------------------------
+LOOP LEDGER
+-------------------------------------------------------------
+${JSON.stringify((params.loopLedger || []).slice(-80), null, 2)}
+
+-------------------------------------------------------------
+SOURCE: ${params.sourceLabel}
+-------------------------------------------------------------
+${params.text}
+
+-------------------------------------------------------------
+OUTPUT JSON SHAPE
+-------------------------------------------------------------
+{
+  "entities": [
+    {
+      "id": "stable-id-if-obvious",
+      "name": "display name",
+      "type": "character|location|object|concept",
+      "attributes": {}
+    }
+  ],
+  "facts": [
+    {
+      "entityId": "existing-or-new-id",
+      "entityName": "name if id uncertain",
+      "type": "IDENTITY|RELATIONSHIP|TIMELINE|TRAIT|SCENE_DETAIL|TONE_RULE|THREAD_STATE",
+      "attribute": "snake_case_attribute",
+      "value": "literal value from evidence",
+      "scope": "SCENE|CHAPTER|GLOBAL",
+      "confidence": 0.0
+    }
+  ],
+  "openLoops": ["unresolved promise or obligation"],
+  "resolvedLoops": ["loop from current open loops resolved by this source"],
+  "loopMovements": [
+    {
+      "loopId": "existing-loop-id-if-known",
+      "label": "human-readable loop label",
+      "kind": "mystery|threat|relationship|promise|emotional|world|theme|texture",
+      "status": "OPEN|ACTIVE|DORMANT|TRANSFERRED|SATISFIED|RECONTEXTUALIZED|BACKGROUND_CONTINUITY|ABANDONED_INTENTIONALLY|DEAD_END|CLOSED",
+      "movement": "what changed in this passage",
+      "ownerEntityIds": ["entity-id"],
+      "urgency": 0.0,
+      "dropRisk": 0.0,
+      "expectedPayoff": "soon|later|background|none",
+      "closureCondition": "what would make the loop meaningfully complete",
+      "nextObligation": "what the story now owes, if anything",
+      "evidence": "short quote or paraphrase from source"
+    }
+  ],
+  "warnings": ["conflict or ambiguity that needs author review"]
+}
+
+Defaults if unsure: origin=${params.defaultOrigin}, lifecycle=${params.defaultLifecycle}.`;
+	}
+
 	buildTelescopingPrompt(params: {
 		recentChunks: Array<{ chunkId: string; summary: string; text: string }>;
 		currentPlotMemory?: string;
@@ -583,6 +689,8 @@ OUTPUT FORMAT (JSON):
 
 		return `You are a story architect. Generate a scene plan that will guide the writing of the next prose passage. The author will review and edit this plan before writing begins — treat it as a working document they can reshape.
 
+The plan is not a rough draft. Use concise craft instructions, not polished prose that the writer can copy into the manuscript. Avoid coined metaphors, literary sentence fragments, and prose-ready phrasing unless the author explicitly requested an exact line of dialogue.
+
 ⚠ NARRATIVE WALL — CRAFT LANGUAGE STAYS HERE:
 Every term below (causation chain, scene outline, forbidden territory, etc.) is architect vocabulary. It describes what the prose must accomplish — it is NOT prose. The writer must never put these labels into the story text. None of these phrases exist in the fictional world. They are invisible scaffolding.
 
@@ -605,7 +713,7 @@ CAUSATION CHAIN:
         └─ Because: [the actual reason — this is the story's engine]
 
 SCENE OUTLINE:
-[Numbered beat-by-beat breakdown of what happens in order. Be specific — name characters, locations, objects, lines of dialogue if relevant. The author will edit this directly before writing begins.]
+[Numbered beat-by-beat breakdown of what happens in order. Be specific — name characters, locations, objects, and concrete actions. Do not write sentences intended for the final prose. Include exact dialogue only when truly necessary.]
 1.
 2.
 3.
@@ -690,5 +798,49 @@ Format your response as a numbered list:
 
 Write like a co-author who has read every word above. Be evocative and specific.`;
 	}
-}
 
+	buildFullStoryBiblePrompt(params: { manuscript: string; existingStoryBible?: string }): string {
+		const existing = params.existingStoryBible?.trim()
+			? `\nCURRENT STORY BIBLE TO CONSOLIDATE\n"""\n${params.existingStoryBible}\n"""\n`
+			: '';
+		return `You are creating a Story Bible for a long-form fiction project.
+
+This is not a prose-writing task. Do not continue the story. Do not write a new scene or chapter.
+
+Create a durable canon reference document from the manuscript. Use only evidence from the manuscript and the current story bible if provided. If something is ambiguous, mark it as ambiguous instead of guessing.
+
+${existing}
+MANUSCRIPT
+"""
+${params.manuscript}
+"""
+
+Return markdown only, using exactly these top-level sections:
+
+# Story Bible
+
+## Overview
+
+## Characters
+
+## Locations
+
+## Objects
+
+## Timeline
+
+## World Rules
+
+## Relationships
+
+## Open Questions
+
+## Active Plot Threads
+
+## Resolved or Backgrounded Threads
+
+## Conflicts to Resolve
+
+Keep entries concise, specific, and useful for future continuity. Include character motivations, known facts, unresolved promises, and what the story currently owes the reader.`;
+	}
+}
